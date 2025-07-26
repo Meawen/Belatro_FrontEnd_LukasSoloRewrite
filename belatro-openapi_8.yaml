@@ -1,0 +1,1168 @@
+openapi: "3.1.0"
+info:
+  title: "belatro API"
+  description: "belatro API"
+  version: "1.0.0"
+servers:
+  - url: "https://belatro"
+paths:
+  /user/{id}:
+    put:
+      summary: "PUT user/{id}"
+      operationId: "updateUser"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdateDTO"
+        required: true
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      summary: "DELETE user/{id}"
+      operationId: "deleteUser"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Void"
+    get:
+      summary: "GET user/{id}"
+      operationId: "getUserById"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/User"
+  /user/{id}/request-forget:
+    post:
+      summary: "POST user/{id}/request-forget"
+      operationId: "requestForget"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Void"
+  /user/findAll:
+    get:
+      summary: "GET user/findAll"
+      operationId: "getAllUsers"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/User"
+  /user/{playerId}/history:
+    get:
+      summary: "GET user/{playerId}/history"
+      operationId: "history"
+      parameters:
+        - name: "playerId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            format: "int32"
+            default: "0"
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            format: "int32"
+            default: "20"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PlayerMatchHistoryDTO"
+  /user/{playerId}/history/summary:
+    get:
+      summary: "GET user/{playerId}/history/summary"
+      operationId: "getSummaryByPlayer"
+      parameters:
+        - name: "playerId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            format: "int32"
+            default: "0"
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            format: "int32"
+            default: "20"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PlayerMatchSummaryDTO"
+  /lobbies:
+    put:
+      summary: "PUT lobbies"
+      operationId: "updateLobby"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LobbyDTO"
+        required: true
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LobbyDTO"
+    post:
+      summary: "POST lobbies"
+      operationId: "createLobby"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LobbyDTO"
+        required: true
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LobbyDTO"
+    get:
+      summary: "GET lobbies"
+      operationId: "getAllLobbies"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LobbyDTO"
+  /lobbies/{lobbyId}/kick:
+    patch:
+      summary: "PATCH lobbies/{lobbyId}/kick"
+      operationId: "kickPlayer"
+      parameters:
+        - name: "lobbyId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KickPlayerRequestDTO"
+        required: true
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LobbyDTO"
+  /lobbies/{lobbyId}/leave:
+    patch:
+      summary: "PATCH lobbies/{lobbyId}/leave"
+      operationId: "leaveLobby"
+      parameters:
+        - name: "lobbyId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeaveLobbyRequestDTO"
+        required: true
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LobbyDTO"
+  /lobbies/join:
+    post:
+      summary: "POST lobbies/join"
+      operationId: "joinLobby"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinLobbyRequestDTO"
+        required: true
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LobbyDTO"
+  /lobbies/switchTeam:
+    post:
+      summary: "POST lobbies/switchTeam"
+      operationId: "switchTeam"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamSwitchRequestDTO"
+        required: true
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LobbyDTO"
+  /lobbies/{lobbyId}/start-match:
+    post:
+      summary: "POST lobbies/{lobbyId}/start-match"
+      operationId: "startMatch"
+      parameters:
+        - name: "lobbyId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MatchDTO"
+  /lobbies/{lobbyId}:
+    delete:
+      summary: "DELETE lobbies/{lobbyId}"
+      operationId: "deleteLobby"
+      parameters:
+        - name: "lobbyId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Void"
+    get:
+      summary: "GET lobbies/{lobbyId}"
+      operationId: "getLobby"
+      parameters:
+        - name: "lobbyId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LobbyDTO"
+  /lobbies/open:
+    get:
+      summary: "GET lobbies/open"
+      operationId: "getAllOpenLobbies"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LobbyDTO"
+  /matches/{id}:
+    put:
+      summary: "PUT matches/{id}"
+      operationId: "updateMatch"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchDTO"
+        required: true
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MatchDTO"
+    delete:
+      summary: "DELETE matches/{id}"
+      operationId: "deleteMatch"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Void"
+    get:
+      summary: "GET matches/{id}"
+      operationId: "getMatch"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MatchDTO"
+  /matches:
+    post:
+      summary: "POST matches"
+      operationId: "createMatch"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchDTO"
+        required: true
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MatchDTO"
+    get:
+      summary: "GET matches"
+      operationId: "getAllMatches"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/MatchDTO"
+  /matches/{id}/moves:
+    get:
+      summary: "GET matches/{id}/moves"
+      operationId: "getMoves"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/MoveDTO"
+  /matches/{id}/structured-moves:
+    get:
+      summary: "GET matches/{id}/structured-moves"
+      operationId: "getStructuredMoves"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/HandDTO"
+  /matches/getmatchbylobbyid/{lobbyId}:
+    get:
+      summary: "GET matches/getmatchbylobbyid/{lobbyId}"
+      operationId: "getMatchByLobbyId"
+      parameters:
+        - name: "lobbyId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MatchDTO"
+  /friendship:
+    post:
+      summary: "POST friendship"
+      operationId: "createFriendship"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFriendshipDTO"
+        required: true
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Friendship"
+  /friendship/{id}/accept:
+    post:
+      summary: "POST friendship/{id}/accept"
+      operationId: "acceptFriendship"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Friendship"
+  /friendship/{id}/reject:
+    post:
+      summary: "POST friendship/{id}/reject"
+      operationId: "rejectFriendship"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Friendship"
+  /friendship/{id}/cancel:
+    post:
+      summary: "POST friendship/{id}/cancel"
+      operationId: "cancelFriendship"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Friendship"
+  /friendship/{id}:
+    delete:
+      summary: "DELETE friendship/{id}"
+      operationId: "deleteFriendship"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Void"
+    get:
+      summary: "GET friendship/{id}"
+      operationId: "getFriendshipById"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Friendship"
+  /friendship/getAllFriendships:
+    get:
+      summary: "GET friendship/getAllFriendships"
+      operationId: "getAllFriendships"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/Friendship"
+  /friendship/getAllByUserId/{userId}:
+    get:
+      summary: "GET friendship/getAllByUserId/{userId}"
+      operationId: "getFriendshipsByUser"
+      parameters:
+        - name: "userId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/Friendship"
+  /api/auth/login:
+    post:
+      summary: "POST api/auth/login"
+      operationId: "login"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequestDTO"
+        required: true
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/JwtResponseDTO"
+  /api/auth/signup:
+    post:
+      summary: "POST api/auth/signup"
+      operationId: "signup"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequestDTO"
+        required: true
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/JwtResponseDTO"
+  /api/auth/logout:
+    post:
+      summary: "POST api/auth/logout"
+      operationId: "logout"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                type: "string"
+  /api/cards/{cardKey}/image:
+    get:
+      summary: "GET api/cards/{cardKey}/image"
+      operationId: "getCardImage"
+      parameters:
+        - name: "cardKey"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                type: "array"
+                items:
+                  type: "string"
+                  format: "byte"
+  /ranked/queue:
+    post:
+      summary: "POST ranked/queue"
+      operationId: "join"
+      responses:
+        "200":
+          description: "OK"
+    delete:
+      summary: "DELETE ranked/queue"
+      operationId: "leave"
+      responses:
+        "200":
+          description: "OK"
+  /admin/user/{id}:
+    delete:
+      summary: "DELETE admin/user/{id}"
+      operationId: "forgetUser"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Void"
+  /admin/users:
+    get:
+      summary: "GET admin/users"
+      operationId: "listUsers"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/UserDto"
+components:
+  schemas:
+    UserUpdateDTO:
+      type: "object"
+      properties:
+        username:
+          type: "string"
+          nullable: true
+        email:
+          type: "string"
+          nullable: true
+        passwordHashed:
+          type: "string"
+          nullable: true
+        eloRating:
+          type: "integer"
+          format: "int32"
+          nullable: true
+        level:
+          type: "integer"
+          format: "int32"
+          nullable: true
+        expPoints:
+          type: "integer"
+          format: "int32"
+          nullable: true
+        lastLogin:
+          type: "string"
+          format: "date-time"
+          nullable: true
+        gamesPlayed:
+          type: "integer"
+          format: "int32"
+          nullable: true
+    User:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          nullable: true
+        username:
+          type: "string"
+          nullable: true
+        email:
+          type: "string"
+          nullable: true
+        passwordHashed:
+          type: "string"
+          nullable: true
+        eloRating:
+          type: "integer"
+          format: "int32"
+          nullable: true
+        level:
+          type: "integer"
+          format: "int32"
+          nullable: true
+        expPoints:
+          type: "integer"
+          format: "int32"
+          nullable: true
+        lastLogin:
+          type: "string"
+          format: "date-time"
+          nullable: true
+        gamesPlayed:
+          type: "integer"
+          format: "int32"
+          nullable: true
+        roles:
+          type: "array"
+          nullable: true
+          items:
+            type: "string"
+            enum:
+              - "ROLE_USER"
+              - "ROLE_ADMIN"
+          uniqueItems: true
+        deletionRequested:
+          type: "boolean"
+          nullable: true
+    Void:
+      type: "object"
+      properties: { }
+    UserSimpleDTO:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          nullable: true
+        username:
+          type: "string"
+          nullable: true
+    LobbyDTO:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          nullable: true
+        name:
+          type: "string"
+          nullable: true
+        gameMode:
+          type: "string"
+          nullable: true
+        status:
+          type: "string"
+          nullable: true
+          enum:
+            - "WAITING"
+            - "CLOSED"
+        createdAt:
+          type: "string"
+          format: "date-time"
+          nullable: true
+        hostUser:
+          nullable: true
+          $ref: "#/components/schemas/UserSimpleDTO"
+        teamAPlayers:
+          type: "array"
+          nullable: true
+          items:
+            $ref: "#/components/schemas/UserSimpleDTO"
+        teamBPlayers:
+          type: "array"
+          nullable: true
+          items:
+            $ref: "#/components/schemas/UserSimpleDTO"
+        unassignedPlayers:
+          type: "array"
+          nullable: true
+          items:
+            $ref: "#/components/schemas/UserSimpleDTO"
+        privateLobby:
+          type: "boolean"
+          nullable: true
+        password:
+          type: "string"
+          nullable: true
+    MatchDTO:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          nullable: true
+        teamA:
+          type: "array"
+          nullable: true
+          items:
+            $ref: "#/components/schemas/UserSimpleDTO"
+        teamB:
+          type: "array"
+          nullable: true
+          items:
+            $ref: "#/components/schemas/UserSimpleDTO"
+        originLobby:
+          nullable: true
+          $ref: "#/components/schemas/LobbyDTO"
+        gameMode:
+          type: "string"
+          nullable: true
+          enum:
+            - "CASUAL"
+            - "RANKED"
+        result:
+          type: "string"
+          nullable: true
+        startTime:
+          type: "string"
+          format: "date-time"
+          nullable: true
+        endTime:
+          type: "string"
+          format: "date-time"
+          nullable: true
+    MoveDTO:
+      type: "object"
+      properties:
+        order:
+          type: "integer"
+          format: "int32"
+          nullable: true
+        player:
+          type: "string"
+          nullable: true
+        card:
+          type: "string"
+          nullable: true
+    TrumpCallDTO:
+      type: "object"
+      properties:
+        order:
+          type: "integer"
+          format: "int32"
+          nullable: true
+        player:
+          type: "string"
+          nullable: true
+        trump:
+          type: "string"
+          nullable: true
+    TrickDTO:
+      type: "object"
+      properties:
+        trickNo:
+          type: "integer"
+          format: "int32"
+          nullable: true
+        moves:
+          type: "array"
+          nullable: true
+          items:
+            $ref: "#/components/schemas/MoveDTO"
+    ChallengeDTO:
+      type: "object"
+      properties:
+        order:
+          type: "integer"
+          format: "int32"
+          nullable: true
+        player:
+          type: "string"
+          nullable: true
+        success:
+          type: "boolean"
+          nullable: true
+    HandDTO:
+      type: "object"
+      properties:
+        handNo:
+          type: "integer"
+          format: "int32"
+          nullable: true
+        trumpCalls:
+          type: "array"
+          nullable: true
+          items:
+            $ref: "#/components/schemas/TrumpCallDTO"
+        tricks:
+          type: "array"
+          nullable: true
+          items:
+            $ref: "#/components/schemas/TrickDTO"
+        challenges:
+          type: "array"
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ChallengeDTO"
+    MatchHistoryDTO:
+      type: "object"
+      properties:
+        match:
+          nullable: true
+          $ref: "#/components/schemas/MatchDTO"
+        moves:
+          type: "array"
+          nullable: true
+          items:
+            $ref: "#/components/schemas/MoveDTO"
+        structuredMoves:
+          type: "array"
+          nullable: true
+          items:
+            $ref: "#/components/schemas/HandDTO"
+    PlayerMatchHistoryDTO:
+      type: "object"
+      properties:
+        history:
+          nullable: true
+          $ref: "#/components/schemas/MatchHistoryDTO"
+        yourResult:
+          type: "string"
+          nullable: true
+    Instant:
+      type: "object"
+      properties: { }
+    PlayerMatchSummaryDTO:
+      type: "object"
+      properties:
+        matchId:
+          type: "string"
+          nullable: true
+        endTime:
+          nullable: true
+          $ref: "#/components/schemas/Instant"
+        result:
+          type: "string"
+          nullable: true
+        yourOutcome:
+          type: "string"
+          nullable: true
+        gameMode:
+          type: "string"
+          nullable: true
+          enum:
+            - "CASUAL"
+            - "RANKED"
+    KickPlayerRequestDTO:
+      type: "object"
+      properties:
+        lobbyId:
+          type: "string"
+          nullable: true
+        usernameToKick:
+          type: "string"
+          nullable: true
+        requesterUsername:
+          type: "string"
+          nullable: true
+    LeaveLobbyRequestDTO:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          nullable: true
+        username:
+          type: "string"
+          nullable: true
+    JoinLobbyRequestDTO:
+      type: "object"
+      properties:
+        lobbyId:
+          type: "string"
+          nullable: true
+        userId:
+          type: "string"
+          nullable: true
+        password:
+          type: "string"
+          nullable: true
+    TeamSwitchRequestDTO:
+      type: "object"
+      properties:
+        lobbyId:
+          type: "string"
+          nullable: true
+        userId:
+          type: "string"
+          nullable: true
+        targetTeam:
+          type: "string"
+          nullable: true
+    CreateFriendshipDTO:
+      type: "object"
+      properties:
+        fromUserId:
+          type: "string"
+          nullable: true
+        toUserId:
+          type: "string"
+          nullable: true
+        status:
+          type: "string"
+          nullable: true
+          enum:
+            - "PENDING"
+            - "ACCEPTED"
+            - "REJECTED"
+            - "CANCELLED"
+    Friendship:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          nullable: true
+        fromUser:
+          nullable: true
+          $ref: "#/components/schemas/User"
+        toUser:
+          nullable: true
+          $ref: "#/components/schemas/User"
+        status:
+          type: "string"
+          nullable: true
+          enum:
+            - "PENDING"
+            - "ACCEPTED"
+            - "REJECTED"
+            - "CANCELLED"
+        createdAt:
+          type: "string"
+          format: "date-time"
+          nullable: true
+    LoginRequestDTO:
+      type: "object"
+      properties:
+        username:
+          type: "string"
+          nullable: true
+        password:
+          type: "string"
+          nullable: true
+    UserLoginDetailsDTO:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          nullable: true
+        username:
+          type: "string"
+          nullable: true
+    JwtResponseDTO:
+      type: "object"
+      properties:
+        token:
+          type: "string"
+          nullable: true
+        user:
+          nullable: true
+          $ref: "#/components/schemas/UserLoginDetailsDTO"
+        message:
+          type: "string"
+          nullable: true
+    SignupRequestDTO:
+      type: "object"
+      properties:
+        username:
+          type: "string"
+          nullable: true
+        email:
+          type: "string"
+          nullable: true
+        password:
+          type: "string"
+          nullable: true
+    UserDto:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          nullable: true
+        username:
+          type: "string"
+          nullable: true
+        email:
+          type: "string"
+          nullable: true
+        roles:
+          type: "array"
+          nullable: true
+          items:
+            type: "string"
+            enum:
+              - "ROLE_USER"
+              - "ROLE_ADMIN"
+          uniqueItems: true
+        deletionRequested:
+          type: "boolean"
+          nullable: true
