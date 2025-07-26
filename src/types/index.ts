@@ -21,3 +21,5 @@ export * from './admin';
 
 // Game types (for future websocket implementation)
 export * from './game';
+
+export * from './matchHistory';

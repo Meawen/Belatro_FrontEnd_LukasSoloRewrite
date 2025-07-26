@@ -1,3 +1,4 @@
+
 import type {UserSimpleDTO} from './user';
 import type {LobbyDTO} from './lobby';
 import type {GameMode} from './common';
@@ -48,3 +49,6 @@ export interface MatchHistoryDTO {
     moves: MoveDTO[] | null;
     structuredMoves: HandDTO[] | null;
 }
+
+// Re-export from user.ts for convenience
+export type { PlayerMatchHistoryDTO, PlayerMatchSummaryDTO } from './user';

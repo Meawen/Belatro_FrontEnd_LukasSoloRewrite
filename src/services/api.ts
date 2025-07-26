@@ -1,7 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://belatro';
 
 class ApiClient {
-    private baseURL: string;
+    private readonly baseURL: string;
     private token: string | null = null;
 
     constructor(baseURL: string) {
