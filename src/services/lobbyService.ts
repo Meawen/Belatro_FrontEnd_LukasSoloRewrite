@@ -1,56 +1,67 @@
 import { apiClient } from './api';
 import type {
     LobbyDTO,
+    CreateLobbyDTO,
     JoinLobbyRequestDTO,
     LeaveLobbyRequestDTO,
     KickPlayerRequestDTO,
     TeamSwitchRequestDTO,
-    MatchDTO,
-    Void,
+    LobbyUpdateDTO,
+    Void
 } from '../types';
 
 export const lobbyService = {
-    async getAllLobbies(): Promise<LobbyDTO> {
-        return apiClient.get<LobbyDTO>('/lobbies');
+    async getAllLobbies(): Promise<LobbyDTO[]> {
+        return apiClient.get<LobbyDTO[]>('/lobbies');
     },
 
-    async getAllOpenLobbies(): Promise<LobbyDTO> {
-        return apiClient.get<LobbyDTO>('/lobbies/open');
+    async getAllOpenLobbies(): Promise<LobbyDTO[]> {
+        return apiClient.get<LobbyDTO[]>('/lobbies/open');
     },
 
-    async getLobby(lobbyId: string): Promise<LobbyDTO> {
-        return apiClient.get<LobbyDTO>(`/lobbies/${lobbyId}`);
+    async getLobbyById(id: string): Promise<LobbyDTO> {
+        return apiClient.get<LobbyDTO>(`/lobbies/${id}`);
     },
 
-    async createLobby(lobbyData: LobbyDTO): Promise<LobbyDTO> {
+    // Alias for consistency with hook usage
+    async getLobby(id: string): Promise<LobbyDTO> {
+        return this.getLobbyById(id);
+    },
+
+    async createLobby(lobbyData: CreateLobbyDTO): Promise<LobbyDTO> {
         return apiClient.post<LobbyDTO>('/lobbies', lobbyData);
     },
 
-    async updateLobby(lobbyData: LobbyDTO): Promise<LobbyDTO> {
-        return apiClient.put<LobbyDTO>('/lobbies', lobbyData);
+    async joinLobby(lobbyId: string, joinData: JoinLobbyRequestDTO): Promise<LobbyDTO> {
+        return apiClient.post<LobbyDTO>(`/lobbies/${lobbyId}/join`, joinData);
+    },
+
+    async leaveLobby(lobbyId: string, leaveData?: LeaveLobbyRequestDTO): Promise<Void> {
+        return apiClient.post<Void>(`/lobbies/${lobbyId}/leave`, leaveData);
+    },
+
+    async updateLobby(lobbyId: string, updateData: LobbyUpdateDTO): Promise<LobbyDTO> {
+        return apiClient.put<LobbyDTO>(`/lobbies/${lobbyId}`, updateData);
     },
 
     async deleteLobby(lobbyId: string): Promise<Void> {
         return apiClient.delete<Void>(`/lobbies/${lobbyId}`);
     },
 
-    async joinLobby(joinData: JoinLobbyRequestDTO): Promise<LobbyDTO> {
-        return apiClient.post<LobbyDTO>('/lobbies/join', joinData);
+    async startLobby(lobbyId: string): Promise<LobbyDTO> {
+        return apiClient.post<LobbyDTO>(`/lobbies/${lobbyId}/start`);
     },
 
-    async leaveLobby(lobbyId: string, leaveData: LeaveLobbyRequestDTO): Promise<LobbyDTO> {
-        return apiClient.patch<LobbyDTO>(`/lobbies/${lobbyId}/leave`, leaveData);
+    // Alias for consistency with hook usage
+    async startMatch(lobbyId: string): Promise<LobbyDTO> {
+        return this.startLobby(lobbyId);
     },
 
     async kickPlayer(lobbyId: string, kickData: KickPlayerRequestDTO): Promise<LobbyDTO> {
-        return apiClient.patch<LobbyDTO>(`/lobbies/${lobbyId}/kick`, kickData);
+        return apiClient.post<LobbyDTO>(`/lobbies/${lobbyId}/kick`, kickData);
     },
 
-    async switchTeam(switchData: TeamSwitchRequestDTO): Promise<LobbyDTO> {
-        return apiClient.post<LobbyDTO>('/lobbies/switchTeam', switchData);
-    },
-
-    async startMatch(lobbyId: string): Promise<MatchDTO> {
-        return apiClient.post<MatchDTO>(`/lobbies/${lobbyId}/start-match`);
+    async switchTeam(lobbyId: string, switchData: TeamSwitchRequestDTO): Promise<LobbyDTO> {
+        return apiClient.post<LobbyDTO>(`/lobbies/${lobbyId}/switch-team`, switchData);
     }
 };

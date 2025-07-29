@@ -45,6 +45,25 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
     const duration = formatDuration(match.startTime || undefined, match.endTime || undefined);
     const totalPlayers = (match.teamA?.length || 0) + (match.teamB?.length || 0);
 
+    // Icon components
+    const StartIcon = () => (
+        <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+        </svg>
+    );
+
+    const EndIcon = () => (
+        <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    );
+
+    const ResultIcon = () => (
+        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    );
+
     return (
         <Modal
             isOpen={true}
@@ -82,21 +101,21 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                         <div className="space-y-2 text-sm">
                             {match.startTime && (
                                 <div className="flex items-center gap-3">
-                                    <span className="text-green-400">🟢</span>
+                                    <StartIcon />
                                     <span className="text-slate-400">Started:</span>
                                     <span className="text-white">{new Date(match.startTime).toLocaleString()}</span>
                                 </div>
                             )}
                             {match.endTime && (
                                 <div className="flex items-center gap-3">
-                                    <span className="text-red-400">🔴</span>
+                                    <EndIcon />
                                     <span className="text-slate-400">Ended:</span>
                                     <span className="text-white">{new Date(match.endTime).toLocaleString()}</span>
                                 </div>
                             )}
                             {match.result && (
                                 <div className="flex items-center gap-3">
-                                    <span className="text-blue-400">🏁</span>
+                                    <ResultIcon />
                                     <span className="text-slate-400">Result:</span>
                                     <span className="text-white">{match.result}</span>
                                 </div>
@@ -122,9 +141,9 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                                         {player.username?.charAt(0).toUpperCase() || '?'}
                                     </div>
                                     <span className="text-white">
-                    {player.username}
+                                        {player.username}
                                         {player.id === currentUserId && ' (You)'}
-                  </span>
+                                    </span>
                                 </div>
                             ))}
                         </div>
@@ -145,9 +164,9 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                                         {player.username?.charAt(0).toUpperCase() || '?'}
                                     </div>
                                     <span className="text-white">
-                    {player.username}
+                                        {player.username}
                                         {player.id === currentUserId && ' (You)'}
-                  </span>
+                                    </span>
                                 </div>
                             ))}
                         </div>
@@ -172,8 +191,8 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                                             <div className="text-xs text-slate-300">
                                                 {hand.trumpCalls.map((call: TrumpCallDTO, i: number) => (
                                                     <span key={i} className="mr-2">
-                            {call.player}: {call.trump}
-                          </span>
+                                                        {call.player}: {call.trump}
+                                                    </span>
                                                 ))}
                                             </div>
                                         </div>

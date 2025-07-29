@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Button, Input } from '../common';
-import { useAuth } from '../../hooks';
+import { useAuth } from '../../hooks/useAuth';
 
 export interface LoginFormProps {
     onSuccess?: () => void;
@@ -46,17 +47,26 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log('Login form submitted:', formData);
 
-        if (!validateForm()) return;
+        if (!validateForm()) {
+            console.log('Form validation failed:', errors);
+            return;
+        }
 
         try {
-            // Pass the entire formData object, not individual parameters
-            await login({
+            setErrors({}); // Clear any previous errors
+            console.log('Attempting login with:', { username: formData.username });
+
+            const result = await login({
                 username: formData.username,
                 password: formData.password
             });
+
+            console.log('Login successful:', result);
             onSuccess?.();
         } catch (error) {
+            console.error('Login error:', error);
             setErrors({
                 submit: error instanceof Error ? error.message : 'Login failed'
             });
@@ -104,7 +114,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 />
 
                 {errors.submit && (
-                    <div className="text-red-500 text-sm text-center">
+                    <div className="text-red-500 text-sm text-center bg-red-900/20 border border-red-500/30 rounded-lg p-3">
                         {errors.submit}
                     </div>
                 )}
@@ -114,9 +124,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                     variant="primary"
                     fullWidth
                     isLoading={isLoginLoading}
+                    disabled={isLoginLoading}
                 >
-                    Sign In
+                    {isLoginLoading ? 'Signing In...' : 'Sign In'}
                 </Button>
+
+
             </form>
 
             {onSwitchToSignup && (
@@ -125,6 +138,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                     <button
                         onClick={onSwitchToSignup}
                         className="text-yellow-500 hover:text-yellow-400 font-medium transition-colors"
+                        type="button"
                     >
                         Sign up
                     </button>

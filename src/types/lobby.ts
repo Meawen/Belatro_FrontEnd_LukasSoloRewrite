@@ -15,6 +15,20 @@ export interface LobbyDTO {
     password: string | null;
 }
 
+export interface CreateLobbyDTO {
+    name: string | null;
+    gameMode: string | null;
+    privateLobby: boolean | null;
+    password: string | null;
+}
+
+export interface LobbyUpdateDTO {
+    name?: string | null;
+    gameMode?: string | null;
+    privateLobby?: boolean | null;
+    password?: string | null;
+}
+
 export interface JoinLobbyRequestDTO {
     lobbyId: string | null;
     userId: string | null;

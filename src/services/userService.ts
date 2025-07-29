@@ -10,6 +10,8 @@ import type {
 
 export const userService = {
     async getUserById(id: string): Promise<User> {
+        console.log('userService.getUserById called with id:', id);
+        console.log('Current token:', localStorage.getItem('authToken') ? 'present' : 'missing');
         return apiClient.get<User>(`/user/${id}`);
     },
 

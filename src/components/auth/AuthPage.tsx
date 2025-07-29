@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LoginForm } from './LoginForm';
 import { SignupForm } from './SignupForm';
-import { useAuth } from '../../hooks';
+import { useAuth } from '../../hooks/useAuth';
 
 export type AuthMode = 'login' | 'signup';
 
@@ -18,17 +18,23 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                                                       onSuccess,
                                                   }) => {
     const [mode, setMode] = useState<AuthMode>(initialMode);
+    const [isProcessing, setIsProcessing] = useState(false);
     const navigate = useNavigate();
     const { isAuthenticated } = useAuth();
 
-    // Redirect if already authenticated
+    // Redirect if already authenticated (but not during processing)
     React.useEffect(() => {
-        if (isAuthenticated) {
+        if (isAuthenticated && !isProcessing) {
             navigate(redirectTo);
         }
-    }, [isAuthenticated, navigate, redirectTo]);
+    }, [isAuthenticated, navigate, redirectTo, isProcessing]);
 
-    const handleSuccess = () => {
+    const handleSuccess = async () => {
+        setIsProcessing(true);
+
+        // Small delay to ensure auth state is updated
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         if (onSuccess) {
             onSuccess();
         } else {
@@ -37,7 +43,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     };
 
     const handleSwitchMode = () => {
-        setMode(mode === 'login' ? 'signup' : 'login');
+        if (!isProcessing) {
+            setMode(mode === 'login' ? 'signup' : 'login');
+        }
     };
 
     return (

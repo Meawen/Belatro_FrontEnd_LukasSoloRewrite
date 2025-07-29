@@ -1,22 +1,56 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { matchService } from '../services/matchService';
 import { useApi, useMutation } from './useApi';
-import type {MatchDTO} from '../types';
+import type { MatchDTO } from '../types';
 
 export function useMatch(matchId?: string) {
+    // Memoize API functions to prevent unnecessary re-executions
+    const matchApiFunction = useMemo(() => {
+        if (!matchId) {
+            return () => Promise.reject(new Error('No match ID provided'));
+        }
+        return () => matchService.getMatch(matchId);
+    }, [matchId]);
+
+    const movesApiFunction = useMemo(() => {
+        if (!matchId) {
+            return () => Promise.reject(new Error('No match ID provided'));
+        }
+        return () => matchService.getMoves(matchId);
+    }, [matchId]);
+
+    const structuredMovesApiFunction = useMemo(() => {
+        if (!matchId) {
+            return () => Promise.reject(new Error('No match ID provided'));
+        }
+        return () => matchService.getStructuredMoves(matchId);
+    }, [matchId]);
+
     const matchQuery = useApi(
-        () => matchService.getMatch(matchId!),
-        { immediate: !!matchId }
+        matchApiFunction,
+        {
+            immediate: !!matchId,
+            dependencies: [matchId],
+            staleTime: 120000 // Cache for 2 minutes
+        }
     );
 
     const movesQuery = useApi(
-        () => matchService.getMoves(matchId!),
-        { immediate: !!matchId }
+        movesApiFunction,
+        {
+            immediate: !!matchId,
+            dependencies: [matchId],
+            staleTime: 120000 // Cache for 2 minutes
+        }
     );
 
     const structuredMovesQuery = useApi(
-        () => matchService.getStructuredMoves(matchId!),
-        { immediate: !!matchId }
+        structuredMovesApiFunction,
+        {
+            immediate: !!matchId,
+            dependencies: [matchId],
+            staleTime: 120000 // Cache for 2 minutes
+        }
     );
 
     const updateMutation = useMutation((data: { id: string; matchData: MatchDTO }) =>
@@ -61,7 +95,9 @@ export function useMatch(matchId?: string) {
 }
 
 export function useAllMatches() {
-    const matchesQuery = useApi(() => matchService.getAllMatches());
+    const apiFunction = useMemo(() => () => matchService.getAllMatches(), []);
+
+    const matchesQuery = useApi(apiFunction, { staleTime: 60000 }); // Cache for 1 minute
     const createMutation = useMutation(matchService.createMatch);
 
     const createMatch = useCallback(async (matchData: MatchDTO) => {
@@ -81,8 +117,19 @@ export function useAllMatches() {
 }
 
 export function useMatchByLobby(lobbyId?: string) {
+    const apiFunction = useMemo(() => {
+        if (!lobbyId) {
+            return () => Promise.reject(new Error('No lobby ID provided'));
+        }
+        return () => matchService.getMatchByLobbyId(lobbyId);
+    }, [lobbyId]);
+
     return useApi(
-        () => matchService.getMatchByLobbyId(lobbyId!),
-        { immediate: !!lobbyId }
+        apiFunction,
+        {
+            immediate: !!lobbyId,
+            dependencies: [lobbyId],
+            staleTime: 60000 // Cache for 1 minute
+        }
     );
 }

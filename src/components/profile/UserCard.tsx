@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { Button } from '../common';
 import { useFriends } from '../../hooks/useFriends';
 import type { User } from '../../types/user';
@@ -10,11 +10,11 @@ export interface UserCardProps {
     onUpdate: () => void;
 }
 
-export const UserCard: React.FC<UserCardProps> = ({
-                                                      user,
-                                                      currentUser,
-                                                      onUpdate
-                                                  }) => {
+export const UserCard: React.FC<UserCardProps> = React.memo(({
+                                                                 user,
+                                                                 currentUser,
+                                                                 onUpdate
+                                                             }) => {
     const {
         friendships,
         sendFriendRequest,
@@ -29,17 +29,26 @@ export const UserCard: React.FC<UserCardProps> = ({
         isRemoving
     } = useFriends(currentUser?.id || undefined);
 
-    // Find friendship status with this user
-    const friendship = friendships.find((f: Friendship) =>
-        (f.fromUser?.id === user.id && f.toUser?.id === currentUser?.id) ||
-        (f.fromUser?.id === currentUser?.id && f.toUser?.id === user.id)
-    );
+    // Memoize friendship status calculation
+    const friendshipStatus = useMemo(() => {
+        if (!currentUser?.id || !user.id || !Array.isArray(friendships)) {
+            return { friendship: null, isOutgoingRequest: false, isIncomingRequest: false, isFriend: false };
+        }
 
-    const isOutgoingRequest = friendship?.fromUser?.id === currentUser?.id && friendship?.status === 'PENDING';
-    const isIncomingRequest = friendship?.toUser?.id === currentUser?.id && friendship?.status === 'PENDING';
-    const isFriend = friendship?.status === 'ACCEPTED';
+        const friendship = friendships.find((f: Friendship) =>
+            (f.fromUser?.id === user.id && f.toUser?.id === currentUser.id) ||
+            (f.fromUser?.id === currentUser.id && f.toUser?.id === user.id)
+        );
 
-    const handleSendFriendRequest = async () => {
+        const isOutgoingRequest = friendship?.fromUser?.id === currentUser.id && friendship?.status === 'PENDING';
+        const isIncomingRequest = friendship?.toUser?.id === currentUser.id && friendship?.status === 'PENDING';
+        const isFriend = friendship?.status === 'ACCEPTED';
+
+        return { friendship, isOutgoingRequest, isIncomingRequest, isFriend };
+    }, [friendships, currentUser?.id, user.id]);
+
+    // Memoize handlers to prevent unnecessary re-renders
+    const handleSendFriendRequest = useCallback(async () => {
         if (!currentUser?.id || !user.id) return;
 
         try {
@@ -52,63 +61,71 @@ export const UserCard: React.FC<UserCardProps> = ({
         } catch (error) {
             console.error('Failed to send friend request:', error);
         }
-    };
+    }, [currentUser?.id, user.id, sendFriendRequest, onUpdate]);
 
-    const handleAcceptRequest = async () => {
-        if (!friendship?.id) return;
+    const handleAcceptRequest = useCallback(async () => {
+        if (!friendshipStatus.friendship?.id) return;
 
         try {
-            await acceptFriendRequest(friendship.id);
+            await acceptFriendRequest(friendshipStatus.friendship.id);
             onUpdate();
         } catch (error) {
             console.error('Failed to accept friend request:', error);
         }
-    };
+    }, [friendshipStatus.friendship?.id, acceptFriendRequest, onUpdate]);
 
-    const handleRejectRequest = async () => {
-        if (!friendship?.id) return;
+    const handleRejectRequest = useCallback(async () => {
+        if (!friendshipStatus.friendship?.id) return;
 
         try {
-            await rejectFriendRequest(friendship.id);
+            await rejectFriendRequest(friendshipStatus.friendship.id);
             onUpdate();
         } catch (error) {
             console.error('Failed to reject friend request:', error);
         }
-    };
+    }, [friendshipStatus.friendship?.id, rejectFriendRequest, onUpdate]);
 
-    const handleCancelRequest = async () => {
-        if (!friendship?.id) return;
+    const handleCancelRequest = useCallback(async () => {
+        if (!friendshipStatus.friendship?.id) return;
 
         try {
-            await cancelFriendRequest(friendship.id);
+            await cancelFriendRequest(friendshipStatus.friendship.id);
             onUpdate();
         } catch (error) {
             console.error('Failed to cancel friend request:', error);
         }
-    };
+    }, [friendshipStatus.friendship?.id, cancelFriendRequest, onUpdate]);
 
-    const handleRemoveFriend = async () => {
-        if (!friendship?.id) return;
+    const handleRemoveFriend = useCallback(async () => {
+        if (!friendshipStatus.friendship?.id) return;
 
         const confirmed = window.confirm(`Are you sure you want to remove ${user.username} from your friends?`);
         if (!confirmed) return;
 
         try {
-            await removeFriend(friendship.id);
+            await removeFriend(friendshipStatus.friendship.id);
             onUpdate();
         } catch (error) {
             console.error('Failed to remove friend:', error);
         }
-    };
+    }, [friendshipStatus.friendship?.id, user.username, removeFriend, onUpdate]);
 
-    const getRankIcon = (elo: number) => {
+    const handleViewProfile = useCallback(() => {
+        window.location.href = `/profile/${user.id}`;
+    }, [user.id]);
+
+    // Memoize rank icon calculation
+    const rankIcon = useMemo(() => {
+        const elo = user.eloRating || 1200;
         if (elo >= 2000) return '👑';
         if (elo >= 1800) return '💎';
         if (elo >= 1600) return '🏆';
         if (elo >= 1400) return '🥈';
         if (elo >= 1200) return '🥉';
         return '🆕';
-    };
+    }, [user.eloRating]);
+
+    const { friendship, isOutgoingRequest, isIncomingRequest, isFriend } = friendshipStatus;
 
     return (
         <div className="card hover:border-purple-500/50 transition-all duration-200">
@@ -123,7 +140,7 @@ export const UserCard: React.FC<UserCardProps> = ({
                         {user.username || 'Unknown User'}
                     </h3>
                     <div className="flex items-center gap-2 text-sm text-slate-400">
-                        <span>{getRankIcon(user.eloRating || 1200)}</span>
+                        <span>{rankIcon}</span>
                         <span>Level {user.level || 1}</span>
                     </div>
                 </div>
@@ -160,7 +177,7 @@ export const UserCard: React.FC<UserCardProps> = ({
             {/* Actions */}
             <div className="flex gap-2">
                 <Button
-                    onClick={() => window.location.href = `/profile/${user.id}`}
+                    onClick={handleViewProfile}
                     variant="outline"
                     size="small"
                     className="flex-1"
@@ -226,4 +243,6 @@ export const UserCard: React.FC<UserCardProps> = ({
             </div>
         </div>
     );
-};
+});
+
+UserCard.displayName = 'UserCard';

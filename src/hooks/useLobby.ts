@@ -1,8 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { lobbyService } from '../services';
 import { useApi, useMutation } from './useApi';
 import type {
-    LobbyDTO,
+    LobbyUpdateDTO,
+    CreateLobbyDTO,
     JoinLobbyRequestDTO,
     LeaveLobbyRequestDTO,
     KickPlayerRequestDTO,
@@ -10,20 +11,37 @@ import type {
 } from '../types';
 
 export function useLobby(lobbyId?: string) {
+    const apiFunction = useMemo(() => {
+        if (!lobbyId) {
+            return () => Promise.reject(new Error('No lobby ID provided'));
+        }
+        return () => lobbyService.getLobby(lobbyId);
+    }, [lobbyId]);
+
     const lobbyQuery = useApi(
-        () => lobbyService.getLobby(lobbyId!),
-        { immediate: !!lobbyId }
+        apiFunction,
+        {
+            immediate: !!lobbyId,
+            dependencies: [lobbyId]
+        }
     );
 
-    const updateMutation = useMutation(lobbyService.updateLobby);
-    const deleteMutation = useMutation(lobbyService.deleteLobby);
-    const startMatchMutation = useMutation(lobbyService.startMatch);
+    const updateMutation = useMutation((data: { lobbyId: string; updateData: LobbyUpdateDTO }) =>
+        lobbyService.updateLobby(data.lobbyId, data.updateData)
+    );
+    const deleteMutation = useMutation((lobbyId: string) =>
+        lobbyService.deleteLobby(lobbyId)
+    );
+    const startMatchMutation = useMutation((lobbyId: string) =>
+        lobbyService.startMatch(lobbyId)
+    );
 
-    const updateLobby = useCallback(async (lobbyData: LobbyDTO) => {
-        const result = await updateMutation.mutate(lobbyData);
+    const updateLobby = useCallback(async (updateData: LobbyUpdateDTO) => {
+        if (!lobbyId) throw new Error('Lobby ID is required');
+        const result = await updateMutation.mutate({ lobbyId, updateData });
         await lobbyQuery.refetch();
         return result;
-    }, [updateMutation, lobbyQuery]);
+    }, [lobbyId, updateMutation, lobbyQuery]);
 
     const deleteLobby = useCallback(async () => {
         if (!lobbyId) throw new Error('Lobby ID is required');
@@ -32,8 +50,10 @@ export function useLobby(lobbyId?: string) {
 
     const startMatch = useCallback(async () => {
         if (!lobbyId) throw new Error('Lobby ID is required');
-        return await startMatchMutation.mutate(lobbyId);
-    }, [lobbyId, startMatchMutation]);
+        const result = await startMatchMutation.mutate(lobbyId);
+        await lobbyQuery.refetch();
+        return result;
+    }, [lobbyId, startMatchMutation, lobbyQuery]);
 
     return {
         lobby: lobbyQuery.data,
@@ -50,34 +70,51 @@ export function useLobby(lobbyId?: string) {
 }
 
 export function useLobbies() {
-    const lobbiesQuery = useApi(() => lobbyService.getAllLobbies());
-    const openLobbiesQuery = useApi(() => lobbyService.getAllOpenLobbies());
+    // Memoize the API functions to prevent infinite loops
+    const getAllLobbiesFunction = useMemo(() => () => lobbyService.getAllLobbies(), []);
+    const getAllOpenLobbiesFunction = useMemo(() => () => lobbyService.getAllOpenLobbies(), []);
 
-    const createMutation = useMutation(lobbyService.createLobby);
-    const joinMutation = useMutation(lobbyService.joinLobby);
-    const leaveMutation = useMutation((data: { lobbyId: string; leaveData: LeaveLobbyRequestDTO }) =>
+    const lobbiesQuery = useApi(getAllLobbiesFunction, {
+        immediate: true,
+        dependencies: [] // Empty array since function is memoized
+    });
+
+    const openLobbiesQuery = useApi(getAllOpenLobbiesFunction, {
+        immediate: true,
+        dependencies: [] // Empty array since function is memoized
+    });
+
+    const createMutation = useMutation((lobbyData: CreateLobbyDTO) =>
+        lobbyService.createLobby(lobbyData)
+    );
+    const joinMutation = useMutation((data: { lobbyId: string; joinData: JoinLobbyRequestDTO }) =>
+        lobbyService.joinLobby(data.lobbyId, data.joinData)
+    );
+    const leaveMutation = useMutation((data: { lobbyId: string; leaveData?: LeaveLobbyRequestDTO }) =>
         lobbyService.leaveLobby(data.lobbyId, data.leaveData)
     );
     const kickMutation = useMutation((data: { lobbyId: string; kickData: KickPlayerRequestDTO }) =>
         lobbyService.kickPlayer(data.lobbyId, data.kickData)
     );
-    const switchTeamMutation = useMutation(lobbyService.switchTeam);
+    const switchTeamMutation = useMutation((data: { lobbyId: string; switchData: TeamSwitchRequestDTO }) =>
+        lobbyService.switchTeam(data.lobbyId, data.switchData)
+    );
 
-    const createLobby = useCallback(async (lobbyData: LobbyDTO) => {
+    const createLobby = useCallback(async (lobbyData: CreateLobbyDTO) => {
         const result = await createMutation.mutate(lobbyData);
         await lobbiesQuery.refetch();
         await openLobbiesQuery.refetch();
         return result;
     }, [createMutation, lobbiesQuery, openLobbiesQuery]);
 
-    const joinLobby = useCallback(async (joinData: JoinLobbyRequestDTO) => {
-        const result = await joinMutation.mutate(joinData);
+    const joinLobby = useCallback(async (lobbyId: string, joinData: JoinLobbyRequestDTO) => {
+        const result = await joinMutation.mutate({ lobbyId, joinData });
         await lobbiesQuery.refetch();
         await openLobbiesQuery.refetch();
         return result;
     }, [joinMutation, lobbiesQuery, openLobbiesQuery]);
 
-    const leaveLobby = useCallback(async (lobbyId: string, leaveData: LeaveLobbyRequestDTO) => {
+    const leaveLobby = useCallback(async (lobbyId: string, leaveData?: LeaveLobbyRequestDTO) => {
         const result = await leaveMutation.mutate({ lobbyId, leaveData });
         await lobbiesQuery.refetch();
         await openLobbiesQuery.refetch();
@@ -91,8 +128,8 @@ export function useLobbies() {
         return result;
     }, [kickMutation, lobbiesQuery, openLobbiesQuery]);
 
-    const switchTeam = useCallback(async (switchData: TeamSwitchRequestDTO) => {
-        const result = await switchTeamMutation.mutate(switchData);
+    const switchTeam = useCallback(async (lobbyId: string, switchData: TeamSwitchRequestDTO) => {
+        const result = await switchTeamMutation.mutate({ lobbyId, switchData });
         await lobbiesQuery.refetch();
         await openLobbiesQuery.refetch();
         return result;

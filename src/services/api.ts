@@ -1,22 +1,23 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://belatro';
+// Use local Spring Boot development server
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 class ApiClient {
     private readonly baseURL: string;
-    private token: string | null = null;
 
     constructor(baseURL: string) {
         this.baseURL = baseURL;
-        this.token = localStorage.getItem('authToken');
     }
 
     setToken(token: string) {
-        this.token = token;
         localStorage.setItem('authToken', token);
     }
 
     clearToken() {
-        this.token = null;
         localStorage.removeItem('authToken');
+    }
+
+    private getToken(): string | null {
+        return localStorage.getItem('authToken');
     }
 
     private getHeaders(): HeadersInit {
@@ -24,8 +25,9 @@ class ApiClient {
             'Content-Type': 'application/json',
         };
 
-        if (this.token) {
-            headers['Authorization'] = `Bearer ${this.token}`;
+        const token = this.getToken();
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
         }
 
         return headers;
@@ -46,12 +48,36 @@ class ApiClient {
         };
 
         try {
+            console.log(`API Request: ${config.method || 'GET'} ${url}`, {
+                headers: config.headers,
+                hasToken: !!this.getToken(),
+                body: config.body
+            });
+
             const response = await fetch(url, config);
+
+            console.log(`API Response: ${response.status} ${response.statusText}`, {
+                url,
+                ok: response.ok,
+                status: response.status
+            });
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
+                console.error('API Error Details:', {
+                    url,
+                    status: response.status,
+                    statusText: response.statusText,
+                    errorData
+                });
+
+                // If it's a 401, clear the token as it might be expired
+                if (response.status === 401) {
+                    this.clearToken();
+                }
+
                 throw new ApiError({
-                    message: errorData.message || `HTTP ${response.status}`,
+                    message: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
                     status: response.status,
                 });
             }
@@ -61,8 +87,11 @@ class ApiClient {
                 return {} as T;
             }
 
-            return await response.json();
+            const data = await response.json();
+            console.log(`API Success:`, { url, data });
+            return data;
         } catch (error) {
+            console.error('API Request Failed:', { url, error });
             if (error instanceof ApiError) {
                 throw error;
             }

@@ -1,30 +1,99 @@
-
-import React from 'react';
-import { Modal, Button } from '../common';
+import React, { useState } from 'react';
+import { Button } from '../common';
+import { MatchDetails } from './MatchDetails';
 import type { PlayerMatchHistoryDTO } from '../../types/user';
-import type { UserSimpleDTO, HandDTO, TrumpCallDTO, MoveDTO } from '../../types';
+import type { UserSimpleDTO } from '../../types';
 
-interface MatchDetailsProps {
+interface MatchCardProps {
   historyItem: PlayerMatchHistoryDTO;
   currentUserId?: string | null;
-  onClose: () => void;
 }
 
-export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, currentUserId, onClose }) => {
+export const MatchCard: React.FC<MatchCardProps> = ({ historyItem, currentUserId }) => {
+  const [showDetails, setShowDetails] = useState(false);
+
   const { history, yourResult } = historyItem;
   const match = history?.match;
-  const moves = history?.moves;
-  const structuredMoves = history?.structuredMoves;
 
   if (!match) {
     return (
-        <Modal isOpen={true} onClose={onClose} title="Match Details">
+        <div className="card border-slate-500/30 bg-slate-900/10">
           <div className="text-center py-8 text-slate-400">
             Match data is not available
           </div>
-        </Modal>
+        </div>
     );
   }
+
+  // Get result styling based on outcome
+  const getResultStyling = () => {
+    if (yourResult?.toLowerCase().includes('win')) return 'border-green-500/30 bg-green-900/10';
+    if (yourResult?.toLowerCase().includes('draw')) return 'border-yellow-500/30 bg-yellow-900/10';
+    if (yourResult?.toLowerCase().includes('loss')) return 'border-red-500/30 bg-red-900/10';
+    return 'border-slate-500/30 bg-slate-900/10';
+  };
+
+  const getResultIcon = () => {
+    if (yourResult?.toLowerCase().includes('win')) {
+      return (
+          <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+      );
+    }
+    if (yourResult?.toLowerCase().includes('draw')) {
+      return (
+          <svg className="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+          </svg>
+      );
+    }
+    if (yourResult?.toLowerCase().includes('loss')) {
+      return (
+          <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+      );
+    }
+    return (
+        <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    );
+  };
+
+  const getResultText = () => {
+    if (yourResult?.toLowerCase().includes('win')) return 'Victory';
+    if (yourResult?.toLowerCase().includes('draw')) return 'Draw';
+    if (yourResult?.toLowerCase().includes('loss')) return 'Defeat';
+    return yourResult || 'Unknown';
+  };
+
+  const getResultColor = () => {
+    if (yourResult?.toLowerCase().includes('win')) return 'text-green-400';
+    if (yourResult?.toLowerCase().includes('draw')) return 'text-yellow-400';
+    if (yourResult?.toLowerCase().includes('loss')) return 'text-red-400';
+    return 'text-slate-400';
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Unknown time';
+
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      return `Today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    } else if (diffDays === 1) {
+      return `Yesterday at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
 
   const formatDuration = (startTime?: string, endTime?: string) => {
     if (!startTime || !endTime) return 'Unknown';
@@ -35,191 +104,148 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
 
     const hours = Math.floor(durationMs / (1000 * 60 * 60));
     const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((durationMs % (1000 * 60)) / 1000);
 
     if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      return `${hours}h ${minutes}m`;
     }
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    return `${minutes}m`;
   };
 
-  const duration = formatDuration(match.startTime || undefined, match.endTime || undefined);
   const totalPlayers = (match.teamA?.length || 0) + (match.teamB?.length || 0);
+  const duration = formatDuration(match.startTime || undefined, match.endTime || undefined);
+
+  const ClockIcon = () => (
+      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+  );
+
+  const TimerIcon = () => (
+      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+  );
+
+  const UsersIcon = () => (
+      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+      </svg>
+  );
 
   return (
-      <Modal
-          isOpen={true}
-          onClose={onClose}
-          title={`Match Details - ${match.gameMode || 'Unknown'}`}
-          size="large"
-      >
-        <div className="space-y-6">
-          {/* Match Summary */}
-          <div className="bg-slate-800/50 p-4 rounded-lg">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <div className="text-slate-400 mb-1">Your Result</div>
-                <div className="text-white font-medium">{yourResult || 'Unknown'}</div>
-              </div>
-              <div>
-                <div className="text-slate-400 mb-1">Game Mode</div>
-                <div className="text-white font-medium">{match.gameMode || 'Unknown'}</div>
-              </div>
-              <div>
-                <div className="text-slate-400 mb-1">Duration</div>
-                <div className="text-white font-medium">{duration}</div>
-              </div>
-              <div>
-                <div className="text-slate-400 mb-1">Players</div>
-                <div className="text-white font-medium">{totalPlayers}</div>
-              </div>
-            </div>
-          </div>
+      <>
+        <div className={`card border hover:border-purple-500/50 transition-all duration-200 ${getResultStyling()}`}>
+          <div className="flex items-center justify-between">
+            {/* Match Info */}
+            <div className="flex items-center gap-4 flex-1">
+              {/* Result Icon */}
+              <div>{getResultIcon()}</div>
 
-          {/* Match Timeline */}
-          {(match.startTime || match.endTime) && (
-              <div className="bg-slate-800/50 p-4 rounded-lg">
-                <h3 className="text-white font-semibold mb-3">Timeline</h3>
-                <div className="space-y-2 text-sm">
-                  {match.startTime && (
-                      <div className="flex items-center gap-3">
-                        <span className="text-green-400">🟢</span>
-                        <span className="text-slate-400">Started:</span>
-                        <span className="text-white">{new Date(match.startTime).toLocaleString()}</span>
-                      </div>
-                  )}
-                  {match.endTime && (
-                      <div className="flex items-center gap-3">
-                        <span className="text-red-400">🔴</span>
-                        <span className="text-slate-400">Ended:</span>
-                        <span className="text-white">{new Date(match.endTime).toLocaleString()}</span>
-                      </div>
-                  )}
-                  {match.result && (
-                      <div className="flex items-center gap-3">
-                        <span className="text-blue-400">🏁</span>
-                        <span className="text-slate-400">Result:</span>
-                        <span className="text-white">{match.result}</span>
-                      </div>
-                  )}
-                </div>
-              </div>
-          )}
-
-          {/* Teams */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Team A */}
-            <div className="bg-slate-800/50 p-4 rounded-lg">
-              <h3 className="text-white font-semibold mb-3">Team A ({match.teamA?.length || 0})</h3>
-              <div className="space-y-2">
-                {match.teamA?.map((player: UserSimpleDTO) => (
-                    <div
-                        key={player.id}
-                        className={`flex items-center gap-3 p-2 rounded ${
-                            player.id === currentUserId ? 'bg-purple-900/30' : ''
-                        }`}
-                    >
-                      <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs font-bold text-white">
-                        {player.username?.charAt(0).toUpperCase() || '?'}
-                      </div>
-                      <span className="text-white">
-                    {player.username}
-                        {player.id === currentUserId && ' (You)'}
+              {/* Match Details */}
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className={`text-lg font-semibold ${getResultColor()}`}>
+                    {getResultText()}
+                  </h3>
+                  <span className="badge badge-purple text-xs">
+                    {match.gameMode || 'Unknown'}
                   </span>
-                    </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Team B */}
-            <div className="bg-slate-800/50 p-4 rounded-lg">
-              <h3 className="text-white font-semibold mb-3">Team B ({match.teamB?.length || 0})</h3>
-              <div className="space-y-2">
-                {match.teamB?.map((player: UserSimpleDTO) => (
-                    <div
-                        key={player.id}
-                        className={`flex items-center gap-3 p-2 rounded ${
-                            player.id === currentUserId ? 'bg-purple-900/30' : ''
-                        }`}
-                    >
-                      <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-xs font-bold text-white">
-                        {player.username?.charAt(0).toUpperCase() || '?'}
-                      </div>
-                      <span className="text-white">
-                    {player.username}
-                        {player.id === currentUserId && ' (You)'}
-                  </span>
-                    </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Game Moves (if available) */}
-          {structuredMoves && structuredMoves.length > 0 && (
-              <div className="bg-slate-800/50 p-4 rounded-lg">
-                <h3 className="text-white font-semibold mb-3">Game Hands ({structuredMoves.length})</h3>
-                <div className="max-h-64 overflow-y-auto space-y-3">
-                  {structuredMoves.map((hand: HandDTO, index: number) => (
-                      <div key={index} className="border border-slate-700 rounded p-3">
-                        <div className="text-sm font-medium text-white mb-2">
-                          Hand {hand.handNo || index + 1}
-                        </div>
-
-                        {/* Trump Calls */}
-                        {hand.trumpCalls && hand.trumpCalls.length > 0 && (
-                            <div className="mb-2">
-                              <div className="text-xs text-slate-400 mb-1">Trump Calls:</div>
-                              <div className="text-xs text-slate-300">
-                                {hand.trumpCalls.map((call: TrumpCallDTO, i: number) => (
-                                    <span key={i} className="mr-2">
-                            {call.player}: {call.trump}
-                          </span>
-                                ))}
-                              </div>
-                            </div>
-                        )}
-
-                        {/* Tricks */}
-                        {hand.tricks && hand.tricks.length > 0 && (
-                            <div className="text-xs text-slate-400">
-                              {hand.tricks.length} tricks played
-                            </div>
-                        )}
-                      </div>
-                  ))}
                 </div>
-              </div>
-          )}
 
-          {/* Raw Moves (if available and no structured moves) */}
-          {moves && moves.length > 0 && (!structuredMoves || structuredMoves.length === 0) && (
-              <div className="bg-slate-800/50 p-4 rounded-lg">
-                <h3 className="text-white font-semibold mb-3">Moves ({moves.length})</h3>
-                <div className="max-h-64 overflow-y-auto">
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div className="text-slate-400 font-medium">Order</div>
-                    <div className="text-slate-400 font-medium">Player</div>
-                    <div className="text-slate-400 font-medium">Card</div>
-                    {moves.map((move: MoveDTO, index: number) => (
-                        <React.Fragment key={index}>
-                          <div className="text-slate-300">{move.order}</div>
-                          <div className="text-white">{move.player}</div>
-                          <div className="text-blue-400">{move.card}</div>
-                        </React.Fragment>
-                    ))}
+                <div className="flex items-center gap-4 text-sm text-slate-400">
+                  <span className="flex items-center">
+                    <ClockIcon />
+                    {formatDate(match.endTime)}
+                  </span>
+                  <span className="flex items-center">
+                    <TimerIcon />
+                    {duration}
+                  </span>
+                  <span className="flex items-center">
+                    <UsersIcon />
+                    {totalPlayers} players
+                  </span>
+                </div>
+
+                {/* Teams Preview */}
+                <div className="flex items-center gap-4 mt-2">
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-slate-400">Team A:</span>
+                    <div className="flex -space-x-1">
+                      {match.teamA?.slice(0, 3).map((player: UserSimpleDTO, index: number) => (
+                          <div
+                              key={player.id}
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white border-2 border-slate-800 ${
+                                  player.id === currentUserId ? 'bg-purple-500' : 'bg-blue-500'
+                              }`}
+                              title={player.username}
+                          >
+                            {player.username?.charAt(0).toUpperCase() || '?'}
+                          </div>
+                      ))}
+                      {(match.teamA?.length || 0) > 3 && (
+                          <div className="w-6 h-6 bg-slate-600 rounded-full flex items-center justify-center text-xs text-white border-2 border-slate-800">
+                            +{(match.teamA?.length || 0) - 3}
+                          </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <span className="text-slate-500">vs</span>
+
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-slate-400">Team B:</span>
+                    <div className="flex -space-x-1">
+                      {match.teamB?.slice(0, 3).map((player: UserSimpleDTO, index: number) => (
+                          <div
+                              key={player.id}
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white border-2 border-slate-800 ${
+                                  player.id === currentUserId ? 'bg-purple-500' : 'bg-red-500'
+                              }`}
+                              title={player.username}
+                          >
+                            {player.username?.charAt(0).toUpperCase() || '?'}
+                          </div>
+                      ))}
+                      {(match.teamB?.length || 0) > 3 && (
+                          <div className="w-6 h-6 bg-slate-600 rounded-full flex items-center justify-center text-xs text-white border-2 border-slate-800">
+                            +{(match.teamB?.length || 0) - 3}
+                          </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-          )}
+            </div>
 
-          {/* Close Button */}
-          <div className="flex justify-end">
-            <Button onClick={onClose} variant="outline">
-              Close
-            </Button>
+            {/* Actions */}
+            <div className="flex items-center gap-2">
+              <div className="text-right text-xs text-slate-500">
+                <div>Match ID</div>
+                <div className="font-mono text-slate-300">
+                  {match.id?.slice(-8) || 'Unknown'}
+                </div>
+              </div>
+
+              <Button
+                  onClick={() => setShowDetails(true)}
+                  variant="outline"
+                  size="small"
+              >
+                View Details
+              </Button>
+            </div>
           </div>
         </div>
-      </Modal>
+
+        {/* Match Details Modal */}
+        {showDetails && (
+            <MatchDetails
+                historyItem={historyItem}
+                currentUserId={currentUserId}
+                onClose={() => setShowDetails(false)}
+            />
+        )}
+      </>
   );
 };

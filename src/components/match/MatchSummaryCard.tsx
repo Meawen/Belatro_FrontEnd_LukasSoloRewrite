@@ -18,10 +18,32 @@ export const MatchSummaryCard: React.FC<MatchSummaryCardProps> = ({ summaryItem 
   };
 
   const getResultIcon = () => {
-    if (yourOutcome?.toLowerCase().includes('win')) return '🏆';
-    if (yourOutcome?.toLowerCase().includes('draw')) return '🤝';
-    if (yourOutcome?.toLowerCase().includes('loss')) return '💀';
-    return '❓';
+    if (yourOutcome?.toLowerCase().includes('win')) {
+      return (
+          <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+      );
+    }
+    if (yourOutcome?.toLowerCase().includes('draw')) {
+      return (
+          <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+          </svg>
+      );
+    }
+    if (yourOutcome?.toLowerCase().includes('loss')) {
+      return (
+          <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+      );
+    }
+    return (
+        <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    );
   };
 
   const getResultText = () => {
@@ -41,7 +63,6 @@ export const MatchSummaryCard: React.FC<MatchSummaryCardProps> = ({ summaryItem 
   const formatDate = (instant: any) => {
     if (!instant) return 'Unknown time';
 
-    // Handle Instant object - you might need to adjust this based on actual structure
     const date = new Date(instant);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -58,6 +79,18 @@ export const MatchSummaryCard: React.FC<MatchSummaryCardProps> = ({ summaryItem 
     }
   };
 
+  const ClockIcon = () => (
+      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+  );
+
+  const TargetIcon = () => (
+      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+  );
+
   return (
       <div className={`card border ${getResultStyling()}`}>
         <div className="flex items-center justify-between">
@@ -73,13 +106,19 @@ export const MatchSummaryCard: React.FC<MatchSummaryCardProps> = ({ summaryItem 
                   {getResultText()}
                 </h3>
                 <span className="badge badge-purple text-xs">
-                {gameMode || 'Unknown'}
-              </span>
+                  {gameMode || 'Unknown'}
+                </span>
               </div>
 
               <div className="flex items-center gap-4 text-sm text-slate-400">
-                <span>🕒 {formatDate(endTime)}</span>
-                <span>🎯 {result || 'No result'}</span>
+                <span className="flex items-center">
+                  <ClockIcon />
+                  {formatDate(endTime)}
+                </span>
+                <span className="flex items-center">
+                  <TargetIcon />
+                  {result || 'No result'}
+                </span>
               </div>
             </div>
           </div>

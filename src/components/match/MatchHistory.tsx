@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Button, Loading, Select } from '../common';
 import { useMatchHistory, useMatchSummary } from '../../hooks/useMatchHistory';
 import { useAuth } from '../../hooks/useAuth';
@@ -41,14 +41,41 @@ export const MatchHistory: React.FC = () => {
         { value: 'detailed', label: 'Detailed View' }
     ];
 
-    const handleViewModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const handleViewModeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
         setViewMode(e.target.value as ViewMode);
         setCurrentPage(0); // Reset to first page
-    };
+    }, []);
 
-    const handlePageChange = (newPage: number) => {
+    const handlePageChange = useCallback((newPage: number) => {
         setCurrentPage(newPage);
-    };
+    }, []);
+
+    const handlePreviousPage = useCallback(() => {
+        handlePageChange(Math.max(0, currentPage - 1));
+    }, [currentPage, handlePageChange]);
+
+    const handleNextPage = useCallback(() => {
+        handlePageChange(currentPage + 1);
+    }, [currentPage, handlePageChange]);
+
+    // Icon components to replace emojis
+    const RefreshIcon = () => (
+        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+    );
+
+    const GamepadIcon = () => (
+        <svg className="w-16 h-16 text-slate-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 011-1h1a2 2 0 100-4H7a1 1 0 01-1-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+        </svg>
+    );
+
+    const WarningIcon = () => (
+        <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+        </svg>
+    );
 
     if (isLoading && !data) {
         return <Loading size="large" text="Loading match history..." />;
@@ -58,7 +85,7 @@ export const MatchHistory: React.FC = () => {
         return (
             <div className="card bg-red-900/20 border-red-500/30">
                 <div className="flex items-center gap-3">
-                    <div className="text-red-400 text-2xl">⚠️</div>
+                    <WarningIcon />
                     <div>
                         <h3 className="text-red-400 font-semibold">Error Loading Match History</h3>
                         <p className="text-red-300 text-sm">Failed to load your matches</p>
@@ -92,8 +119,10 @@ export const MatchHistory: React.FC = () => {
                         variant="outline"
                         size="small"
                         isLoading={isLoading}
+                        disabled={isLoading}
                     >
-                        🔄 Refresh
+                        <RefreshIcon />
+                        {isLoading ? 'Refreshing...' : 'Refresh'}
                     </Button>
                 </div>
 
@@ -108,10 +137,20 @@ export const MatchHistory: React.FC = () => {
                 </div>
             </div>
 
+            {/* Loading indicator for page changes */}
+            {isLoading && data && (
+                <div className="text-center py-2">
+                    <span className="text-slate-400 text-sm flex items-center justify-center gap-2">
+                        <RefreshIcon />
+                        Loading matches...
+                    </span>
+                </div>
+            )}
+
             {/* Matches List */}
             {!hasMatches ? (
                 <div className="card text-center py-12">
-                    <div className="text-slate-500 text-6xl mb-4">🎮</div>
+                    <GamepadIcon />
                     <h3 className="text-xl font-semibold text-white mb-2">No Match History</h3>
                     <p className="text-slate-400">
                         Start playing to see your match history here!
@@ -144,22 +183,25 @@ export const MatchHistory: React.FC = () => {
                     <div className="flex items-center justify-between">
                         <div className="text-sm text-slate-400">
                             Page {currentPage + 1}
+                            {data && data.length === itemsPerPage && (
+                                <span className="ml-2">({itemsPerPage} per page)</span>
+                            )}
                         </div>
 
                         <div className="flex gap-2">
                             <Button
-                                onClick={() => handlePageChange(Math.max(0, currentPage - 1))}
+                                onClick={handlePreviousPage}
                                 variant="outline"
                                 size="small"
-                                disabled={currentPage === 0}
+                                disabled={currentPage === 0 || isLoading}
                             >
                                 Previous
                             </Button>
                             <Button
-                                onClick={() => handlePageChange(currentPage + 1)}
+                                onClick={handleNextPage}
                                 variant="outline"
                                 size="small"
-                                disabled={!data || data.length < itemsPerPage}
+                                disabled={!data || data.length < itemsPerPage || isLoading}
                             >
                                 Next
                             </Button>
