@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { authService } from '../services/authService';
+import { authService } from '../services';
 import { useMutation } from './useApi';
 import type {
     LoginRequestDTO,
@@ -10,7 +10,7 @@ import type {
 } from '../types';
 
 interface AuthState {
-    user: UserLoginDetailsDTO | null; // Changed from User to UserLoginDetailsDTO
+    user: UserLoginDetailsDTO | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     error: string | null;
@@ -28,16 +28,23 @@ export function useAuth() {
     const signupMutation = useMutation(authService.signup);
     const logoutMutation = useMutation(authService.logout);
 
-    // Initialize auth state on mount - only once
+    // Get token from authService
+    const getToken = useCallback(() => {
+        return authService.getToken();
+    }, []);
+
+    // Initialize auth state on mount - FIXED VERSION
     useEffect(() => {
         let isMounted = true;
 
-        const initializeAuth = async () => {
+        const initializeAuth = () => {
             console.log('Initializing auth state...');
             const isAuthenticated = authService.isAuthenticated();
+            const token = authService.getToken();
             console.log('Is authenticated:', isAuthenticated);
+            console.log('Has token:', !!token);
 
-            if (isAuthenticated) {
+            if (isAuthenticated && token) {
                 try {
                     // Check if we have stored user data
                     const storedUser = localStorage.getItem('user');
@@ -53,17 +60,21 @@ export function useAuth() {
                     } else if (isMounted) {
                         // Token exists but no user data - this shouldn't happen normally
                         console.log('Token exists but no user data found');
+                        // Clear invalid state
+                        authService.logout();
+                        localStorage.removeItem('user');
+                        localStorage.removeItem('authToken');
                         setAuthState({
                             user: null,
-                            isAuthenticated: true,
+                            isAuthenticated: false,
                             isLoading: false,
                             error: null,
                         });
                     }
                 } catch (error) {
-                    console.error('Error initializing auth:', error);
+                    console.error('Error parsing stored user data:', error);
                     if (isMounted) {
-                        // Token might be invalid
+                        // Clear invalid data
                         authService.logout();
                         localStorage.removeItem('user');
                         localStorage.removeItem('authToken');
@@ -86,6 +97,7 @@ export function useAuth() {
             }
         };
 
+        // Initialize synchronously to avoid timing issues
         initializeAuth();
 
         return () => {
@@ -189,6 +201,7 @@ export function useAuth() {
 
     return {
         ...authState,
+        token: getToken(),
         login,
         signup,
         logout,

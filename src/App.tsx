@@ -15,6 +15,7 @@ import { AuthPage } from './components/auth/AuthPage';
 import { LobbyList } from './components/lobby/LobbyList';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { FriendsList } from './components/profile/FriendList';
+import { PlayPage } from './components/game/PlayPage'; // Add this import
 
 // Common Components
 import { Button, Loading } from './components/common';
@@ -92,7 +93,7 @@ const DashboardContent = () => {
                     </div>
                     <div className="hidden md:block">
                         <Button
-                            onClick={() => window.location.href = '/lobbies'}
+                            onClick={() => window.location.href = '/play'}
                             variant="primary"
                             className="bg-amber-600 hover:bg-amber-500 text-emerald-900 font-bold px-6 py-3"
                         >
@@ -176,14 +177,14 @@ const DashboardContent = () => {
                     </h3>
                     <div className="space-y-3">
                         <Button
-                            onClick={() => window.location.href = '/lobbies'}
+                            onClick={() => window.location.href = '/play'}
                             variant="primary"
                             className="w-full bg-amber-600 hover:bg-amber-500 text-emerald-900 font-bold justify-start"
                         >
                             <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
                             </svg>
-                            Find & Join Game
+                            Find & Play Game
                         </Button>
 
                         <Button
@@ -261,26 +262,10 @@ const DashboardPage = () => (
     </PageLayout>
 );
 
+// Remove the old PlayGamePage and create a new one that uses the actual PlayPage
 const PlayGamePage = () => (
-    <PageLayout title="Play Game" subtitle="Join or create a new game">
-        <div className="card">
-            <div className="text-center py-12">
-                <div className="w-16 h-16 bg-amber-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.586a1 1 0 01.707.293l.707.707M9 10v1.586a1 1 0 00.293.707l.707.707M9 10L5.636 6.636a1 1 0 00-.707-.293H3.515a1 1 0 00-.707.293L1.1 8.343" />
-                    </svg>
-                </div>
-                <h3 className="text-xl font-semibold text-white mb-2">Game Interface Coming Soon</h3>
-                <p className="text-emerald-300 mb-6">The game interface is currently under development.</p>
-                <Button
-                    onClick={() => window.location.href = '/lobbies'}
-                    variant="primary"
-                    className="bg-amber-600 hover:bg-amber-500 text-emerald-900 font-bold"
-                >
-                    Browse Lobbies Instead
-                </Button>
-            </div>
-        </div>
+    <PageLayout title="Play Game" subtitle="Join the ranked queue to find a match">
+        <PlayPage />
     </PageLayout>
 );
 
