@@ -6,6 +6,9 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 // Layout Components
 import { AppLayout } from './components/layout/AppLayout';
 import { PageLayout } from './components/layout/PageLayout';
+import { MockGameBoard } from './MockComponents/MockGameBoard';
+import { RealisticGameBoard } from './MockComponents/RealisticGameBoard'; // Add this import
+
 
 // Page Components
 import { UserProfile } from './components/profile';
@@ -262,9 +265,9 @@ const DashboardPage = () => (
     </PageLayout>
 );
 
-// Remove the old PlayGamePage and create a new one that uses the actual PlayPage
+
 const PlayGamePage = () => (
-    <PageLayout title="Play Game" subtitle="Join the ranked queue to find a match">
+    <PageLayout>
         <PlayPage />
     </PageLayout>
 );
@@ -437,6 +440,26 @@ function App() {
                             </AppLayout>
                         </ProtectedRoute>
                     } />
+                    <Route path="/play/mock" element={
+                        <ProtectedRoute>
+                            <AppLayout showSidebar={true}>
+                                <PageLayout title="Game Development" subtitle="Mock game board for testing">
+                                    <MockGameBoard />
+                                </PageLayout>
+                            </AppLayout>
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/play/realistic" element={
+                        <ProtectedRoute>
+                            <AppLayout showSidebar={true}>
+                                <PageLayout title="Realistic Game Demo" subtitle="Experience a full Belot game with animations">
+                                    <RealisticGameBoard />
+                                </PageLayout>
+                            </AppLayout>
+                        </ProtectedRoute>
+                    } />
+
+
 
                     <Route path="/lobbies" element={
                         <ProtectedRoute>

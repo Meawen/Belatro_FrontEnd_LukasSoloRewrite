@@ -10,17 +10,21 @@ interface UseApiState<T> {
 interface UseApiOptions {
     immediate?: boolean;
     dependencies?: any[];
-    staleTime?: number; // Cache data for X milliseconds
+    staleTime?: number;
 }
 
 export function useApi<T>(
     apiFunction: () => Promise<T>,
     options: UseApiOptions = {}
 ) {
-    const { immediate = true, dependencies = [], staleTime = 30000 } = options; // 30s default stale time
+    const { immediate = true, dependencies = [], staleTime = 30000 } = options;
     const isMountedRef = useRef(true);
     const lastFetchRef = useRef<number>(0);
     const cacheRef = useRef<T | null>(null);
+    const apiFunctionRef = useRef(apiFunction);
+
+    // Update the API function ref when it changes
+    apiFunctionRef.current = apiFunction;
 
     const [state, setState] = useState<UseApiState<T>>({
         data: null,
@@ -36,21 +40,25 @@ export function useApi<T>(
 
         // If we have cached data and it's not stale, use it unless forced
         if (!force && cacheRef.current && !isStale) {
-            if (state.data !== cacheRef.current) {
-                setState({ data: cacheRef.current, isLoading: false, error: null });
-            }
+            // Use functional update to avoid stale state issues
+            setState(prev => {
+                if (prev.data !== cacheRef.current) {
+                    return { data: cacheRef.current, isLoading: false, error: null };
+                }
+                return prev;
+            });
             return cacheRef.current;
         }
 
         // Show cached data immediately if we have it, but still fetch fresh data
-        if (cacheRef.current && !state.data) {
-            setState(prev => ({ ...prev, data: cacheRef.current, isLoading: true, error: null }));
-        } else {
-            setState(prev => ({ ...prev, isLoading: true, error: null }));
-        }
+        setState(prev => ({
+            data: prev.data || cacheRef.current,
+            isLoading: true,
+            error: null
+        }));
 
         try {
-            const result = await apiFunction();
+            const result = await apiFunctionRef.current();
             if (isMountedRef.current) {
                 cacheRef.current = result;
                 lastFetchRef.current = now;
@@ -63,7 +71,6 @@ export function useApi<T>(
                     message: error instanceof Error ? error.message : 'Unknown error',
                     status: 0
                 });
-                // Keep cached data on error, just show error state
                 setState(prev => ({
                     data: prev.data || cacheRef.current,
                     isLoading: false,
@@ -72,7 +79,7 @@ export function useApi<T>(
             }
             throw error;
         }
-    }, [apiFunction, staleTime, state.data]);
+    }, [staleTime]); // Remove state.data and apiFunction dependencies
 
     const reset = useCallback(() => {
         if (isMountedRef.current) {
@@ -82,12 +89,12 @@ export function useApi<T>(
         }
     }, []);
 
-    // Effect for initial execution
+    // Effect for initial execution - stable execute reference
     useEffect(() => {
         if (immediate && isMountedRef.current) {
-            execute().catch(() => {}); // Ignore errors in effect
+            execute().catch(() => {});
         }
-    }, [immediate, execute, ...dependencies]);
+    }, [immediate, ...dependencies]); // Remove execute from dependencies
 
     useEffect(() => {
         isMountedRef.current = true;
@@ -100,7 +107,7 @@ export function useApi<T>(
         ...state,
         execute,
         reset,
-        refetch: () => execute(true), // Force fresh data
+        refetch: () => execute(true),
     };
 }
 
@@ -108,6 +115,11 @@ export function useMutation<T, TVariables = void>(
     mutationFunction: (variables: TVariables) => Promise<T>
 ) {
     const isMountedRef = useRef(true);
+    const mutationRef = useRef(mutationFunction);
+
+    // Update the mutation function ref when it changes
+    mutationRef.current = mutationFunction;
+
     const [state, setState] = useState<UseApiState<T>>({
         data: null,
         isLoading: false,
@@ -118,7 +130,7 @@ export function useMutation<T, TVariables = void>(
         setState(prev => ({ ...prev, isLoading: true, error: null }));
 
         try {
-            const result = await mutationFunction(variables);
+            const result = await mutationRef.current(variables);
 
             if (isMountedRef.current) {
                 setState({ data: result, isLoading: false, error: null });
@@ -135,7 +147,7 @@ export function useMutation<T, TVariables = void>(
             }
             throw error;
         }
-    }, [mutationFunction]);
+    }, []); // No dependencies needed since we use ref
 
     const reset = useCallback(() => {
         if (isMountedRef.current) {

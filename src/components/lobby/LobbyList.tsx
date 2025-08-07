@@ -101,7 +101,7 @@ export const LobbyList: React.FC<LobbyListProps> = ({
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-sm flex items-center justify-center text-emerald-900 font-bold text-sm">
-                            🃏
+                            B
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-white">Belot Lobby</h2>
@@ -119,7 +119,7 @@ export const LobbyList: React.FC<LobbyListProps> = ({
                             disabled={isLoading}
                             className="bg-emerald-800 border-emerald-600 hover:bg-emerald-700 text-emerald-100"
                         >
-                            {isLoading ? '⟳' : '🔄'} Refresh
+                            {isLoading ? 'Loading...' : 'Refresh'}
                         </Button>
                         <Button
                             onClick={() => setShowCreateForm(true)}
@@ -164,7 +164,7 @@ export const LobbyList: React.FC<LobbyListProps> = ({
             {error && (
                 <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-3">
                     <div className="flex items-center gap-2 text-red-400 text-sm">
-                        <span>⚠️</span>
+                        <span>!</span>
                         <span>Connection error - showing cached data</span>
                     </div>
                 </div>
@@ -184,7 +184,7 @@ export const LobbyList: React.FC<LobbyListProps> = ({
                 <div className="max-h-[500px] overflow-y-auto">
                     {filteredLobbies.length === 0 ? (
                         <div className="p-8 text-center">
-                            <div className="text-4xl text-amber-500 mb-3">🃏</div>
+                            <div className="text-4xl text-amber-500 mb-3 font-bold">B</div>
                             <h3 className="text-lg font-semibold text-white mb-2">No Games Found</h3>
                             <p className="text-emerald-300 mb-4">
                                 {searchTerm
@@ -280,7 +280,7 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, currentUser, onRowClick, isE
                     <span className="text-white font-medium truncate">
                         {lobby.name || 'Unnamed Game'}
                     </span>
-                    {lobby.privateLobby && <span className="text-amber-400 text-xs">🔒</span>}
+                    {lobby.privateLobby && <span className="text-amber-400 text-xs">[PRIVATE]</span>}
                     {isHost && <span className="text-xs bg-amber-600 px-1 rounded text-emerald-900 font-bold">HOST</span>}
                     {isPlayerInLobby && <span className="text-xs bg-emerald-600 px-1 rounded text-white">JOINED</span>}
                 </div>

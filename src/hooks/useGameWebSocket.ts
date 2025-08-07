@@ -3,14 +3,14 @@ import { useAuth } from './useAuth';
 import { Client, type Frame, type IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
-// Types based on the guide
 export interface QueueStatusDTO {
     state: 'IN_QUEUE' | 'MATCH_FOUND' | 'CANCELLED';
-    position?: number;
-    estimatedWaitTime?: number;
-    queueSize?: number;
-    matchId?: string;
+    estWaitSeconds: number;    // ← Fixed: was estimatedWaitTime
+    queueSize: number;
+    mmr: number;               // ← Added: was missing
+    matchId?: string;          // ← Keep optional since it might not always be present
 }
+
 
 export interface MatchDTO {
     id: string;
@@ -78,13 +78,15 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
     const reconnectAttempts = useRef(0);
     const connectPromiseRef = useRef<Promise<void> | null>(null);
 
-    // Check server availability before attempting connection
+    // 🔥 FIX: Use ref for options to prevent callback recreation
+    const optionsRef = useRef(options);
+    optionsRef.current = options;
+
     const checkServerHealth = useCallback(async (): Promise<boolean> => {
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-            // Include authorization headers for the health check
             const headers: HeadersInit = {
                 'Content-Type': 'application/json',
             };
@@ -93,8 +95,7 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
                 headers['Authorization'] = `Bearer ${token}`;
             }
 
-            // Try direct backend connection for health check too
-            const isDevelopment = import.meta.env.DEV;
+
             const healthUrl = '/actuator/health';
 
             const response = await fetch(healthUrl, {
@@ -121,6 +122,35 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
             reconnectTimeoutRef.current = null;
         }
     }, []);
+    const unsubscribeFromRankedQueue = useCallback(() => {
+        console.log('🔇 Unsubscribing from ranked queue channels...');
+
+        const existingQueueSub = subscriptionsRef.current.get('queueStatus');
+        const existingMatchSub = subscriptionsRef.current.get('matchFound');
+
+        if (existingQueueSub) {
+            console.log('🧹 Unsubscribing from queue status updates...');
+            try {
+                existingQueueSub.unsubscribe();
+            } catch (error) {
+                console.warn('Failed to unsubscribe from queue subscription:', error);
+            }
+            subscriptionsRef.current.delete('queueStatus');
+        }
+
+        if (existingMatchSub) {
+            console.log('🧹 Unsubscribing from match found notifications...');
+            try {
+                existingMatchSub.unsubscribe();
+            } catch (error) {
+                console.warn('Failed to unsubscribe from match subscription:', error);
+            }
+            subscriptionsRef.current.delete('matchFound');
+        }
+
+        console.log('✅ Unsubscribed from ranked queue channels');
+    }, []);
+
 
 
     const connect = useCallback(async () => {
@@ -174,7 +204,7 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
         // Check server health before attempting WebSocket connection
         const isServerHealthy = await checkServerHealth();
         if (!isServerHealthy) {
-            const errorMessage = 'Backend server is not available';
+            const errorMessage = 'Not connected to the server';
             setConnectionError(errorMessage);
             setIsConnecting(false);
             return Promise.reject(new Error(errorMessage));
@@ -317,9 +347,20 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
 
                     onWebSocketClose: (event: CloseEvent) => {
                         console.log('WebSocket closed:', event.code, event.reason, event.wasClean);
+
+                        // 🔥 FORCE CLEANUP: Unsubscribe from all subscriptions
+                        subscriptionsRef.current.forEach((subscription, key) => {
+                            try {
+                                console.log(`🧹 Force unsubscribing from ${key} on close...`);
+                                subscription.unsubscribe();
+                            } catch (error) {
+                                console.warn(`Failed to unsubscribe from ${key} on close:`, error);
+                            }
+                        });
+                        subscriptionsRef.current.clear();
+
                         setIsConnected(false);
                         setIsConnecting(false);
-                        subscriptionsRef.current.clear();
                         connectPromiseRef.current = null;
 
                         // Only auto-reconnect if it wasn't a manual disconnect
@@ -386,13 +427,23 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
             reconnectTimeoutRef.current = null;
         }
 
+        // 🔥 FIX: Properly unsubscribe before clearing
+        subscriptionsRef.current.forEach((subscription, key) => {
+            try {
+                console.log(`Unsubscribing from ${key}...`);
+                subscription.unsubscribe();
+            } catch (error) {
+                console.warn(`Failed to unsubscribe from ${key}:`, error);
+            }
+        });
+        subscriptionsRef.current.clear();
+
         if (clientRef.current) {
             clientRef.current.deactivate();
             clientRef.current = null;
         }
 
         connectPromiseRef.current = null;
-        subscriptionsRef.current.clear();
         setIsConnected(false);
         setIsConnecting(false);
         setConnectionError(null);
@@ -404,6 +455,30 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
             return;
         }
 
+        // 🔥 FORCE CLEANUP: Always unsubscribe from existing subscriptions first
+        const existingQueueSub = subscriptionsRef.current.get('queueStatus');
+        const existingMatchSub = subscriptionsRef.current.get('matchFound');
+
+        if (existingQueueSub) {
+            console.log('🧹 Cleaning up existing queue subscription...');
+            try {
+                existingQueueSub.unsubscribe();
+            } catch (error) {
+                console.warn('Failed to unsubscribe from existing queue subscription:', error);
+            }
+            subscriptionsRef.current.delete('queueStatus');
+        }
+
+        if (existingMatchSub) {
+            console.log('🧹 Cleaning up existing match subscription...');
+            try {
+                existingMatchSub.unsubscribe();
+            } catch (error) {
+                console.warn('Failed to unsubscribe from existing match subscription:', error);
+            }
+            subscriptionsRef.current.delete('matchFound');
+        }
+
         console.log('Subscribing to ranked queue channels...');
         const client = clientRef.current;
 
@@ -412,18 +487,17 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
             try {
                 console.log('Received queue status update:', message.body);
                 const status: QueueStatusDTO = JSON.parse(message.body);
-                options.onQueueStatusUpdate?.(status);
+                optionsRef.current.onQueueStatusUpdate?.(status);
             } catch (error) {
                 console.error('Failed to parse queue status message:', error);
             }
         });
 
-
         const matchSubscription = client.subscribe('/user/queue/match-found', (message: IMessage) => {
             try {
                 console.log('Received match found notification:', message.body);
                 const match: MatchDTO = JSON.parse(message.body);
-                options.onMatchFound?.(match);
+                optionsRef.current.onMatchFound?.(match);
             } catch (error) {
                 console.error('Failed to parse match message:', error);
             }
@@ -431,8 +505,8 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
 
         subscriptionsRef.current.set('queueStatus', queueSubscription);
         subscriptionsRef.current.set('matchFound', matchSubscription);
-        console.log('Successfully subscribed to ranked queue channels');
-    }, [isConnected, options]);
+        console.log('✅ Successfully subscribed to ranked queue channels');
+    }, [isConnected]);
 
     const subscribeToGame = useCallback((gameId: string) => {
         if (!clientRef.current || !isConnected) {
@@ -448,7 +522,7 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
             try {
                 console.log('Received public game update:', message.body);
                 const gameView: PublicGameView = JSON.parse(message.body);
-                options.onPublicGameUpdate?.(gameView);
+                optionsRef.current.onPublicGameUpdate?.(gameView);
             } catch (error) {
                 console.error('Failed to parse public game message:', error);
             }
@@ -459,7 +533,7 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
             try {
                 console.log('Received private game update:', message.body);
                 const gameView: PrivateGameView = JSON.parse(message.body);
-                options.onPrivateGameUpdate?.(gameView);
+                optionsRef.current.onPrivateGameUpdate?.(gameView);
             } catch (error) {
                 console.error('Failed to parse private game message:', error);
             }
@@ -468,7 +542,7 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
         subscriptionsRef.current.set(`game-${gameId}-public`, publicSubscription);
         subscriptionsRef.current.set(`game-${gameId}-private`, privateSubscription);
         console.log('Successfully subscribed to game channels');
-    }, [isConnected, options]);
+    }, [isConnected]);
 
     const playCard = useCallback((gameId: string, card: Card, declareBela: boolean) => {
         if (!clientRef.current || !isConnected || !user?.username) {
@@ -492,6 +566,106 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
         console.log('Card play message sent:', message);
     }, [isConnected, user]);
 
+    const placeBid = useCallback((gameId: string, pass: boolean, trump?: string) => {
+        if (!clientRef.current || !isConnected || !user?.username) {
+            console.warn('Cannot place bid: WebSocket not connected or user not available');
+            return;
+        }
+
+        console.log('Placing bid:', { pass, trump });
+
+        const message = {
+            playerId: user.username,
+            pass,
+            trump: trump || null
+        };
+
+        clientRef.current.publish({
+            destination: `/app/games/${gameId}/bid`,
+            body: JSON.stringify(message)
+        });
+
+        console.log('Bid message sent:', message);
+    }, [isConnected, user]);
+    const challenge = useCallback((gameId: string) => {
+        if (!clientRef.current || !isConnected || !user?.username) {
+            console.warn('Cannot challenge: WebSocket not connected or user not available');
+            return;
+        }
+
+        console.log('Issuing challenge');
+
+        const message = {
+            playerId: user.username
+        };
+
+        clientRef.current.publish({
+            destination: `/app/games/${gameId}/challenge`,
+            body: JSON.stringify(message)
+        });
+
+        console.log('Challenge message sent:', message);
+    }, [isConnected, user]);
+    const refreshGameState = useCallback((gameId: string) => {
+        if (!clientRef.current || !isConnected) {
+            console.warn('Cannot refresh game state: WebSocket not connected');
+            return;
+        }
+
+        console.log('Refreshing game state for game:', gameId);
+
+        clientRef.current.publish({
+            destination: `/app/games/${gameId}/refresh`,
+            body: JSON.stringify({})
+        });
+
+        console.log('Refresh message sent');
+    }, [isConnected]);
+
+    const cancelMatch = useCallback((gameId: string) => {
+        if (!clientRef.current || !isConnected) {
+            console.warn('Cannot cancel match: WebSocket not connected');
+            return;
+        }
+
+        console.log('Cancelling match:', gameId);
+
+        clientRef.current.publish({
+            destination: `/app/games/${gameId}/cancel`,
+            body: JSON.stringify({})
+        });
+
+        console.log('Cancel message sent');
+    }, [isConnected]);
+
+    // Add cleanup function for game subscriptions
+    const unsubscribeFromGame = useCallback((gameId: string) => {
+        console.log('Unsubscribing from game channels for gameId:', gameId);
+
+        const publicSub = subscriptionsRef.current.get(`game-${gameId}-public`);
+        const privateSub = subscriptionsRef.current.get(`game-${gameId}-private`);
+
+        if (publicSub) {
+            try {
+                publicSub.unsubscribe();
+                subscriptionsRef.current.delete(`game-${gameId}-public`);
+                console.log('Unsubscribed from public game channel');
+            } catch (error) {
+                console.warn('Failed to unsubscribe from public game channel:', error);
+            }
+        }
+
+        if (privateSub) {
+            try {
+                privateSub.unsubscribe();
+                subscriptionsRef.current.delete(`game-${gameId}-private`);
+                console.log('Unsubscribed from private game channel');
+            } catch (error) {
+                console.warn('Failed to unsubscribe from private game channel:', error);
+            }
+        }
+    }, []);
+
     // Cleanup on unmount
     useEffect(() => {
         return () => {
@@ -506,7 +680,14 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
         connect,
         disconnect,
         subscribeToRankedQueue,
+        unsubscribeFromRankedQueue,
         subscribeToGame,
+        unsubscribeFromGame,
         playCard,
+        placeBid,
+        challenge,
+        refreshGameState,
+        cancelMatch,
     };
+
 }

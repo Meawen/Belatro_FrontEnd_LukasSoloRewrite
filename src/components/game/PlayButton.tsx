@@ -20,21 +20,15 @@ export const PlayButton: React.FC = () => {
     } = useEnhancedRanked();
 
     const handlePlayClick = async () => {
-        console.log('PlayButton clicked!', { isInQueue, isWebSocketConnected, isWebSocketConnecting });
-
         if (isInQueue) {
             try {
-                console.log('Attempting to leave queue...');
                 await leaveQueue();
-                console.log('Successfully left queue');
             } catch (error) {
                 console.error('Failed to leave queue:', error);
             }
         } else {
             try {
-                console.log('Attempting to join queue...');
                 await joinQueue();
-                console.log('Successfully joined queue');
             } catch (error) {
                 console.error('Failed to join queue:', error);
             }
@@ -58,50 +52,34 @@ export const PlayButton: React.FC = () => {
 
     const isDisabled = !isAuthenticated || isJoining || isLeaving || isWebSocketConnecting || (!isWebSocketConnected && !isInQueue);
 
-    // Debug render
-    console.log('PlayButton render:', {
-        isAuthenticated,
-        user: user?.username,
-        isInQueue,
-        isJoining,
-        isLeaving,
-        isWebSocketConnected,
-        isWebSocketConnecting,
-        isDisabled,
-        webSocketError,
-        joinError: joinError?.message,
-        leaveError: leaveError?.message
-    });
-
     return (
-        <div className="space-y-4">
-            {/* Debug info - remove this later */}
-            <div className="text-xs text-gray-400 p-2 bg-gray-800 rounded">
-                <div>Authenticated: {isAuthenticated ? 'Yes' : 'No'}</div>
-                <div>Username: {user?.username || 'N/A'}</div>
-                <div>WebSocket Connected: {isWebSocketConnected ? 'Yes' : 'No'}</div>
-                <div>WebSocket Connecting: {isWebSocketConnecting ? 'Yes' : 'No'}</div>
-                <div>In Queue: {isInQueue ? 'Yes' : 'No'}</div>
-                <div>Button Disabled: {isDisabled ? 'Yes' : 'No'}</div>
-                {webSocketError && <div>WS Error: {webSocketError}</div>}
-            </div>
-
+        <div className="space-y-6">
             {!isAuthenticated && (
-                <div className="text-amber-400 text-sm bg-amber-950 p-3 rounded-lg border border-amber-800">
-                    Please log in to play ranked matches
+                <div className="flex items-center gap-3 text-amber-400 bg-gradient-to-r from-amber-950/50 to-orange-950/50 p-4 rounded-xl border border-amber-800/50 backdrop-blur-sm">
+                    <div className="w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center">
+                        <svg className="w-3 h-3 text-amber-900" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                    </div>
+                    <span className="font-medium">Please log in to play ranked matches</span>
                 </div>
             )}
 
             {isWebSocketConnecting && (
-                <div className="flex items-center gap-2 text-amber-400 bg-amber-950 p-3 rounded-lg border border-amber-800">
+                <div className="flex items-center gap-3 text-emerald-400 bg-gradient-to-r from-emerald-950/50 to-teal-950/50 p-4 rounded-xl border border-emerald-800/50 backdrop-blur-sm">
                     <Loading size="small" />
-                    <span className="text-sm">Connecting to game server...</span>
+                    <span className="font-medium">Connecting to game server...</span>
                 </div>
             )}
 
             {webSocketError && !isWebSocketConnecting && (
-                <div className="text-red-400 text-sm bg-red-950 p-3 rounded-lg border border-red-800">
-                    Connection error: {webSocketError}
+                <div className="flex items-center gap-3 text-red-400 bg-gradient-to-r from-red-950/50 to-pink-950/50 p-4 rounded-xl border border-red-800/50 backdrop-blur-sm">
+                    <div className="w-5 h-5 rounded-full bg-red-400 flex items-center justify-center">
+                        <svg className="w-3 h-3 text-red-900" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                    </div>
+                    <span className="font-medium">Connection error: {webSocketError}</span>
                 </div>
             )}
 
@@ -110,14 +88,23 @@ export const PlayButton: React.FC = () => {
                 disabled={isDisabled}
                 variant={getButtonVariant()}
                 size="large"
-                className="w-full"
+                className={`w-full transition-all duration-200 ${
+                    isInQueue
+                        ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
+                        : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700'
+                } ${!isDisabled && 'hover:scale-105 hover:shadow-lg'}`}
             >
                 {getButtonText()}
             </Button>
 
             {(joinError || leaveError) && (
-                <div className="text-red-400 text-sm bg-red-950 p-3 rounded-lg border border-red-800">
-                    Error: {joinError?.message || leaveError?.message}
+                <div className="flex items-center gap-3 text-red-400 bg-gradient-to-r from-red-950/50 to-pink-950/50 p-4 rounded-xl border border-red-800/50 backdrop-blur-sm">
+                    <div className="w-5 h-5 rounded-full bg-red-400 flex items-center justify-center">
+                        <svg className="w-3 h-3 text-red-900" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                    </div>
+                    <span className="font-medium">Error: {joinError?.message || leaveError?.message}</span>
                 </div>
             )}
         </div>

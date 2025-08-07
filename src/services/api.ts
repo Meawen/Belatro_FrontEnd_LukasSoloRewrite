@@ -1,5 +1,8 @@
-// Use local Spring Boot development server
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
+// Use Vite proxy in development, direct URL in production
+const API_BASE_URL = import.meta.env.DEV
+    ? '/api'  // Use Vite proxy in development
+    : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080');
 
 class ApiClient {
     private readonly baseURL: string;

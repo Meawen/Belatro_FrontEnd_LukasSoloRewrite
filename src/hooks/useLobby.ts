@@ -70,20 +70,23 @@ export function useLobby(lobbyId?: string) {
 }
 
 export function useLobbies() {
-    // Memoize the API functions to prevent infinite loops
-    const getAllLobbiesFunction = useMemo(() => () => lobbyService.getAllLobbies(), []);
+    // Clean memoization like useUser does
     const getAllOpenLobbiesFunction = useMemo(() => () => lobbyService.getAllOpenLobbies(), []);
-
-    const lobbiesQuery = useApi(getAllLobbiesFunction, {
-        immediate: true,
-        dependencies: [] // Empty array since function is memoized
-    });
 
     const openLobbiesQuery = useApi(getAllOpenLobbiesFunction, {
         immediate: true,
-        dependencies: [] // Empty array since function is memoized
+        dependencies: [],
+        staleTime: 10000
     });
 
+    // Only fetch all lobbies if explicitly needed
+    const getAllLobbiesFunction = useMemo(() => () => lobbyService.getAllLobbies(), []);
+    const lobbiesQuery = useApi(getAllLobbiesFunction, {
+        immediate: false,
+        dependencies: []
+    });
+
+    // Rest of your mutations remain the same...
     const createMutation = useMutation((lobbyData: CreateLobbyDTO) =>
         lobbyService.createLobby(lobbyData)
     );
@@ -102,53 +105,66 @@ export function useLobbies() {
 
     const createLobby = useCallback(async (lobbyData: CreateLobbyDTO) => {
         const result = await createMutation.mutate(lobbyData);
-        await lobbiesQuery.refetch();
         await openLobbiesQuery.refetch();
+        if (lobbiesQuery.data) {
+            await lobbiesQuery.refetch();
+        }
         return result;
-    }, [createMutation, lobbiesQuery, openLobbiesQuery]);
+    }, [createMutation, openLobbiesQuery, lobbiesQuery]);
 
     const joinLobby = useCallback(async (lobbyId: string, joinData: JoinLobbyRequestDTO) => {
         const result = await joinMutation.mutate({ lobbyId, joinData });
-        await lobbiesQuery.refetch();
         await openLobbiesQuery.refetch();
+        if (lobbiesQuery.data) {
+            await lobbiesQuery.refetch();
+        }
         return result;
-    }, [joinMutation, lobbiesQuery, openLobbiesQuery]);
+    }, [joinMutation, openLobbiesQuery, lobbiesQuery]);
 
     const leaveLobby = useCallback(async (lobbyId: string, leaveData?: LeaveLobbyRequestDTO) => {
         const result = await leaveMutation.mutate({ lobbyId, leaveData });
-        await lobbiesQuery.refetch();
         await openLobbiesQuery.refetch();
+        if (lobbiesQuery.data) {
+            await lobbiesQuery.refetch();
+        }
         return result;
-    }, [leaveMutation, lobbiesQuery, openLobbiesQuery]);
+    }, [leaveMutation, openLobbiesQuery, lobbiesQuery]);
 
     const kickPlayer = useCallback(async (lobbyId: string, kickData: KickPlayerRequestDTO) => {
         const result = await kickMutation.mutate({ lobbyId, kickData });
-        await lobbiesQuery.refetch();
         await openLobbiesQuery.refetch();
+        if (lobbiesQuery.data) {
+            await lobbiesQuery.refetch();
+        }
         return result;
-    }, [kickMutation, lobbiesQuery, openLobbiesQuery]);
+    }, [kickMutation, openLobbiesQuery, lobbiesQuery]);
 
     const switchTeam = useCallback(async (lobbyId: string, switchData: TeamSwitchRequestDTO) => {
         const result = await switchTeamMutation.mutate({ lobbyId, switchData });
-        await lobbiesQuery.refetch();
         await openLobbiesQuery.refetch();
+        if (lobbiesQuery.data) {
+            await lobbiesQuery.refetch();
+        }
         return result;
-    }, [switchTeamMutation, lobbiesQuery, openLobbiesQuery]);
+    }, [switchTeamMutation, openLobbiesQuery, lobbiesQuery]);
 
     return {
         lobbies: lobbiesQuery.data,
         openLobbies: openLobbiesQuery.data,
-        isLoading: lobbiesQuery.isLoading || openLobbiesQuery.isLoading,
-        error: lobbiesQuery.error || openLobbiesQuery.error,
+        isLoading: openLobbiesQuery.isLoading,
+        error: openLobbiesQuery.error || lobbiesQuery.error,
         createLobby,
         joinLobby,
         leaveLobby,
         kickPlayer,
         switchTeam,
         refetch: () => {
-            lobbiesQuery.refetch();
             openLobbiesQuery.refetch();
+            if (lobbiesQuery.data) {
+                lobbiesQuery.refetch();
+            }
         },
+        fetchAllLobbies: lobbiesQuery.execute,
         isCreating: createMutation.isLoading,
         isJoining: joinMutation.isLoading,
         isLeaving: leaveMutation.isLoading,
