@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Modal, Button } from '../common';
+import { PlayingCard } from '../common/PlayingCard';
 import type { PlayerMatchHistoryDTO } from '../../types/user';
-import type { UserSimpleDTO, HandDTO, TrumpCallDTO, MoveDTO } from '../../types';
+import type { UserSimpleDTO, HandDTO, TrumpCallDTO, MoveDTO, TrickDTO } from '../../types';
 
 interface MatchDetailsProps {
     historyItem: PlayerMatchHistoryDTO;
@@ -15,11 +16,16 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
     const moves = history?.moves;
     const structuredMoves = history?.structuredMoves;
 
+    const [expandedHands, setExpandedHands] = useState<Set<number>>(new Set());
+
     if (!match) {
         return (
             <Modal isOpen={true} onClose={onClose} title="Match Details">
-                <div className="text-center py-8 text-slate-400">
-                    Match data is not available
+                <div className="text-center py-12">
+                    <svg className="w-16 h-16 text-emerald-400/50 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-emerald-400/70">Match data is not available</p>
                 </div>
             </Modal>
         );
@@ -45,163 +51,412 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
     const duration = formatDuration(match.startTime || undefined, match.endTime || undefined);
     const totalPlayers = (match.teamA?.length || 0) + (match.teamB?.length || 0);
 
-    // Icon components
-    const StartIcon = () => (
-        <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
-        </svg>
-    );
+    // Enhanced result styling
+    const getResultStyling = () => {
+        if (yourResult?.toLowerCase().includes('win')) return 'bg-gradient-to-r from-emerald-600 to-green-600';
+        if (yourResult?.toLowerCase().includes('draw')) return 'bg-gradient-to-r from-amber-600 to-yellow-600';
+        if (yourResult?.toLowerCase().includes('loss')) return 'bg-gradient-to-r from-red-600 to-rose-600';
+        return 'bg-gradient-to-r from-emerald-600 to-teal-600';
+    };
 
-    const EndIcon = () => (
-        <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-    );
+    const getResultIcon = () => {
+        const iconClass = "w-8 h-8 text-white";
 
-    const ResultIcon = () => (
-        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-    );
+        if (yourResult?.toLowerCase().includes('win')) {
+            return <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>;
+        }
+        if (yourResult?.toLowerCase().includes('draw')) {
+            return <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>;
+        }
+        if (yourResult?.toLowerCase().includes('loss')) {
+            return <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>;
+        }
+        return <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>;
+    };
+
+    // Helper functions for card display
+    const parseCardName = (cardString: string) => {
+        // Parse "DECKO of PIK" format
+        const parts = cardString.split(' of ');
+        if (parts.length === 2) {
+            return { rank: parts[0].trim(), suit: parts[1].trim() };
+        }
+
+        // Fallback for other formats
+        return { rank: cardString, suit: '' };
+    };
+
+    const toggleHandExpansion = (handIndex: number) => {
+        const newExpanded = new Set(expandedHands);
+        if (newExpanded.has(handIndex)) {
+            newExpanded.delete(handIndex);
+        } else {
+            newExpanded.add(handIndex);
+        }
+        setExpandedHands(newExpanded);
+    };
+
+    const getPlayerColor = (playerName: string | null | undefined) => {
+        if (!playerName) return 'bg-gray-500/20 border border-gray-400/30 text-gray-200';
+
+        // Check if player is current user
+        const currentUser = match.teamA?.find(p => p.id === currentUserId) || match.teamB?.find(p => p.id === currentUserId);
+        if (currentUser && currentUser.username === playerName) {
+            return 'bg-gradient-to-r from-purple-500/20 to-emerald-500/20 border border-purple-400/30 text-purple-200';
+        }
+
+        // Check team membership for color coding
+        const isTeamA = match.teamA?.some(p => p.username === playerName);
+        if (isTeamA) {
+            return 'bg-blue-500/20 border border-blue-400/30 text-blue-200';
+        }
+        return 'bg-red-500/20 border border-red-400/30 text-red-200';
+    };
 
     return (
         <Modal
             isOpen={true}
             onClose={onClose}
-            title={`Match Details - ${match.gameMode || 'Unknown'}`}
+            title="Match Details"
             size="large"
         >
             <div className="space-y-6">
-                {/* Match Summary */}
-                <div className="bg-slate-800/50 p-4 rounded-lg">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                            <div className="text-slate-400 mb-1">Your Result</div>
-                            <div className="text-white font-medium">{yourResult || 'Unknown'}</div>
+                {/* Hero Section - Match Result */}
+                <div className={`${getResultStyling()} p-6 rounded-xl text-white`}>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                                {getResultIcon()}
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold">{yourResult || 'Unknown Result'}</h2>
+                                <p className="text-white/80">Match ID: {match.id?.slice(-12) || 'Unknown'}</p>
+                                <div className="flex items-center gap-2 mt-2">
+                                    <span className="bg-white/20 text-white px-2 py-1 rounded-full text-sm">
+                                        {match.gameMode || 'Unknown'}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <div className="text-slate-400 mb-1">Game Mode</div>
-                            <div className="text-white font-medium">{match.gameMode || 'Unknown'}</div>
-                        </div>
-                        <div>
-                            <div className="text-slate-400 mb-1">Duration</div>
-                            <div className="text-white font-medium">{duration}</div>
-                        </div>
-                        <div>
-                            <div className="text-slate-400 mb-1">Players</div>
-                            <div className="text-white font-medium">{totalPlayers}</div>
+                        <div className="text-right">
+                            <div className="text-3xl font-bold">{totalPlayers}</div>
+                            <div className="text-white/80">Players</div>
                         </div>
                     </div>
                 </div>
 
-                {/* Match Timeline */}
-                {(match.startTime || match.endTime) && (
-                    <div className="bg-slate-800/50 p-4 rounded-lg">
-                        <h3 className="text-white font-semibold mb-3">Timeline</h3>
-                        <div className="space-y-2 text-sm">
-                            {match.startTime && (
-                                <div className="flex items-center gap-3">
-                                    <StartIcon />
-                                    <span className="text-slate-400">Started:</span>
-                                    <span className="text-white">{new Date(match.startTime).toLocaleString()}</span>
-                                </div>
-                            )}
-                            {match.endTime && (
-                                <div className="flex items-center gap-3">
-                                    <EndIcon />
-                                    <span className="text-slate-400">Ended:</span>
-                                    <span className="text-white">{new Date(match.endTime).toLocaleString()}</span>
-                                </div>
-                            )}
-                            {match.result && (
-                                <div className="flex items-center gap-3">
-                                    <ResultIcon />
-                                    <span className="text-slate-400">Result:</span>
-                                    <span className="text-white">{match.result}</span>
-                                </div>
-                            )}
+                {/* Key Stats Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-emerald-900/30 p-4 rounded-lg border border-emerald-700/30">
+                        <div className="flex items-center gap-2 mb-2">
+                            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-emerald-400 text-sm font-medium">Duration</span>
+                        </div>
+                        <div className="text-white text-lg font-semibold">{duration}</div>
+                    </div>
+
+                    <div className="bg-emerald-900/30 p-4 rounded-lg border border-emerald-700/30">
+                        <div className="flex items-center gap-2 mb-2">
+                            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            <span className="text-emerald-400 text-sm font-medium">Mode</span>
+                        </div>
+                        <div className="text-white text-lg font-semibold">{match.gameMode || 'Unknown'}</div>
+                    </div>
+
+                    <div className="bg-emerald-900/30 p-4 rounded-lg border border-emerald-700/30">
+                        <div className="flex items-center gap-2 mb-2">
+                            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            <span className="text-emerald-400 text-sm font-medium">Hands</span>
+                        </div>
+                        <div className="text-white text-lg font-semibold">{structuredMoves?.length || 0}</div>
+                    </div>
+
+                    <div className="bg-emerald-900/30 p-4 rounded-lg border border-emerald-700/30">
+                        <div className="flex items-center gap-2 mb-2">
+                            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                            <span className="text-emerald-400 text-sm font-medium">Tricks</span>
+                        </div>
+                        <div className="text-white text-lg font-semibold">
+                            {structuredMoves?.reduce((total, hand) => total + (hand.tricks?.length || 0), 0) || 0}
                         </div>
                     </div>
-                )}
+                </div>
 
-                {/* Teams */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Teams Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Team A */}
-                    <div className="bg-slate-800/50 p-4 rounded-lg">
-                        <h3 className="text-white font-semibold mb-3">Team A ({match.teamA?.length || 0})</h3>
-                        <div className="space-y-2">
+                    <div className="bg-emerald-900/20 border border-emerald-700/30 p-5 rounded-xl">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
+                                <span className="text-white font-bold text-lg">A</span>
+                            </div>
+                            <div>
+                                <h3 className="text-emerald-300 font-semibold text-lg">Team Alpha</h3>
+                                <p className="text-emerald-400/70 text-sm">{match.teamA?.length || 0} members</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
                             {match.teamA?.map((player: UserSimpleDTO) => (
                                 <div
                                     key={player.id}
-                                    className={`flex items-center gap-3 p-2 rounded ${
-                                        player.id === currentUserId ? 'bg-purple-900/30' : ''
+                                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                                        player.id === currentUserId
+                                            ? 'bg-gradient-to-r from-purple-900/50 to-emerald-900/50 border border-purple-500/30'
+                                            : 'bg-emerald-950/30 hover:bg-emerald-950/50'
                                     }`}
                                 >
-                                    <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs font-bold text-white">
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                                        player.id === currentUserId
+                                            ? 'bg-gradient-to-r from-purple-500 to-emerald-500 text-white'
+                                            : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
+                                    }`}>
                                         {player.username?.charAt(0).toUpperCase() || '?'}
                                     </div>
-                                    <span className="text-white">
-                                        {player.username}
-                                        {player.id === currentUserId && ' (You)'}
-                                    </span>
+                                    <div className="flex-1">
+                                        <div className="text-emerald-200 font-medium">
+                                            {player.username}
+                                            {player.id === currentUserId && (
+                                                <span className="ml-2 bg-purple-500/30 text-purple-300 px-2 py-0.5 rounded-full text-xs">
+                                                    You
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
                     {/* Team B */}
-                    <div className="bg-slate-800/50 p-4 rounded-lg">
-                        <h3 className="text-white font-semibold mb-3">Team B ({match.teamB?.length || 0})</h3>
-                        <div className="space-y-2">
+                    <div className="bg-emerald-900/20 border border-emerald-700/30 p-5 rounded-xl">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-pink-500 rounded-lg flex items-center justify-center">
+                                <span className="text-white font-bold text-lg">B</span>
+                            </div>
+                            <div>
+                                <h3 className="text-emerald-300 font-semibold text-lg">Team Bravo</h3>
+                                <p className="text-emerald-400/70 text-sm">{match.teamB?.length || 0} members</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
                             {match.teamB?.map((player: UserSimpleDTO) => (
                                 <div
                                     key={player.id}
-                                    className={`flex items-center gap-3 p-2 rounded ${
-                                        player.id === currentUserId ? 'bg-purple-900/30' : ''
+                                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                                        player.id === currentUserId
+                                            ? 'bg-gradient-to-r from-purple-900/50 to-emerald-900/50 border border-purple-500/30'
+                                            : 'bg-emerald-950/30 hover:bg-emerald-950/50'
                                     }`}
                                 >
-                                    <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-xs font-bold text-white">
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                                        player.id === currentUserId
+                                            ? 'bg-gradient-to-r from-purple-500 to-emerald-500 text-white'
+                                            : 'bg-gradient-to-r from-red-500 to-pink-500 text-white'
+                                    }`}>
                                         {player.username?.charAt(0).toUpperCase() || '?'}
                                     </div>
-                                    <span className="text-white">
-                                        {player.username}
-                                        {player.id === currentUserId && ' (You)'}
-                                    </span>
+                                    <div className="flex-1">
+                                        <div className="text-emerald-200 font-medium">
+                                            {player.username}
+                                            {player.id === currentUserId && (
+                                                <span className="ml-2 bg-purple-500/30 text-purple-300 px-2 py-0.5 rounded-full text-xs">
+                                                    You
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     </div>
                 </div>
 
-                {/* Game Moves (if available) */}
-                {structuredMoves && structuredMoves.length > 0 && (
-                    <div className="bg-slate-800/50 p-4 rounded-lg">
-                        <h3 className="text-white font-semibold mb-3">Game Hands ({structuredMoves.length})</h3>
-                        <div className="max-h-64 overflow-y-auto space-y-3">
-                            {structuredMoves.map((hand: HandDTO, index: number) => (
-                                <div key={index} className="border border-slate-700 rounded p-3">
-                                    <div className="text-sm font-medium text-white mb-2">
-                                        Hand {hand.handNo || index + 1}
-                                    </div>
+                {/* Final Result */}
+                {match.result && (
+                    <div className="bg-emerald-900/20 border border-emerald-700/30 p-5 rounded-xl">
+                        <div className="flex items-center gap-3">
+                            <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div>
+                                <h3 className="text-emerald-300 font-semibold">Final Result</h3>
+                                <p className="text-emerald-100 text-lg">{match.result}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
-                                    {/* Trump Calls */}
-                                    {hand.trumpCalls && hand.trumpCalls.length > 0 && (
-                                        <div className="mb-2">
-                                            <div className="text-xs text-slate-400 mb-1">Trump Calls:</div>
-                                            <div className="text-xs text-slate-300">
-                                                {hand.trumpCalls.map((call: TrumpCallDTO, i: number) => (
-                                                    <span key={i} className="mr-2">
-                                                        {call.player}: {call.trump}
+                {/* Enhanced Game Details with Structured Moves */}
+                {structuredMoves && structuredMoves.length > 0 && (
+                    <div className="bg-emerald-900/20 border border-emerald-700/30 p-5 rounded-xl">
+                        <h3 className="text-emerald-300 font-semibold text-xl mb-6 flex items-center gap-3">
+                            <div className="w-8 h-8 bg-emerald-600/30 rounded-lg flex items-center justify-center">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                </svg>
+                            </div>
+                            Game History ({structuredMoves.length} hands)
+                        </h3>
+
+                        <div className="space-y-4">
+                            {structuredMoves.map((hand: HandDTO, handIndex: number) => (
+                                <div key={handIndex} className="bg-emerald-950/50 border border-emerald-800/50 rounded-xl overflow-hidden">
+                                    {/* Hand Header */}
+                                    <div
+                                        className="p-4 cursor-pointer hover:bg-emerald-950/70 transition-colors"
+                                        onClick={() => toggleHandExpansion(handIndex)}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 bg-emerald-600/40 rounded-lg flex items-center justify-center text-emerald-200 font-bold text-sm">
+                                                    {hand.handNo || handIndex + 1}
+                                                </div>
+                                                <div>
+                                                    <span className="text-emerald-200 font-semibold">
+                                                        Hand {hand.handNo || handIndex + 1}
                                                     </span>
-                                                ))}
+                                                    <div className="flex items-center gap-4 mt-1 text-sm text-emerald-400/70">
+                                                        <span>{hand.tricks?.length || 0} tricks</span>
+                                                        <span>{hand.trumpCalls?.length || 0} trump calls</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-3">
+                                                {/* Trump calls preview */}
+                                                {hand.trumpCalls && hand.trumpCalls.length > 0 && (
+                                                    <div className="flex gap-1">
+                                                        {hand.trumpCalls.slice(0, 2).map((call: TrumpCallDTO, i: number) => (
+                                                            <span key={i} className={`px-2 py-1 rounded text-xs font-medium ${
+                                                                call.trump === 'PASS'
+                                                                    ? 'bg-gray-600/30 text-gray-300'
+                                                                    : 'bg-amber-600/30 text-amber-300'
+                                                            }`}>
+                                                                {call.trump}
+                                                            </span>
+                                                        ))}
+                                                        {hand.trumpCalls.length > 2 && (
+                                                            <span className="text-emerald-400/60 text-xs">+{hand.trumpCalls.length - 2}</span>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                <svg
+                                                    className={`w-5 h-5 text-emerald-400 transition-transform ${
+                                                        expandedHands.has(handIndex) ? 'rotate-180' : ''
+                                                    }`}
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
                                             </div>
                                         </div>
-                                    )}
+                                    </div>
 
-                                    {/* Tricks */}
-                                    {hand.tricks && hand.tricks.length > 0 && (
-                                        <div className="text-xs text-slate-400">
-                                            {hand.tricks.length} tricks played
+                                    {/* Expanded Hand Details */}
+                                    {expandedHands.has(handIndex) && (
+                                        <div className="border-t border-emerald-800/30 p-4 space-y-5">
+                                            {/* Trump Calls */}
+                                            {hand.trumpCalls && hand.trumpCalls.length > 0 && (
+                                                <div>
+                                                    <h4 className="text-emerald-300 font-medium mb-3 flex items-center gap-2">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4V2a1 1 0 011-1h4a1 1 0 011 1v2h4a1 1 0 011 1v4a1 1 0 01-1 1h-1l-1 10a1 1 0 01-1 1H8a1 1 0 01-1-1L6 10H5a1 1 0 01-1-1V6a1 1 0 011-1h2z" />
+                                                        </svg>
+                                                        Trump Declarations
+                                                    </h4>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                        {hand.trumpCalls.map((call: TrumpCallDTO, i: number) => (
+                                                            <div key={i} className={`p-3 rounded-lg border ${getPlayerColor(call.player)}`}>
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="font-medium">{call.player || 'Unknown'}</span>
+                                                                    <div className={`px-3 py-1 rounded-full text-sm font-bold ${
+                                                                        call.trump === 'PASS'
+                                                                            ? 'bg-gray-600/50 text-gray-200'
+                                                                            : 'bg-amber-600/50 text-amber-200'
+                                                                    }`}>
+                                                                        {call.trump}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-xs opacity-70 mt-1">Order: {call.order}</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Tricks */}
+                                            {hand.tricks && hand.tricks.length > 0 && (
+                                                <div>
+                                                    <h4 className="text-emerald-300 font-medium mb-4 flex items-center gap-2">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                                        </svg>
+                                                        Tricks Played
+                                                    </h4>
+                                                    <div className="space-y-4">
+                                                        {hand.tricks.map((trick: TrickDTO, trickIndex: number) => (
+                                                            <div key={trickIndex} className="bg-emerald-900/40 border border-emerald-800/30 rounded-lg p-4">
+                                                                <div className="flex items-center gap-2 mb-3">
+                                                                    <div className="w-6 h-6 bg-emerald-600/50 rounded-full flex items-center justify-center text-xs font-bold text-emerald-100">
+                                                                        {trick.trickNo || trickIndex + 1}
+                                                                    </div>
+                                                                    <span className="text-emerald-200 font-medium">
+                                                                        Trick {trick.trickNo || trickIndex + 1}
+                                                                    </span>
+                                                                    <span className="text-emerald-400/60 text-sm">
+                                                                        ({trick.moves?.length || 0} cards)
+                                                                    </span>
+                                                                </div>
+
+                                                                {/* Cards played in this trick */}
+                                                                {trick.moves && trick.moves.length > 0 && (
+                                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                                        {trick.moves.map((move: MoveDTO, moveIndex: number) => {
+                                                                            const { rank, suit } = parseCardName(move.card || '');
+                                                                            return (
+                                                                                <div key={moveIndex} className={`p-3 rounded-lg border ${getPlayerColor(move.player)} relative`}>
+                                                                                    <div className="flex items-center justify-between mb-2">
+                                                                                        <span className="text-sm font-medium truncate">{move.player || 'Unknown'}</span>
+                                                                                        <span className="text-xs opacity-70">#{move.order}</span>
+                                                                                    </div>
+                                                                                    <div className="aspect-[5/7] w-16 mx-auto">
+                                                                                        <PlayingCard
+                                                                                            suit={suit}
+                                                                                            rank={rank}
+                                                                                            className="w-full h-full"
+                                                                                        />
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -210,20 +465,22 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                     </div>
                 )}
 
-                {/* Raw Moves (if available and no structured moves) */}
+                {/* Raw moves fallback */}
                 {moves && moves.length > 0 && (!structuredMoves || structuredMoves.length === 0) && (
-                    <div className="bg-slate-800/50 p-4 rounded-lg">
-                        <h3 className="text-white font-semibold mb-3">Moves ({moves.length})</h3>
-                        <div className="max-h-64 overflow-y-auto">
-                            <div className="grid grid-cols-3 gap-2 text-xs">
-                                <div className="text-slate-400 font-medium">Order</div>
-                                <div className="text-slate-400 font-medium">Player</div>
-                                <div className="text-slate-400 font-medium">Card</div>
+                    <div className="bg-emerald-900/20 border border-emerald-700/30 p-5 rounded-xl">
+                        <h3 className="text-emerald-300 font-semibold text-lg mb-4">
+                            Game Moves ({moves.length})
+                        </h3>
+                        <div className="max-h-48 overflow-y-auto">
+                            <div className="grid grid-cols-3 gap-2 text-sm">
+                                <div className="text-emerald-400 font-medium pb-2">Order</div>
+                                <div className="text-emerald-400 font-medium pb-2">Player</div>
+                                <div className="text-emerald-400 font-medium pb-2">Card</div>
                                 {moves.map((move: MoveDTO, index: number) => (
                                     <React.Fragment key={index}>
-                                        <div className="text-slate-300">{move.order}</div>
-                                        <div className="text-white">{move.player}</div>
-                                        <div className="text-blue-400">{move.card}</div>
+                                        <div className="text-emerald-300 py-1">{move.order}</div>
+                                        <div className="text-emerald-200 py-1">{move.player}</div>
+                                        <div className="text-amber-400 py-1 font-mono">{move.card}</div>
                                     </React.Fragment>
                                 ))}
                             </div>
@@ -231,13 +488,30 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                     </div>
                 )}
 
-                {/* Close Button */}
-                <div className="flex justify-end">
-                    <Button onClick={onClose} variant="outline">
-                        Close
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-emerald-700/30">
+                    <Button onClick={onClose} variant="primary">
+                        Close Details
                     </Button>
                 </div>
             </div>
+
+            <style>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: rgba(16, 185, 129, 0.1);
+                    border-radius: 3px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: rgba(16, 185, 129, 0.3);
+                    border-radius: 3px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: rgba(16, 185, 129, 0.5);
+                }
+            `}</style>
         </Modal>
     );
 };

@@ -4,6 +4,8 @@ export { Select } from './Select';
 export { Checkbox } from './Checkbox';
 export { Loading } from './Loading';
 export { Modal } from './Modal';
+export { PlayingCard } from './PlayingCard';
+
 
 export type { ButtonProps } from './Button';
 export type { InputProps } from './Input';

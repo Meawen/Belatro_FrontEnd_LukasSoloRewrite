@@ -13,7 +13,21 @@ export const matchHistoryService = {
             size: size.toString(),
         });
 
-        return apiClient.get(`/user/${playerId}/history?${params}`);
+        const response = await apiClient.get<{ content: PlayerMatchHistoryDTO[] }>(`/user/${playerId}/history?${params}`);
+        
+        console.log('getMatchHistory response structure:', {
+            response,
+            hasContent: !!response?.content,
+            responseKeys: response ? Object.keys(response) : 'response is null/undefined'
+        });
+        
+        // Add defensive programming
+        if (!response || !response.content) {
+            console.error('Invalid response structure in getMatchHistory:', response);
+            return [];
+        }
+        
+        return response.content;
     },
 
     // Get user's match summary
@@ -27,6 +41,20 @@ export const matchHistoryService = {
             size: size.toString(),
         });
 
-        return apiClient.get(`/user/${playerId}/history/summary?${params}`);
+        const response = await apiClient.get<{ content: PlayerMatchSummaryDTO[] }>(`/user/${playerId}/history/summary?${params}`);
+        
+        console.log('getMatchSummary response structure:', {
+            response,
+            hasContent: !!response?.content,
+            responseKeys: response ? Object.keys(response) : 'response is null/undefined'
+        });
+        
+        // Add defensive programming
+        if (!response || !response.content) {
+            console.error('Invalid response structure in getMatchSummary:', response);
+            return [];
+        }
+        
+        return response.content;
     }
 };

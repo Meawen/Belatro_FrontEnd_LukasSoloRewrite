@@ -26,20 +26,42 @@ export interface PlayerInfo {
     username: string;
     cardCount?: number;
 }
+export interface BidDTO {
+    playerId: string;
+    action: string; // e.g., 'PASS', 'CALL_TRUMP'
+    selectedTrump: string | null; // trump suit when relevant
+}
+export interface Trick {
+    plays: TrickPlay[];
+    winnerPlayerId: string | null;
+}
+
+export interface TrickPlay {
+    playerId: string;
+    card: Card;
+}
+export interface PlayerPublicInfo {
+    username: string;
+    playerId: string;
+    handSize: number; // count only; no card details
+}
+
 
 export interface PublicGameView {
     gameId: string;
     gameState: 'BIDDING' | 'PLAYING' | 'COMPLETED';
-    bids: any[];
-    currentTrick: any;
+    bids: BidDTO[]; // FIXED: Now properly typed instead of any[]
+    currentTrick: Trick; // FIXED: Now properly typed instead of any
     teamAScore: number;
     teamBScore: number;
-    teamA: PlayerInfo[];
-    teamB: PlayerInfo[];
+    teamA: PlayerPublicInfo[]; // FIXED: Now uses PlayerPublicInfo instead of PlayerInfo
+    teamB: PlayerPublicInfo[]; // FIXED: Now uses PlayerPublicInfo instead of PlayerInfo
     challengeUsedByPlayer: Record<string, boolean>;
-    winnerTeamId?: string;
-    tieBreaker?: boolean;
+    winnerTeamId?: string | null; // FIXED: Added null option
+    tieBreaker: boolean; // FIXED: Now required instead of optional
+    seatingOrder: PlayerPublicInfo[]; // NEW: Added missing seatingOrder field
 }
+
 
 export interface PrivateGameView {
     publicPart: PublicGameView;
@@ -47,6 +69,7 @@ export interface PrivateGameView {
     yourTurn: boolean;
     challengeUsed: boolean;
 }
+
 
 export interface Card {
     suit: string;
