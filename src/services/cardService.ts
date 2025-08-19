@@ -46,6 +46,26 @@ export const cardService = {
         }
     },
 
+    // Get suit icon URL
+    getSuitIconUrl(suit: string): string {
+        // Special case for Karo -> karaIcon.png, others use lowercase + Icon.png
+        const iconName = suit === 'Karo' ? 'kara' : suit.toLowerCase();
+        const iconFileName = `${iconName}Icon.png`;
+        return `${this.baseUrl}/${iconFileName}`;
+    },
+
+    // Get all suit icon URLs
+    getAllSuitIconUrls(): { [key: string]: string } {
+        const suits = ['Herc', 'Karo', 'Pik', 'Tref']; // Hearts, Diamonds, Spades, Clubs
+        const iconUrls: { [key: string]: string } = {};
+        
+        for (const suit of suits) {
+            iconUrls[suit] = this.getSuitIconUrl(suit);
+        }
+        
+        return iconUrls;
+    },
+
     // Get all possible card combinations (useful for preloading)
     getAllCardUrls(): string[] {
         const suits = ['Herc', 'Karo', 'Pik', 'Tref']; // Hearts, Diamonds, Spades, Clubs
@@ -62,6 +82,11 @@ export const cardService = {
         // Add card backs
         for (let i = 1; i <= 3; i++) {
             urls.push(this.getCardBackUrl(i));
+        }
+
+        // Add suit icons
+        for (const suit of suits) {
+            urls.push(this.getSuitIconUrl(suit));
         }
 
         return urls;
