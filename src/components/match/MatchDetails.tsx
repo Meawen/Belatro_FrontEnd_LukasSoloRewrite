@@ -398,7 +398,6 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                                                                         {call.trump}
                                                                     </div>
                                                                 </div>
-                                                                <div className="text-xs opacity-70 mt-1">Order: {call.order}</div>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -438,7 +437,7 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                                                                                 <div key={moveIndex} className={`p-3 rounded-lg border ${getPlayerColor(move.player)} relative`}>
                                                                                     <div className="flex items-center justify-between mb-2">
                                                                                         <span className="text-sm font-medium truncate">{move.player || 'Unknown'}</span>
-                                                                                        <span className="text-xs opacity-70">#{move.order}</span>
+
                                                                                     </div>
                                                                                     <div className="aspect-[5/7] w-16 mx-auto">
                                                                                         <PlayingCard

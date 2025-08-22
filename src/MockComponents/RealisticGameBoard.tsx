@@ -1470,7 +1470,7 @@ export const RealisticGameBoard: React.FC = () => {
 
                         {/* Trump bidding buttons (center) */}
                         {gameState.phase === 'BIDDING' && gameState.currentPlayer === 0 && (
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-60">
                                 <div className="flex flex-col items-center gap-4">
                                     <div className="text-sm text-emerald-200 text-center font-medium">
                                         Trump Bid:
