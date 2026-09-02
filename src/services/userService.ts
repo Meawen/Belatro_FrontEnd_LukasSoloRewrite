@@ -1,11 +1,11 @@
 import { apiClient } from './api';
 import type {
     User,
-    UserUpdateDTO,
+    UserDto,
+    ChangePasswordRequest,
     PlayerMatchHistoryDTO,
     PlayerMatchSummaryDTO,
     PaginationParams,
-    Void,
 } from '../types';
 
 export const userService = {
@@ -15,12 +15,12 @@ export const userService = {
         return apiClient.get<User>(`/user/${id}`);
     },
 
-    async updateUser(id: string, userData: UserUpdateDTO): Promise<User> {
-        return apiClient.put<User>(`/user/${id}`, userData);
+    async getMe(): Promise<UserDto> {
+        return apiClient.get<UserDto>('/user/me');
     },
 
-    async deleteUser(id: string): Promise<Void> {
-        return apiClient.delete<Void>(`/user/${id}`);
+    async changePassword(request: ChangePasswordRequest): Promise<void> {
+        await apiClient.post<void>('/user/me/password', request, { keepTokenOn401: true });
     },
 
     async getAllUsers(): Promise<User[]> {
@@ -51,7 +51,7 @@ export const userService = {
         return apiClient.get<PlayerMatchSummaryDTO>(`/user/${playerId}/history/summary${query}`);
     },
 
-    async requestForget(id: string): Promise<Void> {
-        return apiClient.post<Void>(`/user/${id}/request-forget`);
+    async requestForget(): Promise<void> {
+        await apiClient.post<void>('/user/me/request-forget');
     }
 };
