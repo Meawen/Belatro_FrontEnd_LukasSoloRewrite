@@ -1,4 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
+import { JSDOM } from 'jsdom'
 import { apiClient, ApiError } from './api'
 
 function fakeResponse(status: number, body: unknown) {
@@ -11,21 +12,18 @@ function fakeResponse(status: number, body: unknown) {
     } as unknown as Response
 }
 
-describe('apiClient error handling', () => {
-    let mockStorage: Record<string, string> = {}
+// Node 26 defines a `localStorage` global that stays undefined without
+// --localstorage-file, and it shadows jsdom's (vitest makes window === globalThis),
+// so the bare global is unusable here. Borrow a real jsdom Storage instead of
+// hand-rolling a double.
+const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }).window
 
+describe('apiClient error handling', () => {
     beforeEach(() => {
-        mockStorage = { authToken: 'tok-123' }
-        vi.stubGlobal('localStorage', {
-            setItem: (key: string, value: string) => { mockStorage[key] = value },
-            getItem: (key: string) => mockStorage[key] || null,
-            removeItem: (key: string) => { delete mockStorage[key] },
-            clear: () => { mockStorage = {} },
-            length: 0,
-            key: () => null,
-        })
+        vi.stubGlobal('localStorage', jsdomStorage)
+        localStorage.setItem('authToken', 'tok-123')
     })
-    afterEach(() => { vi.unstubAllGlobals() })
+    afterEach(() => { jsdomStorage.clear(); vi.unstubAllGlobals() })
 
     test('surfaces the backend {"error"} body as the ApiError message', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(409, { error: 'Username or email is already taken' })))
