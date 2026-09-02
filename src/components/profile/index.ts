@@ -1,5 +1,5 @@
 export { UserProfile } from './UserProfile';
-export { EditProfile } from './EditProfile';
+export { ChangePasswordForm } from './ChangePasswordForm';
 export { ProfileStats } from './ProfileStats';
 export { UserList } from './UserList';
 export { UserCard } from './UserCard';
