@@ -38,7 +38,8 @@ class ApiClient {
 
     async request<T>(
         endpoint: string,
-        options: RequestInit = {}
+        options: RequestInit = {},
+        behavior: { keepTokenOn401?: boolean } = {}
     ): Promise<T> {
         const url = `${this.baseURL}${endpoint}`;
 
@@ -75,12 +76,12 @@ class ApiClient {
                 });
 
                 // If it's a 401, clear the token as it might be expired
-                if (response.status === 401) {
+                if (response.status === 401 && !behavior.keepTokenOn401) {
                     this.clearToken();
                 }
 
                 throw new ApiError({
-                    message: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
+                    message: errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`,
                     status: response.status,
                 });
             }
@@ -109,11 +110,11 @@ class ApiClient {
         return this.request<T>(endpoint, { method: 'GET' });
     }
 
-    async post<T>(endpoint: string, data?: any): Promise<T> {
+    async post<T>(endpoint: string, data?: any, behavior?: { keepTokenOn401?: boolean }): Promise<T> {
         return this.request<T>(endpoint, {
             method: 'POST',
             body: data ? JSON.stringify(data) : undefined,
-        });
+        }, behavior);
     }
 
     async put<T>(endpoint: string, data?: any): Promise<T> {
