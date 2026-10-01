@@ -4,6 +4,8 @@ import { LobbyControls } from './LobbyControls';
 import { Loading, Button } from '../common';
 import { useLobby } from '../../hooks/useLobby';
 import { useAuth } from '../../hooks/useAuth';
+import {useNavigate} from "react-router-dom";
+import {matchService} from "../../services";
 
 export interface LobbyDetailsProps {
     lobbyId: string;
@@ -20,6 +22,9 @@ export const LobbyDetails: React.FC<LobbyDetailsProps> = ({ lobbyId }) => {
     } = useLobby(lobbyId);
 
     const { user } = useAuth();
+    const navigate = useNavigate();
+
+
 
     if (isLoading) {
         return <Loading size="large" text="Loading lobby..." />;
@@ -63,9 +68,19 @@ export const LobbyDetails: React.FC<LobbyDetailsProps> = ({ lobbyId }) => {
         (lobby.teamBPlayers?.length || 0) +
         (lobby.unassignedPlayers?.length || 0);
 
-    const canStartMatch = isHost &&
-        (lobby.teamAPlayers?.length || 0) >= 1 &&
-        (lobby.teamBPlayers?.length || 0) >= 1;
+
+
+    const teamACount =
+        (lobby?.teamAPlayers?.length ??
+            lobby?.teamAPlayers?.length ??
+            0);
+
+    const teamBCount =
+        (lobby?.teamBPlayers?.length ??
+            lobby?.teamBPlayers?.length ??
+            0);
+
+    const canStartMatch = Boolean(isHost && teamACount === 2 && teamBCount === 2);
 
     return (
         <div className="space-y-6">
@@ -104,11 +119,29 @@ export const LobbyDetails: React.FC<LobbyDetailsProps> = ({ lobbyId }) => {
 
                     {isHost && (
                         <Button
-                            onClick={startMatch}
+                            onClick={async () => {
+                                try {
+                                    const match = await startMatch();
+                                    let matchId = match?.id;
+
+                                    if (!matchId) {
+                                        const fetched = await matchService.getByLobbyId(lobbyId);
+                                        matchId = fetched?.id ?? null;
+                                    }
+
+                                    if (matchId) {
+                                        navigate(`/game/${matchId}`);
+                                    } else {
+                                        console.error("Match ID missing after start. Check backend response.");
+                                    }
+                                } catch (e) {
+                                    console.error("Failed to start match:", e);
+                                }
+                            }}
                             variant="primary"
                             disabled={!canStartMatch || isStartingMatch}
                         >
-                            {isStartingMatch ? 'Starting...' : '🚀 Start Match'}
+                            {isStartingMatch ? "Starting..." : "🚀 Start Match"}
                         </Button>
                     )}
                 </div>

@@ -28,9 +28,7 @@ export const MatchFoundModal: React.FC = () => {
 
     const handleAccept = () => {
         if (!foundMatch) return;
-        
         acceptMatch();
-        // Navigate to game with match ID
         navigate(`/game/${foundMatch.id}`);
     };
 
@@ -62,8 +60,8 @@ export const MatchFoundModal: React.FC = () => {
                         <div>
                             <div className="font-medium text-blue-600">Team A</div>
                             <div className="space-y-1">
-                                {foundMatch.teamA.map(player => (
-                                    <div key={player.id} className="text-gray-700">
+                                {foundMatch.teamA.map((player) => (
+                                    <div key={player.playerId ?? player.username} className="text-gray-700">
                                         {player.username}
                                     </div>
                                 ))}
@@ -72,8 +70,8 @@ export const MatchFoundModal: React.FC = () => {
                         <div>
                             <div className="font-medium text-red-600">Team B</div>
                             <div className="space-y-1">
-                                {foundMatch.teamB.map(player => (
-                                    <div key={player.id} className="text-gray-700">
+                                {foundMatch.teamB.map((player) => (
+                                    <div key={player.playerId ?? player.username} className="text-gray-700">
                                         {player.username}
                                     </div>
                                 ))}
