@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { friendshipService } from '../services';
 import { useApi, useMutation } from './useApi';
-import type { CreateFriendshipDTO } from '../types';
+import type { CreateFriendshipDTO, Friendship } from '../types';
 
 // Global cache to share friendship data across all hook instances
 const friendshipCache = new Map<string, {
-    data: any[];
+    data: Friendship[];
     timestamp: number;
     isLoading: boolean;
 }>();
@@ -61,7 +61,7 @@ export function useFriends(userId?: string) {
             if (cached?.isLoading) {
                 console.log(`useFriends: Request already in progress for ${userId}`);
                 // Wait for the existing request
-                return new Promise((resolve, reject) => {
+                return new Promise<Friendship[]>((resolve) => {
                     const checkCache = () => {
                         const currentCached = friendshipCache.get(cacheKey);
                         if (currentCached && !currentCached.isLoading) {

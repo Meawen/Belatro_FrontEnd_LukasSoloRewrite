@@ -278,16 +278,6 @@ export const RealisticGameBoard: React.FC<LiveHooks> = (props) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const trickRef = useRef<HTMLDivElement>(null);
 
-    const getSuitColor = (suit: string) => {
-        switch (suit.toLowerCase()) {
-            case 'pik': return 'rgba(34, 197, 94, 0.6)'; // Green
-            case 'karo': return 'rgba(245, 158, 11, 0.6)'; // Gold
-            case 'herc': return 'rgba(239, 68, 68, 0.6)'; // Red
-            case 'tref': return 'rgba(139, 69, 19, 0.6)'; // Brown
-            default: return 'rgba(156, 163, 175, 0.6)'; // Gray fallback
-        }
-    };
-
     const getArenaTheme = (trumpSuit: string | null) => {
         if (!trumpSuit) {
             return {
@@ -659,58 +649,6 @@ export const RealisticGameBoard: React.FC<LiveHooks> = (props) => {
             case 'tref': return 'outline-yellow-700';
             default: return 'outline-gray-400';
         }
-    };
-
-
-    const renderPlayerCard = (card: Card, index: number, playerIndex: number) => {
-        const isPlayerTurn = gameState.currentPlayer === playerIndex;
-        const isBiddingPhase = gameState.phase === 'BIDDING';
-        const isHoveredSuit = hoveredSuit === card.suit;
-        const transform = fanTransformHorizontal(
-            index,
-            gameState.hands[playerIndex].length,
-            LAYOUT.spread.you,
-            LAYOUT.rotateStep.you,
-            LAYOUT.arcStep.you
-        );
-
-        return (
-            <div
-                key={`${card.suit}-${card.rank}`}
-                data-card-id={`player-${playerIndex}-card`}
-                data-suit={card.suit}
-                data-rank={card.rank}
-                className={`
-                    absolute ${LAYOUT.size.you} cursor-pointer transition-all duration-500 ease-out
-                    hover:scale-105 transform-gpu
-                    ${isBiddingPhase && isPlayerTurn && isHoveredSuit ? 'z-50 scale-110' : ''}
-                `}
-                style={{
-                    transform: `translate(${transform.x}px, ${transform.y}px) rotate(${transform.rot}deg)`,
-                    zIndex: transform.z + (isHoveredSuit ? 100 : 0),
-                    filter: isBiddingPhase && isPlayerTurn && isHoveredSuit ?
-                        `drop-shadow(0 0 8px ${getSuitColor(card.suit)})` :
-                        'none',
-                }}
-                onClick={() => {
-                    if (gameState.phase === 'PLAYING' && isPlayerTurn) {
-                        playCard(card, playerIndex);
-                    }
-                }}
-            >
-                {/* Subtle glow effect for hovered suit during bidding */}
-                {isBiddingPhase && isPlayerTurn && isHoveredSuit && (
-                    <div
-                        className="absolute inset-0 rounded-lg pointer-events-none"
-                        style={{
-                            background: `linear-gradient(45deg, transparent 40%, ${getSuitColor(card.suit).replace('0.6', '0.2')}, transparent 60%)`,
-                            transition: 'all 0.3s ease-in-out'
-                        }}
-                    />
-                )}
-                {getCardImage(card.suit, card.rank, 'w-full h-full rounded-lg shadow-lg')}
-            </div>
-        );
     };
 
 

@@ -50,8 +50,7 @@ export const UserList: React.FC<UserListProps> = ({
                 if (searchTerm) {
                     const term = searchTerm.toLowerCase();
                     const username = user.username?.toLowerCase() || '';
-                    const email = user.email?.toLowerCase() || '';
-                    return username.includes(term) || email.includes(term);
+                    return username.includes(term);
                 }
 
                 return true;
@@ -211,7 +210,7 @@ export const UserList: React.FC<UserListProps> = ({
                     <div className="flex-1">
                         <Input
                             type="text"
-                            placeholder="Search users by username or email..."
+                            placeholder="Search users by username..."
                             value={searchTerm}
                             onChange={handleSearchChange}
                         />

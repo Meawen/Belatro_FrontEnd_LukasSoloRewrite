@@ -269,7 +269,7 @@ const DashboardPage = () => (
 
 
 const PlayGamePage = () => (
-    <PageLayout>
+    <PageLayout title="">
         <PlayPage />
     </PageLayout>
 );

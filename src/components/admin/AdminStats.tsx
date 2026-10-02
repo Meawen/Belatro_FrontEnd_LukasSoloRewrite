@@ -16,10 +16,6 @@ export const AdminStats: React.FC = () => {
 
     // Use allUsers for game stats, adminUsers for admin-specific stats
     const totalUsers = adminUsers?.length || 0;
-    const activeUsers = allUsers?.filter(user =>
-        user.lastLogin &&
-        new Date(user.lastLogin) > new Date(Date.now() - 24 * 60 * 60 * 1000)
-    ).length || 0;
 
     const pendingDeletions = adminUsers?.filter((user: UserDto) => user.deletionRequested).length || 0;
     const totalLobbies = Array.isArray(lobbies) ? lobbies.length : 0;
@@ -32,13 +28,6 @@ export const AdminStats: React.FC = () => {
             icon: '👥',
             color: 'text-blue-400',
             bgColor: 'bg-blue-500/20'
-        },
-        {
-            label: 'Active Users (24h)',
-            value: activeUsers,
-            icon: '🟢',
-            color: 'text-green-400',
-            bgColor: 'bg-green-500/20'
         },
         {
             label: 'Total Matches',
@@ -67,7 +56,7 @@ export const AdminStats: React.FC = () => {
         <div className="card">
             <h2 className="text-xl font-semibold text-white mb-6">System Statistics</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {stats.map((stat, index) => (
                     <div key={index} className={`${stat.bgColor} p-4 rounded-lg`}>
                         <div className="flex items-center gap-3 mb-2">

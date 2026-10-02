@@ -4,11 +4,9 @@ import { Loading } from '../common/Loading';
 
 export const QueueStatus: React.FC = () => {
     const {
-        isInQueue,
         queueStatus,
         isJoining,
-        isWebSocketConnected,
-        webSocketError
+        isWebSocketConnected
     } = useEnhancedRanked();
 
     // Show joining state (when HTTP request is in progress)

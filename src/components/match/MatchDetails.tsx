@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Button } from '../common';
 import { PlayingCard } from '../common/PlayingCard';
 import type { PlayerMatchHistoryDTO } from '../../types/user';
-import type { UserSimpleDTO, HandDTO, TrumpCallDTO, MoveDTO, TrickDTO } from '../../types';
+import type { UserSimpleDTO, HandDTO, TrumpCallDTO, MoveDTO, TrickDTO, ChallengeDTO } from '../../types';
 
 interface MatchDetailsProps {
     historyItem: PlayerMatchHistoryDTO;
@@ -128,21 +128,6 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
             if (!trick.moves) return count;
             return count + trick.moves.filter(move => move.legal === false).length;
         }, 0);
-    };
-
-    // Helper function to get the final cumulative scores from the last hand with scores
-    const getFinalScores = (hands: HandDTO[]) => {
-        // Find the last hand that has a handSummary with finalScore data
-        for (let i = hands.length - 1; i >= 0; i--) {
-            const hand = hands[i];
-            if (hand.handSummary && (hand.handSummary.finalScoreA !== undefined || hand.handSummary.finalScoreB !== undefined)) {
-                return {
-                    teamAFinal: hand.handSummary.finalScoreA || 0,
-                    teamBFinal: hand.handSummary.finalScoreB || 0
-                };
-            }
-        }
-        return { teamAFinal: 0, teamBFinal: 0 };
     };
 
     // Helper function to parse match result and extract scores

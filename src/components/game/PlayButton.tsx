@@ -5,7 +5,7 @@ import { Button } from '../common/Button';
 import { Loading } from '../common/Loading';
 
 export const PlayButton: React.FC = () => {
-    const { user, isAuthenticated } = useAuth();
+    const { isAuthenticated } = useAuth();
     const {
         isInQueue,
         joinQueue,
