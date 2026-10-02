@@ -58,6 +58,23 @@ describe('GamePageConnected', () => {
         expect(screen.getAllByTestId(/^seat-/)[0]).toHaveAttribute('data-testid', 'seat-carol')
     })
 
+    test("the table's bid buttons call the game's own actions", async () => {
+        const user = userEvent.setup()
+        vi.mocked(useBelatroGame).mockReturnValue({
+            publicView,
+            privateView: { publicPart: publicView, hand: [], yourTurn: true, challengeUsed: false },
+            isConnected: true, connectionError: null, error: null, actions,
+        })
+        renderPage()
+        await user.click(screen.getByRole('button', { name: 'Pass' }))
+        expect(actions.passBid).toHaveBeenCalledTimes(1)
+        await user.click(screen.getByRole('button', { name: 'Call Karo' }))
+        expect(actions.bidTrump).toHaveBeenCalledTimes(1)
+        expect(actions.bidTrump).toHaveBeenCalledWith('KARA')
+        expect(actions.play).not.toHaveBeenCalled()
+        expect(actions.challenge).not.toHaveBeenCalled()
+    })
+
     test("moving to another game id shows that game, never the previous game's view", async () => {
         const user = userEvent.setup()
         vi.mocked(useBelatroGame).mockImplementation(useGameStateKeptAcrossIds)

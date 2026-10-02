@@ -99,6 +99,7 @@ describe('GameTable', () => {
             currentTrick: { leadPlayerId: 'dave', trump: 'HERC', plays: { dave: { boja: 'PIK', rank: 'AS' } } },
         })
         const handlers = renderTable(playing, true)
+        expect(screen.queryByRole('button', { name: 'Pass' })).not.toBeInTheDocument()
         expect(screen.getByTestId('trump')).toHaveTextContent('Herc')
         expect(screen.getAllByTestId('bid').map((el) => el.textContent)).toEqual(['alice: Pass', 'bob: Herc'])
         expect(within(screen.getByTestId('seat-dave')).getByTestId('trick-card')).toHaveAttribute('data-card', 'PIK-AS')
@@ -106,10 +107,39 @@ describe('GameTable', () => {
         expect(handlers.onPlayCard).toHaveBeenCalledWith({ boja: 'HERC', rank: 'AS' })
     })
 
+    test("while bidding the last hand's trick and its trump are not shown", () => {
+        // The backend keeps the previous hand's last trick, trump included, until the next hand's first play.
+        renderTable(view({
+            gameState: 'BIDDING',
+            bids: [],
+            currentTrick: {
+                leadPlayerId: 'alice',
+                trump: 'HERC',
+                plays: {
+                    alice: { boja: 'HERC', rank: 'DEVETKA' },
+                    bob: { boja: 'HERC', rank: 'KRALJ' },
+                    carol: { boja: 'HERC', rank: 'BABA' },
+                    dave: { boja: 'HERC', rank: 'OSMICA' },
+                },
+            },
+        }), true)
+        expect(screen.getByTestId('game-phase')).toHaveTextContent('BIDDING')
+        expect(screen.queryByTestId('trump')).not.toBeInTheDocument()
+        expect(screen.queryAllByTestId('trick-card')).toHaveLength(0)
+    })
+
+    test('a completed hand is nobody\'s turn, even when the server still says it is mine', () => {
+        // The backend does not advance the current player after a hand's last play.
+        renderTable(view({ gameState: 'HAND_COMPLETE' }), true)
+        expect(screen.queryByTestId('your-turn')).not.toBeInTheDocument()
+        expect(screen.getByText('Waiting for other players...')).toBeInTheDocument()
+    })
+
     test('a challenge is offered while playing until it is used', async () => {
         const user = userEvent.setup()
         const playing = view({ gameState: 'PLAYING' })
         const handlers = renderTable(playing, false)
+        screen.getAllByTestId('hand-card').forEach((card) => expect(card).toBeDisabled())
         await user.click(screen.getByRole('button', { name: 'Challenge' }))
         expect(handlers.onChallenge).toHaveBeenCalledTimes(1)
 

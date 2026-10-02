@@ -41,11 +41,14 @@ export const GameTable: React.FC<GameTableProps> = ({
     const yourTurn = privateView?.yourTurn === true;
     const hand = privateView?.hand ?? [];
     const seats = seatsFromMe(publicView.seatingOrder ?? [], me);
-    const plays = publicView.currentTrick?.plays ?? {};
+    // While bidding the view still carries the previous hand's last trick: show none.
+    const plays = phase === 'BIDDING' ? {} : publicView.currentTrick?.plays ?? {};
     const trump = trumpOf(publicView);
     const finished = phase === 'COMPLETED' || phase === 'CANCELLED';
     const canBid = phase === 'BIDDING' && yourTurn;
     const canPlay = phase === 'PLAYING' && yourTurn;
+    // yourTurn alone is not enough: it stays set after a hand's last play.
+    const myMove = canBid || canPlay;
     const canChallenge = (phase === 'PLAYING' || phase === 'HAND_COMPLETE')
         && privateView !== null && !privateView.challengeUsed;
 
@@ -61,7 +64,7 @@ export const GameTable: React.FC<GameTableProps> = ({
                     {trump && (
                         <span>Trump: <span data-testid="trump" className="font-medium text-amber-300">{SUIT_LABEL[trump]}</span></span>
                     )}
-                    {yourTurn && !finished && (
+                    {myMove && (
                         <span data-testid="your-turn" className="font-bold text-amber-400">Your turn</span>
                     )}
                 </div>
@@ -157,7 +160,7 @@ export const GameTable: React.FC<GameTableProps> = ({
                                 </button>
                             ))}
                         </div>
-                        {!yourTurn && (
+                        {!myMove && (
                             <p className="text-center text-emerald-300 text-sm mt-2">Waiting for other players...</p>
                         )}
                     </div>

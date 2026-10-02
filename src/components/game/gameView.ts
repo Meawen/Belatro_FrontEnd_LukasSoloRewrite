@@ -30,8 +30,12 @@ export function seatsFromMe(seatingOrder: PlayerPublicInfo[], me: string): Playe
     return [...seatingOrder.slice(start), ...seatingOrder.slice(0, start)];
 }
 
-/** Trump of the hand in progress: the trick's own, else the last trump call. */
+/**
+ * Trump of the hand in progress: the trick's own, else the last trump call. None while
+ * bidding: the view still carries the previous hand's last trick, with its trump.
+ */
 export function trumpOf(view: PublicGameView): Boja | null {
+    if (view.gameState === 'BIDDING') return null;
     if (view.currentTrick?.trump) return view.currentTrick.trump;
     const call = [...(view.bids ?? [])].reverse().find((bid) => bid.action === 'CALL_TRUMP');
     return call?.selectedTrump ?? null;

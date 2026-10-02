@@ -33,9 +33,32 @@ describe('trumpOf', () => {
         } as PublicGameView
         expect(trumpOf(view)).toBe('PIK')
     })
-    test("the trick's own trump wins when present", () => {
-        const view = { ...base, currentTrick: { leadPlayerId: 'alice', trump: 'TREF', plays: {} } } as PublicGameView
+    test("in PLAYING the trick's own trump wins when present", () => {
+        const view = {
+            ...base,
+            gameState: 'PLAYING',
+            currentTrick: { leadPlayerId: 'alice', trump: 'TREF', plays: {} },
+        } as PublicGameView
         expect(trumpOf(view)).toBe('TREF')
+    })
+    test("while bidding there is no trump, though the last hand's trick is still on the view", () => {
+        // The backend keeps the previous hand's last trick, trump included, until the next hand's first play.
+        const view = {
+            ...base,
+            gameState: 'BIDDING',
+            bids: [],
+            currentTrick: {
+                leadPlayerId: 'alice',
+                trump: 'HERC',
+                plays: {
+                    alice: { boja: 'HERC', rank: 'DEVETKA' },
+                    bob: { boja: 'HERC', rank: 'KRALJ' },
+                    carol: { boja: 'HERC', rank: 'BABA' },
+                    dave: { boja: 'HERC', rank: 'OSMICA' },
+                },
+            },
+        } as PublicGameView
+        expect(trumpOf(view)).toBeNull()
     })
 })
 
