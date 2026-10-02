@@ -16,6 +16,7 @@ import { UserList } from './components/profile/UserList';
 import { MatchHistory } from './components/match/MatchHistory';
 import { AuthPage } from './components/auth/AuthPage';
 import { LobbyList } from './components/lobby/LobbyList';
+import { LobbyDetails } from './components/lobby/LobbyDetails';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { FriendsList } from './components/profile/FriendList';
 import { PlayPage } from './components/game/PlayPage'; // Add this import
@@ -279,6 +280,16 @@ const LobbiesPage = () => (
     </PageLayout>
 );
 
+const LobbyPage = () => {
+    const { lobbyId } = useParams<{ lobbyId: string }>();
+
+    return (
+        <PageLayout title="Lobby" subtitle="Pick your team; the host starts the match">
+            <LobbyDetails lobbyId={lobbyId ?? ''} />
+        </PageLayout>
+    );
+};
+
 const ProfilePage = () => {
     const { user } = useAuth();
 
@@ -477,6 +488,13 @@ function App() {
                         <ProtectedRoute>
                             <AppLayout showSidebar={true}>
                                 <LobbiesPage />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/lobby/:lobbyId" element={
+                        <ProtectedRoute>
+                            <AppLayout showSidebar={true}>
+                                <LobbyPage />
                             </AppLayout>
                         </ProtectedRoute>
                     } />

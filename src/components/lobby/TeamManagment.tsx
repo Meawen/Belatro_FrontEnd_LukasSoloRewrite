@@ -21,7 +21,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
         if (!currentUser?.id || !lobby.id) return;
 
         try {
-            await switchTeam({
+            await switchTeam(lobby.id, {
                 lobbyId: lobby.id,
                 userId: currentUser.id,
                 targetTeam
@@ -167,7 +167,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
 
                     {!isPlayerUnassigned && (
                         <Button
-                            onClick={() => handleSwitchTeam('UNASSIGNED')}
+                            onClick={() => handleSwitchTeam('U')}
                             variant="outline"
                             size="small"
                             disabled={isSwitchingTeam}

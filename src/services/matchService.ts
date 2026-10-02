@@ -14,13 +14,6 @@ export const matchService = {
     async getMatch(id: string): Promise<MatchDTO> {
         return apiClient.get<MatchDTO>(`/matches/${id}`);
     },
-    async getByLobbyId(lobbyId: string): Promise<MatchDTO | null> {
-        const res = await fetch(`/matches/getmatchbylobbyid/${encodeURIComponent(lobbyId)}`, {
-            credentials: "include",
-        });
-        if (!res.ok) return null;
-        return res.json();
-    },
 
     async createMatch(matchData: MatchDTO): Promise<MatchDTO> {
         return apiClient.post<MatchDTO>('/matches', matchData);

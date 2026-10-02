@@ -7,6 +7,7 @@ import type {
     KickPlayerRequestDTO,
     TeamSwitchRequestDTO,
     LobbyUpdateDTO,
+    MatchDTO,
     Void
 } from '../types';
 
@@ -38,31 +39,32 @@ export const lobbyService = {
     },
 
     async leaveLobby(lobbyId: string, leaveData?: LeaveLobbyRequestDTO): Promise<Void> {
-        return apiClient.post<Void>(`/lobbies/${lobbyId}/leave`, leaveData);
+        return apiClient.patch<Void>(`/lobbies/${lobbyId}/leave`, leaveData);
     },
 
+    // PUT /lobbies takes the lobby id in the body (LobbyController has no path variable here)
     async updateLobby(lobbyId: string, updateData: LobbyUpdateDTO): Promise<LobbyDTO> {
-        return apiClient.put<LobbyDTO>(`/lobbies/${lobbyId}`, updateData);
+        return apiClient.put<LobbyDTO>('/lobbies', { ...updateData, id: lobbyId });
     },
 
     async deleteLobby(lobbyId: string): Promise<Void> {
         return apiClient.delete<Void>(`/lobbies/${lobbyId}`);
     },
 
-    async startLobby(lobbyId: string): Promise<LobbyDTO> {
-        return apiClient.post<LobbyDTO>(`/lobbies/${lobbyId}/start`);
+    async startLobby(lobbyId: string): Promise<MatchDTO> {
+        return apiClient.post<MatchDTO>(`/lobbies/${lobbyId}/start-match`);
     },
 
     // Alias for consistency with hook usage
-    async startMatch(lobbyId: string): Promise<LobbyDTO> {
+    async startMatch(lobbyId: string): Promise<MatchDTO> {
         return this.startLobby(lobbyId);
     },
 
     async kickPlayer(lobbyId: string, kickData: KickPlayerRequestDTO): Promise<LobbyDTO> {
-        return apiClient.post<LobbyDTO>(`/lobbies/${lobbyId}/kick`, kickData);
+        return apiClient.patch<LobbyDTO>(`/lobbies/${lobbyId}/kick`, kickData);
     },
 
     async switchTeam(lobbyId: string, switchData: TeamSwitchRequestDTO): Promise<LobbyDTO> {
-        return apiClient.post<LobbyDTO>(`/lobbies/${lobbyId}/switch-team`, switchData);
+        return apiClient.post<LobbyDTO>('/lobbies/switchTeam', { ...switchData, lobbyId });
     }
 };
