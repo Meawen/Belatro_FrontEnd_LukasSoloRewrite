@@ -76,9 +76,12 @@ export function useUserHistorySummary(playerId: string, pagination?: PaginationP
 
 export function useMe(enabled: boolean = true) {
     const apiFunction = useMemo(() => () => userService.getMe(), []);
-    return useApi(apiFunction, {
+    const query = useApi(apiFunction, {
         immediate: enabled,
         dependencies: [enabled],
         staleTime: 60000,
     });
+    // useApi keeps its last data when disabled; a mounted profile that switches to
+    // someone else's id must not keep showing the viewer's own email and roles.
+    return enabled ? query : { ...query, data: null };
 }
