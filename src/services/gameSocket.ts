@@ -145,7 +145,9 @@ export function createGameSocket(
                     endSession();
                     return;
                 }
-                if (refused || holders === 0 || code === 1000 || code === 1001) return;
+                // 1000/1001 are retried too: the server sends 1001 when it stops (deploy) and SockJS
+                // reports a lost heartbeat as 1000. Our own closes never get here (client !== created).
+                if (refused || holders === 0) return;
                 if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
                     setState({ error: 'Failed to connect after multiple attempts' });
                     return;

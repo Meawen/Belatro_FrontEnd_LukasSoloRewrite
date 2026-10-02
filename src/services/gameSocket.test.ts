@@ -196,6 +196,40 @@ describe('gameSocket: reconnects', () => {
         expect(b.socket.getState().error).toBe('STOMP CONNECT requires a valid Bearer token')
     })
 
+    test('a server going away (1001) or a lost heartbeat (1000) is retried with backoff', () => {
+        const { socket, clients } = setup()
+        socket.acquire()
+        socket.subscribe('/topic/games/g1', vi.fn())
+        clients[0].handlers.onConnect()
+        // Spring closes every session with 1001 when the backend stops (deploy, restart)
+        clients[0].handlers.onWebSocketClose(1001)
+        expect(socket.getState().isConnected).toBe(false)
+        vi.advanceTimersByTime(5000)
+        expect(clients).toHaveLength(2)
+        clients[1].handlers.onConnect()
+        expect(clients[1].activeSubs('/topic/games/g1')).toBe(1)
+        // stompjs closes a socket whose heartbeat stopped; SockJS reports that as 1000
+        clients[1].handlers.onWebSocketClose(1000)
+        vi.advanceTimersByTime(5000)
+        expect(clients).toHaveLength(3)
+    })
+
+    test('our own closes are never retried, whatever code the old socket reports', () => {
+        const { socket, clients } = setup()
+        const release = socket.acquire()
+        clients[0].handlers.onConnect()
+        socket.reconnect()
+        clients[0].handlers.onWebSocketClose(1000)
+        vi.advanceTimersByTime(60000)
+        expect(clients).toHaveLength(2)
+        release()
+        vi.advanceTimersByTime(1000)
+        expect(clients[1].deactivated).toBe(1)
+        clients[1].handlers.onWebSocketClose(1000)
+        vi.advanceTimersByTime(60000)
+        expect(clients).toHaveLength(2)
+    })
+
     test('every connect reads the token then in storage: a retry never reuses a stale one', () => {
         const { socket, clients, setToken } = setup('tok-1')
         socket.acquire()
