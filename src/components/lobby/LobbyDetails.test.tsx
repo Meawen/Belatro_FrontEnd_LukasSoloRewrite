@@ -182,13 +182,11 @@ describe('LobbyDetails', () => {
     test('a failed first load shows the full error card', async () => {
         vi.useFakeTimers()
         await withRealLobbyHook()
-        vi.spyOn(lobbyService, 'getLobby').mockRejectedValue(lobbyGone())
+        vi.spyOn(lobbyService, 'getLobby').mockRejectedValue(new ApiError({ status: 500, message: 'Internal Server Error' }))
         renderLobby()
         await act(async () => { await vi.advanceTimersByTimeAsync(0) })
         expect(screen.getByRole('heading', { name: 'Error Loading Lobby' })).toBeInTheDocument()
-        // The server's text equals LobbyDetails' own no-error fallback, so this line alone does not
-        // prove the server message is shown; the heading above is what pins the error card.
-        expect(screen.getByText('Lobby not found')).toBeInTheDocument()
+        expect(screen.getByText('Internal Server Error')).toBeInTheDocument()
         expect(screen.queryByRole('heading', { name: 'Friday' })).not.toBeInTheDocument()
     })
 
