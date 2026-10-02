@@ -91,4 +91,14 @@ describe('apiClient logging', () => {
             .rejects.toMatchObject({ status: 401, message: 'Current password is incorrect' })
         expect(logs.leaked(PASSWORD, NEW_PASSWORD, TOKEN)).toEqual([])
     })
+
+    test('a non-2xx response logs method, URL and status, but nothing from its body', async () => {
+        const BODY_ONLY = 'java.lang.RuntimeException: body-only-7f3a9c'
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(500, { error: 'Internal Server Error', trace: BODY_ONLY })))
+        const logs = captureConsole()
+        await expect(apiClient.get('/lobbies/l1')).rejects.toMatchObject({ status: 500, message: 'Internal Server Error' })
+        expect(logs.leaked(BODY_ONLY)).toEqual([])
+        expect(logs.text()).toMatch(/API Request: GET \S*\/lobbies\/l1/)
+        expect(logs.text()).toMatch(/API Response: 500/)
+    })
 })

@@ -77,8 +77,7 @@ class ApiClient {
                 console.error('API Error Details:', {
                     url,
                     status: response.status,
-                    statusText: response.statusText,
-                    errorData
+                    statusText: response.statusText
                 });
 
                 // If it's a 401, clear the token as it might be expired
