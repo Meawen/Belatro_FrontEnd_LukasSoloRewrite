@@ -2,13 +2,18 @@ import React from 'react';
 import { AdminStats } from './AdminStats';
 import { UserManagement } from './UserManagement';
 import { SystemStatus } from './SystemStatus';
-import { useAuth } from '../../hooks/useAuth';
+import { useMe } from '../../hooks/useUser';
+import { Loading } from '../common';
 
 export const AdminDashboard: React.FC = () => {
-    const { user } = useAuth();
+    // Roles come only from GET /user/me; the stored login user never carried them.
+    const { data: me, error } = useMe();
 
-    // Check if user has admin role
-    const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+    if (!me && !error) {
+        return <Loading size="large" text="Checking permissions..." />;
+    }
+
+    const isAdmin = me?.roles?.includes('ROLE_ADMIN') ?? false;
 
     if (!isAdmin) {
         return (

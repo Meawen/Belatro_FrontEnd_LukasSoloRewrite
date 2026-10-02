@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useMe } from '../../hooks/useUser';
 
 interface SidebarItem {
     label: string;
@@ -117,9 +118,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ children, customItems }) => {
 
     const items = customItems || defaultItems;
 
-    // For now, we'll disable admin features since UserLoginDetailsDTO doesn't include roles
-    // You might need to add a separate API call to get full user details with roles
-    const isAdmin = false; // TODO: Implement proper admin check when role info is available
+    // Roles come from GET /user/me; the stored login user (UserLoginDetailsDTO) has none.
+    const { data: me } = useMe(isAuthenticated);
+    const isAdmin = me?.roles?.includes('ROLE_ADMIN') ?? false;
 
     // Filter items based on auth status and admin permissions
     const filteredItems = items.filter(item => {
