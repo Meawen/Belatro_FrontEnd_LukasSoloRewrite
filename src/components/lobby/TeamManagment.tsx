@@ -1,8 +1,9 @@
-import React from 'react';
-import { Button } from '../common';
+import React, { useState } from 'react';
+import { Button, ErrorAlert } from '../common';
 import { useLobbies } from '../../hooks/useLobby';
-import type { LobbyDTO } from '../../types/lobby';
+import type { LobbyDTO, LobbyTeam } from '../../types/lobby';
 import type { UserSimpleDTO } from '../../types/user';
+import { errorMessage } from '../../utils/errorMessage';
 
 export interface TeamManagementProps {
     lobby: LobbyDTO;
@@ -16,19 +17,21 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                                                                   onUpdate
                                                               }) => {
     const { switchTeam, isSwitchingTeam } = useLobbies();
+    const [switchError, setSwitchError] = useState<string | null>(null);
 
-    const handleSwitchTeam = async (targetTeam: string) => {
+    const handleSwitchTeam = async (targetTeam: LobbyTeam) => {
         if (!currentUser?.id || !lobby.id) return;
 
         try {
+            setSwitchError(null);
             await switchTeam(lobby.id, {
                 lobbyId: lobby.id,
-                userId: currentUser.id,
                 targetTeam
             });
             onUpdate();
         } catch (error) {
             console.error('Failed to switch team:', error);
+            setSwitchError(errorMessage(error, 'Failed to switch team'));
         }
     };
 
@@ -44,6 +47,8 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
     return (
         <div className="card">
             <h3 className="text-lg font-semibold text-white mb-4">Team Management</h3>
+
+            <ErrorAlert message={switchError} className="mb-4" />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Team A */}

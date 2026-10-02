@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Button, Modal, Input } from '../common';
+import { Button, Modal, Input, ErrorAlert } from '../common';
 import { useAuth } from '../../hooks/useAuth';
 import { useLobbies } from '../../hooks/useLobby';
 import type { LobbyDTO } from '../../types/lobby';
+import { errorMessage } from '../../utils/errorMessage';
 
 interface LobbyDetailsPopupProps {
     lobby: LobbyDTO;
@@ -19,6 +20,7 @@ export const LobbyDetailsPopup: React.FC<LobbyDetailsPopupProps> = ({
                                                                     }) => {
     const [password, setPassword] = useState('');
     const [showPasswordInput, setShowPasswordInput] = useState(false);
+    const [joinError, setJoinError] = useState<string | null>(null);
     const { user } = useAuth();
     const { joinLobby, isJoining } = useLobbies();
     const isPlayerInLobby = [
@@ -43,15 +45,16 @@ export const LobbyDetailsPopup: React.FC<LobbyDetailsPopupProps> = ({
         if (!user?.id || !lobby.id) return;
 
         try {
+            setJoinError(null);
             await joinLobby(lobby.id, {
                 lobbyId: lobby.id,
-                userId: user.id,
                 password: lobby.privateLobby ? password : null
             });
             onJoinSuccess?.();
             onClose();
         } catch (error) {
             console.error('Failed to join lobby:', error);
+            setJoinError(errorMessage(error, 'Failed to join lobby'));
             // Reset password on error
             if (lobby.privateLobby) {
                 setPassword('');
@@ -179,6 +182,8 @@ export const LobbyDetailsPopup: React.FC<LobbyDetailsPopupProps> = ({
                         />
                     </div>
                 )}
+
+                <ErrorAlert message={joinError} />
 
                 {/* Actions */}
                 <div className="flex gap-3">

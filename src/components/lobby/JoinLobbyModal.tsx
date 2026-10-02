@@ -44,8 +44,7 @@ export const JoinLobbyModal: React.FC<JoinLobbyModalProps> = ({
 
         try {
             const joinData: JoinLobbyRequestDTO = {
-                lobbyId: lobby.id,          // must be included
-                userId: user.id,
+                lobbyId: lobby.id,
                 password: isPrivate ? password : null,
             };
 

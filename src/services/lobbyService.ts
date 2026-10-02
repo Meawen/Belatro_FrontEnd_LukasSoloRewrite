@@ -3,7 +3,6 @@ import type {
     LobbyDTO,
     CreateLobbyDTO,
     JoinLobbyRequestDTO,
-    LeaveLobbyRequestDTO,
     KickPlayerRequestDTO,
     TeamSwitchRequestDTO,
     LobbyUpdateDTO,
@@ -38,8 +37,8 @@ export const lobbyService = {
         return apiClient.post<LobbyDTO>('/lobbies/join', payload); // ✅ correct endpoint
     },
 
-    async leaveLobby(lobbyId: string, leaveData?: LeaveLobbyRequestDTO): Promise<Void> {
-        return apiClient.patch<Void>(`/lobbies/${lobbyId}/leave`, leaveData);
+    async leaveLobby(lobbyId: string): Promise<Void> {
+        return apiClient.patch<Void>(`/lobbies/${lobbyId}/leave`);
     },
 
     // PUT /lobbies takes the lobby id in the body (LobbyController has no path variable here)
