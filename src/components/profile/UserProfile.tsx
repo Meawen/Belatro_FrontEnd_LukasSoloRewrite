@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { ChangePasswordForm } from './ChangePasswordForm';
 import { ProfileStats } from './ProfileStats';
-import { Button, Loading, Modal } from '../common';
+import { Button, ErrorAlert, Loading, Modal } from '../common';
 import { useUser, useMe } from '../../hooks/useUser';
 import { useAuth } from '../../hooks/useAuth';
+// direct module import (not the ../../hooks barrel) so the component test does
+// not load every hook module, incl. the WebSocket ones
+import { useMutation } from '../../hooks/useApi';
+import { userService } from '../../services/userService';
+import { errorMessage } from '../../utils/errorMessage';
 
 export interface UserProfileProps {
     userId?: string;
@@ -25,7 +30,22 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
     console.log('UserProfile - hook result:', { displayUser, isLoading, error });
 
     const isOwnProfile = !userId || userId === currentUser?.id;
-    const { data: me } = useMe(isOwnProfile);
+    const { data: me, refetch: refetchMe } = useMe(isOwnProfile);
+
+    const [confirmingDeletion, setConfirmingDeletion] = useState(false);
+    const [deletionError, setDeletionError] = useState<string | null>(null);
+    const requestForgetMutation = useMutation(() => userService.requestForget());
+
+    const handleRequestDeletion = async () => {
+        try {
+            setDeletionError(null);
+            await requestForgetMutation.mutate();
+            setConfirmingDeletion(false);
+            refetchMe();
+        } catch (error) {
+            setDeletionError(errorMessage(error, 'Failed to request deletion'));
+        }
+    };
 
     // If no target user ID, show authentication error
     if (!targetUserId) {
@@ -219,6 +239,46 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
             {/* Tab Content */}
             {activeTab === 'stats' && (
                 <ProfileStats user={displayUser} me={me ?? null} />
+            )}
+
+            {isOwnProfile && (
+                <div className="card border border-red-500/30">
+                    <h3 className="text-lg font-semibold text-white mb-3">Account</h3>
+                    {me?.deletionRequested ? (
+                        <p className="text-amber-400 text-sm">
+                            Deletion requested — an administrator will process your account removal.
+                        </p>
+                    ) : confirmingDeletion ? (
+                        <div className="flex flex-wrap items-center gap-3">
+                            <p className="text-red-300 text-sm flex-1 min-w-[200px]">
+                                Request deletion of your account? An administrator has to approve it; you can keep playing until then.
+                            </p>
+                            <Button variant="outline" size="small" onClick={() => setConfirmingDeletion(false)}>
+                                Keep my account
+                            </Button>
+                            <Button
+                                variant="primary"
+                                size="small"
+                                disabled={requestForgetMutation.isLoading}
+                                isLoading={requestForgetMutation.isLoading}
+                                onClick={handleRequestDeletion}
+                                className="bg-red-600 hover:bg-red-500"
+                            >
+                                Confirm request
+                            </Button>
+                        </div>
+                    ) : (
+                        <Button
+                            variant="outline"
+                            size="small"
+                            onClick={() => setConfirmingDeletion(true)}
+                            className="border-red-500 text-red-400 hover:bg-red-500 hover:text-white"
+                        >
+                            Request account deletion
+                        </Button>
+                    )}
+                    <ErrorAlert message={deletionError} className="mt-2" />
+                </div>
             )}
 
             {/* Change Password Modal */}
