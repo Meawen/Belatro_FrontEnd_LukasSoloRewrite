@@ -59,7 +59,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             console.log('Attempting login with:', { username: formData.username });
 
             const result = await login({
-                username: formData.username,
+                username: formData.username.trim(),
                 password: formData.password
             });
 

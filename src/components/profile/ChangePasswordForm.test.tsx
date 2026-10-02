@@ -30,7 +30,7 @@ describe('ChangePasswordForm', () => {
         await user.type(screen.getByLabelText(/current password/i), 'old-secret')
         await user.type(screen.getByLabelText(/^new password/i), 'short')
         await user.click(screen.getByRole('button', { name: /change password/i }))
-        expect(screen.getByText('Password must be at least 6 characters')).toBeInTheDocument()
+        expect(screen.getByText('Password must be at least 8 characters and at most 72 bytes')).toBeInTheDocument()
 
         await user.type(screen.getByLabelText(/^new password/i), '-enough')
         await user.type(screen.getByLabelText(/confirm new password/i), 'different')

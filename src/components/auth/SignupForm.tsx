@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Input } from '../common';
 import { useAuth } from '../../hooks/useAuth';
+import { passwordRuleError, usernameRuleError } from './credentialRules';
 
 export interface SignupFormProps {
     onSuccess?: () => void;
@@ -36,8 +37,9 @@ export const SignupForm: React.FC<SignupFormProps> = ({
 
         if (!formData.username.trim()) {
             newErrors.username = 'Username is required';
-        } else if (formData.username.length < 3) {
-            newErrors.username = 'Username must be at least 3 characters';
+        } else {
+            const usernameError = usernameRuleError(formData.username.trim());
+            if (usernameError) newErrors.username = usernameError;
         }
 
         if (!formData.email.trim()) {
@@ -48,8 +50,9 @@ export const SignupForm: React.FC<SignupFormProps> = ({
 
         if (!formData.password) {
             newErrors.password = 'Password is required';
-        } else if (formData.password.length < 6) {
-            newErrors.password = 'Password must be at least 6 characters';
+        } else {
+            const passwordError = passwordRuleError(formData.password);
+            if (passwordError) newErrors.password = passwordError;
         }
 
         if (!formData.confirmPassword) {
@@ -79,7 +82,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({
             });
 
             const result = await signup({
-                username: formData.username,
+                // the backend validates the raw value, so stray spaces would be a 400
+                username: formData.username.trim(),
                 email: formData.email,
                 password: formData.password
             });

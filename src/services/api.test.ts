@@ -37,6 +37,13 @@ describe('apiClient error handling', () => {
         await expect(apiClient.get('/x')).rejects.toMatchObject({ message: 'from-message' })
     })
 
+    test('a validation field map surfaces its first message', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(400, { password: 'Password must be at least 8 characters and at most 72 bytes' })))
+        await expect(apiClient.post('/api/auth/signup', {})).rejects.toMatchObject({
+            status: 400, message: 'Password must be at least 8 characters and at most 72 bytes',
+        })
+    })
+
     test('401 clears the token by default', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(401, { error: 'nope' })))
         await expect(apiClient.get('/x')).rejects.toBeInstanceOf(ApiError)

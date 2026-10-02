@@ -4,6 +4,13 @@ const API_BASE_URL = import.meta.env.DEV
     ? '/api'  // Use Vite proxy in development
     : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080');
 
+// Bean-validation failures arrive as a field map, e.g. {"password": "..."}.
+function firstFieldMessage(body: unknown): string | undefined {
+    if (!body || typeof body !== 'object') return undefined;
+    const value = Object.values(body as Record<string, unknown>).find((v) => typeof v === 'string');
+    return typeof value === 'string' ? value : undefined;
+}
+
 class ApiClient {
     private readonly baseURL: string;
 
@@ -81,7 +88,7 @@ class ApiClient {
                 }
 
                 throw new ApiError({
-                    message: errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`,
+                    message: errorData.message || errorData.error || firstFieldMessage(errorData) || `HTTP ${response.status}: ${response.statusText}`,
                     status: response.status,
                 });
             }

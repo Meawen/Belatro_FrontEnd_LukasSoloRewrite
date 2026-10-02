@@ -6,6 +6,7 @@ import { useMutation } from '../../hooks/useApi';
 import { userService } from '../../services/userService';
 import { ApiError } from '../../services/api';
 import type { ChangePasswordRequest } from '../../types/user';
+import { passwordRuleError } from '../auth/credentialRules';
 
 export interface ChangePasswordFormProps {
     onSuccess: () => void;
@@ -39,8 +40,9 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSucces
         }
         if (!formData.newPassword) {
             newErrors.newPassword = 'New password is required';
-        } else if (formData.newPassword.length < 6) {
-            newErrors.newPassword = 'Password must be at least 6 characters';
+        } else {
+            const passwordError = passwordRuleError(formData.newPassword);
+            if (passwordError) newErrors.newPassword = passwordError;
         }
         if (formData.confirmPassword !== formData.newPassword) {
             newErrors.confirmPassword = 'Passwords do not match';
