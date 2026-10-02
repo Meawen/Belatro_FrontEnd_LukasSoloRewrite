@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useNavigationType, useParams } from 'react-router-dom'
 import { LobbyDetails } from './LobbyDetails'
 import { useLobby, useLobbies } from '../../hooks/useLobby'
 import { matchService } from '../../services/matchService'
@@ -47,9 +47,16 @@ async function withRealLobbyHook() {
 // all the client gets ({"error": "Internal Server Error", ...}).
 const lobbyGone = () => new ApiError({ status: 500, message: 'Internal Server Error' })
 
+// Shows how the lobby got here: REPLACE means Back from the game skips the lobby page.
 function GamePage() {
     const { gameId } = useParams()
-    return <div>game page {gameId}</div>
+    const navigationType = useNavigationType()
+    return (
+        <>
+            <div>game page {gameId}</div>
+            <div>navigation {navigationType}</div>
+        </>
+    )
 }
 
 function renderLobby() {
@@ -80,6 +87,7 @@ describe('LobbyDetails', () => {
         renderLobby()
         expect(await screen.findByText('game page m1')).toBeInTheDocument()
         expect(matchService.getMatchByLobbyId).toHaveBeenCalledWith('l1')
+        expect(screen.getByText('navigation REPLACE')).toBeInTheDocument()
     })
 
     test('the lobby closes before the match is stored: a 404 is retried', async () => {
@@ -89,8 +97,25 @@ describe('LobbyDetails', () => {
             .mockRejectedValueOnce(new ApiError({ status: 404, message: 'Not Found' }))
             .mockResolvedValueOnce({ id: 'm3' } as never)
         renderLobby()
+        await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument()
         await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
         expect(await screen.findByText('game page m3')).toBeInTheDocument()
+        expect(screen.getByText('navigation REPLACE')).toBeInTheDocument()
+    })
+
+    test('a match lookup that fails for another reason than "not yet" says so and keeps trying', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
+        mockLobby(lobby({ status: 'CLOSED', hostUser: bob }))
+        vi.mocked(matchService.getMatchByLobbyId)
+            .mockRejectedValueOnce(new ApiError({ status: 500, message: 'Internal Server Error' }))
+            .mockResolvedValueOnce({ id: 'm4' } as never)
+        renderLobby()
+        expect(await screen.findByRole('alert')).toHaveTextContent('Could not open the match: Internal Server Error')
+        expect(screen.getByRole('heading', { name: 'Friday' })).toBeInTheDocument()
+        await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+        expect(await screen.findByText('game page m4')).toBeInTheDocument()
+        expect(screen.getByText('navigation REPLACE')).toBeInTheDocument()
     })
 
     test('the host starts the match and goes straight to it', async () => {
@@ -99,6 +124,7 @@ describe('LobbyDetails', () => {
         renderLobby()
         await userEvent.setup().click(screen.getByRole('button', { name: /start match/i }))
         expect(await screen.findByText('game page m2')).toBeInTheDocument()
+        expect(screen.getByText('navigation REPLACE')).toBeInTheDocument()
     })
 
     test('a refused start shows the server message', async () => {
@@ -119,6 +145,20 @@ describe('LobbyDetails', () => {
         act(() => { vi.advanceTimersByTime(3000) })
         expect(refetch).toHaveBeenCalledTimes(2)
         expect(screen.getByText('Friday')).toBeInTheDocument()
+    })
+
+    test('a poll in flight keeps the lobby on screen: the spinner is for the first load only', async () => {
+        vi.useFakeTimers()
+        await withRealLobbyHook()
+        const getLobby = vi.spyOn(lobbyService, 'getLobby').mockResolvedValue(lobby({ teamBPlayers: [cy] }))
+        renderLobby()
+        await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+        expect(screen.getByRole('heading', { name: 'Friday' })).toBeInTheDocument()
+
+        getLobby.mockImplementation(() => new Promise<LobbyDTO>(() => {}))
+        await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+        expect(screen.getByRole('heading', { name: 'Friday' })).toBeInTheDocument()
+        expect(screen.queryByText('Loading lobby...')).not.toBeInTheDocument()
     })
 
     test('a failed poll keeps the last good lobby on screen and says so without blocking it', async () => {
@@ -147,6 +187,23 @@ describe('LobbyDetails', () => {
         renderLobby()
         await act(async () => { await vi.advanceTimersByTimeAsync(0) })
         expect(screen.getByRole('heading', { name: 'Error Loading Lobby' })).toBeInTheDocument()
+        expect(screen.getByText('Internal Server Error')).toBeInTheDocument()
         expect(screen.queryByRole('heading', { name: 'Friday' })).not.toBeInTheDocument()
+    })
+
+    test('a failed first load keeps its error card: nothing polls while there is no lobby', async () => {
+        vi.useFakeTimers()
+        await withRealLobbyHook()
+        const getLobby = vi.spyOn(lobbyService, 'getLobby').mockRejectedValue(lobbyGone())
+        renderLobby()
+        await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+        expect(screen.getByRole('heading', { name: 'Error Loading Lobby' })).toBeInTheDocument()
+
+        getLobby.mockImplementation(() => new Promise<LobbyDTO>(() => {}))
+        await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+        expect(screen.getByRole('heading', { name: 'Error Loading Lobby' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument()
+        expect(screen.queryByText('Loading lobby...')).not.toBeInTheDocument()
+        expect(getLobby).toHaveBeenCalledTimes(1)
     })
 })

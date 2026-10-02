@@ -6,6 +6,7 @@ import { useLobby } from '../../hooks/useLobby';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from "react-router-dom";
 import { matchService } from "../../services/matchService";
+import { ApiError } from '../../services/api';
 import { errorMessage } from '../../utils/errorMessage';
 
 export interface LobbyDetailsProps {
@@ -29,12 +30,16 @@ export const LobbyDetails: React.FC<LobbyDetailsProps> = ({ lobbyId }) => {
     const navigate = useNavigate();
     const [startError, setStartError] = useState<string | null>(null);
     const [pollError, setPollError] = useState<string | null>(null);
+    const [followError, setFollowError] = useState<string | null>(null);
+    const hasLobby = lobby != null;
 
     // A failed poll keeps the last good lobby on screen and only says so;
-    // the next successful poll clears the message.
+    // the next successful poll clears the message. Nothing polls before a lobby
+    // has loaded, so a failed first load keeps its error card and Try Again button.
     const refetchRef = useRef(refetch);
     refetchRef.current = refetch;
     useEffect(() => {
+        if (!hasLobby) return;
         const timer = window.setInterval(() => {
             refetchRef.current().then(
                 () => setPollError(null),
@@ -42,7 +47,7 @@ export const LobbyDetails: React.FC<LobbyDetailsProps> = ({ lobbyId }) => {
             );
         }, LOBBY_POLL_MS);
         return () => window.clearInterval(timer);
-    }, []);
+    }, [hasLobby]);
 
     const isMember = [
         ...(lobby?.teamAPlayers ?? []),
@@ -53,7 +58,10 @@ export const LobbyDetails: React.FC<LobbyDetailsProps> = ({ lobbyId }) => {
 
     // Once the host starts, the lobby closes and every member follows it into the
     // game. The lobby is saved CLOSED before its match exists, so a 404 means
-    // "not yet": try again after the next poll interval.
+    // "not yet": try again after the next poll interval. Any other failure is
+    // shown (in its own state, so a good lobby poll can't blink it away) and
+    // retried too. `replace`: Back from the game must not land on this page,
+    // which would follow straight back in.
     useEffect(() => {
         if (!lobbyClosed || !isMember) return;
         let cancelled = false;
@@ -61,10 +69,13 @@ export const LobbyDetails: React.FC<LobbyDetailsProps> = ({ lobbyId }) => {
         const follow = () => {
             matchService.getMatchByLobbyId(lobbyId)
                 .then((match) => {
-                    if (!cancelled && match?.id) navigate(`/game/${match.id}`);
+                    if (!cancelled && match?.id) navigate(`/game/${match.id}`, { replace: true });
                 })
-                .catch(() => {
-                    if (!cancelled) retry = window.setTimeout(follow, LOBBY_POLL_MS);
+                .catch((e) => {
+                    if (cancelled) return;
+                    const notYet = e instanceof ApiError && e.status === 404;
+                    setFollowError(notYet ? null : `Could not open the match: ${errorMessage(e, 'unknown error')}`);
+                    retry = window.setTimeout(follow, LOBBY_POLL_MS);
                 });
         };
         follow();
@@ -81,7 +92,7 @@ export const LobbyDetails: React.FC<LobbyDetailsProps> = ({ lobbyId }) => {
 
     // Only a failed first load replaces the page; a failed poll leaves the last lobby up.
     if (!lobby) {
-        const loadError = error ? (typeof error === 'string' ? error : 'Failed to load lobby') : 'Lobby not found';
+        const loadError = error ? errorMessage(error, 'Failed to load lobby') : 'Lobby not found';
 
         return (
             <div className="card bg-red-900/20 border-red-500/30">
@@ -127,7 +138,7 @@ export const LobbyDetails: React.FC<LobbyDetailsProps> = ({ lobbyId }) => {
         setStartError(null);
         try {
             const match = await startMatch();
-            if (match?.id) navigate(`/game/${match.id}`);
+            if (match?.id) navigate(`/game/${match.id}`, { replace: true });
         } catch (e) {
             setStartError(errorMessage(e, 'Failed to start match'));
         }
@@ -181,7 +192,7 @@ export const LobbyDetails: React.FC<LobbyDetailsProps> = ({ lobbyId }) => {
             </div>
 
             <ErrorAlert message={startError} />
-            <ErrorAlert message={pollError} />
+            <ErrorAlert message={pollError ?? followError} />
 
             {/* Start Match Requirements */}
             {isHost && !canStartMatch && (
