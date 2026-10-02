@@ -42,10 +42,9 @@ async function withRealLobbyHook() {
     vi.mocked(useLobby).mockImplementation(actual.useLobby)
 }
 
-// What apiClient raises for GET /lobbies/{id} once the lobby is gone: the backend's
-// "Lobby not found" RuntimeException is unmapped, so Spring's default 500 body is
-// all the client gets ({"error": "Internal Server Error", ...}).
-const lobbyGone = () => new ApiError({ status: 500, message: 'Internal Server Error' })
+// What apiClient raises for GET /lobbies/{id} once the lobby is gone: the backend maps its
+// ResourceNotFoundException("Lobby not found") to 404 {"error": "Lobby not found"}.
+const lobbyGone = () => new ApiError({ status: 404, message: 'Lobby not found' })
 
 // Shows how the lobby got here: REPLACE means Back from the game skips the lobby page.
 function GamePage() {
@@ -172,7 +171,7 @@ describe('LobbyDetails', () => {
         getLobby.mockRejectedValue(lobbyGone())
         await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
         expect(screen.getByRole('heading', { name: 'Friday' })).toBeInTheDocument()
-        expect(screen.getByRole('alert')).toHaveTextContent('Could not refresh the lobby: Internal Server Error')
+        expect(screen.getByRole('alert')).toHaveTextContent('Could not refresh the lobby: Lobby not found')
         expect(screen.queryByText('Error Loading Lobby')).not.toBeInTheDocument()
 
         getLobby.mockResolvedValue(lobby({ teamBPlayers: [cy] }))
@@ -187,7 +186,9 @@ describe('LobbyDetails', () => {
         renderLobby()
         await act(async () => { await vi.advanceTimersByTimeAsync(0) })
         expect(screen.getByRole('heading', { name: 'Error Loading Lobby' })).toBeInTheDocument()
-        expect(screen.getByText('Internal Server Error')).toBeInTheDocument()
+        // The server's text equals LobbyDetails' own no-error fallback, so this line alone does not
+        // prove the server message is shown; the heading above is what pins the error card.
+        expect(screen.getByText('Lobby not found')).toBeInTheDocument()
         expect(screen.queryByRole('heading', { name: 'Friday' })).not.toBeInTheDocument()
     })
 
