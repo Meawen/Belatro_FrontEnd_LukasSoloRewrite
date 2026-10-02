@@ -59,10 +59,9 @@ class ApiClient {
         };
 
         try {
+            // never the body or the headers: they carry passwords and the bearer token
             console.log(`API Request: ${config.method || 'GET'} ${url}`, {
-                headers: config.headers,
-                hasToken: !!this.getToken(),
-                body: config.body
+                hasToken: !!this.getToken()
             });
 
             const response = await fetch(url, config);
@@ -99,7 +98,8 @@ class ApiClient {
             }
 
             const data = await response.json();
-            console.log(`API Success:`, { url, data });
+            // not the data: login and signup responses carry the token
+            console.log(`API Success:`, { url });
             return data;
         } catch (error) {
             console.error('API Request Failed:', { url, error });

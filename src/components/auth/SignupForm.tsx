@@ -67,7 +67,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('Signup form submitted:', formData);
+        console.log('Signup form submitted:', { username: formData.username });
 
         if (!validateForm()) {
             console.log('Form validation failed:', errors);
@@ -77,8 +77,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({
         try {
             setErrors({}); // Clear any previous errors
             console.log('Attempting signup with:', {
-                username: formData.username,
-                email: formData.email
+                username: formData.username
             });
 
             const result = await signup({
@@ -88,7 +87,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({
                 password: formData.password
             });
 
-            console.log('Signup successful:', result);
+            console.log('Signup successful:', { username: result.user?.username });
             onSuccess?.();
         } catch (error) {
             console.error('Signup error:', error);

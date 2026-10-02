@@ -19,7 +19,9 @@ export function passwordRuleError(password: string): string | null {
     // code points, like the backend's codePointCount (an emoji is one character, not two)
     const tooShort = [...password].length < MIN_PASSWORD_LENGTH;
     const tooLong = new TextEncoder().encode(password).length > MAX_PASSWORD_BYTES;
-    return tooShort || tooLong ? PASSWORD_RULE_MESSAGE : null;
+    // the backend refuses a blank password (isBlank) with the same single message
+    const blank = password.trim() === '';
+    return tooShort || tooLong || blank ? PASSWORD_RULE_MESSAGE : null;
 }
 
 export function usernameRuleError(username: string): string | null {

@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { JSDOM } from 'jsdom'
 import { apiClient, ApiError } from './api'
+import { captureConsole } from '../test/captureConsole'
 
 function fakeResponse(status: number, body: unknown) {
     return {
@@ -55,5 +56,39 @@ describe('apiClient error handling', () => {
         await expect(apiClient.post('/user/me/password', { a: 1 }, { keepTokenOn401: true }))
             .rejects.toMatchObject({ status: 401, message: 'Invalid current password' })
         expect(localStorage.getItem('authToken')).toBe('tok-123')
+    })
+})
+
+describe('apiClient logging', () => {
+    const PASSWORD = 'Sup3r-Secret-pw!'
+    const NEW_PASSWORD = 'N3w-Secret-pw!'
+    const TOKEN = 'tok.en.value'
+
+    beforeEach(() => vi.stubGlobal('localStorage', jsdomStorage))
+    afterEach(() => { jsdomStorage.clear(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
+
+    test('a password-bearing request logs method and URL, but neither the passwords nor the bearer token', async () => {
+        localStorage.setItem('authToken', TOKEN)
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(204, null)))
+        const logs = captureConsole()
+        await apiClient.post('/user/me/password', { currentPassword: PASSWORD, newPassword: NEW_PASSWORD }, { keepTokenOn401: true })
+        expect(logs.leaked(PASSWORD, NEW_PASSWORD, TOKEN)).toEqual([])
+        expect(logs.text()).toMatch(/API Request: POST \S*\/user\/me\/password/)
+    })
+
+    test('a login logs neither the password nor the token in the response, and still returns the token', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(200, { token: TOKEN, user: { id: 'u1', username: 'ana' }, message: null })))
+        const logs = captureConsole()
+        await expect(apiClient.post('/api/auth/login', { username: 'ana', password: PASSWORD })).resolves.toMatchObject({ token: TOKEN })
+        expect(logs.leaked(PASSWORD, TOKEN)).toEqual([])
+    })
+
+    test('a refused password change logs neither the passwords nor the bearer token', async () => {
+        localStorage.setItem('authToken', TOKEN)
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(401, { error: 'Current password is incorrect' })))
+        const logs = captureConsole()
+        await expect(apiClient.post('/user/me/password', { currentPassword: PASSWORD, newPassword: NEW_PASSWORD }, { keepTokenOn401: true }))
+            .rejects.toMatchObject({ status: 401, message: 'Current password is incorrect' })
+        expect(logs.leaked(PASSWORD, NEW_PASSWORD, TOKEN)).toEqual([])
     })
 })

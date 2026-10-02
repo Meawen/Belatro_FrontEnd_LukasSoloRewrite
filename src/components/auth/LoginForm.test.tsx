@@ -1,8 +1,9 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { LoginForm } from './LoginForm'
+import { captureConsole } from '../../test/captureConsole'
 
 const auth = vi.hoisted(() => ({ login: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({
@@ -20,5 +21,36 @@ describe('LoginForm', () => {
         await user.type(screen.getByLabelText('Password'), 'long-enough-1')
         await user.click(screen.getByRole('button', { name: /sign in/i }))
         expect(auth.login).toHaveBeenCalledWith({ username: 'ana', password: 'long-enough-1' })
+    })
+})
+
+describe('LoginForm logging', () => {
+    const PASSWORD = 'Sup3r-Secret-pw!'
+    const TOKEN = 'tok.en.value'
+
+    afterEach(() => vi.restoreAllMocks())
+
+    test('a submitted login logs neither the password nor the returned token', async () => {
+        const user = userEvent.setup()
+        const onSuccess = vi.fn()
+        auth.login.mockResolvedValue({ token: TOKEN, user: { id: 'u1', username: 'ana' }, message: null })
+        const logs = captureConsole()
+        render(<MemoryRouter><LoginForm onSuccess={onSuccess} /></MemoryRouter>)
+        await user.type(screen.getByLabelText('Username'), 'ana')
+        await user.type(screen.getByLabelText('Password'), PASSWORD)
+        await user.click(screen.getByRole('button', { name: /sign in/i }))
+        await waitFor(() => expect(onSuccess).toHaveBeenCalled())
+        expect(logs.leaked(PASSWORD, TOKEN)).toEqual([])
+    })
+
+    test('a login refused by validation logs no password', async () => {
+        const user = userEvent.setup()
+        const logs = captureConsole()
+        render(<MemoryRouter><LoginForm onSuccess={vi.fn()} /></MemoryRouter>)
+        await user.type(screen.getByLabelText('Password'), PASSWORD)
+        await user.click(screen.getByRole('button', { name: /sign in/i }))
+        expect(screen.getByText('Username is required')).toBeInTheDocument()
+        expect(auth.login).not.toHaveBeenCalled()
+        expect(logs.leaked(PASSWORD)).toEqual([])
     })
 })

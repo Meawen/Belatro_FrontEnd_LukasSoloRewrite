@@ -17,6 +17,9 @@ describe('passwordRuleError (mirrors backend @ValidPassword)', () => {
         // 37 x "ä" is 37 characters but 74 bytes
         expect(passwordRuleError('ä'.repeat(37))).toBe(PASSWORD_RULE_MESSAGE)
     })
+    test('a password of only spaces is refused, like the backend refuses a blank one', () => {
+        expect(passwordRuleError('        ')).toBe(PASSWORD_RULE_MESSAGE)
+    })
     test('the message is the backend one, word for word', () => {
         expect(PASSWORD_RULE_MESSAGE).toBe('Password must be at least 8 characters and at most 72 bytes')
     })

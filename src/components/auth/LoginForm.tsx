@@ -47,7 +47,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('Login form submitted:', formData);
+        console.log('Login form submitted:', { username: formData.username });
 
         if (!validateForm()) {
             console.log('Form validation failed:', errors);
@@ -63,7 +63,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 password: formData.password
             });
 
-            console.log('Login successful:', result);
+            console.log('Login successful:', { username: result.user?.username });
             onSuccess?.();
         } catch (error) {
             console.error('Login error:', error);

@@ -106,12 +106,12 @@ export function useAuth() {
     }, []); // Empty dependency array - only run once
 
     const login = useCallback(async (credentials: LoginRequestDTO): Promise<JwtResponseDTO> => {
-        console.log('Login function called with:', credentials);
+        console.log('Login function called with:', { username: credentials.username });
         try {
             setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
             const response = await loginMutation.mutate(credentials);
-            console.log('Login response:', response);
+            console.log('Login response:', { user: response.user });
 
             // Store user data in localStorage
             if (response.user) {
@@ -140,12 +140,12 @@ export function useAuth() {
     }, [loginMutation]);
 
     const signup = useCallback(async (userData: SignupRequestDTO): Promise<JwtResponseDTO> => {
-        console.log('Signup function called with:', userData);
+        console.log('Signup function called with:', { username: userData.username });
         try {
             setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
             const response = await signupMutation.mutate(userData);
-            console.log('Signup response:', response);
+            console.log('Signup response:', { user: response.user });
 
             // Store user data in localStorage
             if (response.user) {
