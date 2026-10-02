@@ -153,16 +153,10 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
                 const client = new Client({
                     webSocketFactory: () => {
                         const base = optionsRef.current.wsPath || '/ws';
-                        const wsUrl = user?.username ? `${base}?user=${encodeURIComponent(user.username)}` : base;
-                        const sock = new SockJS(wsUrl);
-                        return sock;
+                        return new SockJS(base);
                     },
                     connectHeaders: (() => {
                         const headers: Record<string, string> = {};
-                        if (user?.username) {
-                            headers['X-Player-Name'] = user.username;
-                            headers['login'] = user.username;
-                        }
                         if (token) {
                             headers['Authorization'] = `Bearer ${token}`;
                             headers['auth-token'] = token;
