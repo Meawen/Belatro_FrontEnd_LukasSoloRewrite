@@ -1,13 +1,15 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Button, Loading, Input } from '../common';
+import { Button, Loading, Input, ErrorAlert } from '../common';
 import { useFriends } from '../../hooks/useFriends';
 import { useAuth } from '../../hooks/useAuth';
 import type { Friendship } from '../../types/friendship';
+import { errorMessage } from '../../utils/errorMessage';
 
 export const FriendsList: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'friends' | 'pending' | 'sent'>('friends');
     const [searchTerm, setSearchTerm] = useState('');
+    const [actionError, setActionError] = useState<string | null>(null);
 
     const { user: currentUser } = useAuth();
     const {
@@ -75,25 +77,31 @@ export const FriendsList: React.FC = () => {
     // Memoize handlers to prevent unnecessary re-renders
     const handleAccept = useCallback(async (friendshipId: string) => {
         try {
+            setActionError(null);
             await acceptFriendRequest(friendshipId);
         } catch (error) {
             console.error('Failed to accept friend request:', error);
+            setActionError(errorMessage(error, 'Failed to accept friend request'));
         }
     }, [acceptFriendRequest]);
 
     const handleReject = useCallback(async (friendshipId: string) => {
         try {
+            setActionError(null);
             await rejectFriendRequest(friendshipId);
         } catch (error) {
             console.error('Failed to reject friend request:', error);
+            setActionError(errorMessage(error, 'Failed to reject friend request'));
         }
     }, [rejectFriendRequest]);
 
     const handleCancel = useCallback(async (friendshipId: string) => {
         try {
+            setActionError(null);
             await cancelFriendRequest(friendshipId);
         } catch (error) {
             console.error('Failed to cancel friend request:', error);
+            setActionError(errorMessage(error, 'Failed to cancel friend request'));
         }
     }, [cancelFriendRequest]);
 
@@ -102,9 +110,11 @@ export const FriendsList: React.FC = () => {
         if (!confirmed) return;
 
         try {
+            setActionError(null);
             await removeFriend(friendshipId);
         } catch (error) {
             console.error('Failed to remove friend:', error);
+            setActionError(errorMessage(error, 'Failed to remove friend'));
         }
     }, [removeFriend]);
 
@@ -244,6 +254,8 @@ export const FriendsList: React.FC = () => {
                     Sent ({counts.sent})
                 </button>
             </div>
+
+            <ErrorAlert message={actionError} />
 
             {/* Search */}
             <div className="card">

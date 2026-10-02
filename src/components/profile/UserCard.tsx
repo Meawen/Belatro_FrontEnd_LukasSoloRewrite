@@ -1,8 +1,9 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import { Button } from '../common';
 import { useFriends } from '../../hooks/useFriends';
 import type { User } from '../../types/user';
 import type { Friendship } from '../../types/friendship';
+import { errorMessage } from '../../utils/errorMessage';
 
 export interface UserCardProps {
     user: User;
@@ -28,6 +29,7 @@ export const UserCard: React.FC<UserCardProps> = React.memo(({
         isCanceling,
         isRemoving
     } = useFriends(currentUser?.id || undefined);
+    const [actionError, setActionError] = useState<string | null>(null);
 
     // Memoize friendship status calculation
     const friendshipStatus = useMemo(() => {
@@ -52,14 +54,12 @@ export const UserCard: React.FC<UserCardProps> = React.memo(({
         if (!currentUser?.id || !user.id) return;
 
         try {
-            await sendFriendRequest({
-                fromUserId: currentUser.id,
-                toUserId: user.id,
-                status: 'PENDING'
-            });
+            setActionError(null);
+            await sendFriendRequest({ toUserId: user.id });
             onUpdate();
         } catch (error) {
             console.error('Failed to send friend request:', error);
+            setActionError(errorMessage(error, 'Failed to send friend request'));
         }
     }, [currentUser?.id, user.id, sendFriendRequest, onUpdate]);
 
@@ -67,10 +67,12 @@ export const UserCard: React.FC<UserCardProps> = React.memo(({
         if (!friendshipStatus.friendship?.id) return;
 
         try {
+            setActionError(null);
             await acceptFriendRequest(friendshipStatus.friendship.id);
             onUpdate();
         } catch (error) {
             console.error('Failed to accept friend request:', error);
+            setActionError(errorMessage(error, 'Failed to accept friend request'));
         }
     }, [friendshipStatus.friendship?.id, acceptFriendRequest, onUpdate]);
 
@@ -78,10 +80,12 @@ export const UserCard: React.FC<UserCardProps> = React.memo(({
         if (!friendshipStatus.friendship?.id) return;
 
         try {
+            setActionError(null);
             await rejectFriendRequest(friendshipStatus.friendship.id);
             onUpdate();
         } catch (error) {
             console.error('Failed to reject friend request:', error);
+            setActionError(errorMessage(error, 'Failed to reject friend request'));
         }
     }, [friendshipStatus.friendship?.id, rejectFriendRequest, onUpdate]);
 
@@ -89,10 +93,12 @@ export const UserCard: React.FC<UserCardProps> = React.memo(({
         if (!friendshipStatus.friendship?.id) return;
 
         try {
+            setActionError(null);
             await cancelFriendRequest(friendshipStatus.friendship.id);
             onUpdate();
         } catch (error) {
             console.error('Failed to cancel friend request:', error);
+            setActionError(errorMessage(error, 'Failed to cancel friend request'));
         }
     }, [friendshipStatus.friendship?.id, cancelFriendRequest, onUpdate]);
 
@@ -103,10 +109,12 @@ export const UserCard: React.FC<UserCardProps> = React.memo(({
         if (!confirmed) return;
 
         try {
+            setActionError(null);
             await removeFriend(friendshipStatus.friendship.id);
             onUpdate();
         } catch (error) {
             console.error('Failed to remove friend:', error);
+            setActionError(errorMessage(error, 'Failed to remove friend'));
         }
     }, [friendshipStatus.friendship?.id, user.username, removeFriend, onUpdate]);
 
@@ -241,6 +249,10 @@ export const UserCard: React.FC<UserCardProps> = React.memo(({
                     </Button>
                 ) : null}
             </div>
+
+            {actionError && (
+                <p role="alert" className="text-red-400 text-sm mt-2">{actionError}</p>
+            )}
         </div>
     );
 });
