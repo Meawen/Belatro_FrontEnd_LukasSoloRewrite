@@ -25,7 +25,7 @@ import { Button, Loading } from './components/common';
 
 // Hooks
 import { useAuth } from './hooks/useAuth';
-import {GameBoard} from "./components/game";
+import GamePageConnected from './components/game/GamePageConnected';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -465,7 +465,7 @@ function App() {
                             <ProtectedRoute>
                                 {/* Hide the main sidebar for the in-game view */}
                                 <AppLayout showSidebar={false}>
-                                    <GameBoard />  {/* Game page component connected via WebSocket */}
+                                    <GamePageConnected />  {/* Game page component connected via WebSocket */}
                                 </AppLayout>
                             </ProtectedRoute>
                         }

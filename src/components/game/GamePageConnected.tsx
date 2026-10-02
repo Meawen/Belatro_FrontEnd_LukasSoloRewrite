@@ -1,32 +1,43 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { useBelatroGame } from '../../hooks/useBelatroGame';           // domain hook from earlier step
-import { RealisticGameBoard } from '../../MockComponents/RealisticGameBoard';
-import type { Card } from '../../hooks/useGameWebSocket';
-
-// map backend → board UI
-type TrumpSuit = 'HERC' | 'KARO' | 'PIK' | 'TREF';
-const toSuit = (s: string) =>
-    s.trim().toUpperCase() as TrumpSuit;
-const toUiSuit = (s: TrumpSuit) =>
-    ({HERC:'Herc',KARO:'Karo',PIK:'Pik',TREF:'Tref'} as const)[s];
-const toRank = (r: string) => r.trim().toUpperCase();
+import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+import { useBelatroGame } from '../../hooks/useBelatroGame';
+import { Loading } from '../common';
+import { GameTable } from './GameTable';
 
 export default function GamePageConnected() {
     const { gameId = '' } = useParams();
-    const nav = useNavigate();
+    // useBelatroGame keeps its views in state and does not reset them when the id
+    // changes, so each game id gets its own mount: never the previous game's views.
+    return <GamePage key={gameId} gameId={gameId} />;
+}
 
-    const { publicView, yourTurn, hand, actions } = useBelatroGame(gameId, () => {
-        nav('/lobbies');
-    });
+function GamePage({ gameId }: { gameId: string }) {
+    const navigate = useNavigate();
+    const { user } = useAuth();
+
+    const { publicView, privateView, isConnected, connectionError, error, actions } =
+        useBelatroGame(gameId, () => navigate('/lobbies'));
+
+    if (!publicView) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-96 gap-4">
+                <Loading size="large" text={isConnected ? 'Loading game state...' : 'Connecting to game...'} />
+                {connectionError && <p role="alert" className="text-red-300 text-sm">{connectionError}</p>}
+            </div>
+        );
+    }
 
     return (
-        <RealisticGameBoard
-            onBidSuit={(uiSuit: 'Herc'|'Karo'|'Pik'|'Tref') => actions.bidTrump(toSuit(uiSuit))}
-            onPassBid={() => actions.passBid()}
-            onPlayCard={(card: Card) => actions.play({ suit: toSuit(card.suit), rank: toRank(card.rank) })}
-            onChallenge={() => actions.challenge()}
+        <GameTable
             publicView={publicView}
-            privateView={{ hand, yourTurn }}
+            privateView={privateView}
+            me={user?.username ?? ''}
+            error={error}
+            onPass={actions.passBid}
+            onCallTrump={actions.bidTrump}
+            onPlayCard={actions.play}
+            onChallenge={actions.challenge}
+            onLeave={() => navigate('/lobbies')}
         />
     );
 }
