@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { LoginForm } from './LoginForm';
 import { SignupForm } from './SignupForm';
 import { useAuth } from '../../hooks/useAuth';
+import { ErrorAlert } from '../common';
+import { SESSION_ENDED_MESSAGE } from '../../services/gameSocket';
 
 export type AuthMode = 'login' | 'signup';
 
@@ -21,6 +23,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     const [isProcessing, setIsProcessing] = useState(false);
     const navigate = useNavigate();
     const { isAuthenticated } = useAuth();
+    // services/gameSocket sends a tab here after the server closed its socket for good
+    const [searchParams] = useSearchParams();
+    const sessionEnded = searchParams.get('reason') === 'session-ended';
 
     // Redirect if already authenticated (but not during processing)
     React.useEffect(() => {
@@ -57,6 +62,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     <h1 className="text-3xl font-bold text-white mb-2">Belatro</h1>
                     <p className="text-slate-400">The Ultimate Card Game Experience</p>
                 </div>
+
+                <ErrorAlert message={sessionEnded ? SESSION_ENDED_MESSAGE : null} className="mb-4" />
 
                 {/* Auth Forms */}
                 {mode === 'login' ? (

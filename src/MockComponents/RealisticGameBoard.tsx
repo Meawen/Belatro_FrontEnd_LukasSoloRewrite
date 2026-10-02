@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { gsap } from 'gsap';
 import { useCards } from '../hooks';
-import type { Card , PublicGameView} from '../hooks/useGameWebSocket';
+import type { Card } from '../hooks/useGameWebSocket';
+import type { PublicGameView } from '../types/game';
 import { cardService } from '../services';
 
 
@@ -95,7 +96,9 @@ export const RealisticGameBoard: React.FC<LiveHooks> = (props) => {
     const pub = props.publicView as (PublicGameView | undefined);
     const teamAScore = pub?.teamAScore ?? 0;
     const teamBScore = pub?.teamBScore ?? 0;
-    const currentTrickPlays = pub?.currentTrick?.plays ?? [];
+    // The wire trick maps player id -> card; this board draws { card: { suit, rank } } entries.
+    const currentTrickPlays = Object.entries(pub?.currentTrick?.plays ?? {})
+        .map(([playerId, card]) => ({ playerId, card: { suit: card.boja, rank: card.rank } }));
     const { getCardImage, getCardBackImage } = useCards();
 
 
