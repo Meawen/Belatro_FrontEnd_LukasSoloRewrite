@@ -38,6 +38,7 @@ const CONFIRM_EMAIL = process.env.E2E_CONFIRM_EMAIL === '1';
 const ARTIFACTS = process.env.E2E_ARTIFACTS ?? join(tmpdir(), 'belatro-e2e');
 const RESTART_CMD = process.env.E2E_RESTART_CMD ?? '';
 const RECONNECT_BUDGET_MS = 30000;
+const COMMAND_TIMEOUT_MS = 90000;
 const PASSWORD = 'e2e-password-123';
 const RUN = Date.now().toString(36).slice(-5);
 const PLAYERS = [1, 2, 3, 4].map((n) => `e2e${RUN}p${n}`);
@@ -200,8 +201,13 @@ async function playGame(pages, afterTableUp) {
             const before = await bidCount(page);
             const choice = uiBids.length === 0 ? 'Pass' : 'Call Herc';
             await page.getByRole('button', { name: choice, exact: true }).click();
-            await waitUntil(async () => (await bidCount(page)) > before || (await phaseOf(page)) !== 'BIDDING',
-                5000, `${PLAYERS[i]}'s ${choice} is registered`);
+            await waitUntil(async () => {
+                if ((await bidCount(page)) > before) return true;
+                const phase = await phaseOf(page);
+                // a vanished table is a failure, not a registered bid
+                if (phase === null) throw new Error(`${PLAYERS[i]}'s table is gone after clicking ${choice}`);
+                return phase !== 'BIDDING';
+            }, 5000, `${PLAYERS[i]}'s ${choice} is registered`);
             uiBids.push(`${PLAYERS[i]}: ${choice}`);
             break;
         }
@@ -210,6 +216,18 @@ async function playGame(pages, afterTableUp) {
 
     await waitUntil(async () => (await Promise.all(pages.map(handSize))).every((n) => n === 8),
         15000, 'every seat holds 8 cards after the trump call');
+
+    // Every bid on the table must be one of our clicks: a turn-timer auto-pass for a seat
+    // whose bid controls never showed would add an entry no click produced.
+    if (uiBids.length !== 2 || !uiBids[0].endsWith(': Pass') || !uiBids[1].endsWith(': Call Herc')) {
+        throw new Error(`expected the UI bids Pass then Call Herc, made ${JSON.stringify(uiBids)}`);
+    }
+    const bidsShown = await Promise.all(pages.map(bidCount));
+    if (!bidsShown.every((n) => n === uiBids.length)) {
+        throw new Error(`seats show ${bidsShown.join(',')} bids, expected only the ${uiBids.length} made in the UI`);
+    }
+    const trumps = await Promise.all(pages.map((page) => page.getByTestId('trump').textContent({ timeout: 1000 }).catch(() => null)));
+    if (!trumps.every((t) => t === 'Herc')) throw new Error(`seats show trump ${trumps.join(',')}, expected Herc`);
 
     let played = 0;
     while (played < TARGET_PLAYS) {
@@ -229,10 +247,18 @@ async function playGame(pages, afterTableUp) {
         for (let i = 0; i < before && !accepted; i++) {
             const card = cards.nth(i);
             if (await card.isDisabled()) continue;
+            const id = await card.getAttribute('data-card');
             await card.click();
-            // the backend ignores an illegal card without an error frame: try the next one
-            accepted = await waitUntil(async () => (await handSize(page)) < before, 2500, 'card accepted')
-                .then(() => true, () => false);
+            // A play counts only when the clicked card left the hand (a turn-timer auto-play
+            // shrinks it too). The backend refuses an illegal card on /user/queue/errors and
+            // keeps it in the hand: that wait times out, so try the next card. Any other
+            // error (page closed, locator failure) is the real cause and fails the run.
+            const stillInHand = page.locator(`[data-testid="hand-card"][data-card="${id}"]`);
+            accepted = await waitUntil(async () => (await stillInHand.count()) === 0, 2500, `${id} left the hand`)
+                .then(() => true, (error) => {
+                    if (error.message.startsWith('timed out after')) return false;
+                    throw error;
+                });
         }
         if (!accepted) throw new Error('no card in the hand was accepted');
         played += 1;
@@ -249,19 +275,34 @@ function runCommand(command) {
     return new Promise((resolve, reject) => {
         // stdout carries the JSON summary: the command's output goes to stderr
         const child = spawn('sh', ['-c', command], { stdio: ['ignore', 2, 2] });
-        child.on('error', reject);
-        child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`"${command}" exited with ${code}`))));
+        const timer = setTimeout(() => {
+            child.kill('SIGKILL');
+            reject(new Error(`"${command}" did not finish within ${COMMAND_TIMEOUT_MS} ms (killed)`));
+        }, COMMAND_TIMEOUT_MS);
+        child.on('error', (error) => {
+            clearTimeout(timer);
+            reject(error);
+        });
+        child.on('exit', (code) => {
+            clearTimeout(timer);
+            if (code === 0) resolve();
+            else reject(new Error(`"${command}" exited with ${code}`));
+        });
     });
 }
 
 // Restarts the backend under the open table. Each tab must reconnect by itself
 // (gameSocket retries after 5, 10 and 20 s) on exactly one new socket and get
 // its game state again within RECONNECT_BUDGET_MS of the backend being back.
-async function restartBackend(sockets) {
+// Fills `report` as it goes, so a failure can print how far the restart got.
+async function restartBackend(sockets, report) {
     const before = sockets.map((list) => list.length);
     const restartAt = Date.now();
+    report.step = 'running E2E_RESTART_CMD';
     await runCommand(RESTART_CMD);
     const upAt = Date.now();
+    report.backendDownMs = upAt - restartAt;
+    report.step = 'waiting for every tab to reconnect';
     const fresh = () => sockets.map((list, i) => list.slice(before[i]));
     await waitUntil(() => fresh().every((list) => list.some((socket) => socket.firstStateAt !== null)),
         RECONNECT_BUDGET_MS, 'every tab reconnects and gets its game state after the backend restart');
@@ -270,15 +311,23 @@ async function restartBackend(sockets) {
     if (!counts.every((n) => n === 1)) {
         throw new Error(`after the restart the tabs opened ${counts.join(',')} STOMP sockets, expected 1 each`);
     }
-    return {
-        backendDownMs: upAt - restartAt,
+    delete report.step;
+    Object.assign(report, {
         oldSocketClosedAfterMs: sockets.map((list, i) => list[before[i] - 1].closedAt - restartAt),
         reconnectedAfterBackendUpMs: reconnected.map(([socket]) => socket.connectedAt - upAt),
         reconnectedAfterCloseMs: reconnected.map(([socket], i) => socket.connectedAt - sockets[i][before[i] - 1].closedAt),
         stateBackAfterBackendUpMs: reconnected.map(([socket]) => socket.firstStateAt - upAt),
         sockets: counts,
-    };
+    });
 }
+
+// What the game sockets did so far, for a failure report: flags only, no URLs or frames.
+const socketTrace = (sockets) => sockets.map((list) => list.map((socket) => ({
+    connected: socket.connectedAt !== null,
+    closed: socket.closedAt !== null,
+    gotState: socket.firstStateAt !== null,
+    refreshesBeforeState: socket.refreshesBeforeState,
+})));
 
 async function main() {
     mkdirSync(ARTIFACTS, { recursive: true });
@@ -287,6 +336,15 @@ async function main() {
     const contexts = await Promise.all(PLAYERS.map(() => browser.newContext()));
     const pages = await Promise.all(contexts.map((context) => context.newPage()));
     const sockets = pages.map((page, i) => watch(page, PLAYERS[i], leaks));
+    let msToGame = null;
+    let restart = null;
+    // how each seat reached its table; refreshesBeforeState > 1 means the snapshot retry was needed
+    const followOf = () => msToGame && pages.map((_, i) => ({
+        player: PLAYERS[i],
+        via: i === 0 ? 'start response' : 'lobby poll',
+        msToGame: msToGame[i],
+        refreshesBeforeState: sockets[i][0]?.refreshesBeforeState ?? null,
+    }));
     try {
         for (const [i, page] of pages.entries()) {
             await signUp(page, PLAYERS[i]);
@@ -294,16 +352,13 @@ async function main() {
         }
         for (const [i, page] of pages.entries()) await checkPlayPage(page, sockets[i], PLAYERS[i]);
         sockets.forEach((list) => { list.length = 0; });
-        const msToGame = await formLobby(pages);
-        let restart = null;
-        const result = await playGame(pages, RESTART_CMD ? async () => { restart = await restartBackend(sockets); } : null);
-        // how each seat reached its table; refreshesBeforeState > 1 means the snapshot retry was needed
-        const follow = pages.map((_, i) => ({
-            player: PLAYERS[i],
-            via: i === 0 ? 'start response' : 'lobby poll',
-            msToGame: msToGame[i],
-            refreshesBeforeState: sockets[i][0]?.refreshesBeforeState ?? null,
-        }));
+        msToGame = await formLobby(pages);
+        const afterTableUp = RESTART_CMD ? () => {
+            restart = {};
+            return restartBackend(sockets, restart);
+        } : null;
+        const result = await playGame(pages, afterTableUp);
+        const follow = followOf();
         const gameSockets = sockets.map((list, i) => list.length - (restart ? restart.sockets[i] : 0));
         if (!gameSockets.every((n) => n === 1)) {
             throw new Error(`game pages opened ${gameSockets.join(',')} STOMP sockets, expected 1 each`);
@@ -314,6 +369,8 @@ async function main() {
         await Promise.all(pages.map((page, i) =>
             page.screenshot({ path: join(ARTIFACTS, `${PLAYERS[i]}.png`), fullPage: true }).catch(() => undefined)));
         console.error(`FAILED: ${error.message} (screenshots in ${ARTIFACTS})`);
+        // what was observed up to the failure (no URLs or frames: nothing that can carry a token)
+        console.error(JSON.stringify({ ok: false, players: PLAYERS, follow: followOf(), restart, sockets: socketTrace(sockets) }, null, 2));
         process.exitCode = 1;
     } finally {
         await browser.close();
