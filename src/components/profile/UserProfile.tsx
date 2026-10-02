@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ChangePasswordForm } from './ChangePasswordForm';
 import { ProfileStats } from './ProfileStats';
 import { Button, Loading, Modal } from '../common';
-import { useUser } from '../../hooks/useUser';
+import { useUser, useMe } from '../../hooks/useUser';
 import { useAuth } from '../../hooks/useAuth';
 
 export interface UserProfileProps {
@@ -25,6 +25,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
     console.log('UserProfile - hook result:', { displayUser, isLoading, error });
 
     const isOwnProfile = !userId || userId === currentUser?.id;
+    const { data: me } = useMe(isOwnProfile);
 
     // If no target user ID, show authentication error
     if (!targetUserId) {
@@ -140,7 +141,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                         </div>
 
                         {/* Stats Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             <div className="bg-emerald-800/50 rounded-lg p-3">
                                 <div className="flex items-center gap-2 mb-1">
                                     <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,9 +164,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                                 <div className="text-2xl font-bold text-white">
                                     {displayUser.level ?? '1'}
                                 </div>
-                                <div className="text-xs text-emerald-400">
-                                    {displayUser.expPoints || 0} XP
-                                </div>
                             </div>
 
                             <div className="bg-emerald-800/50 rounded-lg p-3">
@@ -179,32 +177,17 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                                     {displayUser.gamesPlayed ?? '0'}
                                 </div>
                             </div>
-
-                            <div className="bg-emerald-800/50 rounded-lg p-3">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <span className="text-emerald-300 text-sm font-medium">Last Seen</span>
-                                </div>
-                                <div className="text-sm text-white">
-                                    {displayUser.lastLogin
-                                        ? new Date(displayUser.lastLogin).toLocaleDateString()
-                                        : 'Never'
-                                    }
-                                </div>
-                            </div>
                         </div>
 
                         {/* Roles */}
-                        {displayUser.roles && displayUser.roles.length > 0 && (
+                        {me?.roles && me.roles.length > 0 && (
                             <div className="flex items-center gap-2 mt-4">
                                 <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                                 </svg>
                                 <span className="text-emerald-400 text-sm font-medium mr-2">Roles:</span>
                                 <div className="flex gap-2">
-                                    {displayUser.roles.map((role, index) => (
+                                    {me.roles.map((role, index) => (
                                         <span key={index} className="px-2 py-1 bg-amber-600/20 text-amber-400 text-xs rounded-full font-medium">
                                             {typeof role === 'string' ? role.replace('ROLE_', '') : role}
                                         </span>
@@ -235,7 +218,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
 
             {/* Tab Content */}
             {activeTab === 'stats' && (
-                <ProfileStats user={displayUser} isOwnProfile={isOwnProfile} />
+                <ProfileStats user={displayUser} me={me ?? null} />
             )}
 
             {/* Change Password Modal */}
