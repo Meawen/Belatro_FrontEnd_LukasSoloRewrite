@@ -20,6 +20,8 @@ const ADD_OR_CHANGE = 'Add or change your email address';
 /** Re-sends the confirmation link for the pending (or legacy unconfirmed) address. */
 export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> = ({ onChangeEmail, onNothingToConfirm }) => {
     const [message, setMessage] = useState<string | null>(null);
+    // the line's colour follows the outcome: a sent link reads as success, anything else as failure
+    const [failed, setFailed] = useState(false);
     const [hint, setHint] = useState<string | null>(null);
     // 409: the address on file can never be confirmed (or there is none). Another resend would
     // answer the same, so the button gives way to the prompt for a new address.
@@ -35,10 +37,12 @@ export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> =
         setHint(null);
         try {
             await resend.mutate();
+            setFailed(false);
             // no promise of a mail: the address may belong to another account by now
             setMessage('If the address can still be confirmed, a new link is on its way.');
         } catch (error) {
             const status = error instanceof ApiError ? error.status : 0;
+            setFailed(true);
             setMessage(isNetworkOrServerFailure(status) ? 'We could not send the email. Try again.' : errorMessage(error, 'Could not send the email'));
             if (status === 409) {
                 setNothingToConfirm(true);
@@ -80,7 +84,7 @@ export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> =
             >
                 Resend confirmation email
             </Button>
-            {message && <span role="status" className="text-sm text-emerald-200">{message}</span>}
+            {message && <span role="status" className={`text-sm ${failed ? 'text-red-300' : 'text-emerald-200'}`}>{message}</span>}
             {hint && <span className="text-sm text-slate-400">{hint}</span>}
         </span>
     );

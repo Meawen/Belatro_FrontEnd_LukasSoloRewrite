@@ -72,6 +72,23 @@ describe('ResendConfirmationButton', () => {
         expect(screen.queryByText(failure.message)).not.toBeInTheDocument()
     })
 
+    test('a failure reads in red and a sent link in green, both as the same status line', async () => {
+        vi.mocked(userService.resendEmailConfirmation)
+            .mockRejectedValueOnce(new ApiError({ status: 429, message: 'Too many requests, try again later' }))
+            .mockResolvedValueOnce(undefined)
+        render(<ResendConfirmationButton />)
+        await clickResend()
+        const failure = await screen.findByRole('status')
+        expect(failure).toHaveTextContent('Too many requests, try again later')
+        expect(failure).toHaveClass('text-red-300')
+        expect(failure).not.toHaveClass('text-emerald-200')
+        await clickResend()
+        const sent = await screen.findByText('If the address can still be confirmed, a new link is on its way.')
+        expect(sent).toHaveAttribute('role', 'status')
+        expect(sent).toHaveClass('text-emerald-200')
+        expect(sent).not.toHaveClass('text-red-300')
+    })
+
     test('two rapid clicks send one request', () => {
         vi.mocked(userService.resendEmailConfirmation).mockReturnValue(new Promise(() => {}))
         render(<ResendConfirmationButton />)
