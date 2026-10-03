@@ -29,12 +29,21 @@ export function useUser(userId?: string) {
     };
 }
 
-export function useAllUsers() {
-    const apiFunction = useMemo(() => () => userService.getAllUsers(), []);
+/** Page size of the players list; the backend clamps it to 1..100. */
+export const USERS_PAGE_SIZE = 20;
 
+export function useUsersPage(page: number, q: string) {
+    const apiFunction = useMemo(
+        () => () => userService.getUsersPage({ page, size: USERS_PAGE_SIZE, q }),
+        [page, q]
+    );
+
+    // staleTime 0: useApi caches per hook instance, not per page, so a cached
+    // page 0 would otherwise be served for page 1.
     return useApi(apiFunction, {
-        staleTime: 180000, // Cache for 3 minutes - leaderboard doesn't need constant updates
-        immediate: true
+        immediate: true,
+        dependencies: [page, q],
+        staleTime: 0,
     });
 }
 

@@ -1,25 +1,27 @@
 import React from 'react';
 import { Loading } from '../common';
-import { useAllUsers } from '../../hooks/useUser';
+import { useAllMatches } from '../../hooks/useMatch';
 import { useLobbies } from '../../hooks/useLobby';
 import { useAdmin } from '../../hooks/useAdmin';
 import type { UserDto } from '../../types/user';
 
 export const AdminStats: React.FC = () => {
-    const { data: allUsers, isLoading: allUsersLoading } = useAllUsers();
+    const { matches, isLoading: matchesLoading } = useAllMatches();
     const { users: adminUsers, isLoading: adminUsersLoading } = useAdmin();
     const { lobbies, isLoading: lobbiesLoading } = useLobbies();
 
-    if (allUsersLoading || adminUsersLoading || lobbiesLoading) {
+    if (matchesLoading || adminUsersLoading || lobbiesLoading) {
         return <Loading size="medium" text="Loading statistics..." />;
     }
 
-    // Use allUsers for game stats, adminUsers for admin-specific stats
+    // matches for game stats, adminUsers for admin-specific stats
     const totalUsers = adminUsers?.length || 0;
 
     const pendingDeletions = adminUsers?.filter((user: UserDto) => user.deletionRequested).length || 0;
     const totalLobbies = Array.isArray(lobbies) ? lobbies.length : 0;
-    const totalMatches = allUsers?.reduce((sum, user) => sum + (user.gamesPlayed || 0), 0) || 0;
+    // Count the matches themselves: summing gamesPlayed over users counted each match four
+    // times, and /user/findAll is paged now.
+    const totalMatches = Array.isArray(matches) ? matches.length : 0;
 
     const stats = [
         {

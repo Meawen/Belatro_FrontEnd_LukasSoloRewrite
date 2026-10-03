@@ -9,6 +9,7 @@ import type {
     PlayerMatchHistoryDTO,
     PlayerMatchSummaryDTO,
     PaginationParams,
+    Page,
 } from '../types';
 
 export const userService = {
@@ -46,8 +47,13 @@ export const userService = {
         await apiClient.post<void>('/user/me/email/resend');
     },
 
-    async getAllUsers(): Promise<User[]> {
-        return apiClient.get<User[]>('/user/findAll');
+    // The server pages, sorts by username and filters on q (case-insensitive substring).
+    // It answers 400 for a NUL in q, so NUL characters are dropped before sending.
+    async getUsersPage(params: { page: number; size: number; q?: string }): Promise<Page<User>> {
+        const query = new URLSearchParams({ page: String(params.page), size: String(params.size) });
+        const q = params.q?.replace(/\0/g, '');
+        if (q) query.set('q', q);
+        return apiClient.get<Page<User>>(`/user/findAll?${query.toString()}`);
     },
 
     async getUserHistory(

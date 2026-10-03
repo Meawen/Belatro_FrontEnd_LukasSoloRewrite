@@ -77,6 +77,27 @@ describe('userService hardened contract', () => {
         expect((userService as Record<string, unknown>).updateUser).toBeUndefined()
         expect((userService as Record<string, unknown>).deleteUser).toBeUndefined()
     })
+
+    test('getUsersPage asks the server for one page, with the search term only when given', async () => {
+        const get = vi.spyOn(apiClient, 'get').mockResolvedValue({ content: [] })
+        await userService.getUsersPage({ page: 2, size: 20, q: 'ana b' })
+        expect(get).toHaveBeenCalledWith('/user/findAll?page=2&size=20&q=ana+b')
+        await userService.getUsersPage({ page: 0, size: 20, q: '' })
+        expect(get).toHaveBeenLastCalledWith('/user/findAll?page=0&size=20')
+    })
+
+    test('the unpaged list call is gone', () => {
+        expect((userService as Record<string, unknown>).getAllUsers).toBeUndefined()
+    })
+
+    // The server answers 400 "Search text may not contain a NUL character" for a NUL in q.
+    test('getUsersPage strips NUL characters from the search term before sending it', async () => {
+        const get = vi.spyOn(apiClient, 'get').mockResolvedValue({ content: [] })
+        await userService.getUsersPage({ page: 0, size: 20, q: 'a\0b' })
+        expect(get).toHaveBeenCalledWith('/user/findAll?page=0&size=20&q=ab')
+        await userService.getUsersPage({ page: 0, size: 20, q: '\0' })
+        expect(get).toHaveBeenLastCalledWith('/user/findAll?page=0&size=20')
+    })
 })
 
 // The server closes the user's sockets with 1008 at its first session bump, before the
