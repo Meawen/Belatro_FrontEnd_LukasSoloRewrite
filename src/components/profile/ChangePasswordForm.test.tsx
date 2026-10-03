@@ -64,4 +64,16 @@ describe('ChangePasswordForm', () => {
         expect(await screen.findByText('Current password is incorrect')).toBeInTheDocument()
         expect(onSuccess).not.toHaveBeenCalled()
     })
+
+    test('a 401 for a dead session shows the server message, not "incorrect password"', async () => {
+        const user = userEvent.setup()
+        changePassword.mockRejectedValue(new ApiError({ message: 'Session expired, please sign in again', status: 401, invalidToken: true }))
+        setup()
+        await user.type(screen.getByLabelText(/current password/i), 'whatever-1')
+        await user.type(screen.getByLabelText(/^new password/i), 'new-secret-1')
+        await user.type(screen.getByLabelText(/confirm new password/i), 'new-secret-1')
+        await user.click(screen.getByRole('button', { name: /change password/i }))
+        expect(await screen.findByText('Session expired, please sign in again')).toBeInTheDocument()
+        expect(screen.queryByText('Current password is incorrect')).not.toBeInTheDocument()
+    })
 })

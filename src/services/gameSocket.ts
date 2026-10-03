@@ -88,6 +88,9 @@ export function createGameSocket(
     let reconnectAttempts = 0;
     let releaseTimer: ReturnType<typeof setTimeout> | null = null;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    // Set while this tab's password change is in flight (holdSessionEnd); a 1008 meanwhile
+    // only records the token its socket ran on, and is decided once the change settles.
+    let pendingChange: { revokedToken: string | null } | null = null;
 
     const setState = (next: Partial<GameSocketState>) => {
         state = { ...state, ...next };
@@ -133,16 +136,12 @@ export function createGameSocket(
                 routes.forEach((route) => { route.stomp = null; });
                 setState({ isConnected: false, isConnecting: false });
                 if (code === CLOSE_POLICY_VIOLATION) {
-                    // The server revoked the token this socket ran on (logout, password change,
-                    // expiry). A different token in storage means the tab's session went on (the
-                    // password was changed in another tab): carry on with it. Otherwise it is over.
-                    const current = getToken();
-                    if (current && current !== token) {
-                        if (holders > 0) open();
+                    // This tab's own password change: its 200 with the new token is still to come
+                    if (pendingChange) {
+                        pendingChange.revokedToken = token;
                         return;
                     }
-                    setState({ error: SESSION_ENDED_MESSAGE });
-                    endSession();
+                    tokenRevoked(token);
                     return;
                 }
                 // 1000/1001 are retried too: the server sends 1001 when it stops (deploy) and SockJS
@@ -163,6 +162,19 @@ export function createGameSocket(
         client = created;
         setState({ isConnecting: true, error: null });
         created.activate();
+    };
+
+    const tokenRevoked = (token: string) => {
+        // The server revoked the token this socket ran on (logout, password change,
+        // expiry). A different token in storage means the tab's session went on (the
+        // password was changed in another tab): carry on with it. Otherwise it is over.
+        const current = getToken();
+        if (current && current !== token) {
+            if (holders > 0) open();
+            return;
+        }
+        setState({ error: SESSION_ENDED_MESSAGE });
+        endSession();
     };
 
     const close = () => {
@@ -234,6 +246,30 @@ export function createGameSocket(
             reconnectAttempts = 0;
             close();
             if (holders > 0) open();
+        },
+
+        /**
+         * Call before sending a password change, and call the returned function once it has
+         * settled (after storing the new token). The server closes this user's sockets with
+         * 1008 before its 200 brings that token, so until then a 1008 does not sign the tab
+         * out; afterwards it is decided as usual: carry on if a new token is stored, else end.
+         */
+        holdSessionEnd(): () => void {
+            const change: { revokedToken: string | null } = { revokedToken: null };
+            pendingChange = change;
+            return () => {
+                if (pendingChange !== change) return;
+                pendingChange = null;
+                if (change.revokedToken !== null) tokenRevoked(change.revokedToken);
+            };
+        },
+
+        /**
+         * Close now, whoever holds it. Logout calls it before it posts: the server closes
+         * the socket with 1008 as it logs the token out, which would read as "session ended".
+         */
+        disconnect(): void {
+            close();
         },
 
         getState: (): GameSocketState => state,

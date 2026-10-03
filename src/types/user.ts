@@ -21,9 +21,18 @@ export interface ChangePasswordRequest {
 export interface UserDto {
     id: string | null;
     username: string | null;
+    /** The confirmed (or legacy, unconfirmed) address; null when the account has none. */
     email: string | null;
+    /** An address waiting for its confirmation link (signup or change of address). */
+    pendingEmail: string | null;
+    emailVerified: boolean;
     roles: Role[] | null;
     deletionRequested: boolean | null;
+}
+
+export interface ChangeEmailRequest {
+    newEmail: string;
+    currentPassword: string;
 }
 
 export interface PlayerMatchSummaryDTO {

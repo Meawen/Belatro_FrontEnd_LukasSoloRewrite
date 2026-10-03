@@ -10,7 +10,15 @@ function fakeResponse(status: number, body: unknown) {
         statusText: `status-${status}`,
         headers: { get: () => null },
         json: () => Promise.resolve(body),
+        text: () => Promise.resolve(body == null ? '' : JSON.stringify(body)),
     } as unknown as Response
+}
+
+// What the backend sends for a token it refuses (JwtAuthenticationFilter).
+const SESSION_EXPIRED = { error: 'Session expired, please sign in again' }
+
+function withHeader(response: Response, header: string, value: string) {
+    return { ...response, headers: { get: (name: string) => (name === header ? value : null) } } as unknown as Response
 }
 
 // Node 26 defines a `localStorage` global that stays undefined without
@@ -55,6 +63,47 @@ describe('apiClient error handling', () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(401, { error: 'Invalid current password' })))
         await expect(apiClient.post('/user/me/password', { a: 1 }, { keepTokenOn401: true }))
             .rejects.toMatchObject({ status: 401, message: 'Invalid current password' })
+        expect(localStorage.getItem('authToken')).toBe('tok-123')
+    })
+
+    test('an empty 202 resolves to an empty object', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            status: 202,
+            statusText: 'Accepted',
+            headers: { get: () => null },
+            text: () => Promise.resolve(''),
+            json: () => Promise.reject(new SyntaxError('Unexpected end of JSON input')),
+        } as unknown as Response))
+        await expect(apiClient.post('/api/auth/forgot-password', { email: 'ana@example.com' })).resolves.toEqual({})
+    })
+
+    test('a 401 that names the token ends the session even when the caller keeps the token on 401', async () => {
+        const response = withHeader(fakeResponse(401, SESSION_EXPIRED), 'WWW-Authenticate', 'Bearer error="invalid_token"')
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response))
+        await expect(apiClient.post('/user/me/password', {}, { keepTokenOn401: true }))
+            .rejects.toMatchObject({ status: 401, invalidToken: true, message: 'Session expired, please sign in again' })
+        expect(localStorage.getItem('authToken')).toBeNull()
+    })
+
+    test('a dead session is recognised by its body when CORS hides WWW-Authenticate', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(401, SESSION_EXPIRED)))
+        await expect(apiClient.post('/user/me/email', {}, { keepTokenOn401: true }))
+            .rejects.toMatchObject({ status: 401, invalidToken: true })
+        expect(localStorage.getItem('authToken')).toBeNull()
+    })
+
+    test('a wrong current password is a 401 but not a dead session: the token stays', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(401, { error: 'Current password is incorrect' })))
+        await expect(apiClient.post('/user/me/password', {}, { keepTokenOn401: true }))
+            .rejects.toMatchObject({ status: 401, invalidToken: false, message: 'Current password is incorrect' })
+        expect(localStorage.getItem('authToken')).toBe('tok-123')
+    })
+
+    test('a 503 while the session store is unreachable keeps the token', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(503, { error: 'Service temporarily unavailable' })))
+        await expect(apiClient.get('/user/me'))
+            .rejects.toMatchObject({ status: 503, invalidToken: false, message: 'Service temporarily unavailable' })
         expect(localStorage.getItem('authToken')).toBe('tok-123')
     })
 })

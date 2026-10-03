@@ -4,6 +4,9 @@ const API_BASE_URL = import.meta.env.DEV
     ? '/api'  // Use Vite proxy in development
     : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080');
 
+// The body the backend sends with WWW-Authenticate: Bearer error="invalid_token".
+const SESSION_EXPIRED_ERROR = 'Session expired, please sign in again';
+
 // Bean-validation failures arrive as a field map, e.g. {"password": "..."}.
 function firstFieldMessage(body: unknown): string | undefined {
     if (!body || typeof body !== 'object') return undefined;
@@ -80,14 +83,25 @@ class ApiClient {
                     statusText: response.statusText
                 });
 
+                // A 401 that names the token itself (revoked, stale after a password
+                // change in another tab, expired) ends the session even on calls that
+                // keep the token on a wrong-password 401. An anonymous call is a 403,
+                // never "logged out". With credentials, CORS may hide WWW-Authenticate,
+                // so the body the backend sends with it counts too. A 503 (session
+                // store unreachable) is neither: the token stays.
+                const invalidToken = response.status === 401
+                    && ((response.headers.get('WWW-Authenticate') ?? '').includes('invalid_token')
+                        || errorData.error === SESSION_EXPIRED_ERROR);
+
                 // If it's a 401, clear the token as it might be expired
-                if (response.status === 401 && !behavior.keepTokenOn401) {
+                if (response.status === 401 && (!behavior.keepTokenOn401 || invalidToken)) {
                     this.clearToken();
                 }
 
                 throw new ApiError({
                     message: errorData.message || errorData.error || firstFieldMessage(errorData) || `HTTP ${response.status}: ${response.statusText}`,
                     status: response.status,
+                    invalidToken,
                 });
             }
 
@@ -96,7 +110,9 @@ class ApiClient {
                 return {} as T;
             }
 
-            const data = await response.json();
+            // 202 Accepted (the email routes) carries no body; do not depend on Content-Length.
+            const text = await response.text();
+            const data = text ? JSON.parse(text) : {};
             // not the data: login and signup responses carry the token
             console.log(`API Success:`, { url });
             return data;
@@ -146,10 +162,13 @@ export const apiClient = new ApiClient(API_BASE_URL);
 
 export class ApiError extends Error {
     status: number;
+    /** A 401 caused by the token itself (WWW-Authenticate: Bearer error="invalid_token", or its body). */
+    invalidToken: boolean;
 
-    constructor({ message, status }: { message: string; status?: number }) {
+    constructor({ message, status, invalidToken }: { message: string; status?: number; invalidToken?: boolean }) {
         super(message);
         this.name = 'ApiError';
         this.status = status || 0;
+        this.invalidToken = invalidToken ?? false;
     }
 }

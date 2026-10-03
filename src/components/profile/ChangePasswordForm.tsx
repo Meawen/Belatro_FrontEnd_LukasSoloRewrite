@@ -59,7 +59,7 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSucces
             });
             onSuccess();
         } catch (error) {
-            if (error instanceof ApiError && error.status === 401) {
+            if (error instanceof ApiError && error.status === 401 && !error.invalidToken) {
                 setErrors({ submit: 'Current password is incorrect' });
             } else {
                 setErrors({

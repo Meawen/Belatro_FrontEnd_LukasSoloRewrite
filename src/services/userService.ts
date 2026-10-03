@@ -1,8 +1,11 @@
 import { apiClient } from './api';
+import { gameSocket } from './gameSocket';
 import type {
     User,
     UserDto,
     ChangePasswordRequest,
+    ChangeEmailRequest,
+    JwtResponseDTO,
     PlayerMatchHistoryDTO,
     PlayerMatchSummaryDTO,
     PaginationParams,
@@ -19,8 +22,28 @@ export const userService = {
         return apiClient.get<UserDto>('/user/me');
     },
 
+    // 200 with a fresh token: the server ended every other session (and closes their
+    // sockets); this tab continues on the new token, so store it and reopen the socket.
+    // This tab's socket gets its 1008 before that 200 arrives: hold it until then.
     async changePassword(request: ChangePasswordRequest): Promise<void> {
-        await apiClient.post<void>('/user/me/password', request, { keepTokenOn401: true });
+        const settled = gameSocket.holdSessionEnd();
+        try {
+            const response = await apiClient.post<JwtResponseDTO>('/user/me/password', request, { keepTokenOn401: true });
+            if (response?.token) {
+                apiClient.setToken(response.token);
+                gameSocket.reconnect();
+            }
+        } finally {
+            settled();
+        }
+    },
+
+    async changeEmail(request: ChangeEmailRequest): Promise<void> {
+        await apiClient.post<void>('/user/me/email', request, { keepTokenOn401: true });
+    },
+
+    async resendEmailConfirmation(): Promise<void> {
+        await apiClient.post<void>('/user/me/email/resend');
     },
 
     async getAllUsers(): Promise<User[]> {
