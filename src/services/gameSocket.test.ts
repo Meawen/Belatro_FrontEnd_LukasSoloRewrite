@@ -11,6 +11,7 @@ vi.mock('@stomp/stompjs', () => ({ Client: class FakeClient {} }))
 
 import { JSDOM } from 'jsdom'
 import { createGameSocket, stompConfig, type StompClientHandlers, type StompClientLike } from './gameSocket'
+import { ApiError } from './api'
 import { captureConsole } from '../test/captureConsole'
 
 class FakeClient implements StompClientLike {
@@ -41,7 +42,7 @@ class FakeClient implements StompClientLike {
     }
 }
 
-function setup(token: string | null = 'tok-1') {
+function setup(token: string | null = 'tok-1', checkSession: () => Promise<unknown> = () => Promise.resolve({})) {
     const clients: FakeClient[] = []
     let currentToken = token
     const endSession = vi.fn()
@@ -49,6 +50,7 @@ function setup(token: string | null = 'tok-1') {
         (t, handlers) => { const c = new FakeClient(t, handlers); clients.push(c); return c },
         () => currentToken,
         endSession,
+        checkSession,
     )
     return { socket, clients, endSession, setToken: (t: string | null) => { currentToken = t } }
 }
@@ -180,20 +182,12 @@ describe('gameSocket: reconnects', () => {
         expect(socket.getState().error).toBe('Failed to connect after multiple attempts')
     })
 
-    test('a revoked session (close 1008) or a STOMP ERROR is not retried', () => {
+    test('a revoked session (close 1008) is not retried', () => {
         const a = setup()
         a.socket.acquire()
         a.clients[0].handlers.onWebSocketClose(1008)
         vi.advanceTimersByTime(60000)
         expect(a.clients).toHaveLength(1)
-
-        const b = setup()
-        b.socket.acquire()
-        b.clients[0].handlers.onStompError('STOMP CONNECT requires a valid Bearer token')
-        b.clients[0].handlers.onWebSocketClose(1002)
-        vi.advanceTimersByTime(60000)
-        expect(b.clients).toHaveLength(1)
-        expect(b.socket.getState().error).toBe('STOMP CONNECT requires a valid Bearer token')
     })
 
     test('a server going away (1001) or a lost heartbeat (1000) is retried with backoff', () => {
@@ -245,6 +239,71 @@ describe('gameSocket: reconnects', () => {
     })
 })
 
+// The backend's CONNECT gate answers a refused token with an ERROR frame; Spring then closes the socket.
+const STOMP_REFUSAL = 'STOMP CONNECT requires a valid Bearer token'
+function refuse(client: FakeClient) {
+    client.handlers.onStompError(STOMP_REFUSAL)
+    client.handlers.onWebSocketClose(1002)
+}
+
+describe('gameSocket: a refused CONNECT (STOMP ERROR) asks GET /user/me why', () => {
+    test('a 200 there: a plain message, never the STOMP text, and a retry with backoff', async () => {
+        const checkSession = vi.fn().mockResolvedValue({ id: 'u1' })
+        const { socket, clients, endSession } = setup('tok-1', checkSession)
+        socket.acquire()
+        refuse(clients[0])
+        expect(socket.getState().error).not.toBe(STOMP_REFUSAL)
+        await vi.advanceTimersByTimeAsync(0)
+        expect(checkSession).toHaveBeenCalledTimes(1)
+        expect(socket.getState().error).toBe('Could not connect to the game server. Try again.')
+        await vi.advanceTimersByTimeAsync(4999)
+        expect(clients).toHaveLength(1)
+        await vi.advanceTimersByTimeAsync(1)
+        expect(clients).toHaveLength(2)
+        expect(endSession).not.toHaveBeenCalled()
+    })
+
+    test('a 503 there (session store down) or no answer at all is retried with backoff', async () => {
+        for (const status of [503, 0]) {
+            const checkSession = vi.fn().mockRejectedValue(new ApiError({ message: 'Service temporarily unavailable', status }))
+            const { socket, clients, endSession } = setup('tok-1', checkSession)
+            socket.acquire()
+            refuse(clients[0])
+            await vi.advanceTimersByTimeAsync(5000)
+            expect(checkSession).toHaveBeenCalledTimes(1)
+            expect(clients).toHaveLength(2)
+            expect(clients[1].token).toBe('tok-1')
+            expect(socket.getState().error).not.toBe(STOMP_REFUSAL)
+            expect(endSession).not.toHaveBeenCalled()
+        }
+    })
+
+    test('a 401 there that names the token is not retried: the API call has ended the session', async () => {
+        const checkSession = vi.fn().mockRejectedValue(
+            new ApiError({ message: 'Session expired, please sign in again', status: 401, invalidToken: true }))
+        const { socket, clients } = setup('tok-1', checkSession)
+        socket.acquire()
+        refuse(clients[0])
+        await vi.advanceTimersByTimeAsync(60000)
+        expect(checkSession).toHaveBeenCalledTimes(1)
+        expect(clients).toHaveLength(1)
+    })
+
+    test('an answer that comes after the socket was replaced changes nothing', async () => {
+        let answer: (value: unknown) => void = () => {}
+        const checkSession = vi.fn(() => new Promise((resolve) => { answer = resolve }))
+        const { socket, clients } = setup('tok-1', checkSession)
+        socket.acquire()
+        refuse(clients[0])
+        socket.reconnect()
+        clients[1].handlers.onConnect()
+        answer({ id: 'u1' })
+        await vi.advanceTimersByTimeAsync(60000)
+        expect(clients).toHaveLength(2)
+        expect(socket.getState()).toEqual({ isConnected: true, isConnecting: false, error: null })
+    })
+})
+
 describe('gameSocket: a session the server ended (close 1008)', () => {
     test('signs the tab out like a 401: no retry, and the state says why', () => {
         const { socket, clients, endSession } = setup('tok-1')
@@ -276,19 +335,21 @@ describe('gameSocket: a session the server ended (close 1008)', () => {
         expect(socket.getState().error).toBeNull()
     })
 
-    test('by default it forgets the stored token and reloads into the login page', () => {
+    test('by default it forgets the stored token and user, and reloads into the login page', () => {
         const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }).window
         const assign = vi.fn()
         vi.stubGlobal('localStorage', jsdomStorage)
         vi.stubGlobal('location', { ...window.location, assign })
         try {
             jsdomStorage.setItem('authToken', 'tok-1')
+            jsdomStorage.setItem('user', '{"id":"u1","username":"ana"}')
             const clients: FakeClient[] = []
             const socket = createGameSocket((t, handlers) => { const c = new FakeClient(t, handlers); clients.push(c); return c })
             socket.acquire()
             expect(clients[0].token).toBe('tok-1')
             clients[0].handlers.onWebSocketClose(1008)
             expect(jsdomStorage.getItem('authToken')).toBeNull()
+            expect(jsdomStorage.getItem('user')).toBeNull()
             expect(assign).toHaveBeenCalledWith('/login?reason=session-ended')
         } finally {
             vi.unstubAllGlobals()

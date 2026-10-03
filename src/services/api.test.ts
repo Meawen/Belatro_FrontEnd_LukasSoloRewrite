@@ -43,6 +43,8 @@ const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }
 describe('apiClient error handling', () => {
     beforeEach(() => {
         vi.stubGlobal('localStorage', jsdomStorage)
+        // a 401 that ends the session reloads into the login page (gameSocket's signOutToLogin)
+        vi.stubGlobal('location', { ...window.location, assign: vi.fn() })
         localStorage.setItem('authToken', 'tok-123')
     })
     afterEach(() => { jsdomStorage.clear(); vi.unstubAllGlobals() })

@@ -1,3 +1,4 @@
+import { gameSocket } from './gameSocket';
 
 // Use Vite proxy in development, direct URL in production
 const API_BASE_URL = import.meta.env.DEV
@@ -52,6 +53,8 @@ class ApiClient {
         behavior: { keepTokenOn401?: boolean } = {}
     ): Promise<T> {
         const url = `${this.baseURL}${endpoint}`;
+        // A 401 is about the token this request carries, not about one stored since it went out.
+        const sentToken = this.getToken();
 
         const config: RequestInit = {
             ...options,
@@ -93,9 +96,10 @@ class ApiClient {
                     && ((response.headers.get('WWW-Authenticate') ?? '').includes('invalid_token')
                         || errorData.error === SESSION_EXPIRED_ERROR);
 
-                // If it's a 401, clear the token as it might be expired
-                if (response.status === 401 && (!behavior.keepTokenOn401 || invalidToken)) {
-                    this.clearToken();
+                // gameSocket decides whether that ends the session: not while this tab's password
+                // change is in flight, and not when a newer token is stored by now.
+                if (response.status === 401 && (!behavior.keepTokenOn401 || invalidToken) && sentToken) {
+                    gameSocket.tokenRevoked(sentToken);
                 }
 
                 throw new ApiError({

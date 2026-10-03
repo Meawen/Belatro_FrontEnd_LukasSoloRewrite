@@ -2,6 +2,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useNavigationType, useParams } from 'react-router-dom'
+import { JSDOM } from 'jsdom'
 import { LobbyDetails } from './LobbyDetails'
 import { useLobby, useLobbies } from '../../hooks/useLobby'
 import { matchService } from '../../services/matchService'
@@ -204,5 +205,37 @@ describe('LobbyDetails', () => {
         expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument()
         expect(screen.queryByText('Loading lobby...')).not.toBeInTheDocument()
         expect(getLobby).toHaveBeenCalledTimes(1)
+    })
+
+    // The session ended on the server (expiry, logout elsewhere): the next poll gets 401. Before,
+    // the page stayed "signed in" and polled on without a token, showing "Forbidden" every 3 s.
+    test('a dead session on the mounted page reloads into the login page', async () => {
+        const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }).window
+        const assign = vi.fn()
+        vi.stubGlobal('localStorage', jsdomStorage)
+        vi.stubGlobal('location', { ...window.location, assign })
+        try {
+            jsdomStorage.setItem('authToken', 'tok-1')
+            jsdomStorage.setItem('user', JSON.stringify(ana))
+            vi.useFakeTimers()
+            await withRealLobbyHook()
+            const answer = (status: number, body: unknown) => ({
+                ok: status === 200, status, statusText: `status-${status}`, headers: { get: () => null },
+                json: () => Promise.resolve(body), text: () => Promise.resolve(JSON.stringify(body)),
+            } as unknown as Response)
+            const fetch = vi.fn().mockResolvedValue(answer(200, lobby()))
+            vi.stubGlobal('fetch', fetch)
+            renderLobby()
+            await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+            expect(screen.getByRole('heading', { name: 'Friday' })).toBeInTheDocument()
+
+            fetch.mockResolvedValue(answer(401, { error: 'Session expired, please sign in again' }))
+            await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+            expect(assign).toHaveBeenCalledWith('/login?reason=session-ended')
+            expect(jsdomStorage.getItem('authToken')).toBeNull()
+            expect(jsdomStorage.getItem('user')).toBeNull()
+        } finally {
+            vi.unstubAllGlobals()
+        }
     })
 })

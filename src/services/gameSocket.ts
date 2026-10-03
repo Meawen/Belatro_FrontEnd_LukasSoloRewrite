@@ -1,5 +1,6 @@
 import { Client, type IFrame, type IMessage, type StompConfig, type StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import { apiClient, ApiError } from './api';
 
 /**
  * The one STOMP connection of this browser tab.
@@ -49,9 +50,13 @@ const CLOSE_POLICY_VIOLATION = 1008;
 /** Why a tab whose session the server ended is signed out; the login page repeats it. */
 export const SESSION_ENDED_MESSAGE = 'Your session ended — please sign in again';
 
-/** Treated like a 401 from the API: forget the token, then reload into the login page, which says why. */
+/** Shown when the server refused the CONNECT although GET /user/me says the session is alive. */
+export const CONNECT_REFUSED_MESSAGE = 'Could not connect to the game server. Try again.';
+
+/** How a session ends, for a 401 from the API and a 1008 alike: forget the token and the user, then reload into the login page, which says why. */
 function signOutToLogin(): void {
     localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
     window.location.assign('/login?reason=session-ended');
 }
 
@@ -78,6 +83,8 @@ export function createGameSocket(
     createClient: StompClientFactory = (token, handlers) => new Client(stompConfig(token, handlers)),
     getToken: () => string | null = () => localStorage.getItem('authToken'),
     endSession: () => void = signOutToLogin,
+    // a refused CONNECT does not say why; GET /user/me does (a 401 there ends the session in api.ts)
+    checkSession: () => Promise<unknown> = () => apiClient.get('/user/me'),
 ) {
     let state: GameSocketState = { isConnected: false, isConnecting: false, error: null };
     const listeners = new Set<() => void>();
@@ -91,6 +98,8 @@ export function createGameSocket(
     // Set while this tab's password change is in flight (holdSessionEnd); a 1008 meanwhile
     // only records the token its socket ran on, and is decided once the change settles.
     let pendingChange: { revokedToken: string | null } | null = null;
+    // The GET /user/me check after a refused CONNECT; close() drops it, as it drops retryTimer.
+    let pendingCheck: Promise<void> | null = null;
 
     const setState = (next: Partial<GameSocketState>) => {
         state = { ...state, ...next };
@@ -112,8 +121,8 @@ export function createGameSocket(
             setState({ isConnecting: false, error: 'Authentication required' });
             return;
         }
-        // An ERROR frame means the server refused us (bad or revoked token): retrying
-        // with the same token cannot succeed.
+        // An ERROR frame means the server refused us. Its text is the server's (never shown):
+        // GET /user/me tells a dead session from a passing failure once the socket closes.
         let refused = false;
         const created: StompClientLike = createClient(token, {
             onConnect: () => {
@@ -123,10 +132,9 @@ export function createGameSocket(
                 routes.forEach((route, destination) => attach(destination, route));
                 setState({ isConnected: true, isConnecting: false, error: null });
             },
-            onStompError: (message) => {
+            onStompError: () => {
                 if (client !== created) return;
                 refused = true;
-                setState({ error: message });
             },
             onWebSocketClose: (code) => {
                 // a socket replaced by reconnect() may still report its close; ignore it
@@ -136,27 +144,17 @@ export function createGameSocket(
                 routes.forEach((route) => { route.stomp = null; });
                 setState({ isConnected: false, isConnecting: false });
                 if (code === CLOSE_POLICY_VIOLATION) {
-                    // This tab's own password change: its 200 with the new token is still to come
-                    if (pendingChange) {
-                        pendingChange.revokedToken = token;
-                        return;
-                    }
                     tokenRevoked(token);
                     return;
                 }
                 // 1000/1001 are retried too: the server sends 1001 when it stops (deploy) and SockJS
                 // reports a lost heartbeat as 1000. Our own closes never get here (client !== created).
-                if (refused || holders === 0) return;
-                if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-                    setState({ error: 'Failed to connect after multiple attempts' });
+                if (holders === 0) return;
+                if (refused) {
+                    checkRefusal();
                     return;
                 }
-                const delay = RECONNECT_BASE_DELAY_MS * 2 ** reconnectAttempts;
-                reconnectAttempts += 1;
-                retryTimer = setTimeout(() => {
-                    retryTimer = null;
-                    if (holders > 0) open();
-                }, delay);
+                retryLater();
             },
         });
         client = created;
@@ -164,10 +162,49 @@ export function createGameSocket(
         created.activate();
     };
 
+    const retryLater = () => {
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            setState({ error: 'Failed to connect after multiple attempts' });
+            return;
+        }
+        const delay = RECONNECT_BASE_DELAY_MS * 2 ** reconnectAttempts;
+        reconnectAttempts += 1;
+        retryTimer = setTimeout(() => {
+            retryTimer = null;
+            if (holders > 0) open();
+        }, delay);
+    };
+
+    // After a refused CONNECT (lane-email contract, WebSocket): a 401 from GET /user/me means the
+    // session is over, and api.ts has already handed it to tokenRevoked; a 503 or no answer is
+    // retried like a lost socket; a 200 means the session is alive, so say so plainly and retry.
+    const checkRefusal = () => {
+        const check: Promise<void> = checkSession().then(
+            () => {
+                if (pendingCheck !== check) return;
+                pendingCheck = null;
+                setState({ error: CONNECT_REFUSED_MESSAGE });
+                retryLater();
+            },
+            (error: unknown) => {
+                if (pendingCheck !== check) return;
+                pendingCheck = null;
+                if (error instanceof ApiError && error.invalidToken) return;
+                retryLater();
+            },
+        );
+        pendingCheck = check;
+    };
+
     const tokenRevoked = (token: string) => {
-        // The server revoked the token this socket ran on (logout, password change,
-        // expiry). A different token in storage means the tab's session went on (the
-        // password was changed in another tab): carry on with it. Otherwise it is over.
+        // This tab's own password change: its 200 with the new token is still to come
+        if (pendingChange) {
+            pendingChange.revokedToken = token;
+            return;
+        }
+        // The server refused this token (a 401 from the API, a 1008 on this socket: logout,
+        // password change, expiry). A different token in storage means the tab's session went
+        // on (the password was changed since): carry on with it. Otherwise it is over.
         const current = getToken();
         if (current && current !== token) {
             if (holders > 0) open();
@@ -182,6 +219,7 @@ export function createGameSocket(
             clearTimeout(retryTimer);
             retryTimer = null;
         }
+        pendingCheck = null;
         const old = client;
         client = null;
         connected = false;
@@ -240,6 +278,13 @@ export function createGameSocket(
             client.publish({ destination, body: JSON.stringify(body ?? {}) });
             return true;
         },
+
+        /**
+         * The one way a session ends: call it with a token the server refused (a 401 that names
+         * the token, a 1008 on the socket). While a password change is held it waits for the
+         * change; a different token in storage carries on; otherwise the tab signs out.
+         */
+        tokenRevoked,
 
         /** Reopen with the token now in storage (after a password change rotated it). */
         reconnect(): void {
