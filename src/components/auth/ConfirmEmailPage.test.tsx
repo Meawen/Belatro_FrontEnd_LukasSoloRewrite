@@ -77,7 +77,23 @@ describe('ConfirmEmailPage', () => {
         expect(await screen.findByRole('alert')).toHaveTextContent('Too many requests, try again later')
         expect(screen.getByRole('button', { name: 'Confirm email address' })).toBeDisabled()
         // the link is not spent: waiting is the remedy, not a new link
+        expect(screen.getByText('Reload this page later to try again.')).toBeInTheDocument()
         expect(screen.queryByText(/send a new link/)).not.toBeInTheDocument()
+    })
+
+    test.each([
+        [0, 'Failed to fetch'],
+        [500, 'Internal Server Error'],
+    ])('a failure with no usable answer (status %i) offers a reload and a new link', async (status, raw) => {
+        vi.mocked(authService.confirmEmail).mockRejectedValue(new ApiError({ status, message: raw }))
+        renderAt('/confirm-email?token=tok-4')
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Confirm email address' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent('We could not confirm your email address.')
+        expect(screen.queryByText(raw)).not.toBeInTheDocument()
+        // the link may be spent (a 5xx, or a success whose answer was lost): never post it again from here
+        expect(screen.getByRole('button', { name: 'Confirm email address' })).toBeDisabled()
+        expect(screen.getByText('Reload this page to try again.')).toBeInTheDocument()
+        expect(screen.getByText(/send a new link/)).toBeInTheDocument()
     })
 
     test('a link without a token offers nothing to click', () => {

@@ -12,6 +12,22 @@ type Outcome =
     | { kind: 'failed'; message: string; status: number };
 
 const INVALID_LINK = 'This link is invalid or has expired';
+const COULD_NOT_CONFIRM = 'We could not confirm your email address.';
+
+/** A network failure (status 0) or a 5xx: no usable answer, and the link may or may not be spent. */
+function isNetworkOrServerFailure(status: number): boolean {
+    return status === 0 || status >= 500;
+}
+
+/**
+ * A reload is a new page view and may post again. After a 429 the link is unspent (the limiter
+ * runs first); after a network failure or a 5xx the reload is the only way to find out.
+ */
+function reloadHint(outcome: Outcome): string | null {
+    if (outcome.kind !== 'failed') return null;
+    if (outcome.status === 429) return 'Reload this page later to try again.';
+    return isNetworkOrServerFailure(outcome.status) ? 'Reload this page to try again.' : null;
+}
 
 /** What the reader can do after a failure, or null when there is nothing to offer. */
 function nextStep(token: string, outcome: Outcome): string | null {
@@ -37,6 +53,7 @@ export const ConfirmEmailPage: React.FC = () => {
     const posted = useRef(false);
     const signedIn = authService.isAuthenticated();
     const hint = nextStep(token, outcome);
+    const reload = reloadHint(outcome);
 
     const handleConfirm = async () => {
         if (posted.current) return;
@@ -46,10 +63,12 @@ export const ConfirmEmailPage: React.FC = () => {
             await authService.confirmEmail(token);
             setOutcome({ kind: 'confirmed' });
         } catch (error) {
+            const status = error instanceof ApiError ? error.status : 0;
             setOutcome({
                 kind: 'failed',
-                message: errorMessage(error, INVALID_LINK),
-                status: error instanceof ApiError ? error.status : 0,
+                // their text is the browser's or Spring's ("Failed to fetch", "Internal Server Error")
+                message: isNetworkOrServerFailure(status) ? COULD_NOT_CONFIRM : errorMessage(error, INVALID_LINK),
+                status,
             });
         }
     };
@@ -87,6 +106,8 @@ export const ConfirmEmailPage: React.FC = () => {
                         </Button>
                     </>
                 )}
+
+                {reload && <p className="text-sm text-slate-400">{reload}</p>}
 
                 {hint && (
                     <p className="text-sm text-slate-400">
