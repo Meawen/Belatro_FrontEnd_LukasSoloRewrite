@@ -1,7 +1,7 @@
 
 // Use Vite proxy in development, direct URL in production
 const API_BASE_URL = import.meta.env.DEV
-    ? '/api'  // Use Vite proxy in development
+    ? '/backend'  // Vite proxy prefix in development (vite.config.ts strips it); not /api, which the backend's own /api/auth routes use
     : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080');
 
 // The body the backend sends with WWW-Authenticate: Bearer error="invalid_token".

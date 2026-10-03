@@ -124,6 +124,13 @@ describe('apiClient error handling', () => {
             .rejects.toMatchObject({ status: 503, invalidToken: false, message: 'Service temporarily unavailable' })
         expect(localStorage.getItem('authToken')).toBe('tok-123')
     })
+
+    test('development requests use the /backend proxy prefix, so /api/auth paths are not doubled', async () => {
+        const fetchMock = vi.fn().mockResolvedValue(fakeResponse(401, { error: 'Bad credentials' }))
+        vi.stubGlobal('fetch', fetchMock)
+        await expect(apiClient.post('/api/auth/login', {})).rejects.toBeInstanceOf(ApiError)
+        expect(fetchMock.mock.calls[0][0]).toBe('/backend/api/auth/login')
+    })
 })
 
 describe('apiClient logging', () => {
