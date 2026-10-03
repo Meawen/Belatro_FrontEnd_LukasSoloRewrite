@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, ErrorAlert, Input } from '../common';
 import { authService } from '../../services/authService';
@@ -12,9 +12,12 @@ export const ForgotPasswordPage: React.FC = () => {
     const [hint, setHint] = useState<string | null>(null);
     const [sent, setSent] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // stops a second submit that lands before React re-renders the button as disabled
+    const sending = useRef(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (sending.current) return;
         const address = email.trim();
         setHint(null);
         if (!EMAIL_PATTERN.test(address)) {
@@ -22,6 +25,7 @@ export const ForgotPasswordPage: React.FC = () => {
             return;
         }
         setError(null);
+        sending.current = true;
         setIsSubmitting(true);
         try {
             await authService.forgotPassword(address);
@@ -32,6 +36,7 @@ export const ForgotPasswordPage: React.FC = () => {
             setError(isNetworkOrServerFailure(status) ? SOMETHING_WENT_WRONG : errorMessage(err, SOMETHING_WENT_WRONG));
             if (status === 429) setHint(WAIT_AND_RETRY);
         } finally {
+            sending.current = false;
             setIsSubmitting(false);
         }
     };

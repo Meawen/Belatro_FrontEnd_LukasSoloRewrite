@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { ForgotPasswordPage } from './ForgotPasswordPage'
@@ -25,6 +25,33 @@ describe('ForgotPasswordPage', () => {
         await user.click(screen.getByRole('button', { name: 'Send reset link' }))
         expect(authService.forgotPassword).toHaveBeenCalledWith('ana@example.com')
         expect(await screen.findByText(/If that address has an account, we sent a link/)).toBeInTheDocument()
+    })
+
+    test('two submits that land before a re-render send one request', async () => {
+        const user = userEvent.setup()
+        vi.mocked(authService.forgotPassword).mockReturnValue(new Promise(() => {}))
+        renderPage()
+        await user.type(screen.getByLabelText('Email'), 'ana@example.com')
+        const button = screen.getByRole('button', { name: 'Send reset link' })
+        // both clicks land before React re-renders the button as disabled
+        act(() => {
+            button.click()
+            button.click()
+        })
+        expect(authService.forgotPassword).toHaveBeenCalledTimes(1)
+    })
+
+    test('after a failed request the form can be sent again', async () => {
+        const user = userEvent.setup()
+        vi.mocked(authService.forgotPassword).mockRejectedValueOnce(new ApiError({ status: 500, message: 'Internal Server Error' }))
+        renderPage()
+        await user.type(screen.getByLabelText('Email'), 'ana@example.com')
+        await user.click(screen.getByRole('button', { name: 'Send reset link' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong. Try again.')
+        vi.mocked(authService.forgotPassword).mockResolvedValue(undefined)
+        await user.click(screen.getByRole('button', { name: 'Send reset link' }))
+        expect(authService.forgotPassword).toHaveBeenCalledTimes(2)
+        expect(await screen.findByText(SENT)).toBeInTheDocument()
     })
 
     test('a malformed address is caught before sending', async () => {

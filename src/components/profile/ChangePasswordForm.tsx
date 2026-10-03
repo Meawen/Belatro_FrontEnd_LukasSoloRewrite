@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Button, Input } from '../common';
 // direct module import (not the ../../hooks barrel): keeps component tests from
 // loading every hook module, incl. the WebSocket ones
@@ -26,6 +26,9 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSucces
         confirmPassword: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
+    // stops a second submit that lands before React re-renders the button as disabled: it would
+    // go out on the token the first one rotated away, and overlap the first one's socket hold
+    const sending = useRef(false);
 
     const changePasswordMutation = useMutation((request: ChangePasswordRequest) =>
         userService.changePassword(request)
@@ -33,6 +36,7 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSucces
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (sending.current) return;
 
         const newErrors: Record<string, string> = {};
         if (!formData.currentPassword) {
@@ -52,6 +56,7 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSucces
             return;
         }
 
+        sending.current = true;
         try {
             await changePasswordMutation.mutate({
                 currentPassword: formData.currentPassword,
@@ -66,6 +71,8 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSucces
                     submit: error instanceof Error ? error.message : 'Failed to change password'
                 });
             }
+        } finally {
+            sending.current = false;
         }
     };
 

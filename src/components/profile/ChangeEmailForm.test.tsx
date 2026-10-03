@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ChangeEmailForm } from './ChangeEmailForm'
 import { userService } from '../../services/userService'
@@ -55,6 +55,32 @@ describe('ChangeEmailForm', () => {
         const { onSuccess } = setup()
         await submit(' new@example.com ', 'long-enough-1')
         expect(userService.changeEmail).toHaveBeenCalledWith({ newEmail: 'new@example.com', currentPassword: 'long-enough-1' })
+        expect(onSuccess).toHaveBeenCalledWith('new@example.com')
+    })
+
+    test('two submits that land before a re-render send one request', async () => {
+        vi.mocked(userService.changeEmail).mockReturnValue(new Promise(() => {}))
+        setup()
+        const user = userEvent.setup()
+        await user.type(screen.getByLabelText('New email address'), 'new@example.com')
+        await user.type(screen.getByLabelText('Current password'), 'long-enough-1')
+        const button = screen.getByRole('button', { name: 'Send confirmation link' })
+        // both clicks land before React re-renders the button as disabled
+        act(() => {
+            button.click()
+            button.click()
+        })
+        expect(userService.changeEmail).toHaveBeenCalledTimes(1)
+    })
+
+    test('after a failed request the form can be sent again', async () => {
+        vi.mocked(userService.changeEmail).mockRejectedValueOnce(new ApiError({ status: 401, message: 'Current password is incorrect' }))
+        const { onSuccess } = setup()
+        await submit('new@example.com', 'wrong-pass-1')
+        expect(await screen.findByRole('alert')).toHaveTextContent('Current password is incorrect')
+        vi.mocked(userService.changeEmail).mockResolvedValue(undefined)
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Send confirmation link' }))
+        expect(userService.changeEmail).toHaveBeenCalledTimes(2)
         expect(onSuccess).toHaveBeenCalledWith('new@example.com')
     })
 

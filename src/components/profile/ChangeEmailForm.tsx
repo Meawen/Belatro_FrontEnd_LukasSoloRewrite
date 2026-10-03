@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Button, ErrorAlert, Input } from '../common';
 // direct module import (not the ../../hooks barrel): keeps component tests from
 // loading every hook module, incl. the WebSocket ones
@@ -20,11 +20,14 @@ export const ChangeEmailForm: React.FC<ChangeEmailFormProps> = ({ currentEmail, 
     const [newEmail, setNewEmail] = useState('');
     const [currentPassword, setCurrentPassword] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
+    // stops a second submit that lands before React re-renders the button as disabled
+    const sending = useRef(false);
 
     const changeEmailMutation = useMutation((request: ChangeEmailRequest) => userService.changeEmail(request));
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (sending.current) return;
         const address = newEmail.trim();
         const newErrors: Record<string, string> = {};
         if (!address) {
@@ -44,6 +47,7 @@ export const ChangeEmailForm: React.FC<ChangeEmailFormProps> = ({ currentEmail, 
             return;
         }
 
+        sending.current = true;
         try {
             setErrors({});
             await changeEmailMutation.mutate({ newEmail: address, currentPassword });
@@ -57,6 +61,8 @@ export const ChangeEmailForm: React.FC<ChangeEmailFormProps> = ({ currentEmail, 
             } else {
                 setErrors({ submit: errorMessage(error, 'Failed to change the email address') });
             }
+        } finally {
+            sending.current = false;
         }
     };
 

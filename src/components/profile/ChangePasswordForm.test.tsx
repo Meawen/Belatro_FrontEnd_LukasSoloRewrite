@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ChangePasswordForm } from './ChangePasswordForm'
 import { userService } from '../../services/userService'
@@ -50,6 +50,38 @@ describe('ChangePasswordForm', () => {
         await user.type(screen.getByLabelText(/confirm new password/i), 'new-secret')
         await user.click(screen.getByRole('button', { name: /change password/i }))
         expect(changePassword).toHaveBeenCalledWith({ currentPassword: 'old-secret', newPassword: 'new-secret' })
+        expect(onSuccess).toHaveBeenCalled()
+    })
+
+    // A second request would go out on the token the first one rotated away (401 invalid_token)
+    test('two submits that land before a re-render send one request', async () => {
+        const user = userEvent.setup()
+        changePassword.mockReturnValue(new Promise(() => {}))
+        setup()
+        await user.type(screen.getByLabelText(/current password/i), 'old-secret')
+        await user.type(screen.getByLabelText(/^new password/i), 'new-secret')
+        await user.type(screen.getByLabelText(/confirm new password/i), 'new-secret')
+        const button = screen.getByRole('button', { name: /change password/i })
+        // both clicks land before React re-renders the button as disabled
+        act(() => {
+            button.click()
+            button.click()
+        })
+        expect(changePassword).toHaveBeenCalledTimes(1)
+    })
+
+    test('after a failed request the form can be sent again', async () => {
+        const user = userEvent.setup()
+        changePassword.mockRejectedValueOnce(new ApiError({ message: 'Current password is incorrect', status: 401 }))
+        const { onSuccess } = setup()
+        await user.type(screen.getByLabelText(/current password/i), 'wrong')
+        await user.type(screen.getByLabelText(/^new password/i), 'new-secret')
+        await user.type(screen.getByLabelText(/confirm new password/i), 'new-secret')
+        await user.click(screen.getByRole('button', { name: /change password/i }))
+        expect(await screen.findByText('Current password is incorrect')).toBeInTheDocument()
+        changePassword.mockResolvedValue(undefined)
+        await user.click(screen.getByRole('button', { name: /change password/i }))
+        expect(changePassword).toHaveBeenCalledTimes(2)
         expect(onSuccess).toHaveBeenCalled()
     })
 
