@@ -27,9 +27,32 @@ beforeEach(() => {
     window.removeEventListener(ME_CHANGED, meChanged)
     window.addEventListener(ME_CHANGED, meChanged)
     vi.clearAllMocks()
+    // useApi's refetch returns a promise (and rethrows a failed GET /user/me)
+    refetchMe.mockResolvedValue(undefined)
     vi.mocked(useUser).mockReturnValue({ user: player, isLoading: false, error: null, refetch: vi.fn() } as never)
     vi.mocked(useMe).mockReturnValue({ data: meBase, isLoading: false, error: null, refetch: refetchMe } as never)
 })
+
+// A failed GET /user/me after a write that succeeded must not become an unhandled rejection.
+// The refetch is a plain function, not vi.fn(): a vitest mock handles the promises it returns.
+async function withFailingRefresh(run: () => Promise<void>) {
+    let refreshes = 0
+    const refetch = () => {
+        refreshes += 1
+        return Promise.reject(new ApiError({ status: 503, message: 'Service temporarily unavailable' }))
+    }
+    vi.mocked(useMe).mockReturnValue({ data: meBase, isLoading: false, error: null, refetch } as never)
+    const unhandled = vi.fn()
+    process.on('unhandledRejection', unhandled)
+    try {
+        await run()
+        await waitFor(() => expect(refreshes).toBe(1))
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        expect(unhandled).not.toHaveBeenCalled()
+    } finally {
+        process.off('unhandledRejection', unhandled)
+    }
+}
 
 describe('UserProfile deletion request', () => {
     test('request goes through a confirm step, calls the service, refreshes me', async () => {
@@ -42,6 +65,15 @@ describe('UserProfile deletion request', () => {
         expect(userService.requestForget).toHaveBeenCalledTimes(1)
         await waitFor(() => expect(refetchMe).toHaveBeenCalled())
     })
+
+    test('a failed refresh after the request is not an unhandled rejection', () => withFailingRefresh(async () => {
+        const user = userEvent.setup()
+        vi.mocked(userService.requestForget).mockResolvedValue(undefined)
+        render(<UserProfile />)
+        await user.click(screen.getByRole('button', { name: /request account deletion/i }))
+        await user.click(screen.getByRole('button', { name: /confirm request/i }))
+        expect(userService.requestForget).toHaveBeenCalledTimes(1)
+    }))
 
     test('an already-flagged account shows the requested state instead of the button', () => {
         vi.mocked(useMe).mockReturnValue({ data: { ...meBase, deletionRequested: true }, isLoading: false, error: null, refetch: refetchMe } as never)
@@ -87,6 +119,21 @@ describe('UserProfile change of password', () => {
     })
 })
 
+describe('UserProfile change of password, refresh failing', () => {
+    test('a failed refresh after the change is not an unhandled rejection', () => withFailingRefresh(async () => {
+        const user = userEvent.setup()
+        vi.mocked(userService.changePassword).mockResolvedValue(undefined)
+        render(<UserProfile />)
+        await user.click(screen.getByRole('button', { name: 'Change Password' }))
+        await user.type(screen.getByLabelText('Current Password'), 'long-enough-1')
+        await user.type(screen.getByLabelText('New Password'), 'long-enough-2')
+        await user.type(screen.getByLabelText('Confirm New Password'), 'long-enough-2')
+        const form = screen.getByLabelText('Current Password').closest('form') as HTMLFormElement
+        await user.click(within(form).getByRole('button', { name: 'Change Password' }))
+        await waitFor(() => expect(meChanged).toHaveBeenCalledTimes(1))
+    }))
+})
+
 describe('UserProfile change of email', () => {
     test('a sent change says where the link may go, without promising it, and refreshes me', async () => {
         const user = userEvent.setup()
@@ -104,6 +151,18 @@ describe('UserProfile change of email', () => {
         // the banner above has its own copy of /user/me
         expect(meChanged).toHaveBeenCalledTimes(1)
     })
+
+    test('a failed refresh after the change is not an unhandled rejection', () => withFailingRefresh(async () => {
+        const user = userEvent.setup()
+        vi.mocked(userService.changeEmail).mockResolvedValue(undefined)
+        render(<UserProfile />)
+        await user.click(screen.getByRole('button', { name: 'Change Email' }))
+        await user.type(screen.getByLabelText('New email address'), 'new@example.com')
+        await user.type(screen.getByLabelText('Current password'), 'long-enough-1')
+        await user.click(screen.getByRole('button', { name: 'Send confirmation link' }))
+        expect(await screen.findByRole('status')).toHaveTextContent('a confirmation link is on its way to new@example.com')
+        expect(meChanged).toHaveBeenCalledTimes(1)
+    }))
 
     test('an account without any address is offered to add one', async () => {
         const user = userEvent.setup()

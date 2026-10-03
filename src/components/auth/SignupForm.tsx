@@ -86,7 +86,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({
             const result = await signup({
                 // the backend validates the raw value, so stray spaces would be a 400
                 username: formData.username.trim(),
-                email: formData.email,
+                email: formData.email.trim(),
                 password: formData.password
             });
 

@@ -43,6 +43,20 @@ describe('SignupForm credential rules', () => {
         expect(auth.signup).not.toHaveBeenCalled()
     })
 
+    // A guard: the email input already strips ASCII spaces (value sanitizing), and anything else
+    // around the address fails its native validation, so this passes with or without the trim.
+    test('a valid form sends the trimmed address, the one the panel names', async () => {
+        const user = userEvent.setup()
+        auth.signup.mockResolvedValue({ token: 't', user: { id: 'u1', username: 'ana' }, message: null })
+        render(<SignupForm onSuccess={vi.fn()} />)
+        await user.type(screen.getByLabelText('Username'), 'ana')
+        await user.type(screen.getByLabelText('Email'), '  ana@example.com  ')
+        await user.type(screen.getByLabelText('Password'), 'long-enough-1')
+        await user.type(screen.getByLabelText('Confirm Password'), 'long-enough-1')
+        await user.click(screen.getByRole('button', { name: /create account/i }))
+        expect(auth.signup).toHaveBeenCalledWith({ username: 'ana', email: 'ana@example.com', password: 'long-enough-1' })
+    })
+
     test('a valid form sends the trimmed username', async () => {
         auth.signup.mockResolvedValue({ token: 't', user: { id: 'u1', username: 'ana' }, message: null })
         await fill('  ana  ', 'long-enough-1')

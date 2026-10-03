@@ -47,7 +47,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
             setDeletionError(null);
             await requestForgetMutation.mutate();
             setConfirmingDeletion(false);
-            refetchMe();
+            // useApi's refetch rethrows: a failed refresh is not a failed request, and nothing awaits it
+            refetchMe().catch(() => {});
         } catch (error) {
             setDeletionError(errorMessage(error, 'Failed to request deletion'));
         }
@@ -321,7 +322,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                         onSuccess={() => {
                             setShowEditProfile(false);
                             // a password change cancels a pending change of address
-                            refetchMe();
+                            refetchMe().catch(() => {});
                             notifyMeChanged();
                         }}
                         onCancel={() => setShowEditProfile(false)}
@@ -342,7 +343,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                             setShowChangeEmail(false);
                             // the same 202 whether or not the address can be used, so no promise of a mail
                             setEmailNotice(`If this address can be used, a confirmation link is on its way to ${newEmail}. Check your inbox (and spam).`);
-                            refetchMe();
+                            refetchMe().catch(() => {});
                             notifyMeChanged();
                         }}
                         onCancel={() => setShowChangeEmail(false)}
