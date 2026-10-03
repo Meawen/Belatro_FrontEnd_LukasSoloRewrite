@@ -61,15 +61,26 @@ describe('authService.logout', () => {
         const release = gameSocket.acquire()
         const socket = sockets.clients[sockets.clients.length - 1]
         socket.handlers.onConnect()
-        const post = vi.spyOn(apiClient, 'post').mockImplementation(async () => {
+        const fetch = vi.fn(async () => {
             // the backend closes the user's sockets as it logs the token out, before it answers
             socket.handlers.onWebSocketClose(1008)
-            return 'Successfully logged out.'
+            // ...and answers 200 text/plain (AuthController: ResponseEntity<String>)
+            const headers: Record<string, string> = { 'content-type': 'text/plain;charset=UTF-8', 'content-length': '24' }
+            return {
+                ok: true,
+                status: 200,
+                statusText: 'OK',
+                headers: { get: (name: string) => headers[name.toLowerCase()] ?? null },
+                text: () => Promise.resolve('Successfully logged out.'),
+                json: () => Promise.reject(new SyntaxError('Unexpected token \'S\', "Successfully logged out." is not valid JSON')),
+            } as unknown as Response
         })
+        vi.stubGlobal('fetch', fetch)
         try {
-            await authService.logout()
-            expect(post).toHaveBeenCalledWith('/api/auth/logout')
+            await expect(authService.logout()).resolves.toBe('Successfully logged out.')
+            expect(fetch).toHaveBeenCalledWith(expect.stringMatching(/\/api\/auth\/logout$/), expect.objectContaining({ method: 'POST' }))
             expect(assign).not.toHaveBeenCalled()
+            // not signOutToLogin (assign was never called): logout's own clearToken ran
             expect(jsdomStorage.getItem('authToken')).toBeNull()
         } finally {
             release()

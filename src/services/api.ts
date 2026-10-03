@@ -112,7 +112,9 @@ class ApiClient {
 
             // 202 Accepted (the email routes) carries no body; do not depend on Content-Length.
             const text = await response.text();
-            const data = text ? JSON.parse(text) : {};
+            // POST /api/auth/logout answers 200 text/plain "Successfully logged out."
+            const isText = (response.headers.get('content-type') ?? '').startsWith('text/plain');
+            const data = !text ? {} : isText ? text : JSON.parse(text);
             // not the data: login and signup responses carry the token
             console.log(`API Success:`, { url });
             return data;

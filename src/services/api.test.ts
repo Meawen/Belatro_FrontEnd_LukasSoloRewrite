@@ -21,6 +21,19 @@ function withHeader(response: Response, header: string, value: string) {
     return { ...response, headers: { get: (name: string) => (name === header ? value : null) } } as unknown as Response
 }
 
+// What the backend sends for POST /api/auth/logout (AuthController: ResponseEntity<String>).
+function logoutResponse() {
+    const headers: Record<string, string> = { 'content-type': 'text/plain;charset=UTF-8', 'content-length': '24' }
+    return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: { get: (name: string) => headers[name.toLowerCase()] ?? null },
+        text: () => Promise.resolve('Successfully logged out.'),
+        json: () => Promise.reject(new SyntaxError('Unexpected token \'S\', "Successfully logged out." is not valid JSON')),
+    } as unknown as Response
+}
+
 // Node 26 defines a `localStorage` global that stays undefined without
 // --localstorage-file, and it shadows jsdom's (vitest makes window === globalThis),
 // so the bare global is unusable here. Borrow a real jsdom Storage instead of
@@ -76,6 +89,11 @@ describe('apiClient error handling', () => {
             json: () => Promise.reject(new SyntaxError('Unexpected end of JSON input')),
         } as unknown as Response))
         await expect(apiClient.post('/api/auth/forgot-password', { email: 'ana@example.com' })).resolves.toEqual({})
+    })
+
+    test('a text/plain 2xx body (the logout answer) resolves as its text', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(logoutResponse()))
+        await expect(apiClient.post('/api/auth/logout')).resolves.toBe('Successfully logged out.')
     })
 
     test('a 401 that names the token ends the session even when the caller keeps the token on 401', async () => {
