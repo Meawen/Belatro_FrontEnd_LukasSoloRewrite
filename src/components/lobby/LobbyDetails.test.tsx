@@ -233,7 +233,6 @@ describe('LobbyDetails', () => {
             await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
             expect(assign).toHaveBeenCalledWith('/login?reason=session-ended')
             expect(jsdomStorage.getItem('authToken')).toBeNull()
-            expect(jsdomStorage.getItem('user')).toBeNull()
         } finally {
             vi.unstubAllGlobals()
         }

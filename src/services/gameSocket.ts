@@ -1,5 +1,7 @@
 import { Client, type IFrame, type IMessage, type StompConfig, type StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+// Uses apiClient and ApiError lazily, inside functions only; never use them at module top
+// level: import cycle with api.ts.
 import { apiClient, ApiError } from './api';
 
 /**
@@ -53,10 +55,14 @@ export const SESSION_ENDED_MESSAGE = 'Your session ended — please sign in agai
 /** Shown when the server refused the CONNECT although GET /user/me says the session is alive. */
 export const CONNECT_REFUSED_MESSAGE = 'Could not connect to the game server. Try again.';
 
-/** How a session ends, for a 401 from the API and a 1008 alike: forget the token and the user, then reload into the login page, which says why. */
+/**
+ * How a session ends, for a 401 from the API and a 1008 alike: forget the token, then reload into
+ * the login page, which says why. Only the token: storage is shared by the browser's tabs, and a
+ * password change in another tab may store a new token next to the same user. useAuth logs out a
+ * token it finds without a user, which would revoke that new token.
+ */
 function signOutToLogin(): void {
     localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
     window.location.assign('/login?reason=session-ended');
 }
 

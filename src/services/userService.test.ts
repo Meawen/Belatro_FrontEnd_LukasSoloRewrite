@@ -47,12 +47,19 @@ describe('userService hardened contract', () => {
     })
 
     test('changePassword stores the rotated token and reopens the socket with it', async () => {
-        vi.spyOn(apiClient, 'post').mockResolvedValue({ token: 'new-token', user: { id: 'u1', username: 'ana' } })
-        const setToken = vi.spyOn(apiClient, 'setToken').mockImplementation(() => undefined)
-        const reconnect = vi.spyOn(gameSocket, 'reconnect')
-        await userService.changePassword({ currentPassword: 'old', newPassword: 'newpass1' })
-        expect(setToken).toHaveBeenCalledWith('new-token')
-        expect(reconnect).toHaveBeenCalledTimes(1)
+        // it stores the user too (Node 26's own localStorage global is unusable here)
+        vi.stubGlobal('localStorage', jsdomStorage)
+        try {
+            vi.spyOn(apiClient, 'post').mockResolvedValue({ token: 'new-token', user: { id: 'u1', username: 'ana' } })
+            const setToken = vi.spyOn(apiClient, 'setToken').mockImplementation(() => undefined)
+            const reconnect = vi.spyOn(gameSocket, 'reconnect')
+            await userService.changePassword({ currentPassword: 'old', newPassword: 'newpass1' })
+            expect(setToken).toHaveBeenCalledWith('new-token')
+            expect(reconnect).toHaveBeenCalledTimes(1)
+        } finally {
+            vi.unstubAllGlobals()
+            jsdomStorage.clear()
+        }
     })
 
     test('changeEmail posts the new address and keeps the token on a wrong-password 401', async () => {
@@ -135,6 +142,24 @@ describe('changePassword and the game socket', () => {
             expect(jsdomStorage.getItem('authToken')).toBe('new-token')
             expect(sockets.clients[sockets.clients.length - 1]).not.toBe(socket)
             expect(sockets.clients[sockets.clients.length - 1].token).toBe('new-token')
+        } finally {
+            done()
+        }
+    })
+
+    test('a completed change leaves a consistent pair: the new token and its user, whatever was cleared meanwhile', async () => {
+        const { done } = openSocket('old-token')
+        try {
+            jsdomStorage.setItem('user', '{"id":"u1","username":"ana"}')
+            vi.spyOn(apiClient, 'post').mockImplementation(async () => {
+                // another tab signed out while the change was in flight
+                jsdomStorage.removeItem('authToken')
+                jsdomStorage.removeItem('user')
+                return { token: 'new-token', user: { id: 'u1', username: 'ana' }, message: null }
+            })
+            await userService.changePassword({ currentPassword: 'old', newPassword: 'newpass1' })
+            expect(jsdomStorage.getItem('authToken')).toBe('new-token')
+            expect(JSON.parse(jsdomStorage.getItem('user') ?? 'null')).toEqual({ id: 'u1', username: 'ana' })
         } finally {
             done()
         }

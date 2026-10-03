@@ -1,4 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
+import { renderHook } from '@testing-library/react'
 import { JSDOM } from 'jsdom'
 import type { StompClientHandlers } from './gameSocket'
 
@@ -16,7 +17,9 @@ vi.mock('./gameSocket', async (importOriginal) => {
 })
 
 import { apiClient } from './api'
-import { gameSocket } from './gameSocket'
+import { createGameSocket, gameSocket } from './gameSocket'
+import { userService } from './userService'
+import { useAuth } from '../hooks/useAuth'
 
 // Node 26's own localStorage global is unusable here; borrow jsdom's (see api.test.ts)
 const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }).window
@@ -62,7 +65,8 @@ describe('one decision ends a session: a REST 401', () => {
         expect(assign).toHaveBeenCalledTimes(1)
         expect(assign).toHaveBeenCalledWith('/login?reason=session-ended')
         expect(jsdomStorage.getItem('authToken')).toBeNull()
-        expect(jsdomStorage.getItem('user')).toBeNull()
+        // only the token: another tab's password change may store a new one (see below)
+        expect(jsdomStorage.getItem('user')).not.toBeNull()
     })
 
     test('a 401 for a token that is no longer the stored one does not end it', async () => {
@@ -150,5 +154,43 @@ describe('one decision ends a session: a refused STOMP CONNECT', () => {
         } finally {
             release()
         }
+    })
+})
+
+// N1: tab A changes the password while tab B (same browser, shared storage) holds a game socket.
+// The server closes B's socket with 1008 at its first session bump, before A's 200 arrives.
+describe('a password change in one tab while another tab holds a game socket', () => {
+    test("the other tab's sign-out takes only the token, and the new token is never logged out", async () => {
+        // tab B: its own socket module instance, signing out the default way (shared storage, reload)
+        let tabB: StompClientHandlers | null = null
+        createGameSocket((_token, handlers) => {
+            tabB = handlers
+            return { activate() {}, deactivate() {}, publish() {}, subscribe: () => ({ id: 'sub', unsubscribe() {} }) }
+        }).acquire()
+        tabB!.onConnect()
+
+        let afterTabB: { token: string | null; user: string | null } | null = null
+        const fetch = vi.fn(async (url: string) => {
+            if (url.endsWith('/user/me/password')) {
+                tabB!.onWebSocketClose(1008)
+                afterTabB = { token: jsdomStorage.getItem('authToken'), user: jsdomStorage.getItem('user') }
+                return jsonResponse(200, { token: 'tok-2', user: { id: 'u1', username: 'ana' }, message: null })
+            }
+            return jsonResponse(200, {})
+        })
+        vi.stubGlobal('fetch', fetch)
+
+        // tab A
+        await userService.changePassword({ currentPassword: 'long-enough-1', newPassword: 'long-enough-2' })
+        expect(afterTabB).toEqual({ token: null, user: '{"id":"u1","username":"ana"}' })
+        expect(jsdomStorage.getItem('authToken')).toBe('tok-2')
+        expect(JSON.parse(jsdomStorage.getItem('user') ?? 'null')).toEqual({ id: 'u1', username: 'ana' })
+
+        // the next useAuth mount in any tab (tab B's reload, tab A's next route) finds a consistent pair
+        const { result } = renderHook(() => useAuth())
+        expect(result.current.isAuthenticated).toBe(true)
+        const logouts = fetch.mock.calls.filter(([url]) => url.endsWith('/api/auth/logout'))
+        expect(logouts).toEqual([])
+        expect(jsdomStorage.getItem('authToken')).toBe('tok-2')
     })
 })

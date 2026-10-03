@@ -335,7 +335,7 @@ describe('gameSocket: a session the server ended (close 1008)', () => {
         expect(socket.getState().error).toBeNull()
     })
 
-    test('by default it forgets the stored token and user, and reloads into the login page', () => {
+    test('by default it forgets the stored token, and only the token, and reloads into the login page', () => {
         const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }).window
         const assign = vi.fn()
         vi.stubGlobal('localStorage', jsdomStorage)
@@ -349,7 +349,8 @@ describe('gameSocket: a session the server ended (close 1008)', () => {
             expect(clients[0].token).toBe('tok-1')
             clients[0].handlers.onWebSocketClose(1008)
             expect(jsdomStorage.getItem('authToken')).toBeNull()
-            expect(jsdomStorage.getItem('user')).toBeNull()
+            // the user stays: another tab's password change may store a new token next to it
+            expect(jsdomStorage.getItem('user')).toBe('{"id":"u1","username":"ana"}')
             expect(assign).toHaveBeenCalledWith('/login?reason=session-ended')
         } finally {
             vi.unstubAllGlobals()

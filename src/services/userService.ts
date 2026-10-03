@@ -32,6 +32,8 @@ export const userService = {
             const response = await apiClient.post<JwtResponseDTO>('/user/me/password', request, { keepTokenOn401: true });
             if (response?.token) {
                 apiClient.setToken(response.token);
+                // the pair useAuth reads: another tab may have cleared either while this was in flight
+                if (response.user) localStorage.setItem('user', JSON.stringify(response.user));
                 gameSocket.reconnect();
             }
         } finally {
