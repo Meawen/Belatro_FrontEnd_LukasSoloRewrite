@@ -1,15 +1,18 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { UnverifiedEmailBanner } from './UnverifiedEmailBanner'
-import { useMe } from '../../hooks/useUser'
+import { useMe, notifyMeChanged } from '../../hooks/useUser'
 import { userService } from '../../services/userService'
 import { ApiError } from '../../services/api'
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAuthenticated: true }) }))
-vi.mock('../../hooks/useUser', () => ({ useMe: vi.fn() }))
-vi.mock('../../services/userService', () => ({ userService: { resendEmailConfirmation: vi.fn() } }))
+vi.mock('../../hooks/useUser', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../../hooks/useUser')>()),
+    useMe: vi.fn(),
+}))
+vi.mock('../../services/userService', () => ({ userService: { resendEmailConfirmation: vi.fn(), getMe: vi.fn() } }))
 
 const base = { id: 'u1', username: 'ana', email: null, pendingEmail: null, emailVerified: false, roles: null, deletionRequested: false }
 const refetch = vi.fn()
@@ -71,5 +74,42 @@ describe('UnverifiedEmailBanner', () => {
         expect(screen.getByRole('region', { name: 'Email confirmation' })).toHaveTextContent('Check your inbox: confirm ana@example.com to play ranked.')
         expect(screen.getByRole('button', { name: 'Resend confirmation email' })).toBeInTheDocument()
         expect(screen.queryByRole('link', { name: 'Add or change your email address' })).not.toBeInTheDocument()
+    })
+
+    test('stops listening for changes once unmounted', () => {
+        const { unmount } = renderBanner({ ...base, pendingEmail: 'ana@example.com' })
+        unmount()
+        act(() => notifyMeChanged())
+        expect(refetch).not.toHaveBeenCalled()
+    })
+})
+
+// AppLayout stays mounted across navigation, so the banner must hear about a change made on the page itself
+describe('UnverifiedEmailBanner after a change on the page', () => {
+    beforeEach(async () => {
+        const real = await vi.importActual<typeof import('../../hooks/useUser')>('../../hooks/useUser')
+        vi.mocked(useMe).mockImplementation(real.useMe)
+    })
+
+    test('a changed pending address replaces the old one without a reload', async () => {
+        vi.mocked(userService.getMe)
+            .mockResolvedValueOnce({ ...base, pendingEmail: 'old@example.com' } as never)
+            .mockResolvedValue({ ...base, pendingEmail: 'new@example.com' } as never)
+        render(<MemoryRouter><UnverifiedEmailBanner /></MemoryRouter>)
+        expect(await screen.findByText('Check your inbox: confirm old@example.com to play ranked.')).toBeInTheDocument()
+        act(() => notifyMeChanged())
+        expect(await screen.findByText('Check your inbox: confirm new@example.com to play ranked.')).toBeInTheDocument()
+        expect(screen.queryByText(/old@example\.com/)).not.toBeInTheDocument()
+    })
+
+    test('an added address replaces the prompt to add one', async () => {
+        vi.mocked(userService.getMe)
+            .mockResolvedValueOnce(base as never)
+            .mockResolvedValue({ ...base, pendingEmail: 'added@example.com' } as never)
+        render(<MemoryRouter><UnverifiedEmailBanner /></MemoryRouter>)
+        expect(await screen.findByText(/Add an email address to play ranked/)).toBeInTheDocument()
+        act(() => notifyMeChanged())
+        expect(await screen.findByText('Check your inbox: confirm added@example.com to play ranked.')).toBeInTheDocument()
+        expect(screen.queryByText(/Add an email address/)).not.toBeInTheDocument()
     })
 })

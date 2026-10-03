@@ -4,7 +4,7 @@ import { ChangeEmailForm } from './ChangeEmailForm';
 import { ResendConfirmationButton } from '../auth/ResendConfirmationButton';
 import { ProfileStats } from './ProfileStats';
 import { Button, ErrorAlert, Loading, Modal } from '../common';
-import { useUser, useMe } from '../../hooks/useUser';
+import { useUser, useMe, notifyMeChanged } from '../../hooks/useUser';
 import { useAuth } from '../../hooks/useAuth';
 // direct module import (not the ../../hooks barrel) so the component test does
 // not load every hook module, incl. the WebSocket ones
@@ -318,7 +318,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                     title="Change Password"
                 >
                     <ChangePasswordForm
-                        onSuccess={() => setShowEditProfile(false)}
+                        onSuccess={() => {
+                            setShowEditProfile(false);
+                            // a password change cancels a pending change of address
+                            refetchMe();
+                            notifyMeChanged();
+                        }}
                         onCancel={() => setShowEditProfile(false)}
                     />
                 </Modal>
@@ -338,6 +343,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                             // the same 202 whether or not the address can be used, so no promise of a mail
                             setEmailNotice(`If this address can be used, a confirmation link is on its way to ${newEmail}. Check your inbox (and spam).`);
                             refetchMe();
+                            notifyMeChanged();
                         }}
                         onCancel={() => setShowChangeEmail(false)}
                     />

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { useMe } from '../../hooks/useUser';
+import { ME_CHANGED, useMe } from '../../hooks/useUser';
 import { ResendConfirmationButton } from '../auth/ResendConfirmationButton';
 
 /** Unverified accounts may play casual, not ranked; say so on every page until confirmed. */
@@ -11,15 +11,29 @@ export const UnverifiedEmailBanner: React.FC = () => {
     // The address a resend answered 409 "Nothing to confirm" for: it can never be confirmed
     // (for example a malformed legacy value), so stop asking to confirm it.
     const [unconfirmable, setUnconfirmable] = useState<string | null>(null);
+    // refetch is a new function on every render; the listener below registers once
+    const refetchRef = useRef(refetch);
+    refetchRef.current = refetch;
+
+    // This banner stays mounted across navigation and keeps its own /user/me: re-fetch when the
+    // page changes the address or password (or a resend finds nothing to confirm).
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        const onMeChanged = () => {
+            refetchRef.current().catch(() => {});
+        };
+        window.addEventListener(ME_CHANGED, onMeChanged);
+        return () => window.removeEventListener(ME_CHANGED, onMeChanged);
+    }, [isAuthenticated]);
 
     if (!isAuthenticated || !me || me.emailVerified) return null;
 
     const address = me.pendingEmail ?? me.email;
 
+    // The button also fires ME_CHANGED, so the re-fetch above runs too: if the address was
+    // confirmed in another tab since this page loaded, the banner goes.
     const handleNothingToConfirm = () => {
         setUnconfirmable(address);
-        // or it was confirmed in another tab since this page loaded: then the banner goes
-        refetch().catch(() => {});
     };
 
     return (

@@ -1,15 +1,16 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { UserProfile } from './UserProfile'
 import { userService } from '../../services/userService'
 import { ApiError } from '../../services/api'
-import { useUser, useMe } from '../../hooks/useUser'
+import { useUser, useMe, ME_CHANGED } from '../../hooks/useUser'
 
 vi.mock('../../hooks/useAuth', () => ({
     useAuth: () => ({ user: { id: 'u1', username: 'ana' }, isAuthenticated: true, isLoading: false }),
 }))
-vi.mock('../../hooks/useUser', () => ({
+vi.mock('../../hooks/useUser', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../../hooks/useUser')>()),
     useUser: vi.fn(),
     useMe: vi.fn(),
 }))
@@ -20,8 +21,11 @@ vi.mock('../../services/userService', () => ({
 const player = { id: 'u1', username: 'ana', eloRating: 1450, level: 3, gamesPlayed: 42 }
 const meBase = { id: 'u1', username: 'ana', email: 'ana@example.com', pendingEmail: null, emailVerified: true, roles: null, deletionRequested: false }
 const refetchMe = vi.fn()
+const meChanged = vi.fn()
 
 beforeEach(() => {
+    window.removeEventListener(ME_CHANGED, meChanged)
+    window.addEventListener(ME_CHANGED, meChanged)
     vi.clearAllMocks()
     vi.mocked(useUser).mockReturnValue({ user: player, isLoading: false, error: null, refetch: vi.fn() } as never)
     vi.mocked(useMe).mockReturnValue({ data: meBase, isLoading: false, error: null, refetch: refetchMe } as never)
@@ -66,6 +70,23 @@ describe('UserProfile deletion request', () => {
     })
 })
 
+describe('UserProfile change of password', () => {
+    test('a changed password refreshes me and tells the banner (it cancels a pending address)', async () => {
+        const user = userEvent.setup()
+        vi.mocked(userService.changePassword).mockResolvedValue(undefined)
+        render(<UserProfile />)
+        await user.click(screen.getByRole('button', { name: 'Change Password' }))
+        await user.type(screen.getByLabelText('Current Password'), 'long-enough-1')
+        await user.type(screen.getByLabelText('New Password'), 'long-enough-2')
+        await user.type(screen.getByLabelText('Confirm New Password'), 'long-enough-2')
+        const form = screen.getByLabelText('Current Password').closest('form') as HTMLFormElement
+        await user.click(within(form).getByRole('button', { name: 'Change Password' }))
+        expect(userService.changePassword).toHaveBeenCalledTimes(1)
+        await waitFor(() => expect(refetchMe).toHaveBeenCalled())
+        expect(meChanged).toHaveBeenCalledTimes(1)
+    })
+})
+
 describe('UserProfile change of email', () => {
     test('a sent change says where the link may go, without promising it, and refreshes me', async () => {
         const user = userEvent.setup()
@@ -80,6 +101,8 @@ describe('UserProfile change of email', () => {
             'If this address can be used, a confirmation link is on its way to new@example.com. Check your inbox (and spam).')
         expect(screen.queryByLabelText('New email address')).not.toBeInTheDocument()
         expect(refetchMe).toHaveBeenCalled()
+        // the banner above has its own copy of /user/me
+        expect(meChanged).toHaveBeenCalledTimes(1)
     })
 
     test('an account without any address is offered to add one', async () => {

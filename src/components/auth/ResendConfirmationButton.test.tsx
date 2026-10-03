@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { ResendConfirmationButton } from './ResendConfirmationButton'
 import { userService } from '../../services/userService'
 import { ApiError } from '../../services/api'
+import { ME_CHANGED } from '../../hooks/useUser'
 
 vi.mock('../../services/userService', () => ({ userService: { resendEmailConfirmation: vi.fn() } }))
 
@@ -27,11 +28,16 @@ describe('ResendConfirmationButton', () => {
         vi.mocked(userService.resendEmailConfirmation).mockRejectedValue(new ApiError({ status: 409, message: 'Nothing to confirm' }))
         const onChangeEmail = vi.fn()
         const onNothingToConfirm = vi.fn()
+        const meChanged = vi.fn()
+        window.addEventListener(ME_CHANGED, meChanged)
         render(<ResendConfirmationButton onChangeEmail={onChangeEmail} onNothingToConfirm={onNothingToConfirm} />)
         await clickResend()
         expect(await screen.findByRole('status')).toHaveTextContent('Nothing to confirm')
         // the banner around it stops asking to confirm the address
         expect(onNothingToConfirm).toHaveBeenCalledTimes(1)
+        // /user/me may differ from what the page shows (for example confirmed in another tab)
+        expect(meChanged).toHaveBeenCalledTimes(1)
+        window.removeEventListener(ME_CHANGED, meChanged)
         // never offer the same resend again: it would answer 409 again
         expect(screen.queryByRole('button', { name: 'Resend confirmation email' })).not.toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Add or change your email address' }))

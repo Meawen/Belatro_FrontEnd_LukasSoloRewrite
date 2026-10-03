@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '../common/Button';
 // direct module import (not the ../../hooks barrel) keeps tests off the WebSocket hooks
 import { useMutation } from '../../hooks/useApi';
+import { notifyMeChanged } from '../../hooks/useUser';
 import { userService } from '../../services/userService';
 import { ApiError } from '../../services/api';
 import { errorMessage } from '../../utils/errorMessage';
@@ -42,6 +43,8 @@ export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> =
             if (status === 409) {
                 setNothingToConfirm(true);
                 onNothingToConfirm?.();
+                // what the page shows may be stale (for example confirmed in another tab)
+                notifyMeChanged();
             }
             if (status === 429) setHint('Wait a while, then try again.');
         } finally {

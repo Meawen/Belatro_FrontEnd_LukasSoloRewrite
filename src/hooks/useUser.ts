@@ -74,6 +74,17 @@ export function useUserHistorySummary(playerId: string, pagination?: PaginationP
     );
 }
 
+/**
+ * Fired after this tab changed what GET /user/me returns (email, pending address, password).
+ * Every useMe instance caches its own copy, and AppLayout's banner stays mounted across
+ * navigation, so it re-fetches on this event instead of showing the old address until a reload.
+ */
+export const ME_CHANGED = 'stiglja:me-changed';
+
+export function notifyMeChanged(): void {
+    window.dispatchEvent(new Event(ME_CHANGED));
+}
+
 export function useMe(enabled: boolean = true) {
     const apiFunction = useMemo(() => () => userService.getMe(), []);
     const query = useApi(apiFunction, {
