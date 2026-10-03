@@ -34,15 +34,18 @@ describe('UnverifiedEmailBanner', () => {
         expect(vi.mocked(useMe)).toHaveBeenCalledWith(true)
     })
 
-    test('a pending address asks to check the inbox and offers a resend', () => {
+    test('a pending address asks to confirm it, promising no mail, and offers a resend', () => {
         renderBanner({ ...base, pendingEmail: 'ana@example.com' })
-        expect(screen.getByRole('region', { name: 'Email confirmation' })).toHaveTextContent('Check your inbox: confirm ana@example.com to play ranked.')
+        const banner = screen.getByRole('region', { name: 'Email confirmation' })
+        expect(banner).toHaveTextContent('Confirm ana@example.com to play ranked: use the link if one arrived, or ask for a new one.')
+        // an address another account holds is never mailed, so nothing may say a mail is waiting
+        expect(banner).not.toHaveTextContent('Check your inbox')
         expect(screen.getByRole('button', { name: 'Resend confirmation email' })).toBeInTheDocument()
     })
 
     test('a legacy unconfirmed address is named too', () => {
         renderBanner({ ...base, email: 'old@example.com' })
-        expect(screen.getByRole('region', { name: 'Email confirmation' })).toHaveTextContent('confirm old@example.com to play ranked.')
+        expect(screen.getByRole('region', { name: 'Email confirmation' })).toHaveTextContent('Confirm old@example.com to play ranked:')
     })
 
     test('an account without any address is sent to its profile', () => {
@@ -58,8 +61,8 @@ describe('UnverifiedEmailBanner', () => {
         const banner = screen.getByRole('region', { name: 'Email confirmation' })
         expect(await screen.findByRole('link', { name: 'Add or change your email address' })).toHaveAttribute('href', '/profile')
         expect(banner).toHaveTextContent('Add or change your email address to play ranked.')
-        expect(banner).not.toHaveTextContent('Check your inbox')
-        expect(banner).not.toHaveTextContent('confirm Ana@Example.com')
+        expect(banner).not.toHaveTextContent('use the link if one arrived')
+        expect(banner).not.toHaveTextContent('Confirm Ana@Example.com')
         // the account may have been confirmed elsewhere since this page loaded
         expect(refetch).toHaveBeenCalledTimes(1)
     })
@@ -71,7 +74,7 @@ describe('UnverifiedEmailBanner', () => {
         await screen.findByRole('link', { name: 'Add or change your email address' })
         vi.mocked(useMe).mockReturnValue({ data: { ...base, email: 'Ana@Example.com', pendingEmail: 'ana@example.com' }, refetch } as never)
         rerender(<MemoryRouter><UnverifiedEmailBanner /></MemoryRouter>)
-        expect(screen.getByRole('region', { name: 'Email confirmation' })).toHaveTextContent('Check your inbox: confirm ana@example.com to play ranked.')
+        expect(screen.getByRole('region', { name: 'Email confirmation' })).toHaveTextContent('Confirm ana@example.com to play ranked: use the link if one arrived, or ask for a new one.')
         expect(screen.getByRole('button', { name: 'Resend confirmation email' })).toBeInTheDocument()
         expect(screen.queryByRole('link', { name: 'Add or change your email address' })).not.toBeInTheDocument()
     })
@@ -96,9 +99,9 @@ describe('UnverifiedEmailBanner after a change on the page', () => {
             .mockResolvedValueOnce({ ...base, pendingEmail: 'old@example.com' } as never)
             .mockResolvedValue({ ...base, pendingEmail: 'new@example.com' } as never)
         render(<MemoryRouter><UnverifiedEmailBanner /></MemoryRouter>)
-        expect(await screen.findByText('Check your inbox: confirm old@example.com to play ranked.')).toBeInTheDocument()
+        expect(await screen.findByText('Confirm old@example.com to play ranked: use the link if one arrived, or ask for a new one.')).toBeInTheDocument()
         act(() => notifyMeChanged())
-        expect(await screen.findByText('Check your inbox: confirm new@example.com to play ranked.')).toBeInTheDocument()
+        expect(await screen.findByText('Confirm new@example.com to play ranked: use the link if one arrived, or ask for a new one.')).toBeInTheDocument()
         expect(screen.queryByText(/old@example\.com/)).not.toBeInTheDocument()
     })
 
@@ -109,7 +112,7 @@ describe('UnverifiedEmailBanner after a change on the page', () => {
         render(<MemoryRouter><UnverifiedEmailBanner /></MemoryRouter>)
         expect(await screen.findByText(/Add an email address to play ranked/)).toBeInTheDocument()
         act(() => notifyMeChanged())
-        expect(await screen.findByText('Check your inbox: confirm added@example.com to play ranked.')).toBeInTheDocument()
+        expect(await screen.findByText('Confirm added@example.com to play ranked: use the link if one arrived, or ask for a new one.')).toBeInTheDocument()
         expect(screen.queryByText(/Add an email address/)).not.toBeInTheDocument()
     })
 })

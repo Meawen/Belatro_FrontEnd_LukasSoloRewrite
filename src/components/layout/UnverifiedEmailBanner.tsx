@@ -47,7 +47,8 @@ export const UnverifiedEmailBanner: React.FC = () => {
                     {unconfirmable === address ? (
                         <span>Add or change your email address to play ranked.</span>
                     ) : (
-                        <span>Check your inbox: confirm {address} to play ranked.</span>
+                        // no promise of a mail: an address another account holds is accepted but never mailed
+                        <span>Confirm {address} to play ranked: use the link if one arrived, or ask for a new one.</span>
                     )}
                     {/* a new address gets a fresh button, not the old one's "nothing to confirm" */}
                     <ResendConfirmationButton key={address} onNothingToConfirm={handleNothingToConfirm} />
