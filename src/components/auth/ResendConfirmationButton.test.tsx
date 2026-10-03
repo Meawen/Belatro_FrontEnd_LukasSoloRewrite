@@ -26,9 +26,12 @@ describe('ResendConfirmationButton', () => {
     test('nothing to confirm replaces the resend with the prompt to add or change the address', async () => {
         vi.mocked(userService.resendEmailConfirmation).mockRejectedValue(new ApiError({ status: 409, message: 'Nothing to confirm' }))
         const onChangeEmail = vi.fn()
-        render(<ResendConfirmationButton onChangeEmail={onChangeEmail} />)
+        const onNothingToConfirm = vi.fn()
+        render(<ResendConfirmationButton onChangeEmail={onChangeEmail} onNothingToConfirm={onNothingToConfirm} />)
         await clickResend()
         expect(await screen.findByRole('status')).toHaveTextContent('Nothing to confirm')
+        // the banner around it stops asking to confirm the address
+        expect(onNothingToConfirm).toHaveBeenCalledTimes(1)
         // never offer the same resend again: it would answer 409 again
         expect(screen.queryByRole('button', { name: 'Resend confirmation email' })).not.toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Add or change your email address' }))

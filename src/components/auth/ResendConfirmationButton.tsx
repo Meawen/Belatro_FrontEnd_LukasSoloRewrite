@@ -10,12 +10,14 @@ import { errorMessage } from '../../utils/errorMessage';
 export interface ResendConfirmationButtonProps {
     /** Opens the change-of-address form. Without it, "nothing to confirm" links to the profile, where the form is. */
     onChangeEmail?: () => void;
+    /** Told when the server answers 409 "Nothing to confirm", so a caller can stop asking to confirm the address. */
+    onNothingToConfirm?: () => void;
 }
 
 const ADD_OR_CHANGE = 'Add or change your email address';
 
 /** Re-sends the confirmation link for the pending (or legacy unconfirmed) address. */
-export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> = ({ onChangeEmail }) => {
+export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> = ({ onChangeEmail, onNothingToConfirm }) => {
     const [message, setMessage] = useState<string | null>(null);
     const [hint, setHint] = useState<string | null>(null);
     // 409: the address on file can never be confirmed (or there is none). Another resend would
@@ -37,7 +39,10 @@ export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> =
         } catch (error) {
             const status = error instanceof ApiError ? error.status : 0;
             setMessage(errorMessage(error, 'Could not send the email'));
-            if (status === 409) setNothingToConfirm(true);
+            if (status === 409) {
+                setNothingToConfirm(true);
+                onNothingToConfirm?.();
+            }
             if (status === 429) setHint('Wait a while, then try again.');
         } finally {
             sending.current = false;

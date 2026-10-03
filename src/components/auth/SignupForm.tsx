@@ -19,6 +19,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({
         confirmPassword: '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [createdEmail, setCreatedEmail] = useState<string | null>(null);
 
     const { signup, isSignupLoading } = useAuth();
 
@@ -88,7 +89,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({
             });
 
             console.log('Signup successful:', { username: result.user?.username });
-            onSuccess?.();
+            // The account works now; the address still needs its confirmation link.
+            setCreatedEmail(formData.email.trim());
         } catch (error) {
             console.error('Signup error:', error);
             setErrors({
@@ -96,6 +98,23 @@ export const SignupForm: React.FC<SignupFormProps> = ({
             });
         }
     };
+
+    if (createdEmail) {
+        return (
+            <div className="card max-w-md mx-auto text-center space-y-4">
+                <h2 className="text-2xl font-bold text-white">Check your inbox</h2>
+                {/* The same answer comes for an address another account holds, and that one gets no
+                    link (spec section 1), so this must not promise a mail. */}
+                <p className="text-slate-300">
+                    If this address can be used, a confirmation link is on its way to <strong>{createdEmail}</strong>. Check your inbox (and spam).
+                    Confirm it to play ranked; casual games work right away.
+                </p>
+                <Button type="button" variant="primary" fullWidth onClick={() => onSuccess?.()}>
+                    Continue
+                </Button>
+            </div>
+        );
+    }
 
     return (
         <div className="card max-w-md mx-auto">

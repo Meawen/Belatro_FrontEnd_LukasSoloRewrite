@@ -20,7 +20,7 @@ async function fill(username: string, password: string, confirm = password) {
     await user.type(screen.getByLabelText('Password'), password)
     await user.type(screen.getByLabelText('Confirm Password'), confirm)
     await user.click(screen.getByRole('button', { name: /create account/i }))
-    return onSuccess
+    return { user, onSuccess }
 }
 
 describe('SignupForm credential rules', () => {
@@ -49,6 +49,22 @@ describe('SignupForm credential rules', () => {
     })
 })
 
+describe('SignupForm after success', () => {
+    test('asks to check the inbox before continuing', async () => {
+        auth.signup.mockResolvedValue({ token: 't', user: { id: 'u1', username: 'ana' }, message: null })
+        const { user, onSuccess } = await fill('ana', 'long-enough-1')
+        expect(await screen.findByText('Check your inbox')).toBeInTheDocument()
+        expect(screen.getByText('ana@example.com')).toBeInTheDocument()
+        // no promise of a mail: an address another account holds gets no link
+        expect(screen.getByText(/confirmation link is on its way/)).toHaveTextContent(
+            'If this address can be used, a confirmation link is on its way to ana@example.com. Check your inbox (and spam).')
+        expect(screen.queryByText(/We sent/)).not.toBeInTheDocument()
+        expect(onSuccess).not.toHaveBeenCalled()
+        await user.click(screen.getByRole('button', { name: 'Continue' }))
+        expect(onSuccess).toHaveBeenCalledTimes(1)
+    })
+})
+
 describe('SignupForm logging', () => {
     const PASSWORD = 'Sup3r-Secret-pw!'
     const TOKEN = 'tok.en.value'
@@ -58,8 +74,8 @@ describe('SignupForm logging', () => {
     test('a submitted signup logs neither the password nor the returned token', async () => {
         auth.signup.mockResolvedValue({ token: TOKEN, user: { id: 'u1', username: 'ana' }, message: null })
         const logs = captureConsole()
-        const onSuccess = await fill('ana', PASSWORD)
-        await waitFor(() => expect(onSuccess).toHaveBeenCalled())
+        await fill('ana', PASSWORD)
+        await waitFor(() => expect(screen.getByText('Check your inbox')).toBeInTheDocument())
         expect(logs.leaked(PASSWORD, TOKEN)).toEqual([])
     })
 
