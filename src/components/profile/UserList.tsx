@@ -304,13 +304,15 @@ export const UserList: React.FC<UserListProps> = ({
                 </div>
             )}
 
+            {/* Step from the page the server answered with, and not while the next one loads
+                (useApi keeps the old page on screen meanwhile, so a double-click would skip one). */}
             {usersPage && usersPage.totalPages > 1 && (
                 <div className="flex items-center justify-center gap-4">
                     <Button
                         variant="outline"
                         size="small"
-                        disabled={usersPage.number <= 0}
-                        onClick={() => setPage((p) => Math.max(0, p - 1))}
+                        disabled={isLoading || usersPage.number <= 0}
+                        onClick={() => setPage(Math.max(0, usersPage.number - 1))}
                     >
                         Previous
                     </Button>
@@ -320,8 +322,8 @@ export const UserList: React.FC<UserListProps> = ({
                     <Button
                         variant="outline"
                         size="small"
-                        disabled={usersPage.number + 1 >= usersPage.totalPages}
-                        onClick={() => setPage((p) => p + 1)}
+                        disabled={isLoading || usersPage.number + 1 >= usersPage.totalPages}
+                        onClick={() => setPage(usersPage.number + 1)}
                     >
                         Next
                     </Button>
