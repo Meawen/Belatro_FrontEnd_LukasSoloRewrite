@@ -4,7 +4,7 @@ import { ProfileStats } from './ProfileStats'
 import type { User, UserDto } from '../../types/user'
 
 const player: User = { id: 'u1', username: 'ana', eloRating: 1450, level: 3, gamesPlayed: 42 }
-const me: UserDto = { id: 'u1', username: 'ana', email: 'ana@example.com', roles: ['ROLE_ADMIN'], deletionRequested: false }
+const me: UserDto = { id: 'u1', username: 'ana', email: 'ana@example.com', pendingEmail: null, emailVerified: true, roles: ['ROLE_ADMIN'], deletionRequested: false }
 
 describe('ProfileStats', () => {
     test("someone else's profile shows stats but no email or roles", () => {
@@ -26,5 +26,28 @@ describe('ProfileStats', () => {
         render(<ProfileStats user={player} me={me} />)
         expect(screen.queryByText('Experience Points')).not.toBeInTheDocument()
         expect(screen.queryByText('Experience Progress')).not.toBeInTheDocument()
+    })
+
+    test('a pending address waits for confirmation and offers the resend action', () => {
+        render(<ProfileStats user={player} me={{ ...me, pendingEmail: 'new@example.com' }} confirmAction={<button>Resend confirmation email</button>} />)
+        expect(screen.getByTestId('pending-email')).toHaveTextContent('Waiting for confirmation: new@example.com')
+        expect(screen.getByRole('button', { name: 'Resend confirmation email' })).toBeInTheDocument()
+    })
+
+    test('a legacy unconfirmed address is marked and can be confirmed', () => {
+        render(<ProfileStats user={player} me={{ ...me, emailVerified: false }} confirmAction={<button>Resend confirmation email</button>} />)
+        expect(screen.getByText('(not confirmed)')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Resend confirmation email' })).toBeInTheDocument()
+    })
+
+    test('a confirmed address with nothing pending offers no resend', () => {
+        render(<ProfileStats user={player} me={me} confirmAction={<button>Resend confirmation email</button>} />)
+        expect(screen.queryByRole('button', { name: 'Resend confirmation email' })).not.toBeInTheDocument()
+    })
+
+    test('an account without any address offers no resend', () => {
+        render(<ProfileStats user={player} me={{ ...me, email: null, emailVerified: false }} confirmAction={<button>Resend confirmation email</button>} />)
+        expect(screen.getByText('Not set')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Resend confirmation email' })).not.toBeInTheDocument()
     })
 })

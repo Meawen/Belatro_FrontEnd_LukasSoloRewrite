@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { ChangePasswordForm } from './ChangePasswordForm';
+import { ChangeEmailForm } from './ChangeEmailForm';
+import { ResendConfirmationButton } from '../auth/ResendConfirmationButton';
 import { ProfileStats } from './ProfileStats';
 import { Button, ErrorAlert, Loading, Modal } from '../common';
 import { useUser, useMe } from '../../hooks/useUser';
@@ -17,6 +19,8 @@ export interface UserProfileProps {
 export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
     const [showEditProfile, setShowEditProfile] = useState(false);
     const [activeTab, setActiveTab] = useState<'stats' | 'profile'>('stats');
+    const [showChangeEmail, setShowChangeEmail] = useState(false);
+    const [emailNotice, setEmailNotice] = useState<string | null>(null);
 
     const { user: currentUser } = useAuth();
 
@@ -31,6 +35,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
 
     const isOwnProfile = !userId || userId === currentUser?.id;
     const { data: me, refetch: refetchMe } = useMe(isOwnProfile);
+    // no address at all (e.g. a new account that changed its password before confirming): resend has nothing to send
+    const emailAction = me && !me.email && !me.pendingEmail ? 'Add an email address' : 'Change Email';
 
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const [deletionError, setDeletionError] = useState<string | null>(null);
@@ -131,6 +137,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
 
     return (
         <div className="space-y-6">
+            {emailNotice && (
+                <div role="status" className="card border border-emerald-500/40 text-emerald-200 text-sm">
+                    {emailNotice}
+                </div>
+            )}
+
             {/* Profile Header */}
             <div className="card">
                 <div className="flex items-start gap-6">
@@ -146,6 +158,15 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                                 {displayUser.username || 'Unknown User'}
                             </h1>
                             {isOwnProfile && (
+                                <div className="flex gap-2">
+                                <Button
+                                    onClick={() => setShowChangeEmail(true)}
+                                    variant="outline"
+                                    size="small"
+                                    className="border-emerald-600 text-emerald-300 hover:bg-emerald-600 hover:text-white"
+                                >
+                                    {emailAction}
+                                </Button>
                                 <Button
                                     onClick={() => setShowEditProfile(true)}
                                     variant="outline"
@@ -157,6 +178,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                                     </svg>
                                     Change Password
                                 </Button>
+                                </div>
                             )}
                         </div>
 
@@ -238,7 +260,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
 
             {/* Tab Content */}
             {activeTab === 'stats' && (
-                <ProfileStats user={displayUser} me={me ?? null} />
+                <ProfileStats
+                    user={displayUser}
+                    me={me ?? null}
+                    confirmAction={
+                        // keyed on the pending address: a new one starts a fresh button, not a stale "nothing to confirm"
+                        <ResendConfirmationButton key={me?.pendingEmail ?? ''} onChangeEmail={() => setShowChangeEmail(true)} />
+                    }
+                />
             )}
 
             {isOwnProfile && (
@@ -291,6 +320,26 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                     <ChangePasswordForm
                         onSuccess={() => setShowEditProfile(false)}
                         onCancel={() => setShowEditProfile(false)}
+                    />
+                </Modal>
+            )}
+
+            {/* Change Email Modal */}
+            {isOwnProfile && (
+                <Modal
+                    isOpen={showChangeEmail}
+                    onClose={() => setShowChangeEmail(false)}
+                    title={emailAction}
+                >
+                    <ChangeEmailForm
+                        currentEmail={me?.email ?? null}
+                        onSuccess={(newEmail) => {
+                            setShowChangeEmail(false);
+                            // the same 202 whether or not the address can be used, so no promise of a mail
+                            setEmailNotice(`If this address can be used, a confirmation link is on its way to ${newEmail}. Check your inbox (and spam).`);
+                            refetchMe();
+                        }}
+                        onCancel={() => setShowChangeEmail(false)}
                     />
                 </Modal>
             )}

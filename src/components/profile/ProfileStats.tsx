@@ -4,9 +4,11 @@ import type { User, UserDto } from '../../types/user';
 export interface ProfileStatsProps {
     user: User;
     me?: UserDto | null;
+    /** Rendered when there is an address to confirm (the profile passes the resend button). */
+    confirmAction?: React.ReactNode;
 }
 
-export const ProfileStats: React.FC<ProfileStatsProps> = ({ user, me }) => {
+export const ProfileStats: React.FC<ProfileStatsProps> = ({ user, me, confirmAction }) => {
     const eloRating = user.eloRating || 1200;
     const gamesPlayed = user.gamesPlayed || 0;
     const level = user.level || 1;
@@ -95,7 +97,18 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({ user, me }) => {
                             <span className="text-slate-400">Email:</span>
                             <div className="text-white font-medium">
                                 {me.email || 'Not set'}
+                                {me.email && !me.emailVerified && (
+                                    <span className="ml-2 text-xs text-amber-400">(not confirmed)</span>
+                                )}
                             </div>
+                            {me.pendingEmail && (
+                                <div data-testid="pending-email" className="text-amber-300 text-sm mt-1">
+                                    Waiting for confirmation: {me.pendingEmail}
+                                </div>
+                            )}
+                            {(me.pendingEmail || (me.email && !me.emailVerified)) && confirmAction && (
+                                <div className="mt-2">{confirmAction}</div>
+                            )}
                         </div>
                     )}
 
