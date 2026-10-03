@@ -87,7 +87,7 @@ describe('ChangePasswordForm', () => {
 
     test('a 401 shows "Current password is incorrect" and does not close', async () => {
         const user = userEvent.setup()
-        changePassword.mockRejectedValue(new ApiError({ message: 'Invalid current password', status: 401 }))
+        changePassword.mockRejectedValue(new ApiError({ message: 'Current password is incorrect', status: 401 }))
         const { onSuccess } = setup()
         await user.type(screen.getByLabelText(/current password/i), 'wrong')
         await user.type(screen.getByLabelText(/^new password/i), 'new-secret')

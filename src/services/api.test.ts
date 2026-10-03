@@ -50,9 +50,9 @@ describe('apiClient error handling', () => {
     afterEach(() => { jsdomStorage.clear(); vi.unstubAllGlobals() })
 
     test('surfaces the backend {"error"} body as the ApiError message', async () => {
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(409, { error: 'Username or email is already taken' })))
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(409, { error: 'Username is already taken' })))
         await expect(apiClient.get('/x')).rejects.toMatchObject({
-            name: 'ApiError', status: 409, message: 'Username or email is already taken',
+            name: 'ApiError', status: 409, message: 'Username is already taken',
         })
     })
 
@@ -75,9 +75,9 @@ describe('apiClient error handling', () => {
     })
 
     test('401 keeps the token when keepTokenOn401 is set', async () => {
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(401, { error: 'Invalid current password' })))
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(401, { error: 'Current password is incorrect' })))
         await expect(apiClient.post('/user/me/password', { a: 1 }, { keepTokenOn401: true }))
-            .rejects.toMatchObject({ status: 401, message: 'Invalid current password' })
+            .rejects.toMatchObject({ status: 401, message: 'Current password is incorrect' })
         expect(localStorage.getItem('authToken')).toBe('tok-123')
     })
 
