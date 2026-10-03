@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { LoginForm } from './LoginForm'
+import { ApiError } from '../../services/api'
 import { captureConsole } from '../../test/captureConsole'
 
 const auth = vi.hoisted(() => ({ login: vi.fn() }))
@@ -21,6 +22,31 @@ describe('LoginForm', () => {
         await user.type(screen.getByLabelText('Password'), 'long-enough-1')
         await user.click(screen.getByRole('button', { name: /sign in/i }))
         expect(auth.login).toHaveBeenCalledWith({ username: 'ana', password: 'long-enough-1' })
+    })
+
+    // With Redis down the backend answers login with a 500 (lane-email contract: show a generic "try again")
+    test.each([
+        ['a server error', new ApiError({ status: 500, message: 'Internal Server Error' })],
+        ['no answer', new ApiError({ status: 0, message: 'Failed to fetch' })],
+    ])("%s shows a generic try-again, not the browser's or Spring's text", async (_, failure) => {
+        const user = userEvent.setup()
+        auth.login.mockRejectedValue(failure)
+        render(<MemoryRouter><LoginForm onSuccess={vi.fn()} /></MemoryRouter>)
+        await user.type(screen.getByLabelText('Username'), 'ana')
+        await user.type(screen.getByLabelText('Password'), 'long-enough-1')
+        await user.click(screen.getByRole('button', { name: /sign in/i }))
+        expect(await screen.findByText('Something went wrong. Try again.')).toBeInTheDocument()
+        expect(screen.queryByText(failure.message)).not.toBeInTheDocument()
+    })
+
+    test('wrong credentials still show the server message', async () => {
+        const user = userEvent.setup()
+        auth.login.mockRejectedValue(new ApiError({ status: 401, message: 'Bad credentials' }))
+        render(<MemoryRouter><LoginForm onSuccess={vi.fn()} /></MemoryRouter>)
+        await user.type(screen.getByLabelText('Username'), 'ana')
+        await user.type(screen.getByLabelText('Password'), 'long-enough-1')
+        await user.click(screen.getByRole('button', { name: /sign in/i }))
+        expect(await screen.findByText('Bad credentials')).toBeInTheDocument()
     })
 
     test('links to the forgot-password page', () => {

@@ -5,8 +5,9 @@ import { Button, ErrorAlert, Input } from '../common';
 import { useMutation } from '../../hooks/useApi';
 import { userService } from '../../services/userService';
 import { ApiError } from '../../services/api';
-import { errorMessage } from '../../utils/errorMessage';
+import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
 import type { ChangeEmailRequest } from '../../types/user';
+import { EMAIL_PATTERN } from '../auth/credentialRules';
 
 export interface ChangeEmailFormProps {
     /** The address in force; null when the account has none (the form then adds one). */
@@ -28,7 +29,7 @@ export const ChangeEmailForm: React.FC<ChangeEmailFormProps> = ({ currentEmail, 
         const newErrors: Record<string, string> = {};
         if (!address) {
             newErrors.newEmail = 'New email address is required';
-        } else if (!/\S+@\S+\.\S+/.test(address)) {
+        } else if (!EMAIL_PATTERN.test(address)) {
             newErrors.newEmail = 'Email is invalid';
         } else if (address.toLowerCase() === currentEmail) {
             // the backend's rule: the new address, trimmed and lower-cased, against the stored one
@@ -51,6 +52,8 @@ export const ChangeEmailForm: React.FC<ChangeEmailFormProps> = ({ currentEmail, 
             // sent with keepTokenOn401: a 401 that is not the session's own is the wrong password
             if (error instanceof ApiError && error.status === 401 && !error.invalidToken) {
                 setErrors({ submit: 'Current password is incorrect' });
+            } else if (isNetworkOrServerFailure(error instanceof ApiError ? error.status : 0)) {
+                setErrors({ submit: 'We could not change your email address. Try again.' });
             } else {
                 setErrors({ submit: errorMessage(error, 'Failed to change the email address') });
             }

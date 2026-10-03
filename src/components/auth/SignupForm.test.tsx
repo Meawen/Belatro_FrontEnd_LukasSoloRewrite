@@ -2,6 +2,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SignupForm } from './SignupForm'
+import { ApiError } from '../../services/api'
 import { captureConsole } from '../../test/captureConsole'
 
 const auth = vi.hoisted(() => ({ signup: vi.fn() }))
@@ -46,6 +47,25 @@ describe('SignupForm credential rules', () => {
         auth.signup.mockResolvedValue({ token: 't', user: { id: 'u1', username: 'ana' }, message: null })
         await fill('  ana  ', 'long-enough-1')
         expect(auth.signup).toHaveBeenCalledWith({ username: 'ana', email: 'ana@example.com', password: 'long-enough-1' })
+    })
+})
+
+describe('SignupForm failures', () => {
+    // With Redis down the backend answers signup with a 500 (lane-email contract: show a generic "try again")
+    test.each([
+        ['a server error', new ApiError({ status: 500, message: 'Internal Server Error' })],
+        ['no answer', new ApiError({ status: 0, message: 'Failed to fetch' })],
+    ])("%s shows a generic try-again, not the browser's or Spring's text", async (_, failure) => {
+        auth.signup.mockRejectedValue(failure)
+        await fill('ana', 'long-enough-1')
+        expect(await screen.findByText('Something went wrong. Try again.')).toBeInTheDocument()
+        expect(screen.queryByText(failure.message)).not.toBeInTheDocument()
+    })
+
+    test('a taken username still shows the server message', async () => {
+        auth.signup.mockRejectedValue(new ApiError({ status: 409, message: 'Username is already taken' }))
+        await fill('ana', 'long-enough-1')
+        expect(await screen.findByText('Username is already taken')).toBeInTheDocument()
     })
 })
 

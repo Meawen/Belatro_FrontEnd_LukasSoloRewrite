@@ -61,6 +61,17 @@ describe('ResendConfirmationButton', () => {
         expect(screen.getByRole('button', { name: 'Resend confirmation email' })).toBeEnabled()
     })
 
+    test.each([
+        ['a server error', new ApiError({ status: 500, message: 'Internal Server Error' })],
+        ['no answer', new ApiError({ status: 0, message: 'Failed to fetch' })],
+    ])("%s says the email was not sent, not the browser's or Spring's text", async (_, failure) => {
+        vi.mocked(userService.resendEmailConfirmation).mockRejectedValue(failure)
+        render(<ResendConfirmationButton />)
+        await clickResend()
+        expect(await screen.findByRole('status')).toHaveTextContent('We could not send the email. Try again.')
+        expect(screen.queryByText(failure.message)).not.toBeInTheDocument()
+    })
+
     test('two rapid clicks send one request', () => {
         vi.mocked(userService.resendEmailConfirmation).mockReturnValue(new Promise(() => {}))
         render(<ResendConfirmationButton />)

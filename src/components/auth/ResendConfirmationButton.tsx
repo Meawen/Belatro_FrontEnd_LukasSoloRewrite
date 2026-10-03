@@ -6,7 +6,7 @@ import { useMutation } from '../../hooks/useApi';
 import { notifyMeChanged } from '../../hooks/useUser';
 import { userService } from '../../services/userService';
 import { ApiError } from '../../services/api';
-import { errorMessage } from '../../utils/errorMessage';
+import { errorMessage, isNetworkOrServerFailure, WAIT_AND_RETRY } from '../../utils/errorMessage';
 
 export interface ResendConfirmationButtonProps {
     /** Opens the change-of-address form. Without it, "nothing to confirm" links to the profile, where the form is. */
@@ -39,14 +39,14 @@ export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> =
             setMessage('If the address can still be confirmed, a new link is on its way.');
         } catch (error) {
             const status = error instanceof ApiError ? error.status : 0;
-            setMessage(errorMessage(error, 'Could not send the email'));
+            setMessage(isNetworkOrServerFailure(status) ? 'We could not send the email. Try again.' : errorMessage(error, 'Could not send the email'));
             if (status === 409) {
                 setNothingToConfirm(true);
                 onNothingToConfirm?.();
                 // what the page shows may be stale (for example confirmed in another tab)
                 notifyMeChanged();
             }
-            if (status === 429) setHint('Wait a while, then try again.');
+            if (status === 429) setHint(WAIT_AND_RETRY);
         } finally {
             sending.current = false;
         }

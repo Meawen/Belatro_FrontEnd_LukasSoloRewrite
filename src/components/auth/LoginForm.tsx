@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Input } from '../common';
 import { useAuth } from '../../hooks/useAuth';
+import { ApiError } from '../../services/api';
+import { isNetworkOrServerFailure, SOMETHING_WENT_WRONG } from '../../utils/errorMessage';
 
 export interface LoginFormProps {
     onSuccess?: () => void;
@@ -68,8 +70,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             onSuccess?.();
         } catch (error) {
             console.error('Login error:', error);
+            // a 500 while the backend's session store is down, or no answer: not the raw text
+            const status = error instanceof ApiError ? error.status : 0;
             setErrors({
-                submit: error instanceof Error ? error.message : 'Login failed'
+                submit: isNetworkOrServerFailure(status) ? SOMETHING_WENT_WRONG : error instanceof Error ? error.message : 'Login failed'
             });
         }
     };

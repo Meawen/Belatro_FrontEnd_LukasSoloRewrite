@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '../common';
 import { authService } from '../../services/authService';
 import { ApiError } from '../../services/api';
-import { errorMessage } from '../../utils/errorMessage';
+import { errorMessage, INVALID_LINK, isNetworkOrServerFailure } from '../../utils/errorMessage';
 
 type Outcome =
     | { kind: 'idle' }
@@ -11,13 +11,7 @@ type Outcome =
     | { kind: 'confirmed' }
     | { kind: 'failed'; message: string; status: number };
 
-const INVALID_LINK = 'This link is invalid or has expired';
 const COULD_NOT_CONFIRM = 'We could not confirm your email address.';
-
-/** A network failure (status 0) or a 5xx: no usable answer, and the link may or may not be spent. */
-function isNetworkOrServerFailure(status: number): boolean {
-    return status === 0 || status >= 500;
-}
 
 /**
  * A reload is a new page view and may post again. After a 429 the link is unspent (the limiter

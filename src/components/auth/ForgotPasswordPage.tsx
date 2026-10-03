@@ -3,9 +3,8 @@ import { Link } from 'react-router-dom';
 import { Button, ErrorAlert, Input } from '../common';
 import { authService } from '../../services/authService';
 import { ApiError } from '../../services/api';
-import { errorMessage } from '../../utils/errorMessage';
-
-const SOMETHING_WENT_WRONG = 'Something went wrong. Try again.';
+import { errorMessage, isNetworkOrServerFailure, SOMETHING_WENT_WRONG, WAIT_AND_RETRY } from '../../utils/errorMessage';
+import { EMAIL_PATTERN } from './credentialRules';
 
 export const ForgotPasswordPage: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -18,7 +17,7 @@ export const ForgotPasswordPage: React.FC = () => {
         e.preventDefault();
         const address = email.trim();
         setHint(null);
-        if (!/\S+@\S+\.\S+/.test(address)) {
+        if (!EMAIL_PATTERN.test(address)) {
             setError('Email is invalid');
             return;
         }
@@ -30,8 +29,8 @@ export const ForgotPasswordPage: React.FC = () => {
         } catch (err) {
             const status = err instanceof ApiError ? err.status : 0;
             // a network failure or a 5xx carries the browser's or Spring's text ("Failed to fetch", "Internal Server Error")
-            setError(status === 0 || status >= 500 ? SOMETHING_WENT_WRONG : errorMessage(err, SOMETHING_WENT_WRONG));
-            if (status === 429) setHint('Wait a while, then try again.');
+            setError(isNetworkOrServerFailure(status) ? SOMETHING_WENT_WRONG : errorMessage(err, SOMETHING_WENT_WRONG));
+            if (status === 429) setHint(WAIT_AND_RETRY);
         } finally {
             setIsSubmitting(false);
         }

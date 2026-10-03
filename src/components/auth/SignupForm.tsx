@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Button, Input } from '../common';
 import { useAuth } from '../../hooks/useAuth';
-import { passwordRuleError, usernameRuleError } from './credentialRules';
+import { ApiError } from '../../services/api';
+import { isNetworkOrServerFailure, SOMETHING_WENT_WRONG } from '../../utils/errorMessage';
+import { EMAIL_PATTERN, passwordRuleError, usernameRuleError } from './credentialRules';
 
 export interface SignupFormProps {
     onSuccess?: () => void;
@@ -45,7 +47,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({
 
         if (!formData.email.trim()) {
             newErrors.email = 'Email is required';
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        } else if (!EMAIL_PATTERN.test(formData.email)) {
             newErrors.email = 'Email is invalid';
         }
 
@@ -93,8 +95,10 @@ export const SignupForm: React.FC<SignupFormProps> = ({
             setCreatedEmail(formData.email.trim());
         } catch (error) {
             console.error('Signup error:', error);
+            // a 500 while the backend's session store is down, or no answer: not the raw text
+            const status = error instanceof ApiError ? error.status : 0;
             setErrors({
-                submit: error instanceof Error ? error.message : 'Registration failed'
+                submit: isNetworkOrServerFailure(status) ? SOMETHING_WENT_WRONG : error instanceof Error ? error.message : 'Registration failed'
             });
         }
     };

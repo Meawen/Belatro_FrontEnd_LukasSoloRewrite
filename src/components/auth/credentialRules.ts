@@ -15,6 +15,9 @@ const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_BYTES = 72;
 const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,20}$/;
 
+/** Not a backend rule: the forms' loose shape check for an address; the backend's @Email decides. */
+export const EMAIL_PATTERN = /\S+@\S+\.\S+/;
+
 export function passwordRuleError(password: string): string | null {
     // code points, like the backend's codePointCount (an emoji is one character, not two)
     const tooShort = [...password].length < MIN_PASSWORD_LENGTH;

@@ -89,6 +89,17 @@ describe('ChangeEmailForm', () => {
         expect(await screen.findByRole('alert')).toHaveTextContent('Session expired, please sign in again')
     })
 
+    test.each([
+        ['a server error', new ApiError({ status: 500, message: 'Internal Server Error' })],
+        ['no answer', new ApiError({ status: 0, message: 'Failed to fetch' })],
+    ])("%s says the change did not happen, not the browser's or Spring's text", async (_, failure) => {
+        vi.mocked(userService.changeEmail).mockRejectedValue(failure)
+        setup()
+        await submit('new@example.com', 'long-enough-1')
+        expect(await screen.findByRole('alert')).toHaveTextContent('We could not change your email address. Try again.')
+        expect(screen.queryByText(failure.message)).not.toBeInTheDocument()
+    })
+
     test("the server's same-address refusal is shown", async () => {
         // the profile's copy of the address can be stale, e.g. a change confirmed in another tab
         vi.mocked(userService.changeEmail).mockRejectedValue(new ApiError({ status: 400, message: 'That is already your email address' }))

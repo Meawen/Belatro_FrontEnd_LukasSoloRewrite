@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Button, ErrorAlert, Input } from '../common';
 import { authService } from '../../services/authService';
 import { ApiError } from '../../services/api';
-import { errorMessage } from '../../utils/errorMessage';
+import { errorMessage, INVALID_LINK, isNetworkOrServerFailure } from '../../utils/errorMessage';
 import { PASSWORD_RULE_MESSAGE, passwordRuleError } from './credentialRules';
 
 type Outcome =
@@ -12,7 +12,6 @@ type Outcome =
     | { kind: 'done' }
     | { kind: 'failed'; message: string; status: number };
 
-const INVALID_LINK = 'This link is invalid or has expired';
 const COULD_NOT_RESET = 'We could not reset your password.';
 
 /** /reset-password?token=... - the link from the reset mail (valid 15 minutes, single use). */
@@ -29,7 +28,7 @@ export const ResetPasswordPage: React.FC = () => {
 
     const failed = outcome.kind === 'failed' ? outcome : null;
     // a network failure (status 0) or a 5xx: the backend spends the link before the write, so it may be spent
-    const serverFailure = failed !== null && (failed.status === 0 || failed.status >= 500);
+    const serverFailure = failed !== null && isNetworkOrServerFailure(failed.status);
     // 429: the limiter runs before the link is spent, so waiting is the remedy, not a new link
     const rateLimited = failed?.status === 429;
     const linkDead = !token || (failed !== null && !rateLimited);
@@ -65,7 +64,7 @@ export const ResetPasswordPage: React.FC = () => {
             setOutcome({
                 kind: 'failed',
                 // their text is the browser's or Spring's ("Failed to fetch", "Internal Server Error")
-                message: status === 0 || status >= 500 ? COULD_NOT_RESET : message,
+                message: isNetworkOrServerFailure(status) ? COULD_NOT_RESET : message,
                 status,
             });
         }
