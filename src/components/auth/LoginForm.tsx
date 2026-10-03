@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button, Input } from '../common';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -131,6 +132,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
 
             </form>
+
+            <div className="text-center mt-4">
+                <Link to="/forgot-password" className="text-sm text-yellow-500 hover:text-yellow-400">
+                    Forgot password?
+                </Link>
+            </div>
 
             {onSwitchToSignup && (
                 <div className="text-center mt-6">

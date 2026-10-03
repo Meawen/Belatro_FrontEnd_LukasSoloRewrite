@@ -22,6 +22,11 @@ describe('LoginForm', () => {
         await user.click(screen.getByRole('button', { name: /sign in/i }))
         expect(auth.login).toHaveBeenCalledWith({ username: 'ana', password: 'long-enough-1' })
     })
+
+    test('links to the forgot-password page', () => {
+        render(<MemoryRouter><LoginForm onSuccess={vi.fn()} /></MemoryRouter>)
+        expect(screen.getByRole('link', { name: 'Forgot password?' })).toHaveAttribute('href', '/forgot-password')
+    })
 })
 
 describe('LoginForm logging', () => {

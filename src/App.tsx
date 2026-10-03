@@ -16,6 +16,8 @@ import { UserList } from './components/profile/UserList';
 import { MatchHistory } from './components/match/MatchHistory';
 import { AuthPage } from './components/auth/AuthPage';
 import { ConfirmEmailPage } from './components/auth/ConfirmEmailPage';
+import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from './components/auth/ResetPasswordPage';
 import { LobbyList } from './components/lobby/LobbyList';
 import { LobbyDetails } from './components/lobby/LobbyDetails';
 import { AdminDashboard } from './components/admin/AdminDashboard';
@@ -431,6 +433,8 @@ function App() {
 
                     {/* Email links: reachable signed in or out */}
                     <Route path="/confirm-email" element={<ConfirmEmailPage />} />
+                    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                    <Route path="/reset-password" element={<ResetPasswordPage />} />
 
                     {/* Protected Routes - Using AppLayout with Sidebar enabled */}
                     <Route path="/" element={
