@@ -4,6 +4,7 @@ import { useLobbies } from '../../hooks/useLobby';
 import { useAuth } from '../../hooks/useAuth';
 import type { LobbyDTO, JoinLobbyRequestDTO } from '../../types/lobby';
 
+
 export interface JoinLobbyModalProps {
     lobby: LobbyDTO;
     onSuccess: () => void;
@@ -30,24 +31,30 @@ export const JoinLobbyModal: React.FC<JoinLobbyModalProps> = ({
         }
 
         const isPrivate = lobby.privateLobby === true;
+
         if (isPrivate && !password.trim()) {
             setError('Password is required for private lobbies');
+            return;
+        }
+
+        if (!lobby.id) {
+            setError('Lobby ID is missing');
             return;
         }
 
         try {
             const joinData: JoinLobbyRequestDTO = {
                 lobbyId: lobby.id,
-                userId: user.id,
-                password: isPrivate ? password : null
+                password: isPrivate ? password : null,
             };
 
-            await joinLobby(joinData);
+            await joinLobby(lobby.id, joinData); // ✅ two args, matches hook signature
             onSuccess();
         } catch (error) {
             setError(error instanceof Error ? error.message : 'Failed to join lobby');
         }
     };
+
 
     const totalPlayers =
         (lobby.teamAPlayers?.length || 0) +

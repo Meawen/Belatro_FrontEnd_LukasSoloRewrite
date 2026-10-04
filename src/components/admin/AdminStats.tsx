@@ -1,29 +1,27 @@
 import React from 'react';
 import { Loading } from '../common';
-import { useAllUsers } from '../../hooks/useUser';
+import { useAllMatches } from '../../hooks/useMatch';
 import { useLobbies } from '../../hooks/useLobby';
 import { useAdmin } from '../../hooks/useAdmin';
 import type { UserDto } from '../../types/user';
 
 export const AdminStats: React.FC = () => {
-    const { data: allUsers, isLoading: allUsersLoading } = useAllUsers();
+    const { matches, isLoading: matchesLoading } = useAllMatches();
     const { users: adminUsers, isLoading: adminUsersLoading } = useAdmin();
     const { lobbies, isLoading: lobbiesLoading } = useLobbies();
 
-    if (allUsersLoading || adminUsersLoading || lobbiesLoading) {
+    if (matchesLoading || adminUsersLoading || lobbiesLoading) {
         return <Loading size="medium" text="Loading statistics..." />;
     }
 
-    // Use allUsers for game stats, adminUsers for admin-specific stats
+    // matches for game stats, adminUsers for admin-specific stats
     const totalUsers = adminUsers?.length || 0;
-    const activeUsers = allUsers?.filter(user =>
-        user.lastLogin &&
-        new Date(user.lastLogin) > new Date(Date.now() - 24 * 60 * 60 * 1000)
-    ).length || 0;
 
     const pendingDeletions = adminUsers?.filter((user: UserDto) => user.deletionRequested).length || 0;
     const totalLobbies = Array.isArray(lobbies) ? lobbies.length : 0;
-    const totalMatches = allUsers?.reduce((sum, user) => sum + (user.gamesPlayed || 0), 0) || 0;
+    // Count the matches themselves: summing gamesPlayed over users counted each match four
+    // times, and /user/findAll is paged now.
+    const totalMatches = Array.isArray(matches) ? matches.length : 0;
 
     const stats = [
         {
@@ -32,13 +30,6 @@ export const AdminStats: React.FC = () => {
             icon: '👥',
             color: 'text-blue-400',
             bgColor: 'bg-blue-500/20'
-        },
-        {
-            label: 'Active Users (24h)',
-            value: activeUsers,
-            icon: '🟢',
-            color: 'text-green-400',
-            bgColor: 'bg-green-500/20'
         },
         {
             label: 'Total Matches',
@@ -67,7 +58,7 @@ export const AdminStats: React.FC = () => {
         <div className="card">
             <h2 className="text-xl font-semibold text-white mb-6">System Statistics</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {stats.map((stat, index) => (
                     <div key={index} className={`${stat.bgColor} p-4 rounded-lg`}>
                         <div className="flex items-center gap-3 mb-2">

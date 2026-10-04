@@ -8,7 +8,7 @@ interface MatchSummaryCardProps {
 }
 
 export const MatchSummaryCard: React.FC<MatchSummaryCardProps> = ({ summaryItem }) => {
-    const { matchId, endTime, result, yourOutcome, gameMode } = summaryItem;
+    const { matchId, endTime, yourOutcome, gameMode } = summaryItem;
 
     // Get result styling with emerald theme
     const getResultStyling = () => {

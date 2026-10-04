@@ -1,7 +1,10 @@
 
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button, Input } from '../common';
 import { useAuth } from '../../hooks/useAuth';
+import { ApiError } from '../../services/api';
+import { isNetworkOrServerFailure, SOMETHING_WENT_WRONG } from '../../utils/errorMessage';
 
 export interface LoginFormProps {
     onSuccess?: () => void;
@@ -47,7 +50,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('Login form submitted:', formData);
+        console.log('Login form submitted:', { username: formData.username });
 
         if (!validateForm()) {
             console.log('Form validation failed:', errors);
@@ -59,16 +62,18 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             console.log('Attempting login with:', { username: formData.username });
 
             const result = await login({
-                username: formData.username,
+                username: formData.username.trim(),
                 password: formData.password
             });
 
-            console.log('Login successful:', result);
+            console.log('Login successful:', { username: result.user?.username });
             onSuccess?.();
         } catch (error) {
             console.error('Login error:', error);
+            // a 500 while the backend's session store is down, or no answer: not the raw text
+            const status = error instanceof ApiError ? error.status : 0;
             setErrors({
-                submit: error instanceof Error ? error.message : 'Login failed'
+                submit: isNetworkOrServerFailure(status) ? SOMETHING_WENT_WRONG : error instanceof Error ? error.message : 'Login failed'
             });
         }
     };
@@ -131,6 +136,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
 
             </form>
+
+            <div className="text-center mt-4">
+                <Link to="/forgot-password" className="text-sm text-yellow-500 hover:text-yellow-400">
+                    Forgot password?
+                </Link>
+            </div>
 
             {onSwitchToSignup && (
                 <div className="text-center mt-6">

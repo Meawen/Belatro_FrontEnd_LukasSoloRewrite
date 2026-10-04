@@ -1,9 +1,26 @@
 import React, { useState } from 'react';
 import { useCards } from '../hooks/useCards';
-import type { PublicGameView, PrivateGameView, Card } from '../hooks/useGameWebSocket'
+import type { Card } from '../hooks/useGameWebSocket'
+
+// Display-only shapes for this mock board; the live wire types are in src/types/game.ts.
+interface MockPlayer { id: string; username: string; cardCount: number }
+interface MockPublicView {
+    gameId: string;
+    gameState: string;
+    bids: unknown[];
+    currentTrick: null;
+    teamAScore: number;
+    teamBScore: number;
+    teamA: MockPlayer[];
+    teamB: MockPlayer[];
+    challengeUsedByPlayer: Record<string, boolean>;
+    winnerTeamId?: string;
+    tieBreaker: boolean;
+}
+interface MockPrivateView { publicPart: MockPublicView; hand: Card[]; yourTurn: boolean; challengeUsed: boolean }
 
 // Mock data for testing - using correct suit/rank names
-const createMockGameState = (userName: string = 'TestPlayer'): { public: PublicGameView; private: PrivateGameView } => {
+const createMockGameState = (userName: string = 'TestPlayer'): { public: MockPublicView; private: MockPrivateView } => {
     const mockHand: Card[] = [
         { suit: 'Herc', rank: '7' },      // Hearts 7
         { suit: 'Herc', rank: '8' },      // Hearts 8
@@ -15,7 +32,7 @@ const createMockGameState = (userName: string = 'TestPlayer'): { public: PublicG
         { suit: 'Pik', rank: 'As' }       // Spades Ace
     ];
 
-    const publicState: PublicGameView = {
+    const publicState: MockPublicView = {
         gameId: 'mock-game-123',
         gameState: 'PLAYING',
         bids: [],
@@ -35,7 +52,7 @@ const createMockGameState = (userName: string = 'TestPlayer'): { public: PublicG
         tieBreaker: false
     };
 
-    const privateState: PrivateGameView = {
+    const privateState: MockPrivateView = {
         publicPart: publicState,
         hand: mockHand,
         yourTurn: true,

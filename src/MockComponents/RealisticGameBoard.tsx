@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { gsap } from 'gsap';
-import { useCards } from '../hooks/useCards';
+import { useCards } from '../hooks';
 import type { Card } from '../hooks/useGameWebSocket';
-import { cardService } from '../services/cardService';
+import type { PublicGameView } from '../types/game';
+import { cardService } from '../services';
+
 
 interface GameState {
     phase: 'DEALING' | 'BIDDING' | 'PLAYING' | 'TRICK_END' | 'GAME_END';
@@ -18,6 +20,16 @@ interface GameState {
     chatMessages: { player: string; message: string; timestamp: Date }[];
     teamTricks: { teamA: number; teamB: number }; // Add this
     challengeUsedByPlayer: Record<number, boolean>; // Track challenge usage by player
+}
+
+
+export interface LiveHooks {
+    onBidSuit?: (suit: 'Herc'|'Karo'|'Pik'|'Tref') => void;
+    onPassBid?: () => void;
+    onPlayCard?: (card: Card) => void;
+    onChallenge?: () => void;
+    publicView?: PublicGameView | unknown;
+    privateView?: { hand: Card[]; yourTurn: boolean } | null;
 }
 
 
@@ -78,8 +90,20 @@ const shuffleDeck = (deck: Card[]): Card[] => {
     return shuffled;
 };
 
-export const RealisticGameBoard: React.FC = () => {
+export const RealisticGameBoard: React.FC<LiveHooks> = (props) => {
+
+    const live = Boolean(props?.privateView || props?.publicView || props?.onPlayCard || props?.onBidSuit);
+    const pub = props.publicView as (PublicGameView | undefined);
+    const teamAScore = pub?.teamAScore ?? 0;
+    const teamBScore = pub?.teamBScore ?? 0;
+    // The wire trick maps player id -> card; this board draws { card: { suit, rank } } entries.
+    const currentTrickPlays = Object.entries(pub?.currentTrick?.plays ?? {})
+        .map(([playerId, card]) => ({ playerId, card: { suit: card.boja, rank: card.rank } }));
     const { getCardImage, getCardBackImage } = useCards();
+
+
+    // <-- add
+
 
     // Add seasonal animation styles
     React.useEffect(() => {
@@ -254,16 +278,6 @@ export const RealisticGameBoard: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
     const trickRef = useRef<HTMLDivElement>(null);
 
-    const getSuitColor = (suit: string) => {
-        switch (suit.toLowerCase()) {
-            case 'pik': return 'rgba(34, 197, 94, 0.6)'; // Green
-            case 'karo': return 'rgba(245, 158, 11, 0.6)'; // Gold
-            case 'herc': return 'rgba(239, 68, 68, 0.6)'; // Red
-            case 'tref': return 'rgba(139, 69, 19, 0.6)'; // Brown
-            default: return 'rgba(156, 163, 175, 0.6)'; // Gray fallback
-        }
-    };
-
     const getArenaTheme = (trumpSuit: string | null) => {
         if (!trumpSuit) {
             return {
@@ -402,6 +416,8 @@ export const RealisticGameBoard: React.FC = () => {
     const handleSuitBid = (suit: string) => {
         if (gameState.phase !== 'BIDDING' || gameState.currentPlayer !== 0) return;
 
+        if (props.onBidSuit) { props.onBidSuit(suit as any); return; }
+
         try {
             simulateBid(suit, 80);
             setBiddingState(prev => ({
@@ -416,6 +432,8 @@ export const RealisticGameBoard: React.FC = () => {
 
     const handlePass = () => {
         if (gameState.phase !== 'BIDDING' || gameState.currentPlayer !== 0) return;
+
+        if (props.onPassBid) { props.onPassBid(); return; }
 
         if (!canPass()) {
             addToHistory('Error: You must bid - you are the last player!');
@@ -435,7 +453,9 @@ export const RealisticGameBoard: React.FC = () => {
     };
 
     const handleChallenge = () => {
-        const playerIndex = 0; // Player "You"
+        const playerIndex = 0;
+
+        if (props.onChallenge) { props.onChallenge(); return; }// Player "You"
         
         if (gameState.challengeUsedByPlayer[playerIndex]) {
             addToHistory('Error: You have already used your challenge!');
@@ -607,6 +627,9 @@ export const RealisticGameBoard: React.FC = () => {
         } else if (gameState.phase === 'PLAYING' && gameState.currentPlayer === 0) {
             playCard(card, 0);
         }
+        if (props.onPlayCard && gameState.phase === 'PLAYING' && gameState.currentPlayer === 0) {
+            props.onPlayCard(card); return;
+        }
     };
 
     const handleCardHover = (card: Card | null) => {
@@ -626,58 +649,6 @@ export const RealisticGameBoard: React.FC = () => {
             case 'tref': return 'outline-yellow-700';
             default: return 'outline-gray-400';
         }
-    };
-
-
-    const renderPlayerCard = (card: Card, index: number, playerIndex: number) => {
-        const isPlayerTurn = gameState.currentPlayer === playerIndex;
-        const isBiddingPhase = gameState.phase === 'BIDDING';
-        const isHoveredSuit = hoveredSuit === card.suit;
-        const transform = fanTransformHorizontal(
-            index,
-            gameState.hands[playerIndex].length,
-            LAYOUT.spread.you,
-            LAYOUT.rotateStep.you,
-            LAYOUT.arcStep.you
-        );
-
-        return (
-            <div
-                key={`${card.suit}-${card.rank}`}
-                data-card-id={`player-${playerIndex}-card`}
-                data-suit={card.suit}
-                data-rank={card.rank}
-                className={`
-                    absolute ${LAYOUT.size.you} cursor-pointer transition-all duration-500 ease-out
-                    hover:scale-105 transform-gpu
-                    ${isBiddingPhase && isPlayerTurn && isHoveredSuit ? 'z-50 scale-110' : ''}
-                `}
-                style={{
-                    transform: `translate(${transform.x}px, ${transform.y}px) rotate(${transform.rot}deg)`,
-                    zIndex: transform.z + (isHoveredSuit ? 100 : 0),
-                    filter: isBiddingPhase && isPlayerTurn && isHoveredSuit ?
-                        `drop-shadow(0 0 8px ${getSuitColor(card.suit)})` :
-                        'none',
-                }}
-                onClick={() => {
-                    if (gameState.phase === 'PLAYING' && isPlayerTurn) {
-                        playCard(card, playerIndex);
-                    }
-                }}
-            >
-                {/* Subtle glow effect for hovered suit during bidding */}
-                {isBiddingPhase && isPlayerTurn && isHoveredSuit && (
-                    <div
-                        className="absolute inset-0 rounded-lg pointer-events-none"
-                        style={{
-                            background: `linear-gradient(45deg, transparent 40%, ${getSuitColor(card.suit).replace('0.6', '0.2')}, transparent 60%)`,
-                            transition: 'all 0.3s ease-in-out'
-                        }}
-                    />
-                )}
-                {getCardImage(card.suit, card.rank, 'w-full h-full rounded-lg shadow-lg')}
-            </div>
-        );
     };
 
 
@@ -917,7 +888,9 @@ export const RealisticGameBoard: React.FC = () => {
     };
 
     const renderPlayerHand = (playerIndex: number) => {
-        const hand = gameState.hands[playerIndex];
+        const hand = (playerIndex === 0 && props.privateView?.hand)
+            ? props.privateView.hand
+            : gameState.hands[playerIndex];
         if (!hand || hand.length === 0) return null;
 
         const positions = [
@@ -1105,6 +1078,7 @@ export const RealisticGameBoard: React.FC = () => {
     };
 
     useEffect(() => {
+        if (live) return;
         if (gameState.phase === 'PLAYING' && gameState.currentPlayer !== 0) {
             const timer = setTimeout(() => {
                 const playerHand = gameState.hands[gameState.currentPlayer];
@@ -1130,12 +1104,14 @@ export const RealisticGameBoard: React.FC = () => {
     }, [gameState.currentPlayer, gameState.phase]);
 
     useEffect(() => {
+        if (live) return;
         if (gameState.hands.every(hand => hand.length === 0) && gameState.playerTalons.every(talon => talon.length === 0)) {
             startNewGame();
         }
     }, []);
 
     useEffect(() => {
+        if (live) return;
         if (gameState.phase === 'DEALING' && gameState.hands.some(hand => hand.length === 6)) {
             const timer = setTimeout(() => {
                 setGameState(prev => ({
@@ -1453,11 +1429,11 @@ export const RealisticGameBoard: React.FC = () => {
 
                         {/* Trick area (center) */}
                         <div ref={trickRef} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-72 z-10">
-                            {gameState.trick.map((play, i) => {
-                                const pos = [{x:0,y:80},{x:80,y:0},{x:0,y:-85},{x:-80,y:0}][play.playerId];
+                            {(currentTrickPlays.length ? currentTrickPlays : gameState.trick).map((play:any, i:number) => {
+                                const pos = [{x:0,y:80},{x:80,y:0},{x:0,y:-85},{x:-80,y:0}][i];
                                 return (
                                     <div
-                                        key={`trick-${play.playerId}-${i}`}
+                                        key={`trick-${i}`}
                                         data-trick-card
                                         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
                                         style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}
@@ -1593,7 +1569,7 @@ export const RealisticGameBoard: React.FC = () => {
                                         <div className="flex items-center gap-2">
                                             <div className="relative">
                                                 <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
-                                                {gameState.scores.teamA > gameState.scores.teamB && (
+                                                {teamAScore > teamBScore && (
                                                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full"></div>
                                                 )}
                                             </div>
@@ -1603,7 +1579,7 @@ export const RealisticGameBoard: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className="text-blue-100 font-bold text-xl tabular-nums">
-                                            {gameState.scores.teamA}
+                                            {teamAScore}
                                         </div>
                                     </div>
                                 </div>
@@ -1621,7 +1597,7 @@ export const RealisticGameBoard: React.FC = () => {
                                         <div className="flex items-center gap-2">
                                             <div className="relative">
                                                 <div className="w-3 h-3 bg-red-400 rounded-full"></div>
-                                                {gameState.scores.teamB > gameState.scores.teamA && (
+                                                {teamBScore > teamAScore && (
                                                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full"></div>
                                                 )}
                                             </div>
@@ -1631,7 +1607,7 @@ export const RealisticGameBoard: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className="text-red-100 font-bold text-xl tabular-nums">
-                                            {gameState.scores.teamB}
+                                            {teamBScore}
                                         </div>
                                     </div>
                                 </div>

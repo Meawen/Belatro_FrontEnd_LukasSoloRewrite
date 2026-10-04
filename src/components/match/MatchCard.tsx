@@ -162,7 +162,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({ historyItem, currentUserId
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    {formatDate(match.endTime)}
+                                    {formatDate(match.endTime ?? undefined)}
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,7 +191,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({ historyItem, currentUserId
                                                         ? 'bg-gradient-to-r from-purple-500 to-emerald-500 text-white'
                                                         : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
                                                 }`}
-                                                title={player.username}
+                                                title={player.username ?? undefined}
                                             >
                                                 {player.username?.charAt(0).toUpperCase() || '?'}
                                             </div>
@@ -217,7 +217,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({ historyItem, currentUserId
                                                         ? 'bg-gradient-to-r from-purple-500 to-emerald-500 text-white'
                                                         : 'bg-gradient-to-r from-red-500 to-pink-500 text-white'
                                                 }`}
-                                                title={player.username}
+                                                title={player.username ?? undefined}
                                             >
                                                 {player.username?.charAt(0).toUpperCase() || '?'}
                                             </div>
@@ -255,7 +255,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({ historyItem, currentUserId
             {showDetails && (
                 <MatchDetails
                     historyItem={historyItem}
-                    currentUserId={currentUserId}
+                    currentUserId={currentUserId ?? undefined}
                     onClose={() => setShowDetails(false)}
                 />
             )}

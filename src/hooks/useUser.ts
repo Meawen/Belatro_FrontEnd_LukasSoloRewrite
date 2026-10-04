@@ -1,7 +1,7 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { userService } from '../services/userService';
-import { useApi, useMutation } from './useApi';
-import type { UserUpdateDTO, PaginationParams } from '../types';
+import { useApi } from './useApi';
+import type { PaginationParams } from '../types';
 
 export function useUser(userId?: string) {
     // Memoize the API function to prevent unnecessary re-executions
@@ -21,47 +21,29 @@ export function useUser(userId?: string) {
         }
     );
 
-    const updateMutation = useMutation((data: { id: string; userData: UserUpdateDTO }) =>
-        userService.updateUser(data.id, data.userData)
-    );
-
-    const deleteMutation = useMutation((id: string) =>
-        userService.deleteUser(id)
-    );
-
-    const updateUser = useCallback(async (userData: UserUpdateDTO) => {
-        if (!userId) throw new Error('User ID is required');
-
-        const result = await updateMutation.mutate({ id: userId, userData });
-        // Refetch user data after update
-        userQuery.refetch();
-        return result;
-    }, [userId, updateMutation, userQuery]);
-
-    const deleteUser = useCallback(async () => {
-        if (!userId) throw new Error('User ID is required');
-
-        return await deleteMutation.mutate(userId);
-    }, [userId, deleteMutation]);
-
     return {
         user: userQuery.data,
         isLoading: userQuery.isLoading,
         error: userQuery.error,
-        updateUser,
-        deleteUser,
         refetch: userQuery.refetch,
-        isUpdating: updateMutation.isLoading,
-        isDeleting: deleteMutation.isLoading,
     };
 }
 
-export function useAllUsers() {
-    const apiFunction = useMemo(() => () => userService.getAllUsers(), []);
+/** Page size of the players list; the backend clamps it to 1..100. */
+export const USERS_PAGE_SIZE = 20;
 
+export function useUsersPage(page: number, q: string) {
+    const apiFunction = useMemo(
+        () => () => userService.getUsersPage({ page, size: USERS_PAGE_SIZE, q }),
+        [page, q]
+    );
+
+    // staleTime 0: useApi caches per hook instance, not per page, so a cached
+    // page 0 would otherwise be served for page 1.
     return useApi(apiFunction, {
-        staleTime: 180000, // Cache for 3 minutes - leaderboard doesn't need constant updates
-        immediate: true
+        immediate: true,
+        dependencies: [page, q],
+        staleTime: 0,
     });
 }
 
@@ -99,4 +81,27 @@ export function useUserHistorySummary(playerId: string, pagination?: PaginationP
             staleTime: 180000 // Cache for 3 minutes
         }
     );
+}
+
+/**
+ * Fired after this tab changed what GET /user/me returns (email, pending address, password).
+ * Every useMe instance caches its own copy, and AppLayout's banner stays mounted across
+ * navigation, so it re-fetches on this event instead of showing the old address until a reload.
+ */
+export const ME_CHANGED = 'stiglja:me-changed';
+
+export function notifyMeChanged(): void {
+    window.dispatchEvent(new Event(ME_CHANGED));
+}
+
+export function useMe(enabled: boolean = true) {
+    const apiFunction = useMemo(() => () => userService.getMe(), []);
+    const query = useApi(apiFunction, {
+        immediate: enabled,
+        dependencies: [enabled],
+        staleTime: 60000,
+    });
+    // useApi keeps its last data when disabled; a mounted profile that switches to
+    // someone else's id must not keep showing the viewer's own email and roles.
+    return enabled ? query : { ...query, data: null };
 }

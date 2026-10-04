@@ -2,7 +2,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { rankedService } from '../services';
 import { useMutation } from './useApi';
-import { useGameWebSocket, type QueueStatusDTO, type MatchDTO } from './useGameWebSocket';
+import { useGameWebSocket } from './useGameWebSocket';
+import type { MatchDTO, QueueStatusDTO } from '../types';
 import { useAuth } from './useAuth';
 
 export function useEnhancedRanked() {
@@ -95,7 +96,7 @@ export function useEnhancedRanked() {
     }, []);
 
     // WebSocket integration for real-time queue updates
-    const { isConnected, isConnecting, connect, subscribeToRankedQueue, unsubscribeFromRankedQueue, connectionError } = useGameWebSocket({
+    const { isConnected, isConnecting, subscribeToRankedQueue, unsubscribeFromRankedQueue, connectionError } = useGameWebSocket({
         onQueueStatusUpdate: handleQueueStatusUpdate,
         onMatchFound: handleMatchFound
     });
@@ -108,29 +109,8 @@ export function useEnhancedRanked() {
         }
     }, [isConnected, user?.username, subscribeToRankedQueue]);
 
-    // Only attempt connection when auth is fully loaded and user is available
-    useEffect(() => {
-        if (isLoading) {
-            console.log('useEnhancedRanked: Auth still loading, waiting...');
-            return;
-        }
-
-        console.log('useEnhancedRanked: checking WebSocket connection...', {
-            isConnected,
-            isConnecting,
-            connectionError,
-            hasUser: !!user,
-            hasUsername: !!user?.username,
-            isAuthenticated
-        });
-
-        if (isAuthenticated && user?.username && !isConnected && !isConnecting && !connectionError) {
-            console.log('Attempting to connect WebSocket...');
-            connect().catch((error: any) => {
-                console.error('Failed to auto-connect WebSocket:', error);
-            });
-        }
-    }, [connect, isConnected, isConnecting, connectionError, user, isAuthenticated, isLoading]);
+    // The connection is owned by services/gameSocket (one per tab); useGameWebSocket
+    // holds it while this component is mounted.
 
     const joinQueue = useCallback(async () => {
         if (isLoading || !isAuthenticated || !user?.username) {
@@ -147,10 +127,9 @@ export function useEnhancedRanked() {
                 leaveTimeoutRef.current = null;
             }
 
-            // First, ensure WebSocket is connected
+            // MATCH_FOUND arrives over the WebSocket; queueing without it would go unnoticed.
             if (!isConnected) {
-                console.log('WebSocket not connected, connecting...');
-                await connect();
+                throw new Error('Not connected to the game server');
             }
 
             // Then make HTTP call to join queue
@@ -166,7 +145,7 @@ export function useEnhancedRanked() {
             setIsInQueue(false);
             throw error;
         }
-    }, [joinQueueMutation, isConnected, connect, user, isAuthenticated, isLoading]);
+    }, [joinQueueMutation, isConnected, user, isAuthenticated, isLoading]);
 
     const leaveQueue = useCallback(async () => {
         console.log('🚪 leaveQueue called');

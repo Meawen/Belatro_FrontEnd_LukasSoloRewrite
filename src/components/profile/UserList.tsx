@@ -1,9 +1,13 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { UserCard } from './UserCard';
 import { Loading, Button, Input } from '../common';
-import { useAllUsers, useUser } from '../../hooks/useUser';
+import { useUsersPage, useUser } from '../../hooks/useUser';
 import { useAuth } from '../../hooks/useAuth';
 import type { User } from '../../types/user';
+import { errorMessage } from '../../utils/errorMessage';
+
+// The server searches; wait for a pause in typing before asking it.
+const SEARCH_DEBOUNCE_MS = 300;
 
 export interface UserListProps {
     showOnlyOnline?: boolean;
@@ -16,7 +20,23 @@ export const UserList: React.FC<UserListProps> = ({
     const [sortBy, setSortBy] = useState<'username' | 'eloRating' | 'level'>('username');
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    const { data: users, isLoading, error, refetch } = useAllUsers();
+    const [page, setPage] = useState(0);
+    const [query, setQuery] = useState('');
+    // Back to the first page only when the term really changes: not on mount, where it
+    // would undo a page change made during the pause.
+    useEffect(() => {
+        const term = searchTerm.trim();
+        if (term === query) return;
+        const timer = window.setTimeout(() => {
+            setQuery(term);
+            setPage(0);
+        }, SEARCH_DEBOUNCE_MS);
+        return () => window.clearTimeout(timer);
+    }, [searchTerm, query]);
+
+    const { data: usersPage, isLoading, error, refetch } = useUsersPage(page, query);
+    const users = usersPage?.content;
+    const totalUsers = usersPage?.totalElements ?? 0;
     const { user: authUser, isAuthenticated } = useAuth();
 
     // Fetch the full user data for the current user with caching
@@ -46,14 +66,6 @@ export const UserList: React.FC<UserListProps> = ({
                     return true;
                 }
 
-                // Search filter with null safety
-                if (searchTerm) {
-                    const term = searchTerm.toLowerCase();
-                    const username = user.username?.toLowerCase() || '';
-                    const email = user.email?.toLowerCase() || '';
-                    return username.includes(term) || email.includes(term);
-                }
-
                 return true;
             });
 
@@ -81,7 +93,7 @@ export const UserList: React.FC<UserListProps> = ({
             console.error('Error filtering users:', err);
             return [];
         }
-    }, [users, authUser?.id, searchTerm, sortBy, showOnlyOnline]);
+    }, [users, authUser?.id, sortBy, showOnlyOnline]);
 
     // Handle refresh with rate limiting
     const handleRefresh = useCallback(async () => {
@@ -156,7 +168,7 @@ export const UserList: React.FC<UserListProps> = ({
                     <div>
                         <h3 className="text-red-400 font-semibold">Error Loading Users</h3>
                         <p className="text-red-300 text-sm">
-                            {error instanceof Error ? error.message : 'Failed to load user list'}
+                            {errorMessage(error, 'Failed to load user list')}
                         </p>
                     </div>
                 </div>
@@ -182,7 +194,7 @@ export const UserList: React.FC<UserListProps> = ({
                         {showOnlyOnline ? 'Online Users' : 'Leaderboard'}
                     </h2>
                     <p className="text-slate-400">
-                        {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found
+                        {totalUsers} {totalUsers === 1 ? 'user' : 'users'} found
                     </p>
                 </div>
                 <Button
@@ -211,7 +223,7 @@ export const UserList: React.FC<UserListProps> = ({
                     <div className="flex-1">
                         <Input
                             type="text"
-                            placeholder="Search users by username or email..."
+                            placeholder="Search users by username..."
                             value={searchTerm}
                             onChange={handleSearchChange}
                         />
@@ -289,6 +301,32 @@ export const UserList: React.FC<UserListProps> = ({
                             onUpdate={handleRefresh}
                         />
                     ))}
+                </div>
+            )}
+
+            {/* Step from the page the server answered with, and not while the next one loads
+                (useApi keeps the old page on screen meanwhile, so a double-click would skip one). */}
+            {usersPage && usersPage.totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4">
+                    <Button
+                        variant="outline"
+                        size="small"
+                        disabled={isLoading || usersPage.number <= 0}
+                        onClick={() => setPage(Math.max(0, usersPage.number - 1))}
+                    >
+                        Previous
+                    </Button>
+                    <span className="text-slate-400 text-sm">
+                        Page {usersPage.number + 1} of {usersPage.totalPages}
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="small"
+                        disabled={isLoading || usersPage.number + 1 >= usersPage.totalPages}
+                        onClick={() => setPage(usersPage.number + 1)}
+                    >
+                        Next
+                    </Button>
                 </div>
             )}
         </div>

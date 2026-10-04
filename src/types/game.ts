@@ -1,41 +1,83 @@
-// Game-specific types for future websocket implementation
-export interface Card {
-    suit: 'HEARTS' | 'DIAMONDS' | 'CLUBS' | 'SPADES';
-    rank: 'ACE' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'JACK' | 'QUEEN' | 'KING';
-    key: string; // For card image lookup
-}
+// Wire types of the game's STOMP channels. They mirror the backend records in
+// Meawen/stiglja: dtos/PublicGameView, dtos/PrivateGameView, dtos/PlayerPublicInfo,
+// dtos/BidDTO, dtos/QueueStatusDTO, pojo/gamelogic/Card and pojo/gamelogic/Trick.
+// Player ids are usernames: the backend seats players by username.
 
-export interface GameState {
-    matchId: string;
-    currentPhase: GamePhase;
-    currentPlayer: string | null;
-    currentHand: number;
-    currentTrick: number;
-    playerHands: Record<string, Card[]>;
-    playedCards: Card[];
-    trump: string | null;
-    scores: Record<string, number>;
-}
+export type Boja = 'KARA' | 'HERC' | 'TREF' | 'PIK';
 
-export interface GameEvent {
-    type: 'MOVE' | 'TRUMP_CALL' | 'CHALLENGE' | 'GAME_END' | 'PLAYER_JOIN' | 'PLAYER_LEAVE';
-    playerId: string;
-    data: any;
-    timestamp: string;
-}
+export type Rank = 'SEDMICA' | 'OSMICA' | 'DEVETKA' | 'DECKO' | 'BABA' | 'KRALJ' | 'DESETKA' | 'AS';
 
 export type GamePhase =
-    | 'WAITING_FOR_PLAYERS'
-    | 'DEALING'
-    | 'TRUMP_CALLING'
+    | 'INITIALIZED'
+    | 'BIDDING'
+    | 'DECLARATIONS'
     | 'PLAYING'
-    | 'CHALLENGING'
-    | 'HAND_END'
-    | 'GAME_END';
+    | 'SCORING'
+    | 'COMPLETED'
+    | 'CANCELLED'
+    | 'HAND_COMPLETE';
 
-export interface PlayerAction {
-    type: 'PLAY_CARD' | 'CALL_TRUMP' | 'CHALLENGE' | 'PASS';
-    card?: Card;
-    trump?: string;
-    target?: string;
+export interface GameCard {
+    boja: Boja;
+    rank: Rank;
+}
+
+/** One seat. The backend also sent `username` (equal to `id`) until lane-debt E5. */
+export interface PlayerPublicInfo {
+    id: string;
+    cardsLeft: number;
+}
+
+export interface GameBid {
+    playerId: string;
+    action: 'PASS' | 'CALL_TRUMP';
+    selectedTrump: Boja | null;
+}
+
+/** The trick on the table; `plays` maps player id to card, and map order means nothing. */
+export interface LiveTrick {
+    leadPlayerId: string;
+    trump: Boja | null;
+    plays: Record<string, GameCard>;
+}
+
+export interface DeclarationsView {
+    bela: boolean;
+    sequencesBySuit: Partial<Record<Boja, number>>;
+    fourOfAKindPoints: number | null;
+    bestSequencePoints: number | null;
+}
+
+export interface PublicGameView {
+    gameId: string;
+    gameState: GamePhase;
+    bids: GameBid[];
+    currentTrick: LiveTrick | null;
+    teamAScore: number;
+    teamBScore: number;
+    teamA: PlayerPublicInfo[];
+    teamB: PlayerPublicInfo[];
+    challengeUsedByPlayer: Record<string, boolean>;
+    /** "A" or "B" once COMPLETED, otherwise null. */
+    winnerTeamId: 'A' | 'B' | null;
+    tieBreaker: boolean;
+    seatingOrder: PlayerPublicInfo[];
+    declarations: Record<string, DeclarationsView>;
+    belaDeclaredByPlayer: Record<string, boolean>;
+    challengeWindowExpiresAt: number | null;
+}
+
+export interface PrivateGameView {
+    publicPart: PublicGameView;
+    hand: GameCard[];
+    yourTurn: boolean;
+    challengeUsed: boolean;
+}
+
+export interface QueueStatusDTO {
+    state: 'IN_QUEUE' | 'MATCH_FOUND' | 'CANCELLED' | 'ERROR';
+    estWaitSeconds: number;
+    queueSize: number;
+    mmr: number;
+    matchId?: string;
 }

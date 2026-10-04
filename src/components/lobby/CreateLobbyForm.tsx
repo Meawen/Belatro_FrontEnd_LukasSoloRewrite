@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Input, Select, Checkbox } from '../common';
 import { useLobbies } from '../../hooks/useLobby';
-import { useAuth } from '../../hooks/useAuth';
-import type { LobbyDTO } from '../../types/lobby';
+import type { CreateLobbyDTO } from '../../types/lobby';
 
 export interface CreateLobbyFormProps {
     onSuccess: () => void;
@@ -29,7 +28,6 @@ export const CreateLobbyForm: React.FC<CreateLobbyFormProps> = ({
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     const { createLobby, isCreating } = useLobbies();
-    const { user } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -51,16 +49,9 @@ export const CreateLobbyForm: React.FC<CreateLobbyFormProps> = ({
         }
 
         try {
-            const lobbyData: LobbyDTO = {
-                id: null,
+            // The caller becomes the host server-side; the server also fixes the mode to CASUAL.
+            const lobbyData: CreateLobbyDTO = {
                 name: formData.name.trim(),
-                gameMode: formData.gameMode,
-                status: 'WAITING',
-                createdAt: new Date().toISOString(),
-                hostUser: user,
-                teamAPlayers: [],
-                teamBPlayers: [],
-                unassignedPlayers: [],
                 privateLobby: formData.privateLobby,
                 password: formData.privateLobby ? formData.password : null
             };

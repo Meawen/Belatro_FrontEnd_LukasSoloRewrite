@@ -1,4 +1,5 @@
 import { apiClient } from './api';
+import { gameSocket } from './gameSocket';
 import type {
     LoginRequestDTO,
     SignupRequestDTO,
@@ -27,9 +28,26 @@ export const authService = {
     },
 
     async logout(): Promise<string> {
+        // let go of the socket first: the server closes it (1008) before it answers
+        gameSocket.disconnect();
         const response = await apiClient.post<string>('/api/auth/logout');
         apiClient.clearToken();
         return response;
+    },
+
+    async confirmEmail(token: string): Promise<void> {
+        await apiClient.post<void>('/api/auth/confirm-email', { token });
+    },
+
+    async forgotPassword(email: string): Promise<void> {
+        await apiClient.post<void>('/api/auth/forgot-password', { email });
+    },
+
+    // A reset ends every session of the account, this browser's included.
+    async resetPassword(token: string, newPassword: string): Promise<void> {
+        await apiClient.post<void>('/api/auth/reset-password', { token, newPassword });
+        apiClient.clearToken();
+        localStorage.removeItem('user');
     },
 
     // Helper method to check if user is authenticated

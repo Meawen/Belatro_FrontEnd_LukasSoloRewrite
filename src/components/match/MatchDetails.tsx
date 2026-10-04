@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Button } from '../common';
 import { PlayingCard } from '../common/PlayingCard';
 import type { PlayerMatchHistoryDTO } from '../../types/user';
-import type { UserSimpleDTO, HandDTO, TrumpCallDTO, MoveDTO, TrickDTO } from '../../types';
+import type { UserSimpleDTO, HandDTO, TrumpCallDTO, MoveDTO, TrickDTO, ChallengeDTO } from '../../types';
 
 interface MatchDetailsProps {
     historyItem: PlayerMatchHistoryDTO;
@@ -120,6 +120,55 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
         }
         return 'bg-red-500/20 border border-red-400/30 text-red-200';
     };
+
+    // Helper function to count illegal moves in a hand
+    const countIllegalMovesInHand = (hand: HandDTO) => {
+        if (!hand.tricks) return 0;
+        return hand.tricks.reduce((count, trick) => {
+            if (!trick.moves) return count;
+            return count + trick.moves.filter(move => move.legal === false).length;
+        }, 0);
+    };
+
+    // Helper function to parse match result and extract scores
+    const parseMatchResult = (result: string) => {
+        // Parse patterns like "Team A wins 1134-0" or "Team B wins 500-200"
+        const scoreMatch = result.match(/(\d+)-(\d+)/);
+        if (scoreMatch) {
+            const score1 = parseInt(scoreMatch[1]);
+            const score2 = parseInt(scoreMatch[2]);
+            
+            // Determine which team won based on the result text
+            const teamAWins = result.toLowerCase().includes('team a wins');
+            const teamBWins = result.toLowerCase().includes('team b wins');
+            
+            if (teamAWins) {
+                return { teamAScore: score1, teamBScore: score2 };
+            } else if (teamBWins) {
+                return { teamAScore: score2, teamBScore: score1 };
+            } else {
+                // Default to assuming first score is Team A if unclear
+                return { teamAScore: score1, teamBScore: score2 };
+            }
+        }
+        return { teamAScore: 0, teamBScore: 0 };
+    };
+
+    // Helper function to calculate total declarations across all hands
+    const calculateTotalDeclarations = (hands: HandDTO[]) => {
+        let teamADeclTotal = 0;
+        let teamBDeclTotal = 0;
+
+        hands.forEach(hand => {
+            if (hand.handSummary) {
+                teamADeclTotal += hand.handSummary.teamADeclPoints || 0;
+                teamBDeclTotal += hand.handSummary.teamBDeclPoints || 0;
+            }
+        });
+
+        return { teamADeclTotal, teamBDeclTotal };
+    };
+
 
     return (
         <Modal
@@ -289,32 +338,56 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                     </div>
                 </div>
 
-                {/* Final Result */}
-                {match.result && (
+                {/* Match Summary */}
+                {match.result && structuredMoves && structuredMoves.length > 0 && (
                     <div className="bg-emerald-900/20 border border-emerald-700/30 p-5 rounded-xl">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 mb-4">
                             <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <div>
-                                <h3 className="text-emerald-300 font-semibold">Final Result</h3>
-                                <p className="text-emerald-100 text-lg">{match.result}</p>
-                            </div>
+                            <h3 className="text-emerald-300 font-semibold text-lg">Match Summary</h3>
                         </div>
+                        {(() => {
+                            const { teamAScore, teamBScore } = parseMatchResult(match.result);
+                            const { teamADeclTotal, teamBDeclTotal } = calculateTotalDeclarations(structuredMoves);
+                            
+                            return (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {/* Final Scores */}
+                                    <div className="text-center">
+                                        <div className="text-blue-300 font-bold text-2xl">{teamAScore}</div>
+                                        <div className="text-blue-300/70 text-sm">Team A Final</div>
+                                        {teamADeclTotal > 0 && <div className="text-blue-300/60 text-xs mt-1">{teamADeclTotal} decl</div>}
+                                    </div>
+                                    
+                                    <div className="text-center flex items-center justify-center">
+                                        <div className="text-emerald-100 font-medium">{match.result}</div>
+                                    </div>
+                                    
+                                    <div className="text-center">
+                                        <div className="text-red-300 font-bold text-2xl">{teamBScore}</div>
+                                        <div className="text-red-300/70 text-sm">Team B Final</div>
+                                        {teamBDeclTotal > 0 && <div className="text-red-300/60 text-xs mt-1">{teamBDeclTotal} decl</div>}
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
                 )}
 
                 {/* Enhanced Game Details with Structured Moves */}
                 {structuredMoves && structuredMoves.length > 0 && (
                     <div className="bg-emerald-900/20 border border-emerald-700/30 p-5 rounded-xl">
-                        <h3 className="text-emerald-300 font-semibold text-xl mb-6 flex items-center gap-3">
-                            <div className="w-8 h-8 bg-emerald-600/30 rounded-lg flex items-center justify-center">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                </svg>
-                            </div>
-                            Game History ({structuredMoves.length} hands)
-                        </h3>
+                        <div className="mb-6">
+                            <h3 className="text-emerald-300 font-semibold text-xl flex items-center gap-3">
+                                <div className="w-8 h-8 bg-emerald-600/30 rounded-lg flex items-center justify-center">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                    </svg>
+                                </div>
+                                Game History ({structuredMoves.length} hands)
+                            </h3>
+                        </div>
 
                         <div className="space-y-4">
                             {structuredMoves.map((hand: HandDTO, handIndex: number) => (
@@ -330,13 +403,26 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                                                     {hand.handNo || handIndex + 1}
                                                 </div>
                                                 <div>
-                                                    <span className="text-emerald-200 font-semibold">
-                                                        Hand {hand.handNo || handIndex + 1}
-                                                    </span>
-                                                    <div className="flex items-center gap-4 mt-1 text-sm text-emerald-400/70">
-                                                        <span>{hand.tricks?.length || 0} tricks</span>
-                                                        <span>{hand.trumpCalls?.length || 0} trump calls</span>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-emerald-200 font-semibold">
+                                                            Hand {hand.handNo || handIndex + 1}
+                                                        </span>
+                                                        {hand.handSummary?.padanje && (
+                                                            <span className="bg-amber-600/30 text-amber-300 px-2 py-1 rounded-full text-xs font-bold border border-amber-500/30">
+                                                                 Padanje
+                                                            </span>
+                                                        )}
+                                                        {countIllegalMovesInHand(hand) > 0 && (
+                                                            <span className="bg-red-600/30 text-red-300 px-2 py-0.5 rounded-full text-xs font-medium">
+                                                                {countIllegalMovesInHand(hand)} illegal
+                                                            </span>
+                                                        )}
                                                     </div>
+                                                    {hand.handSummary && (hand.handSummary.finalScoreA !== undefined || hand.handSummary.finalScoreB !== undefined) && (
+                                                        <div className="mt-1 text-sm text-emerald-300/80 font-medium">
+                                                            {hand.handSummary.finalScoreA || 0} - {hand.handSummary.finalScoreB || 0}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -376,6 +462,39 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                                     {/* Expanded Hand Details */}
                                     {expandedHands.has(handIndex) && (
                                         <div className="border-t border-emerald-800/30 p-4 space-y-5">
+                                            {/* Hand Summary */}
+                                            {hand.handSummary && (
+                                                <div className="bg-emerald-900/30 rounded-lg p-3">
+                                                    <h4 className="text-emerald-300 font-medium mb-2">Hand Summary</h4>
+                                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                                        <div>
+                                                            <span className="text-blue-300">Team A: {hand.handSummary.teamAPoints} pts</span>
+                                                            {hand.handSummary.teamADeclPoints > 0 && <span className="text-blue-300/70 ml-2">({hand.handSummary.teamADeclPoints} decl)</span>}
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-red-300">Team B: {hand.handSummary.teamBPoints} pts</span>
+                                                            {hand.handSummary.teamBDeclPoints > 0 && <span className="text-red-300/70 ml-2">({hand.handSummary.teamBDeclPoints} decl)</span>}
+                                                        </div>
+                                                        <div className="text-emerald-400/70">Tricks: {hand.tricks?.length || 0}</div>
+                                                        <div className="text-emerald-400/70">Trump Calls: {hand.trumpCalls?.length || 0}</div>
+                                                    </div>
+                                                    {(hand.handSummary.capot || hand.handSummary.padanje) && (
+                                                        <div className="flex gap-2 mt-2">
+                                                            {hand.handSummary.capot && (
+                                                                <span className="bg-purple-600/30 text-purple-300 px-2 py-0.5 rounded-full text-xs font-medium">
+                                                                    Capot
+                                                                </span>
+                                                            )}
+                                                            {hand.handSummary.padanje && (
+                                                                <span className="bg-amber-600/30 text-amber-300 px-2 py-0.5 rounded-full text-xs font-medium">
+                                                                    Hand Awarded (Padanje)
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
                                             {/* Trump Calls */}
                                             {hand.trumpCalls && hand.trumpCalls.length > 0 && (
                                                 <div>
@@ -404,6 +523,45 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                                                 </div>
                                             )}
 
+                                            {/* Challenges */}
+                                            {hand.challenges && hand.challenges.length > 0 && (
+                                                <div>
+                                                    <h4 className="text-emerald-300 font-medium mb-3 flex items-center gap-2">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                        </svg>
+                                                        Challenges
+                                                    </h4>
+                                                    <div className="space-y-2">
+                                                        {hand.challenges.map((challenge: ChallengeDTO, i: number) => (
+                                                            <div key={i} className={`p-3 rounded-lg border flex items-center justify-between ${
+                                                                challenge.success 
+                                                                    ? 'bg-green-900/30 border-green-700/50 text-green-200' 
+                                                                    : 'bg-red-900/30 border-red-700/50 text-red-200'
+                                                            }`}>
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                                                        challenge.success 
+                                                                            ? 'bg-green-600/50 text-green-100' 
+                                                                            : 'bg-red-600/50 text-red-100'
+                                                                    }`}>
+                                                                        {challenge.success ? '✓' : '✗'}
+                                                                    </div>
+                                                                    <span className="font-medium">Challenge by {challenge.player || 'Unknown'}</span>
+                                                                </div>
+                                                                <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+                                                                    challenge.success 
+                                                                        ? 'bg-green-600/50 text-green-200' 
+                                                                        : 'bg-red-600/50 text-red-200'
+                                                                }`}>
+                                                                    {challenge.success ? 'Success' : 'Fail'}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             {/* Tricks */}
                                             {hand.tricks && hand.tricks.length > 0 && (
                                                 <div>
@@ -426,25 +584,78 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                                                                     <span className="text-emerald-400/60 text-sm">
                                                                         ({trick.moves?.length || 0} cards)
                                                                     </span>
+                                                                    {trick.moves && trick.moves.length < 4 && (
+                                                                        <span className="text-amber-400/60 text-xs bg-amber-600/20 px-2 py-0.5 rounded-full">
+                                                                            Partial trick (hand ended)
+                                                                        </span>
+                                                                    )}
                                                                 </div>
 
                                                                 {/* Cards played in this trick */}
                                                                 {trick.moves && trick.moves.length > 0 && (
-                                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                                    <div className={`grid ${
+                                                                        trick.moves.length <= 2 ? 'grid-cols-1 md:grid-cols-2' :
+                                                                        trick.moves.length === 3 ? 'grid-cols-2 md:grid-cols-3' :
+                                                                        'grid-cols-2 md:grid-cols-4'
+                                                                    } gap-4`}>
                                                                         {trick.moves.map((move: MoveDTO, moveIndex: number) => {
                                                                             const { rank, suit } = parseCardName(move.card || '');
+                                                                            const isIllegal = move.legal === false;
+                                                                            const isWinner = move.player === trick.winnerId;
+                                                                            
+                                                                            // Get trump suit from hand's trump calls
+                                                                            const handTrump = hand.trumpCalls?.find(call => call.trump !== 'PASS')?.trump;
+                                                                            const isTrumpCard = handTrump && suit === handTrump;
+                                                                            
+                                                                            let baseColor = getPlayerColor(move.player);
+                                                                            
+                                                                            // Winner highlighting - golden border and background
+                                                                            if (isWinner) {
+                                                                                baseColor = 'bg-gradient-to-r from-yellow-900/30 to-amber-900/30 border-2 border-yellow-500/50 text-yellow-100';
+                                                                            }
+                                                                            
                                                                             return (
-                                                                                <div key={moveIndex} className={`p-3 rounded-lg border ${getPlayerColor(move.player)} relative`}>
-                                                                                    <div className="flex items-center justify-between mb-2">
-                                                                                        <span className="text-sm font-medium truncate">{move.player || 'Unknown'}</span>
-
+                                                                                <div 
+                                                                                    key={moveIndex} 
+                                                                                    className={`p-3 rounded-lg border ${baseColor} relative ${isTrumpCard ? 'ring-2 ring-amber-400/60' : ''}`}
+                                                                                    title={isIllegal ? "This play violated rules; points only awarded if challenge succeeds." : ""}
+                                                                                >
+                                                                                    {/* Player name - fixed height */}
+                                                                                    <div className="h-5 mb-2">
+                                                                                        <span className="text-sm font-medium block">{move.player || 'Unknown'}</span>
                                                                                     </div>
-                                                                                    <div className="aspect-[5/7] w-16 mx-auto">
+                                                                                    
+                                                                                    {/* Badges section - fixed height */}
+                                                                                    <div className="h-6 mb-2 flex flex-wrap gap-1 justify-center relative z-20">
+                                                                                        {isWinner && (
+                                                                                            <span className="bg-yellow-600/80 text-yellow-100 px-1.5 py-0.5 rounded text-xs font-bold">
+                                                                                                Winner
+                                                                                            </span>
+                                                                                        )}
+                                                                                        {isTrumpCard && (
+                                                                                            <span className="bg-amber-600/80 text-amber-100 px-1.5 py-0.5 rounded text-xs font-bold">
+                                                                                                Trump
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+
+                                                                                    {/* Card - consistent positioning */}
+                                                                                    <div className="aspect-[5/7] w-16 mx-auto mb-2 relative z-10">
+
                                                                                         <PlayingCard
                                                                                             suit={suit}
                                                                                             rank={rank}
                                                                                             className="w-full h-full"
                                                                                         />
+                                                                                    </div>
+                                                                                    
+                                                                                    {/* Illegal badge section - fixed height */}
+                                                                                    <div className="h-6 text-center">
+                                                                                        {isIllegal && (
+                                                                                            <span className="bg-red-600/80 text-red-100 px-2 py-0.5 rounded text-xs font-bold">
+                                                                                                Illegal
+                                                                                            </span>
+                                                                                        )}
                                                                                     </div>
                                                                                 </div>
                                                                             );

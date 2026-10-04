@@ -1,0 +1,101 @@
+Here’s what each view contains and how it’s structured on the wire.
+
+PublicGameView (broadcast to /topic/games/{gameId})
+- gameId: string
+- gameState: string
+  - Current phase (e.g., BIDDING, PLAYING, COMPLETED)
+- bids: array of objects (BidDTO)
+  - playerId: string
+  - action: string (e.g., PASS, CALL_TRUMP)
+  - selectedTrump: string or null (trump suit when relevant)
+- currentTrick: object (Trick)
+  - Contains the trick currently in play; when there’s no active trick, it’s the last completed trick or an empty trick. Expect a list of plays with playerId and card.
+- teamAScore: number
+- teamBScore: number
+- teamA: array of objects (PlayerPublicInfo)
+  - username: string
+  - playerId: string
+  - handSize: number (count only; no card details)
+- teamB: array of objects (PlayerPublicInfo)
+  - username: string
+  - playerId: string
+  - handSize: number
+- challengeUsedByPlayer: object (map<string, boolean>)
+  - Keys are playerId, values indicate whether that player has used the challenge
+- winnerTeamId: string or null
+  - Present only when gameState is COMPLETED
+- tieBreaker: boolean
+  - True when both teams reached the target and the scores are equal
+- seatingOrder: array of objects (PlayerPublicInfo)
+  - Same structure as above; ordering of players around the table
+
+Example payload (shape only):
+```json
+{
+  "gameId": "string",
+  "gameState": "BIDDING",
+  "bids": [
+    { "playerId": "p1", "action": "PASS", "selectedTrump": null },
+    { "playerId": "p2", "action": "CALL_TRUMP", "selectedTrump": "HEARTS" }
+  ],
+  "currentTrick": {
+    "plays": [
+      { "playerId": "p1", "card": { "suit": "HEARTS", "rank": "KING" } }
+    ],
+    "winnerPlayerId": null
+  },
+  "teamAScore": 0,
+  "teamBScore": 0,
+  "teamA": [
+    { "username": "Alice", "playerId": "p1", "handSize": 8 },
+    { "username": "Bob",   "playerId": "p2", "handSize": 8 }
+  ],
+  "teamB": [
+    { "username": "Cara",  "playerId": "p3", "handSize": 8 },
+    { "username": "Dave",  "playerId": "p4", "handSize": 8 }
+  ],
+  "challengeUsedByPlayer": {
+    "p1": false, "p2": false, "p3": false, "p4": true
+  },
+  "winnerTeamId": null,
+  "tieBreaker": false,
+  "seatingOrder": [
+    { "username": "Alice", "playerId": "p1", "handSize": 8 },
+    { "username": "Bob",   "playerId": "p2", "handSize": 8 },
+    { "username": "Cara",  "playerId": "p3", "handSize": 8 },
+    { "username": "Dave",  "playerId": "p4", "handSize": 8 }
+  ]
+}
+```
+
+
+PrivateGameView (sent to each user at /user/queue/games/{gameId})
+- publicPart: PublicGameView
+  - Exactly the public payload embedded for convenience
+- hand: array of objects (Card)
+  - The recipient’s full hand. Expect suit and rank fields for each card.
+- yourTurn: boolean
+  - True if this player is to act (bidding lead during BIDDING or current player during PLAYING)
+- challengeUsed: boolean
+  - Whether this specific player has already used the challenge
+
+Example payload (shape only):
+```json
+{
+  "publicPart": { /* same as PublicGameView above */ },
+  "hand": [
+    { "suit": "HEARTS", "rank": "KING" },
+    { "suit": "SPADES", "rank": "ACE" }
+  ],
+  "yourTurn": true,
+  "challengeUsed": false
+}
+```
+
+
+Notes and expectations
+- PlayerPublicInfo intentionally exposes only handSize, not the actual cards, in public contexts.
+- currentTrick is never null in practice; if there’s no active trick, it may represent the last completed one or be an empty trick with no plays.
+- winnerTeamId remains null until the game is completed; tieBreaker indicates a special endgame condition when both teams reach the target with equal scores.
+- Bids are listed with normalized strings for action and trump.
+- Card objects use clear suit/rank fields; exact enum/string values depend on your client mapping.

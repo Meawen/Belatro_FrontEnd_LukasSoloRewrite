@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Button, Input } from '../common';
 import { useAuth } from '../../hooks/useAuth';
+import { ApiError } from '../../services/api';
+import { isNetworkOrServerFailure, SOMETHING_WENT_WRONG } from '../../utils/errorMessage';
+import { EMAIL_PATTERN, passwordRuleError, usernameRuleError } from './credentialRules';
 
 export interface SignupFormProps {
     onSuccess?: () => void;
@@ -18,6 +21,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({
         confirmPassword: '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [createdEmail, setCreatedEmail] = useState<string | null>(null);
 
     const { signup, isSignupLoading } = useAuth();
 
@@ -36,20 +40,22 @@ export const SignupForm: React.FC<SignupFormProps> = ({
 
         if (!formData.username.trim()) {
             newErrors.username = 'Username is required';
-        } else if (formData.username.length < 3) {
-            newErrors.username = 'Username must be at least 3 characters';
+        } else {
+            const usernameError = usernameRuleError(formData.username.trim());
+            if (usernameError) newErrors.username = usernameError;
         }
 
         if (!formData.email.trim()) {
             newErrors.email = 'Email is required';
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        } else if (!EMAIL_PATTERN.test(formData.email)) {
             newErrors.email = 'Email is invalid';
         }
 
         if (!formData.password) {
             newErrors.password = 'Password is required';
-        } else if (formData.password.length < 6) {
-            newErrors.password = 'Password must be at least 6 characters';
+        } else {
+            const passwordError = passwordRuleError(formData.password);
+            if (passwordError) newErrors.password = passwordError;
         }
 
         if (!formData.confirmPassword) {
@@ -64,7 +70,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('Signup form submitted:', formData);
+        console.log('Signup form submitted:', { username: formData.username });
 
         if (!validateForm()) {
             console.log('Form validation failed:', errors);
@@ -74,25 +80,45 @@ export const SignupForm: React.FC<SignupFormProps> = ({
         try {
             setErrors({}); // Clear any previous errors
             console.log('Attempting signup with:', {
-                username: formData.username,
-                email: formData.email
+                username: formData.username
             });
 
             const result = await signup({
-                username: formData.username,
-                email: formData.email,
+                // the backend validates the raw value, so stray spaces would be a 400
+                username: formData.username.trim(),
+                email: formData.email.trim(),
                 password: formData.password
             });
 
-            console.log('Signup successful:', result);
-            onSuccess?.();
+            console.log('Signup successful:', { username: result.user?.username });
+            // The account works now; the address still needs its confirmation link.
+            setCreatedEmail(formData.email.trim());
         } catch (error) {
             console.error('Signup error:', error);
+            // a 500 while the backend's session store is down, or no answer: not the raw text
+            const status = error instanceof ApiError ? error.status : 0;
             setErrors({
-                submit: error instanceof Error ? error.message : 'Registration failed'
+                submit: isNetworkOrServerFailure(status) ? SOMETHING_WENT_WRONG : error instanceof Error ? error.message : 'Registration failed'
             });
         }
     };
+
+    if (createdEmail) {
+        return (
+            <div className="card max-w-md mx-auto text-center space-y-4">
+                <h2 className="text-2xl font-bold text-white">Check your inbox</h2>
+                {/* The same answer comes for an address another account holds, and that one gets no
+                    link (spec section 1), so this must not promise a mail. */}
+                <p className="text-slate-300">
+                    If this address can be used, a confirmation link is on its way to <strong>{createdEmail}</strong>. Check your inbox (and spam).
+                    Confirm it to play ranked; casual games work right away.
+                </p>
+                <Button type="button" variant="primary" fullWidth onClick={() => onSuccess?.()}>
+                    Continue
+                </Button>
+            </div>
+        );
+    }
 
     return (
         <div className="card max-w-md mx-auto">

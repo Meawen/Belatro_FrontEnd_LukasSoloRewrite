@@ -14,6 +14,16 @@ export interface ApiResponse<T> {
     success: boolean;
 }
 
+/** A Spring Data page as the backend serializes it (e.g. GET /user/findAll). */
+export interface Page<T> {
+    content: T[];
+    totalElements: number;
+    totalPages: number;
+    /** zero-based page index */
+    number: number;
+    size: number;
+}
+
 export interface Void {}
 
 export interface Instant {

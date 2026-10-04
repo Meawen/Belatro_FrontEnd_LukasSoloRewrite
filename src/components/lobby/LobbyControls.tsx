@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Button, Modal, Select } from '../common';
+import { Button, Modal, Select, ErrorAlert } from '../common';
 import { useLobbies, useLobby } from '../../hooks/useLobby';
-import type { LobbyDTO, LeaveLobbyRequestDTO, KickPlayerRequestDTO } from '../../types/lobby';
+import type { LobbyDTO, KickPlayerRequestDTO } from '../../types/lobby';
 import type { UserSimpleDTO } from '../../types/user';
+import { errorMessage } from '../../utils/errorMessage';
 
 export interface LobbyControlsProps {
     lobby: LobbyDTO;
@@ -17,6 +18,7 @@ export const LobbyControls: React.FC<LobbyControlsProps> = ({
                                                             }) => {
     const [showKickModal, setShowKickModal] = useState(false);
     const [playerToKick, setPlayerToKick] = useState('');
+    const [actionError, setActionError] = useState<string | null>(null);
 
     const {
         leaveLobby,
@@ -50,17 +52,14 @@ export const LobbyControls: React.FC<LobbyControlsProps> = ({
         if (!confirmed) return;
 
         try {
-            const leaveData: LeaveLobbyRequestDTO = {
-                id: lobby.id,
-                username: currentUser.username
-            };
-
-            await leaveLobby(lobby.id, leaveData);
+            setActionError(null);
+            await leaveLobby(lobby.id);
 
             // Navigate back to lobby list
             window.location.href = '/lobbies';
         } catch (error) {
             console.error('Failed to leave lobby:', error);
+            setActionError(errorMessage(error, 'Failed to leave lobby'));
         }
     };
 
@@ -72,10 +71,9 @@ export const LobbyControls: React.FC<LobbyControlsProps> = ({
         if (!confirmed) return;
 
         try {
+            setActionError(null);
             const kickData: KickPlayerRequestDTO = {
-                lobbyId: lobby.id,
-                usernameToKick: playerName || '',
-                requesterUsername: currentUser.username
+                usernameToKick: playerName || ''
             };
 
             await kickPlayer(lobby.id, kickData);
@@ -84,6 +82,8 @@ export const LobbyControls: React.FC<LobbyControlsProps> = ({
             onUpdate();
         } catch (error) {
             console.error('Failed to kick player:', error);
+            setShowKickModal(false);
+            setActionError(errorMessage(error, 'Failed to kick player'));
         }
     };
 
@@ -94,11 +94,13 @@ export const LobbyControls: React.FC<LobbyControlsProps> = ({
         if (!confirmed) return;
 
         try {
+            setActionError(null);
             await deleteLobby();
             // Navigate back to lobby list
             window.location.href = '/lobbies';
         } catch (error) {
             console.error('Failed to delete lobby:', error);
+            setActionError(errorMessage(error, 'Failed to delete lobby'));
         }
     };
 
@@ -110,16 +112,20 @@ export const LobbyControls: React.FC<LobbyControlsProps> = ({
         <div className="card">
             <h3 className="text-lg font-semibold text-white mb-4">Lobby Controls</h3>
 
+            <ErrorAlert message={actionError} className="mb-4" />
+
             <div className="flex flex-wrap gap-3">
-                {/* Leave Lobby */}
-                <Button
-                    onClick={handleLeaveLobby}
-                    variant="outline"
-                    disabled={isLeaving}
-                    className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-900/20"
-                >
-                    {isLeaving ? 'Leaving...' : '🚪 Leave Lobby'}
-                </Button>
+                {/* Leave Lobby - not for the host, whom the server answers 409 (delete instead) */}
+                {!isHost && (
+                    <Button
+                        onClick={handleLeaveLobby}
+                        variant="outline"
+                        disabled={isLeaving}
+                        className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-900/20"
+                    >
+                        {isLeaving ? 'Leaving...' : '🚪 Leave Lobby'}
+                    </Button>
+                )}
 
                 {/* Host-only controls */}
                 {isHost && (

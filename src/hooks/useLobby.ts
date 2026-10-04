@@ -5,7 +5,6 @@ import type {
     LobbyUpdateDTO,
     CreateLobbyDTO,
     JoinLobbyRequestDTO,
-    LeaveLobbyRequestDTO,
     KickPlayerRequestDTO,
     TeamSwitchRequestDTO,
 } from '../types';
@@ -93,8 +92,8 @@ export function useLobbies() {
     const joinMutation = useMutation((data: { lobbyId: string; joinData: JoinLobbyRequestDTO }) =>
         lobbyService.joinLobby(data.lobbyId, data.joinData)
     );
-    const leaveMutation = useMutation((data: { lobbyId: string; leaveData?: LeaveLobbyRequestDTO }) =>
-        lobbyService.leaveLobby(data.lobbyId, data.leaveData)
+    const leaveMutation = useMutation((lobbyId: string) =>
+        lobbyService.leaveLobby(lobbyId)
     );
     const kickMutation = useMutation((data: { lobbyId: string; kickData: KickPlayerRequestDTO }) =>
         lobbyService.kickPlayer(data.lobbyId, data.kickData)
@@ -121,8 +120,8 @@ export function useLobbies() {
         return result;
     }, [joinMutation, openLobbiesQuery, lobbiesQuery]);
 
-    const leaveLobby = useCallback(async (lobbyId: string, leaveData?: LeaveLobbyRequestDTO) => {
-        const result = await leaveMutation.mutate({ lobbyId, leaveData });
+    const leaveLobby = useCallback(async (lobbyId: string) => {
+        const result = await leaveMutation.mutate(lobbyId);
         await openLobbiesQuery.refetch();
         if (lobbiesQuery.data) {
             await lobbiesQuery.refetch();

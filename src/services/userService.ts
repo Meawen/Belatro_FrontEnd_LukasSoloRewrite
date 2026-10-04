@@ -1,11 +1,15 @@
 import { apiClient } from './api';
+import { gameSocket } from './gameSocket';
 import type {
     User,
-    UserUpdateDTO,
+    UserDto,
+    ChangePasswordRequest,
+    ChangeEmailRequest,
+    JwtResponseDTO,
     PlayerMatchHistoryDTO,
     PlayerMatchSummaryDTO,
     PaginationParams,
-    Void,
+    Page,
 } from '../types';
 
 export const userService = {
@@ -15,16 +19,43 @@ export const userService = {
         return apiClient.get<User>(`/user/${id}`);
     },
 
-    async updateUser(id: string, userData: UserUpdateDTO): Promise<User> {
-        return apiClient.put<User>(`/user/${id}`, userData);
+    async getMe(): Promise<UserDto> {
+        return apiClient.get<UserDto>('/user/me');
     },
 
-    async deleteUser(id: string): Promise<Void> {
-        return apiClient.delete<Void>(`/user/${id}`);
+    // 200 with a fresh token: the server ended every other session (and closes their
+    // sockets); this tab continues on the new token, so store it and reopen the socket.
+    // This tab's socket gets its 1008 before that 200 arrives: hold it until then.
+    async changePassword(request: ChangePasswordRequest): Promise<void> {
+        const settled = gameSocket.holdSessionEnd();
+        try {
+            const response = await apiClient.post<JwtResponseDTO>('/user/me/password', request, { keepTokenOn401: true });
+            if (response?.token) {
+                apiClient.setToken(response.token);
+                // the pair useAuth reads: another tab may have cleared either while this was in flight
+                if (response.user) localStorage.setItem('user', JSON.stringify(response.user));
+                gameSocket.reconnect();
+            }
+        } finally {
+            settled();
+        }
     },
 
-    async getAllUsers(): Promise<User[]> {
-        return apiClient.get<User[]>('/user/findAll');
+    async changeEmail(request: ChangeEmailRequest): Promise<void> {
+        await apiClient.post<void>('/user/me/email', request, { keepTokenOn401: true });
+    },
+
+    async resendEmailConfirmation(): Promise<void> {
+        await apiClient.post<void>('/user/me/email/resend');
+    },
+
+    // The server pages, sorts by username and filters on q (case-insensitive substring).
+    // It answers 400 for a NUL in q, so NUL characters are dropped before sending.
+    async getUsersPage(params: { page: number; size: number; q?: string }): Promise<Page<User>> {
+        const query = new URLSearchParams({ page: String(params.page), size: String(params.size) });
+        const q = params.q?.replace(/\0/g, '');
+        if (q) query.set('q', q);
+        return apiClient.get<Page<User>>(`/user/findAll?${query.toString()}`);
     },
 
     async getUserHistory(
@@ -51,7 +82,7 @@ export const userService = {
         return apiClient.get<PlayerMatchSummaryDTO>(`/user/${playerId}/history/summary${query}`);
     },
 
-    async requestForget(id: string): Promise<Void> {
-        return apiClient.post<Void>(`/user/${id}/request-forget`);
+    async requestForget(): Promise<void> {
+        await apiClient.post<void>('/user/me/request-forget');
     }
 };

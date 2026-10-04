@@ -3,9 +3,10 @@ import { useEnhancedRanked } from '../../hooks/useEnhancedRanked';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../common/Button';
 import { Loading } from '../common/Loading';
+import { ResendConfirmationButton } from '../auth/ResendConfirmationButton';
 
 export const PlayButton: React.FC = () => {
-    const { user, isAuthenticated } = useAuth();
+    const { isAuthenticated } = useAuth();
     const {
         isInQueue,
         joinQueue,
@@ -104,7 +105,18 @@ export const PlayButton: React.FC = () => {
                             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                         </svg>
                     </div>
-                    <span className="font-medium">Error: {joinError?.message || leaveError?.message}</span>
+                    {/* POST /ranked/queue answers 403 only to an unverified account; a dead session is a 401 */}
+                    {joinError?.status === 403 ? (
+                        <div className="flex flex-col gap-2">
+                            {/* no promise of a mail: an address another account holds never gets a link */}
+                            <span className="font-medium">
+                                {joinError.message}. Open your confirmation link if you have one, or ask for a new one, then try again.
+                            </span>
+                            <ResendConfirmationButton />
+                        </div>
+                    ) : (
+                        <span className="font-medium">Error: {joinError?.message || leaveError?.message}</span>
+                    )}
                 </div>
             )}
         </div>

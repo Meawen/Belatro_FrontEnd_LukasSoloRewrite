@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
-import { EditProfile } from './EditProfile';
+import { ChangePasswordForm } from './ChangePasswordForm';
+import { ChangeEmailForm } from './ChangeEmailForm';
+import { ResendConfirmationButton } from '../auth/ResendConfirmationButton';
 import { ProfileStats } from './ProfileStats';
-import { Button, Loading, Modal } from '../common';
-import { useUser } from '../../hooks/useUser';
+import { Button, ErrorAlert, Loading, Modal } from '../common';
+import { useUser, useMe, notifyMeChanged } from '../../hooks/useUser';
 import { useAuth } from '../../hooks/useAuth';
+// direct module import (not the ../../hooks barrel) so the component test does
+// not load every hook module, incl. the WebSocket ones
+import { useMutation } from '../../hooks/useApi';
+import { userService } from '../../services/userService';
+import { errorMessage } from '../../utils/errorMessage';
 
 export interface UserProfileProps {
     userId?: string;
@@ -12,6 +19,8 @@ export interface UserProfileProps {
 export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
     const [showEditProfile, setShowEditProfile] = useState(false);
     const [activeTab, setActiveTab] = useState<'stats' | 'profile'>('stats');
+    const [showChangeEmail, setShowChangeEmail] = useState(false);
+    const [emailNotice, setEmailNotice] = useState<string | null>(null);
 
     const { user: currentUser } = useAuth();
 
@@ -25,6 +34,25 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
     console.log('UserProfile - hook result:', { displayUser, isLoading, error });
 
     const isOwnProfile = !userId || userId === currentUser?.id;
+    const { data: me, refetch: refetchMe } = useMe(isOwnProfile);
+    // no address at all (e.g. a new account that changed its password before confirming): resend has nothing to send
+    const emailAction = me && !me.email && !me.pendingEmail ? 'Add an email address' : 'Change Email';
+
+    const [confirmingDeletion, setConfirmingDeletion] = useState(false);
+    const [deletionError, setDeletionError] = useState<string | null>(null);
+    const requestForgetMutation = useMutation(() => userService.requestForget());
+
+    const handleRequestDeletion = async () => {
+        try {
+            setDeletionError(null);
+            await requestForgetMutation.mutate();
+            setConfirmingDeletion(false);
+            // useApi's refetch rethrows: a failed refresh is not a failed request, and nothing awaits it
+            refetchMe().catch(() => {});
+        } catch (error) {
+            setDeletionError(errorMessage(error, 'Failed to request deletion'));
+        }
+    };
 
     // If no target user ID, show authentication error
     if (!targetUserId) {
@@ -110,6 +138,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
 
     return (
         <div className="space-y-6">
+            {emailNotice && (
+                <div role="status" className="card border border-emerald-500/40 text-emerald-200 text-sm">
+                    {emailNotice}
+                </div>
+            )}
+
             {/* Profile Header */}
             <div className="card">
                 <div className="flex items-start gap-6">
@@ -125,6 +159,15 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                                 {displayUser.username || 'Unknown User'}
                             </h1>
                             {isOwnProfile && (
+                                <div className="flex gap-2">
+                                <Button
+                                    onClick={() => setShowChangeEmail(true)}
+                                    variant="outline"
+                                    size="small"
+                                    className="border-emerald-600 text-emerald-300 hover:bg-emerald-600 hover:text-white"
+                                >
+                                    {emailAction}
+                                </Button>
                                 <Button
                                     onClick={() => setShowEditProfile(true)}
                                     variant="outline"
@@ -134,13 +177,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                     </svg>
-                                    Edit Profile
+                                    Change Password
                                 </Button>
+                                </div>
                             )}
                         </div>
 
                         {/* Stats Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             <div className="bg-emerald-800/50 rounded-lg p-3">
                                 <div className="flex items-center gap-2 mb-1">
                                     <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,9 +207,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                                 <div className="text-2xl font-bold text-white">
                                     {displayUser.level ?? '1'}
                                 </div>
-                                <div className="text-xs text-emerald-400">
-                                    {displayUser.expPoints || 0} XP
-                                </div>
                             </div>
 
                             <div className="bg-emerald-800/50 rounded-lg p-3">
@@ -179,32 +220,17 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                                     {displayUser.gamesPlayed ?? '0'}
                                 </div>
                             </div>
-
-                            <div className="bg-emerald-800/50 rounded-lg p-3">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <span className="text-emerald-300 text-sm font-medium">Last Seen</span>
-                                </div>
-                                <div className="text-sm text-white">
-                                    {displayUser.lastLogin
-                                        ? new Date(displayUser.lastLogin).toLocaleDateString()
-                                        : 'Never'
-                                    }
-                                </div>
-                            </div>
                         </div>
 
                         {/* Roles */}
-                        {displayUser.roles && displayUser.roles.length > 0 && (
+                        {me?.roles && me.roles.length > 0 && (
                             <div className="flex items-center gap-2 mt-4">
                                 <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                                 </svg>
                                 <span className="text-emerald-400 text-sm font-medium mr-2">Roles:</span>
                                 <div className="flex gap-2">
-                                    {displayUser.roles.map((role, index) => (
+                                    {me.roles.map((role, index) => (
                                         <span key={index} className="px-2 py-1 bg-amber-600/20 text-amber-400 text-xs rounded-full font-medium">
                                             {typeof role === 'string' ? role.replace('ROLE_', '') : role}
                                         </span>
@@ -235,23 +261,92 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
 
             {/* Tab Content */}
             {activeTab === 'stats' && (
-                <ProfileStats user={displayUser} isOwnProfile={isOwnProfile} />
+                <ProfileStats
+                    user={displayUser}
+                    me={me ?? null}
+                    confirmAction={
+                        // keyed on the pending address: a new one starts a fresh button, not a stale "nothing to confirm"
+                        <ResendConfirmationButton key={me?.pendingEmail ?? ''} onChangeEmail={() => setShowChangeEmail(true)} />
+                    }
+                />
             )}
 
-            {/* Edit Profile Modal */}
+            {isOwnProfile && (
+                <div className="card border border-red-500/30">
+                    <h3 className="text-lg font-semibold text-white mb-3">Account</h3>
+                    {me?.deletionRequested ? (
+                        <p className="text-amber-400 text-sm">
+                            Deletion requested — an administrator will process your account removal.
+                        </p>
+                    ) : confirmingDeletion ? (
+                        <div className="flex flex-wrap items-center gap-3">
+                            <p className="text-red-300 text-sm flex-1 min-w-[200px]">
+                                Request deletion of your account? An administrator has to approve it; you can keep playing until then.
+                            </p>
+                            <Button variant="outline" size="small" onClick={() => setConfirmingDeletion(false)}>
+                                Keep my account
+                            </Button>
+                            <Button
+                                variant="primary"
+                                size="small"
+                                disabled={requestForgetMutation.isLoading}
+                                isLoading={requestForgetMutation.isLoading}
+                                onClick={handleRequestDeletion}
+                                className="bg-red-600 hover:bg-red-500"
+                            >
+                                Confirm request
+                            </Button>
+                        </div>
+                    ) : (
+                        <Button
+                            variant="outline"
+                            size="small"
+                            onClick={() => setConfirmingDeletion(true)}
+                            className="border-red-500 text-red-400 hover:bg-red-500 hover:text-white"
+                        >
+                            Request account deletion
+                        </Button>
+                    )}
+                    <ErrorAlert message={deletionError} className="mt-2" />
+                </div>
+            )}
+
+            {/* Change Password Modal */}
             {isOwnProfile && (
                 <Modal
                     isOpen={showEditProfile}
                     onClose={() => setShowEditProfile(false)}
-                    title="Edit Profile"
+                    title="Change Password"
                 >
-                    <EditProfile
-                        user={displayUser}
+                    <ChangePasswordForm
                         onSuccess={() => {
                             setShowEditProfile(false);
-                            refetch();
+                            // a password change cancels a pending change of address
+                            refetchMe().catch(() => {});
+                            notifyMeChanged();
                         }}
                         onCancel={() => setShowEditProfile(false)}
+                    />
+                </Modal>
+            )}
+
+            {/* Change Email Modal */}
+            {isOwnProfile && (
+                <Modal
+                    isOpen={showChangeEmail}
+                    onClose={() => setShowChangeEmail(false)}
+                    title={emailAction}
+                >
+                    <ChangeEmailForm
+                        currentEmail={me?.email ?? null}
+                        onSuccess={(newEmail) => {
+                            setShowChangeEmail(false);
+                            // the same 202 whether or not the address can be used, so no promise of a mail
+                            setEmailNotice(`If this address can be used, a confirmation link is on its way to ${newEmail}. Check your inbox (and spam).`);
+                            refetchMe().catch(() => {});
+                            notifyMeChanged();
+                        }}
+                        onCancel={() => setShowChangeEmail(false)}
                     />
                 </Modal>
             )}

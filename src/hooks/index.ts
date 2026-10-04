@@ -1,6 +1,6 @@
 export { useApi, useMutation } from './useApi';
 export { useAuth } from './useAuth';
-export { useUser, useAllUsers, useUserHistory, useUserHistorySummary } from './useUser';
+export { useUser, useUsersPage, useUserHistory, useUserHistorySummary, useMe } from './useUser';
 export { useLobby, useLobbies } from './useLobby';
 export { useMatch, useAllMatches, useMatchByLobby } from './useMatch';
 export { useFriends, useAllFriendships, useFriendship } from './useFriends';

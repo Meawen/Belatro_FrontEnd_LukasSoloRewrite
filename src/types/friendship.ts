@@ -10,8 +10,7 @@ export interface Friendship {
     createdAt: string | null; // ISO date string
 }
 
+/** POST /friendship. The caller is the sender. */
 export interface CreateFriendshipDTO {
-    fromUserId: string | null;
-    toUserId: string | null;
-    status: FriendshipStatus | null;
+    toUserId: string;
 }
