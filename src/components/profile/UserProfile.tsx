@@ -278,7 +278,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                     ) : confirmingDeletion ? (
                         <div className="flex flex-wrap items-center gap-3">
                             <p className="text-red-300 text-sm flex-1 min-w-[200px]">
-                                Request deletion of your account? An administrator has to approve it; you can keep playing until then.
+                                Request deletion of your account? We delete your account and its data within 30 days of your request. You can keep playing until then.
                             </p>
                             <Button variant="outline" size="small" onClick={() => setConfirmingDeletion(false)}>
                                 Keep my account

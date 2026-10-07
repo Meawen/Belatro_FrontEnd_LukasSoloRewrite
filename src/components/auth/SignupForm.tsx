@@ -208,6 +208,13 @@ export const SignupForm: React.FC<SignupFormProps> = ({
                     {isSignupLoading ? 'Creating Account...' : 'Create Account'}
                 </Button>
 
+                {/* R-40: the pages open in a new tab, so the form keeps what was typed */}
+                <p className="text-xs text-slate-400 text-center">
+                    By creating an account you accept the{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-white">Terms</a>; see the{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-white">Privacy notice</a>.
+                </p>
+
 
             </form>
 

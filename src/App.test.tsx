@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { JSDOM } from 'jsdom'
 import App from './App'
 import { useUser } from './hooks/useUser'
@@ -79,6 +79,35 @@ describe('Dashboard tiles (R-34)', () => {
         renderAt('/dashboard')
         for (const tile of ['dashboard-elo', 'dashboard-games', 'dashboard-level', 'dashboard-win-rate']) {
             expect(screen.getByTestId(tile)).toHaveTextContent(/^—$/)
+        }
+    })
+})
+
+describe('Privacy and Terms (R-40)', () => {
+    test('/privacy is readable signed out and names who runs the service', () => {
+        auth.isAuthenticated = false
+        renderAt('/privacy')
+        expect(screen.getByRole('heading', { level: 1, name: 'Privacy notice' })).toBeInTheDocument()
+        expect(screen.getByText('Stiglja is run by Lukas Miholić, Bregana, Croatia.')).toBeInTheDocument()
+    })
+
+    test('/terms is readable signed out', () => {
+        auth.isAuthenticated = false
+        renderAt('/terms')
+        expect(screen.getByRole('heading', { level: 1, name: 'Terms of use' })).toBeInTheDocument()
+    })
+
+    test('every footer link leads to a routed page, and the footer names the support address', () => {
+        renderAt('/dashboard')
+        const hrefs = within(screen.getByRole('contentinfo')).getAllByRole('link').map((link) => link.getAttribute('href') ?? '')
+        cleanup()
+        expect(hrefs).toContain('mailto:support@stiglja.com')
+        const internal = hrefs.filter((href) => href.startsWith('/'))
+        expect(internal.length).toBeGreaterThan(0)
+        for (const href of internal) {
+            renderAt(href)
+            expect(screen.queryByText('Page Not Found'), href).not.toBeInTheDocument()
+            cleanup()
         }
     })
 })

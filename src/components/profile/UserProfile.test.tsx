@@ -223,3 +223,11 @@ describe('UserProfile numbers and debug text (R-34)', () => {
         expect(screen.queryByText(/Target ID/)).not.toBeInTheDocument()
     })
 })
+
+describe('UserProfile deletion copy (R-40)', () => {
+    test('the confirmation says the account and its data go within 30 days', async () => {
+        render(<UserProfile />)
+        await userEvent.setup().click(screen.getByRole('button', { name: /request account deletion/i }))
+        expect(screen.getByText(/We delete your account/)).toHaveTextContent('We delete your account and its data within 30 days of your request.')
+    })
+})

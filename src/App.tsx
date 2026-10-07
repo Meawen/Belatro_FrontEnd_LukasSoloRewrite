@@ -18,6 +18,8 @@ import { AuthPage } from './components/auth/AuthPage';
 import { ConfirmEmailPage } from './components/auth/ConfirmEmailPage';
 import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from './components/auth/ResetPasswordPage';
+import { PrivacyPage } from './components/info/PrivacyPage';
+import { TermsPage } from './components/info/TermsPage';
 import { LobbyList } from './components/lobby/LobbyList';
 import { LobbyDetails } from './components/lobby/LobbyDetails';
 import { AdminDashboard } from './components/admin/AdminDashboard';
@@ -451,6 +453,10 @@ function App() {
                     <Route path="/confirm-email" element={<ConfirmEmailPage />} />
                     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                     <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+                    {/* Public information pages: readable signed in or out (R-40) */}
+                    <Route path="/privacy" element={<PrivacyPage />} />
+                    <Route path="/terms" element={<TermsPage />} />
 
                     {/* Protected Routes - Using AppLayout with Sidebar enabled */}
                     <Route path="/" element={

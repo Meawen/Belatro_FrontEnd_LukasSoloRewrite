@@ -121,3 +121,13 @@ describe('SignupForm logging', () => {
         expect(logs.leaked(PASSWORD, 'not-the-same-pw')).toEqual([])
     })
 })
+
+describe('SignupForm legal line (R-40)', () => {
+    test('links the Terms and the Privacy notice under Create Account', () => {
+        render(<SignupForm onSuccess={vi.fn()} />)
+        expect(screen.getByText(/By creating an account you accept the/)).toHaveTextContent(
+            'By creating an account you accept the Terms; see the Privacy notice.')
+        expect(screen.getByRole('link', { name: 'Terms' })).toHaveAttribute('href', '/terms')
+        expect(screen.getByRole('link', { name: 'Privacy notice' })).toHaveAttribute('href', '/privacy')
+    })
+})

@@ -236,9 +236,12 @@ export const UserManagement: React.FC = () => {
                         <div className="bg-red-900/20 p-4 rounded border border-red-500/30">
                             <h4 className="text-red-400 font-semibold mb-2">⚠️ Warning</h4>
                             <p className="text-red-300 text-sm">
-                                This action will permanently delete the user account for{' '}
-                                <strong>{selectedUser.username}</strong> and cannot be undone.
-                                All associated data will be removed.
+                                Delete the account of{' '}
+                                <strong>{selectedUser.username}</strong>? This cannot be undone.
+                            </p>
+                            {/* What AdminService.forgetUser removes (R-40); the rest is the owner's manual 30-day process */}
+                            <p className="text-red-300 text-sm mt-2">
+                                Deletes the user record; friendships, match history and rank history remain.
                             </p>
                         </div>
 
