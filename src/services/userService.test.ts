@@ -97,6 +97,14 @@ describe('userService hardened contract', () => {
         expect((userService as Record<string, unknown>).getAllUsers).toBeUndefined()
     })
 
+    // 200 {"gameId": "g1"} while seated in a running game; 204 (apiClient gives {}) otherwise
+    test('getActiveGame reads the seat from GET /user/me/active-game, null on a 204', async () => {
+        const get = vi.spyOn(apiClient, 'get').mockResolvedValueOnce({ gameId: 'g1' }).mockResolvedValueOnce({})
+        expect(await userService.getActiveGame()).toBe('g1')
+        expect(await userService.getActiveGame()).toBeNull()
+        expect(get).toHaveBeenCalledWith('/user/me/active-game')
+    })
+
     // The server answers 400 "Search text may not contain a NUL character" for a NUL in q.
     test('getUsersPage strips NUL characters from the search term before sending it', async () => {
         const get = vi.spyOn(apiClient, 'get').mockResolvedValue({ content: [] })
