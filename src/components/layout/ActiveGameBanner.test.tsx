@@ -11,7 +11,7 @@ vi.mock('../../services/userService', () => ({ userService: { getActiveGame: vi.
 
 function GamePage() {
     const { gameId } = useParams()
-    return <h1>Game {gameId}</h1>
+    return <><h1>Game {gameId}</h1><Link to="/dashboard">Dashboard</Link></>
 }
 
 /** The banner as AppLayout renders it: above whatever page the route shows. */
@@ -23,6 +23,7 @@ function renderAt(path: string) {
                 <Route path="/profile" element={<Link to="/friends">Friends</Link>} />
                 <Route path="/friends" element={<h1>Friends page</h1>} />
                 <Route path="/game/:gameId" element={<GamePage />} />
+                <Route path="/dashboard" element={<h1>Dashboard page</h1>} />
             </Routes>
         </MemoryRouter>,
     )
@@ -78,6 +79,19 @@ describe('ActiveGameBanner (R-33)', () => {
         await settle()
         expect(screen.getByRole('heading', { name: 'Friends page' })).toBeInTheDocument()
         expect(userService.getActiveGame).toHaveBeenCalledTimes(2)
+    })
+
+    test('leaving the game page shows no banner for that game until the next check answers', async () => {
+        vi.mocked(userService.getActiveGame).mockResolvedValueOnce('g1').mockReturnValue(new Promise<string | null>(() => {}))
+        renderAt('/profile')
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Return to your game' }))
+        // the game ends; the player leaves for the dashboard, whose check has not answered yet
+        await user.click(screen.getByRole('link', { name: 'Dashboard' }))
+        await settle()
+        expect(screen.getByRole('heading', { name: 'Dashboard page' })).toBeInTheDocument()
+        expect(userService.getActiveGame).toHaveBeenCalledTimes(2)
+        expect(screen.queryByRole('button', { name: 'Return to your game' })).not.toBeInTheDocument()
     })
 
     test('on the game page: no request', async () => {

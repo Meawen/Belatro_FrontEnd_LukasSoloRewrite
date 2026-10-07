@@ -19,6 +19,8 @@ export const ActiveGameBanner: React.FC = () => {
     const onGamePage = pathname.startsWith('/game/');
 
     useEffect(() => {
+        // That game may end while it is on screen: leaving starts from no banner until the next check answers
+        if (onGamePage) setGameId(null);
         if (!isAuthenticated || onGamePage) return;
         let current = true;
         const check = () => {
