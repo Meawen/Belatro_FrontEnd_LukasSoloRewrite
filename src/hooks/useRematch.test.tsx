@@ -77,6 +77,21 @@ describe('useRematch (R-45)', () => {
         expect(result.current.expired).toBe(true)
     })
 
+    test('the game ends while the page is open: the channel opens and the two minutes start then', () => {
+        vi.useFakeTimers()
+        const { result, rerender } = renderHook(({ offered }) => useRematch('g1', offered), { initialProps: { offered: false } })
+        act(() => { vi.advanceTimersByTime(3 * 60_000) })
+        expect(ws.subscribeToRematch).not.toHaveBeenCalled()
+
+        rerender({ offered: true })
+
+        expect(ws.subscribeToRematch).toHaveBeenCalledWith('g1')
+        act(() => { vi.advanceTimersByTime(119_999) })
+        expect(result.current.expired).toBe(false)
+        act(() => { vi.advanceTimersByTime(1) })
+        expect(result.current.expired).toBe(true)
+    })
+
     test('Leave sends the decline, then goes back to the lobbies', () => {
         const { result } = renderHook(() => useRematch('g1', true))
         act(() => result.current.leave())
