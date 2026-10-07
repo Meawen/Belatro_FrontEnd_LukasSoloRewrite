@@ -2,6 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useBelatroGame } from '../../hooks/useBelatroGame';
 import { Button, Loading } from '../common';
+import { ErrorBoundary } from '../common/ErrorBoundary';
 import { GameTable } from './GameTable';
 import { ReconnectBanner } from './ReconnectBanner';
 
@@ -9,7 +10,13 @@ export default function GamePageConnected() {
     const { gameId = '' } = useParams();
     // useBelatroGame keeps its views in state and does not reset them when the id
     // changes, so each game id gets its own mount: never the previous game's views.
-    return <GamePage key={gameId} gameId={gameId} />;
+    // The table has its own error boundary (R-29): a crash in it leaves the app shell standing,
+    // and the key gives the next game id a fresh boundary as well.
+    return (
+        <ErrorBoundary key={gameId}>
+            <GamePage gameId={gameId} />
+        </ErrorBoundary>
+    );
 }
 
 function GamePage({ gameId }: { gameId: string }) {

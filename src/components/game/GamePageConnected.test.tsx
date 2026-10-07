@@ -6,6 +6,7 @@ import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import GamePageConnected from './GamePageConnected'
 import { useBelatroGame } from '../../hooks/useBelatroGame'
 import type { PublicGameView } from '../../types/game'
+import { captureConsole } from '../../test/captureConsole'
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u3', username: 'carol' } }) }))
 vi.mock('../../hooks/useBelatroGame', () => ({ useBelatroGame: vi.fn() }))
@@ -126,5 +127,23 @@ describe('GamePageConnected', () => {
         expect(screen.queryByText('Loading game state...')).not.toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: 'Back to dashboard' }))
         expect(screen.getByText('Dashboard page')).toBeInTheDocument()
+    })
+
+    test('a crash in the table shows the error screen and leaves the app shell standing (R-29)', () => {
+        captureConsole()
+        try {
+            vi.mocked(useBelatroGame).mockImplementation(() => { throw new Error('unexpected view shape') })
+            render(
+                <MemoryRouter initialEntries={['/game/g1']}>
+                    <nav>App shell</nav>
+                    <Routes><Route path="/game/:gameId" element={<GamePageConnected />} /></Routes>
+                </MemoryRouter>,
+            )
+            expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Go to dashboard' })).toBeInTheDocument()
+            expect(screen.getByText('App shell')).toBeInTheDocument()
+        } finally {
+            vi.restoreAllMocks()
+        }
     })
 })
