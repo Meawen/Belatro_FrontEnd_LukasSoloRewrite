@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { JSDOM } from 'jsdom'
 import App from './App'
@@ -7,15 +7,15 @@ import { useUser } from './hooks/useUser'
 import { userService } from './services/userService'
 import { captureConsole } from './test/captureConsole'
 
-// One switch for every test: signed in (the default) or signed out.
-const auth = vi.hoisted(() => ({ isAuthenticated: true }))
+// One switch for every test: signed in (the default) or signed out, and the stored token.
+const auth = vi.hoisted(() => ({ isAuthenticated: true, token: 'tok-1' }))
 vi.mock('./hooks/useAuth', () => ({
     useAuth: () => ({
         user: auth.isAuthenticated ? { id: 'u1', username: 'ana' } : null,
         isAuthenticated: auth.isAuthenticated,
         isLoading: false,
         logout: vi.fn(),
-        token: auth.isAuthenticated ? 'tok-1' : null,
+        token: auth.isAuthenticated ? auth.token : null,
     }),
 }))
 // The dashboard's numbers come from GET /user/{id} through useUser.
@@ -41,6 +41,7 @@ function renderAt(path: string) {
 
 beforeEach(() => {
     auth.isAuthenticated = true
+    auth.token = 'tok-1'
     vi.mocked(useUser).mockReturnValue({ user: null, isLoading: false, error: null, refetch: vi.fn() } as never)
     vi.stubGlobal('localStorage', jsdomStorage)
     // The shell's own requests (GET /user/me, …) get an empty 204, never a network
@@ -125,6 +126,24 @@ describe('Rules (R-41)', () => {
     test('"Read Guide" on the dashboard opens the rules', async () => {
         renderAt('/dashboard')
         await userEvent.setup().click(screen.getByRole('button', { name: 'Read Guide' }))
+        expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
+    })
+
+    test('an expired stored token: /rules asks nothing, signs nobody out and stays readable', async () => {
+        captureConsole()
+        // a JWT whose exp passed an hour ago (the SPA reads exp without checking the signature)
+        const claims = btoa(JSON.stringify({ sub: 'ana', exp: Math.floor(Date.now() / 1000) - 3600 })).replace(/=+$/, '')
+        const expired = `eyJhbGciOiJIUzI1NiJ9.${claims}.signature`
+        auth.token = expired
+        jsdomStorage.setItem('authToken', expired)
+        // what the backend answers that token
+        const fetch = vi.fn(async () => new Response(JSON.stringify({ error: 'Session expired, please sign in again' }), { status: 401 }))
+        vi.stubGlobal('fetch', fetch)
+        renderAt('/rules')
+        await act(async () => {})
+        expect(fetch).not.toHaveBeenCalled()
+        // a 401 would have signed the tab out: the token removed, then /login?reason=session-ended
+        expect(jsdomStorage.getItem('authToken')).toBe(expired)
         expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
     })
 

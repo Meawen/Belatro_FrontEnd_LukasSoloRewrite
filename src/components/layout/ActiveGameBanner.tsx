@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { userService } from '../../services/userService';
+import { isExpired } from '../../services/tokenRenewal';
 
 /** How often a signed-in page asks again whether the player has a seat in a running game. */
 export const ACTIVE_GAME_POLL_MS = 30_000;
@@ -12,16 +13,19 @@ export const ACTIVE_GAME_POLL_MS = 30_000;
  * check keeps the last answer, because a failure is not "no game".
  */
 export const ActiveGameBanner: React.FC = () => {
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, token } = useAuth();
     const { pathname } = useLocation();
     const navigate = useNavigate();
     const [gameId, setGameId] = useState<string | null>(null);
     const onGamePage = pathname.startsWith('/game/');
+    // No token, or an expired one: its 401 would sign the tab out, and on /rules, /privacy and /terms
+    // send a reader who needs no session to /login. App pages end a dead session on their own requests.
+    const canAsk = isAuthenticated && !!token && !isExpired(token);
 
     useEffect(() => {
         // That game may end while it is on screen: leaving starts from no banner until the next check answers
         if (onGamePage) setGameId(null);
-        if (!isAuthenticated || onGamePage) return;
+        if (!canAsk || onGamePage) return;
         let current = true;
         const check = () => {
             userService.getActiveGame().then(
@@ -39,7 +43,7 @@ export const ActiveGameBanner: React.FC = () => {
             current = false;
             window.clearInterval(timer);
         };
-    }, [isAuthenticated, onGamePage, pathname]);
+    }, [canAsk, onGamePage, pathname]);
 
     if (!isAuthenticated || onGamePage || !gameId) return null;
 

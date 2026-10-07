@@ -6,7 +6,9 @@ import { ActiveGameBanner, ACTIVE_GAME_POLL_MS } from './ActiveGameBanner'
 import { userService } from '../../services/userService'
 
 const auth = vi.hoisted(() => ({ isAuthenticated: true }))
-vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAuthenticated: auth.isAuthenticated }) }))
+vi.mock('../../hooks/useAuth', () => ({
+    useAuth: () => ({ isAuthenticated: auth.isAuthenticated, token: auth.isAuthenticated ? 'tok-1' : null }),
+}))
 vi.mock('../../services/userService', () => ({ userService: { getActiveGame: vi.fn() } }))
 
 function GamePage() {

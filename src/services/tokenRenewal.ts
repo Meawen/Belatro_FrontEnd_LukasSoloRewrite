@@ -20,6 +20,22 @@ const CHECK_EVERY_MS = 60 * 1000;
 
 let inFlight: Promise<boolean> | null = null;
 
+/** A JWT's claims, read without verifying (the server does that). Throws if unreadable. */
+function claims(token: string): { exp?: unknown; iat?: unknown } {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(payload.padEnd(Math.ceil(payload.length / 4) * 4, '=')));
+}
+
+/** True once the token's `exp` has passed: the server answers it with a 401. False if unreadable. */
+export function isExpired(token: string, now: number = Date.now()): boolean {
+    try {
+        const { exp } = claims(token);
+        return typeof exp === 'number' && exp * 1000 <= now;
+    } catch {
+        return false;
+    }
+}
+
 /**
  * When to renew, in epoch ms: 15 min before `exp`, or half-way through the token's life when it is
  * shorter than 30 min (`iat` present). Read without verifying (the server does that); null if unreadable.
@@ -28,8 +44,7 @@ let inFlight: Promise<boolean> | null = null;
  */
 function renewAt(token: string, now: number): number | null {
     try {
-        const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-        const { exp, iat } = JSON.parse(atob(payload.padEnd(Math.ceil(payload.length / 4) * 4, '=')));
+        const { exp, iat } = claims(token);
         if (typeof exp !== 'number' || exp * 1000 <= now) return null;
         const lead = typeof iat === 'number'
             ? Math.min(RENEW_WHEN_LEFT_MS, ((exp - iat) * 1000) / 2)
