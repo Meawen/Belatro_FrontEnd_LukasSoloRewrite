@@ -18,13 +18,14 @@ const fake = vi.hoisted(() => {
         },
         publish: (destination: string, body: unknown) => {
             published.push({ destination, body })
-            return true
+            // like gameSocket.publish: false while the socket is down
+            return state.isConnected
         },
         getState: () => state,
         onStateChange: () => () => {},
     }
     const deliver = (destination: string, body: string) => handlers.get(destination)?.forEach((h) => h(body))
-    return { handlers, published, counters, gameSocket, deliver }
+    return { handlers, published, counters, state, gameSocket, deliver }
 })
 vi.mock('../services/gameSocket', () => ({ gameSocket: fake.gameSocket }))
 
@@ -109,5 +110,22 @@ describe('useGameWebSocket actions match the backend messages (actor comes from 
             { destination: '/app/games/g1/refresh', body: {} },
             { destination: '/app/games/g1/cancel', body: {} },
         ])
+    })
+})
+
+describe('useGameWebSocket moves say whether they went out (R-30)', () => {
+    test('true while connected, false while the socket is down', () => {
+        const { result } = renderHook(() => useGameWebSocket({}))
+        expect(result.current.playCard('g1', { boja: 'HERC', rank: 'AS' }, false)).toBe(true)
+        expect(result.current.placeBid('g1', true)).toBe(true)
+        expect(result.current.challenge('g1')).toBe(true)
+        fake.state.isConnected = false
+        try {
+            expect(result.current.playCard('g1', { boja: 'HERC', rank: 'AS' }, false)).toBe(false)
+            expect(result.current.placeBid('g1', false, 'PIK')).toBe(false)
+            expect(result.current.challenge('g1')).toBe(false)
+        } finally {
+            fake.state.isConnected = true
+        }
     })
 })

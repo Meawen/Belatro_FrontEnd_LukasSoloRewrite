@@ -23,6 +23,8 @@ import { WS_URL } from '../config';
 export interface GameSocketState {
     isConnected: boolean;
     isConnecting: boolean;
+    /** Held, down, and retrying after a lost or failed connection (R-30); never during a first connect. */
+    isReconnecting: boolean;
     error: string | null;
 }
 
@@ -42,8 +44,9 @@ export interface StompClientHandlers {
 
 export type StompClientFactory = (token: string, handlers: StompClientHandlers) => StompClientLike;
 
-const MAX_RECONNECT_ATTEMPTS = 3;
 const RECONNECT_BASE_DELAY_MS = 5000;
+/** R-30: retries never stop while the socket is held; after 5, 10 and 20 s they come every 30 s. */
+const RECONNECT_MAX_DELAY_MS = 30000;
 /** Long enough to survive React StrictMode's unmount/remount and a route change. */
 const RELEASE_GRACE_MS = 1000;
 /** The server closes a socket whose token was revoked or went stale with 1008. */
@@ -72,7 +75,7 @@ export function stompConfig(token: string, handlers: StompClientHandlers): Stomp
         connectHeaders: { Authorization: `Bearer ${token}` },
         heartbeatIncoming: 4000,
         heartbeatOutgoing: 4000,
-        // reconnects are ours (bounded, token-aware), not stompjs's endless loop
+        // reconnects are ours (token-aware, with backoff and wake-ups), not stompjs's fixed-delay loop
         reconnectDelay: 0,
         // stompjs hands every frame to debug, the CONNECT frame and its token included: never log it
         debug: () => undefined,
@@ -92,7 +95,7 @@ export function createGameSocket(
     // a refused CONNECT does not say why; GET /user/me does (a 401 there ends the session in api.ts)
     checkSession: () => Promise<unknown> = () => apiClient.get('/user/me'),
 ) {
-    let state: GameSocketState = { isConnected: false, isConnecting: false, error: null };
+    let state: GameSocketState = { isConnected: false, isConnecting: false, isReconnecting: false, error: null };
     const listeners = new Set<() => void>();
     const routes = new Map<string, Route>();
     let client: StompClientLike | null = null;
@@ -109,6 +112,8 @@ export function createGameSocket(
 
     const setState = (next: Partial<GameSocketState>) => {
         state = { ...state, ...next };
+        // R-30: the network coming back or the tab shown again matter only while reconnecting
+        listenForWake(state.isReconnecting);
         listeners.forEach((listener) => listener());
     };
 
@@ -124,7 +129,7 @@ export function createGameSocket(
         // read on every attempt: a retry or reconnect() never reuses a rotated or cleared token
         const token = getToken();
         if (!token) {
-            setState({ isConnecting: false, error: 'Authentication required' });
+            setState({ isConnecting: false, isReconnecting: false, error: 'Authentication required' });
             return;
         }
         // An ERROR frame means the server refused us. Its text is the server's (never shown):
@@ -136,7 +141,7 @@ export function createGameSocket(
                 connected = true;
                 reconnectAttempts = 0;
                 routes.forEach((route, destination) => attach(destination, route));
-                setState({ isConnected: true, isConnecting: false, error: null });
+                setState({ isConnected: true, isConnecting: false, isReconnecting: false, error: null });
             },
             onStompError: () => {
                 if (client !== created) return;
@@ -168,13 +173,13 @@ export function createGameSocket(
         created.activate();
     };
 
+    // R-30: never gives up while held. A deploy outlasts the old three tries (~35 s), and a table
+    // whose socket had stopped retrying stayed frozen until a manual reload.
     const retryLater = () => {
-        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-            setState({ error: 'Failed to connect after multiple attempts' });
-            return;
-        }
-        const delay = RECONNECT_BASE_DELAY_MS * 2 ** reconnectAttempts;
+        if (retryTimer) clearTimeout(retryTimer);
+        const delay = Math.min(RECONNECT_BASE_DELAY_MS * 2 ** reconnectAttempts, RECONNECT_MAX_DELAY_MS);
         reconnectAttempts += 1;
+        setState({ isReconnecting: true });
         retryTimer = setTimeout(() => {
             retryTimer = null;
             if (holders > 0) open();
@@ -216,7 +221,7 @@ export function createGameSocket(
             if (holders > 0) open();
             return;
         }
-        setState({ error: SESSION_ENDED_MESSAGE });
+        setState({ isReconnecting: false, error: SESSION_ENDED_MESSAGE });
         endSession();
     };
 
@@ -231,7 +236,37 @@ export function createGameSocket(
         connected = false;
         routes.forEach((route) => { route.stomp = null; });
         if (old) old.deactivate();
-        setState({ isConnected: false, isConnecting: false });
+        setState({ isConnected: false, isConnecting: false, isReconnecting: false });
+    };
+
+    // An attempt now, when held and down with none under way: the Retry button, the network coming
+    // back, the tab shown again (R-30). The backoff timer it replaces is cancelled; a failure goes on
+    // with the backoff from where it was.
+    const retryNow = () => {
+        if (holders === 0 || client) return;
+        if (retryTimer) {
+            clearTimeout(retryTimer);
+            retryTimer = null;
+        }
+        pendingCheck = null;
+        open();
+    };
+
+    const onOnline = () => retryNow();
+    const onVisibilityChange = () => {
+        if (document.visibilityState === 'visible') retryNow();
+    };
+    let wakeListening = false;
+    const listenForWake = (on: boolean) => {
+        if (wakeListening === on) return;
+        wakeListening = on;
+        if (on) {
+            window.addEventListener('online', onOnline);
+            document.addEventListener('visibilitychange', onVisibilityChange);
+        } else {
+            window.removeEventListener('online', onOnline);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+        }
     };
 
     return {
@@ -291,6 +326,9 @@ export function createGameSocket(
          * change; a different token in storage carries on; otherwise the tab signs out.
          */
         tokenRevoked,
+
+        /** Try to connect now if held and down with no attempt under way (ReconnectBanner's Retry). */
+        retryNow,
 
         /** Reopen with the token now in storage (after a password change rotated it). */
         reconnect(): void {

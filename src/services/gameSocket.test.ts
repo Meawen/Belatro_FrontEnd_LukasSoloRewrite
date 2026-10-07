@@ -66,7 +66,7 @@ describe('gameSocket: one STOMP connection per tab', () => {
         socket.acquire(); socket.acquire(); socket.acquire()
         expect(clients).toHaveLength(1)
         expect(clients[0].activated).toBe(1)
-        expect(socket.getState()).toEqual({ isConnected: false, isConnecting: true, error: null })
+        expect(socket.getState()).toEqual({ isConnected: false, isConnecting: true, isReconnecting: false, error: null })
     })
 
     test('a quick release and re-acquire (React StrictMode) keeps the same client', () => {
@@ -164,24 +164,20 @@ describe('gameSocket: reconnects', () => {
         expect(clients).toHaveLength(2)
     })
 
-    test('an abnormal close retries with backoff, at most three times', () => {
+    test('an abnormal close is retried for as long as the socket is held: 5, 10, 20 s, then every 30 s', () => {
         const { socket, clients } = setup()
         socket.acquire()
-        clients[0].handlers.onWebSocketClose(1006)
-        vi.advanceTimersByTime(4999)
-        expect(clients).toHaveLength(1)
-        vi.advanceTimersByTime(1)
-        expect(clients).toHaveLength(2)
-        clients[1].handlers.onWebSocketClose(1006)
-        vi.advanceTimersByTime(10000)
-        expect(clients).toHaveLength(3)
-        clients[2].handlers.onWebSocketClose(1006)
-        vi.advanceTimersByTime(20000)
-        expect(clients).toHaveLength(4)
-        clients[3].handlers.onWebSocketClose(1006)
-        vi.advanceTimersByTime(60000)
-        expect(clients).toHaveLength(4)
-        expect(socket.getState().error).toBe('Failed to connect after multiple attempts')
+        const delays = [5000, 10000, 20000, 30000, 30000, 30000]
+        delays.forEach((delay, failed) => {
+            // attempt number failed+1 fails; the next one starts exactly `delay` later
+            clients[failed].handlers.onWebSocketClose(1006)
+            vi.advanceTimersByTime(delay - 1)
+            expect(clients).toHaveLength(failed + 1)
+            vi.advanceTimersByTime(1)
+            expect(clients).toHaveLength(failed + 2)
+        })
+        // six attempts failed, the seventh is under way, and nothing gave up (R-30)
+        expect(socket.getState()).toMatchObject({ isConnecting: true, isReconnecting: true, error: null })
     })
 
     test('a revoked session (close 1008) is not retried', () => {
@@ -302,7 +298,7 @@ describe('gameSocket: a refused CONNECT (STOMP ERROR) asks GET /user/me why', ()
         answer({ id: 'u1' })
         await vi.advanceTimersByTimeAsync(60000)
         expect(clients).toHaveLength(2)
-        expect(socket.getState()).toEqual({ isConnected: true, isConnecting: false, error: null })
+        expect(socket.getState()).toEqual({ isConnected: true, isConnecting: false, isReconnecting: false, error: null })
     })
 })
 
@@ -316,6 +312,7 @@ describe('gameSocket: a session the server ended (close 1008)', () => {
         expect(socket.getState()).toEqual({
             isConnected: false,
             isConnecting: false,
+            isReconnecting: false,
             error: 'Your session ended — please sign in again',
         })
         vi.advanceTimersByTime(60000)
@@ -405,5 +402,81 @@ describe('stompConfig', () => {
         } finally {
             vi.restoreAllMocks()
         }
+    })
+})
+
+/** jsdom pretends to be visible; a test that needs a hidden tab overrides it and deletes the override after. */
+function setVisibility(state: DocumentVisibilityState) {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state })
+}
+
+describe('gameSocket: a held socket never gives up (R-30)', () => {
+    test('the browser coming back online tries at once instead of waiting out the backoff', () => {
+        const { socket, clients } = setup()
+        const release = socket.acquire()
+        clients[0].handlers.onWebSocketClose(1006)
+        window.dispatchEvent(new Event('online'))
+        expect(clients).toHaveLength(2)
+        clients[1].handlers.onConnect()
+        // the backoff retry it replaced does not fire later
+        vi.advanceTimersByTime(60000)
+        expect(clients).toHaveLength(2)
+        release()
+        vi.advanceTimersByTime(1000)
+    })
+
+    test('the tab shown again tries at once; a hidden tab does not', () => {
+        const { socket, clients } = setup()
+        const release = socket.acquire()
+        clients[0].handlers.onWebSocketClose(1006)
+        try {
+            setVisibility('hidden')
+            document.dispatchEvent(new Event('visibilitychange'))
+            expect(clients).toHaveLength(1)
+            setVisibility('visible')
+            document.dispatchEvent(new Event('visibilitychange'))
+            expect(clients).toHaveLength(2)
+        } finally {
+            Reflect.deleteProperty(document, 'visibilityState')
+            release()
+            vi.advanceTimersByTime(1000)
+        }
+    })
+
+    test('isReconnecting only after a lost connection; Retry tries at once; the reconnect re-sends the snapshot SUBSCRIBE', () => {
+        const { socket, clients } = setup()
+        const release = socket.acquire()
+        socket.subscribe('/app/queue/games/g1', vi.fn())
+        // the first connect is no reconnect: no banner
+        expect(socket.getState().isReconnecting).toBe(false)
+        clients[0].handlers.onConnect()
+        expect(clients[0].activeSubs('/app/queue/games/g1')).toBe(1)
+        clients[0].handlers.onWebSocketClose(1006)
+        expect(socket.getState()).toMatchObject({ isConnected: false, isReconnecting: true, error: null })
+        socket.retryNow()
+        expect(clients).toHaveLength(2)
+        // an attempt is under way: Retry does not start a second one
+        socket.retryNow()
+        expect(clients).toHaveLength(2)
+        clients[1].handlers.onConnect()
+        expect(socket.getState()).toMatchObject({ isConnected: true, isReconnecting: false })
+        // the snapshot subscription (Task 6.4) goes out again on the new connection: the table re-snapshots
+        expect(clients[1].activeSubs('/app/queue/games/g1')).toBe(1)
+        vi.advanceTimersByTime(60000)
+        expect(clients).toHaveLength(2)
+        release()
+        vi.advanceTimersByTime(1000)
+    })
+
+    test('once released it stops retrying, and the network coming back changes nothing', () => {
+        const { socket, clients } = setup()
+        const release = socket.acquire()
+        clients[0].handlers.onWebSocketClose(1006)
+        release()
+        vi.advanceTimersByTime(1000)
+        expect(socket.getState().isReconnecting).toBe(false)
+        window.dispatchEvent(new Event('online'))
+        vi.advanceTimersByTime(120000)
+        expect(clients).toHaveLength(1)
     })
 })

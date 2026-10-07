@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { useState } from 'react'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import GamePageConnected from './GamePageConnected'
@@ -9,6 +9,8 @@ import type { PublicGameView } from '../../types/game'
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u3', username: 'carol' } }) }))
 vi.mock('../../hooks/useBelatroGame', () => ({ useBelatroGame: vi.fn() }))
+// The banner reads the real socket store; here it is a marker that shows where the page mounts it
+vi.mock('./ReconnectBanner', () => ({ ReconnectBanner: () => <p>Reconnect banner slot</p> }))
 
 const actions = { bidTrump: vi.fn(), passBid: vi.fn(), play: vi.fn(), challenge: vi.fn() }
 const seating = ['alice', 'bob', 'carol', 'dave'].map((id) => ({ id, cardsLeft: 6 }))
@@ -89,5 +91,20 @@ describe('GamePageConnected', () => {
         await user.click(screen.getByRole('link', { name: 'Next game' }))
         expect(screen.getByTestId('game-phase')).toHaveTextContent('BIDDING')
         expect(vi.mocked(useBelatroGame).mock.lastCall?.[0]).toBe('g2')
+    })
+
+    test('the reconnect banner sits on the loading screen and above the table (R-30)', () => {
+        vi.mocked(useBelatroGame).mockReturnValue({
+            publicView: null, privateView: null, isConnected: false, connectionError: null, error: null, actions,
+        })
+        renderPage()
+        expect(screen.getByText('Reconnect banner slot')).toBeInTheDocument()
+        cleanup()
+        vi.mocked(useBelatroGame).mockReturnValue({
+            publicView, privateView: null, isConnected: true, connectionError: null, error: null, actions,
+        })
+        renderPage()
+        expect(screen.getByText('Reconnect banner slot')).toBeInTheDocument()
+        expect(screen.getByTestId('game-phase')).toBeInTheDocument()
     })
 })

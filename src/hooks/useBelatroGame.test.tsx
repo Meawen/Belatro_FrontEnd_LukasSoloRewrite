@@ -15,9 +15,10 @@ const ws = vi.hoisted(() => ({
     subscribeToGame: vi.fn(),
     unsubscribeFromGame: vi.fn(),
     refreshGameState: vi.fn(),
-    placeBid: vi.fn(),
-    playCard: vi.fn(),
-    challenge: vi.fn(),
+    // like useGameWebSocket's: true when the move went out
+    placeBid: vi.fn(() => true),
+    playCard: vi.fn(() => true),
+    challenge: vi.fn(() => true),
 }))
 vi.mock('./useGameWebSocket', () => ({
     useGameWebSocket: (options: Options) => {
@@ -102,5 +103,18 @@ describe('useBelatroGame', () => {
         renderHook(() => useBelatroGame('g1', onDisconnect))
         act(() => ws.options.onGameDisconnect?.())
         expect(onDisconnect).toHaveBeenCalledTimes(1)
+    })
+
+    test('a move made while the socket is down says so instead of vanishing (R-30)', () => {
+        ws.playCard.mockReturnValueOnce(false)
+        ws.placeBid.mockReturnValueOnce(false)
+        const { result } = renderHook(() => useBelatroGame('g1'))
+        act(() => result.current.actions.play({ boja: 'KARA', rank: 'DESETKA' }))
+        expect(result.current.error).toBe('Not sent — reconnecting')
+        act(() => result.current.actions.passBid())
+        expect(result.current.error).toBe('Not sent — reconnecting')
+        // the socket is back: the next move goes out and the notice clears
+        act(() => result.current.actions.passBid())
+        expect(result.current.error).toBeNull()
     })
 })

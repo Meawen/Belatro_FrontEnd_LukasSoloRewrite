@@ -106,17 +106,15 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
     }, [untrack]);
 
     /* ---------- Actions: backend PlayCardMsg / BidMsg; the actor is the JWT principal ---------- */
-    const playCard = useCallback((gameId: string, card: GameCard, declareBela: boolean) => {
-        gameSocket.publish(`/app/games/${gameId}/play`, { card, declareBela });
-    }, []);
+    // Moves say whether they went out (R-30): false while the socket is down
+    const playCard = useCallback((gameId: string, card: GameCard, declareBela: boolean): boolean =>
+        gameSocket.publish(`/app/games/${gameId}/play`, { card, declareBela }), []);
 
-    const placeBid = useCallback((gameId: string, pass: boolean, trump?: Boja) => {
-        gameSocket.publish(`/app/games/${gameId}/bid`, { pass, trump: trump ?? null });
-    }, []);
+    const placeBid = useCallback((gameId: string, pass: boolean, trump?: Boja): boolean =>
+        gameSocket.publish(`/app/games/${gameId}/bid`, { pass, trump: trump ?? null }), []);
 
-    const challenge = useCallback((gameId: string) => {
-        gameSocket.publish(`/app/games/${gameId}/challenge`, {});
-    }, []);
+    const challenge = useCallback((gameId: string): boolean =>
+        gameSocket.publish(`/app/games/${gameId}/challenge`, {}), []);
 
     const refreshGameState = useCallback((gameId: string) => {
         gameSocket.publish(`/app/games/${gameId}/refresh`, {});
