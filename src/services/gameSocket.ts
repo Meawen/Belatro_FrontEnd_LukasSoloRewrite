@@ -3,6 +3,7 @@ import SockJS from 'sockjs-client';
 // Uses apiClient and ApiError lazily, inside functions only; never use them at module top
 // level: import cycle with api.ts.
 import { apiClient, ApiError } from './api';
+import { WS_URL } from '../config';
 
 /**
  * The one STOMP connection of this browser tab.
@@ -41,7 +42,6 @@ export interface StompClientHandlers {
 
 export type StompClientFactory = (token: string, handlers: StompClientHandlers) => StompClientLike;
 
-const WS_PATH = '/ws';
 const MAX_RECONNECT_ATTEMPTS = 3;
 const RECONNECT_BASE_DELAY_MS = 5000;
 /** Long enough to survive React StrictMode's unmount/remount and a route change. */
@@ -68,7 +68,7 @@ function signOutToLogin(): void {
 
 export function stompConfig(token: string, handlers: StompClientHandlers): StompConfig {
     return {
-        webSocketFactory: () => new SockJS(WS_PATH),
+        webSocketFactory: () => new SockJS(WS_URL),
         connectHeaders: { Authorization: `Bearer ${token}` },
         heartbeatIncoming: 4000,
         heartbeatOutgoing: 4000,

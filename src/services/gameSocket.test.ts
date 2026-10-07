@@ -8,6 +8,8 @@ vi.mock('sockjs-client', () => ({
     },
 }))
 vi.mock('@stomp/stompjs', () => ({ Client: class FakeClient {} }))
+// R-28: the socket URL comes from config.ts; a production-like value proves gameSocket uses it
+vi.mock('../config', () => ({ API_BASE_URL: 'https://api.example.test', WS_URL: 'https://api.example.test/ws' }))
 
 import { JSDOM } from 'jsdom'
 import { createGameSocket, stompConfig, type StompClientHandlers, type StompClientLike } from './gameSocket'
@@ -363,7 +365,8 @@ describe('stompConfig', () => {
         const config = stompConfig('tok-9', { onConnect: vi.fn(), onStompError: vi.fn(), onWebSocketClose: vi.fn() })
         expect(config.connectHeaders).toEqual({ Authorization: 'Bearer tok-9' })
         config.webSocketFactory?.()
-        expect(sockjs.urls).toEqual(['/ws'])
+        // config.ts's WS_URL: /ws through the dev proxy, ${VITE_API_BASE_URL}/ws in a production bundle
+        expect(sockjs.urls).toEqual(['https://api.example.test/ws'])
     })
 
     test('connecting logs neither the CONNECT frame nor its Bearer token', async () => {
