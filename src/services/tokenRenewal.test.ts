@@ -33,9 +33,13 @@ const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }
 
 const NOW = Date.UTC(2026, 9, 5, 20, 0, 0)
 
-/** A JWT whose payload carries `exp` (seconds since the epoch). The SPA never checks the signature. */
+/**
+ * A 120-min JWT as the backend issues it: its payload carries `iat` and `exp` (seconds since the
+ * epoch). The SPA never checks the signature.
+ */
 function tokenExpiringIn(ms: number, id: string): string {
-    const payload = btoa(JSON.stringify({ sub: 'ana', sv: 3, jti: id, exp: Math.floor((NOW + ms) / 1000) }))
+    const exp = Math.floor((NOW + ms) / 1000)
+    const payload = btoa(JSON.stringify({ sub: 'ana', sv: 3, jti: id, iat: exp - 120 * 60, exp }))
         .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
     return `eyJhbGciOiJIUzI1NiJ9.${payload}.signature-${id}`
 }
@@ -115,6 +119,13 @@ describe('renewIfExpiring (R-10)', () => {
             await expect(renewIfExpiring()).resolves.toBe(false)
         }
         expect(fetch).not.toHaveBeenCalled()
+        // 30 s later the short token has 70 s of its 160 s left, less than half: it is renewed, once
+        jsdomStorage.setItem('authToken', shortLived)
+        fetch.mockResolvedValue(renewed())
+        vi.advanceTimersByTime(30_000)
+        await expect(renewIfExpiring()).resolves.toBe(true)
+        expect(fetch).toHaveBeenCalledTimes(1)
+        expect(jsdomStorage.getItem('authToken')).toBe(FRESH)
     })
 
     test('a 1008 on the old socket after renewal does not route to /login', async () => {
