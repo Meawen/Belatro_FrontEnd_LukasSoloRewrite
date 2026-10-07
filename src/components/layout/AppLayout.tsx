@@ -47,7 +47,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 {/* Sidebar: in the page on a wide screen, a drawer on a small one */}
                 {showSidebar && !smallScreen && <Sidebar />}
                 {showSidebar && smallScreen && menuOpen && (
-                    <div className="fixed inset-0 z-40 flex">
+                    <div className="fixed inset-0 z-40 flex overflow-y-auto">
                         <Sidebar />
                         <button
                             type="button"
