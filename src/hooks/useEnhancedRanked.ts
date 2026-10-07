@@ -1,12 +1,23 @@
-
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { rankedService } from '../services';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useLocation } from 'react-router-dom';
+import { ApiError, rankedService } from '../services';
+import { gameSocket } from '../services/gameSocket';
 import { useMutation } from './useApi';
-import { useGameWebSocket } from './useGameWebSocket';
 import type { MatchDTO, QueueStatusDTO } from '../types';
-import { useAuth } from './useAuth';
 
-export function useEnhancedRanked() {
+const QUEUE_STATUS_DESTINATION = '/user/queue/ranked/status';
+const MATCH_FOUND_DESTINATION = '/user/queue/match-found';
+
+/**
+ * The tab's ranked queue (R-33). RankedQueueProvider runs it once, around the routes, so
+ * PlayButton, QueueStatus and MatchFoundModal share one state and a player queued on /play
+ * still gets "Match found" on any other page.
+ *
+ * Its two subscriptions live as long as the provider (they cost nothing without a socket).
+ * The socket itself is held only on /play (joining needs it: MATCH_FOUND arrives over it),
+ * while queued, and while a found match waits for an answer.
+ */
+export function useRankedQueueState() {
     const [isInQueue, setIsInQueue] = useState(false);
     const [queueStatus, setQueueStatus] = useState<QueueStatusDTO | null>(null);
     const [foundMatch, setFoundMatch] = useState<MatchDTO | null>(null);
@@ -14,188 +25,144 @@ export function useEnhancedRanked() {
     // Track pending leave operations to avoid race conditions
     const pendingLeaveRef = useRef(false);
     const leaveTimeoutRef = useRef<number | null>(null);
-    const initialSyncDoneRef = useRef(false);
     const manualStateOverrideRef = useRef(false);
 
-    const { user, isAuthenticated, isLoading } = useAuth();
-
-    // Use refs to avoid stale closures in WebSocket callbacks
-    const isInQueueRef = useRef(isInQueue);
-    const queueStatusRef = useRef(queueStatus);
-
-    // Keep refs in sync with state
-    useEffect(() => {
-        isInQueueRef.current = isInQueue;
-    }, [isInQueue]);
-
-    useEffect(() => {
-        queueStatusRef.current = queueStatus;
-    }, [queueStatus]);
+    const { pathname } = useLocation();
+    const socketState = useSyncExternalStore(gameSocket.onStateChange, gameSocket.getState);
+    const isConnected = socketState.isConnected;
 
     const joinQueueMutation = useMutation(rankedService.joinQueue);
     const leaveQueueMutation = useMutation(rankedService.leaveQueue);
 
-    // Create stable callback functions that don't have stale closures
-    const handleQueueStatusUpdate = useCallback((status: QueueStatusDTO) => {
-        console.log('Queue status update received:', status, 'pendingLeave:', pendingLeaveRef.current, 'manualOverride:', manualStateOverrideRef.current);
-
-        // 🔥 FIX: Ignore ALL WebSocket updates when we're manually managing state
-        if (manualStateOverrideRef.current) {
-            console.log('🔇 Ignoring WebSocket update due to manual state override');
-            return;
-        }
-
-        // 🔥 FIX: If we receive IN_QUEUE immediately after connecting but we think we're not in queue
-        if (!initialSyncDoneRef.current && status.state === 'IN_QUEUE' && !isInQueueRef.current) {
-            console.log('🔧 Backend thinks we are in queue but frontend does not - this might be stale data');
-            console.log('🚫 Will ignore this initial IN_QUEUE status');
-            initialSyncDoneRef.current = true;
-            return; // Don't process this potentially stale status
-        }
-
-        initialSyncDoneRef.current = true;
-
-        // Always update queueStatus for display purposes (unless we're overriding)
-        setQueueStatus(status);
-
-        if (status.state === 'IN_QUEUE') {
-            // Only set to true if we're not pending a leave operation
-            if (!pendingLeaveRef.current) {
-                console.log('Setting isInQueue to true from WebSocket');
-                setIsInQueue(true);
-            } else {
-                console.log('Ignoring IN_QUEUE status due to pending leave operation');
-            }
-        } else if (status.state === 'CANCELLED') {
-            console.log('Setting isInQueue to false from WebSocket (cancelled)');
-            setIsInQueue(false);
-            setFoundMatch(null);
-            // Clear pending leave since server confirms we left
-            pendingLeaveRef.current = false;
-            manualStateOverrideRef.current = false;
-            if (leaveTimeoutRef.current) {
-                clearTimeout(leaveTimeoutRef.current);
-                leaveTimeoutRef.current = null;
-            }
-        }
-
-        console.log('State update calls completed');
-    }, []);
-
-    const handleMatchFound = useCallback((match: MatchDTO) => {
-        console.log('Match found received:', match);
-        setFoundMatch(match);
-        setIsInQueue(false);
-        // Clear pending leave since we're now in a match
-        pendingLeaveRef.current = false;
-        manualStateOverrideRef.current = false;
+    const clearLeaveTimeout = useCallback(() => {
         if (leaveTimeoutRef.current) {
             clearTimeout(leaveTimeoutRef.current);
             leaveTimeoutRef.current = null;
         }
     }, []);
 
-    // WebSocket integration for real-time queue updates
-    const { isConnected, isConnecting, subscribeToRankedQueue, unsubscribeFromRankedQueue, connectionError } = useGameWebSocket({
-        onQueueStatusUpdate: handleQueueStatusUpdate,
-        onMatchFound: handleMatchFound
-    });
+    const handleQueueStatusUpdate = useCallback((status: QueueStatusDTO) => {
+        // A Leave is in flight or just answered: frames already on their way would undo it
+        if (manualStateOverrideRef.current) return;
 
-    // Auto-subscribe whenever WebSocket connects
-    useEffect(() => {
-        if (isConnected && user?.username) {
-            console.log('WebSocket connected, auto-subscribing to ranked queue...');
-            subscribeToRankedQueue();
-        }
-    }, [isConnected, user?.username, subscribeToRankedQueue]);
+        // Always update queueStatus for display purposes
+        setQueueStatus(status);
 
-    // The connection is owned by services/gameSocket (one per tab); useGameWebSocket
-    // holds it while this component is mounted.
-
-    const joinQueue = useCallback(async () => {
-        if (isLoading || !isAuthenticated || !user?.username) {
-            throw new Error('Authentication not ready');
-        }
-
-        console.log('joinQueue called', { isConnected, isConnecting, hasUser: !!user?.username });
-        try {
-            // Clear any pending leave operations and manual overrides
+        if (status.state === 'IN_QUEUE') {
+            // The first IN_QUEUE counts too (R-38): after a reload, or when another tab queued,
+            // the server's status push every 2 s is how this tab learns it is queued.
+            // Only set to true if we're not pending a leave operation
+            if (!pendingLeaveRef.current) setIsInQueue(true);
+        } else if (status.state === 'CANCELLED') {
+            setIsInQueue(false);
+            setFoundMatch(null);
+            // Clear pending leave since server confirms we left
             pendingLeaveRef.current = false;
             manualStateOverrideRef.current = false;
-            if (leaveTimeoutRef.current) {
-                clearTimeout(leaveTimeoutRef.current);
-                leaveTimeoutRef.current = null;
-            }
+            clearLeaveTimeout();
+        }
+    }, [clearLeaveTimeout]);
 
-            // MATCH_FOUND arrives over the WebSocket; queueing without it would go unnoticed.
-            if (!isConnected) {
-                throw new Error('Not connected to the game server');
-            }
+    const handleMatchFound = useCallback((match: MatchDTO) => {
+        setFoundMatch(match);
+        setIsInQueue(false);
+        // Clear pending leave since we're now in a match
+        pendingLeaveRef.current = false;
+        manualStateOverrideRef.current = false;
+        clearLeaveTimeout();
+    }, [clearLeaveTimeout]);
 
-            // Then make HTTP call to join queue
-            console.log('Making HTTP call to join queue...');
+    // Listen for the provider's lifetime; frames only flow while something holds the socket.
+    useEffect(() => {
+        const stopStatus = gameSocket.subscribe(QUEUE_STATUS_DESTINATION, (body) => {
+            let status: QueueStatusDTO;
+            try {
+                status = JSON.parse(body);
+            } catch (e) {
+                console.warn('queue status parse failed', e);
+                return;
+            }
+            handleQueueStatusUpdate(status);
+        });
+        const stopMatchFound = gameSocket.subscribe(MATCH_FOUND_DESTINATION, (body) => {
+            let match: MatchDTO;
+            try {
+                match = JSON.parse(body);
+            } catch (e) {
+                console.warn('match-found parse failed', e);
+                return;
+            }
+            handleMatchFound(match);
+        });
+        return () => {
+            stopStatus();
+            stopMatchFound();
+        };
+    }, [handleQueueStatusUpdate, handleMatchFound]);
+
+    const holdSocket = pathname === '/play' || isInQueue || foundMatch !== null;
+    useEffect(() => {
+        if (!holdSocket) return;
+        return gameSocket.acquire();
+    }, [holdSocket]);
+
+    const joinQueue = useCallback(async () => {
+        // Clear any pending leave operations and manual overrides
+        pendingLeaveRef.current = false;
+        manualStateOverrideRef.current = false;
+        clearLeaveTimeout();
+
+        // MATCH_FOUND arrives over the WebSocket; queueing without it would go unnoticed.
+        if (!isConnected) {
+            throw new Error('Not connected to the game server');
+        }
+
+        try {
             await joinQueueMutation.mutate(undefined);
-
-            // Set isInQueue immediately after successful HTTP request
-            console.log('HTTP call successful, setting isInQueue to true immediately');
-            setIsInQueue(true);
-
         } catch (error) {
-            console.error('Error in joinQueue:', error);
+            // 409 "Already queued": this player queued from another tab or before a reload.
+            // They are queued, so show it (Leave) instead of an error (R-38).
+            if (error instanceof ApiError && error.status === 409) {
+                joinQueueMutation.reset();
+                setIsInQueue(true);
+                return;
+            }
             setIsInQueue(false);
             throw error;
         }
-    }, [joinQueueMutation, isConnected, user, isAuthenticated, isLoading]);
+
+        // Set isInQueue immediately after successful HTTP request
+        setIsInQueue(true);
+    }, [joinQueueMutation, isConnected, clearLeaveTimeout]);
 
     const leaveQueue = useCallback(async () => {
-        console.log('🚪 leaveQueue called');
         try {
-            // 🔥 IMPROVED: Set manual override to ignore WebSocket updates
+            // Ignore queue frames until the server has processed the leave
             manualStateOverrideRef.current = true;
             pendingLeaveRef.current = true;
 
-            console.log('Making HTTP DELETE call...');
             await leaveQueueMutation.mutate(undefined);
 
             // Immediately update UI to reflect the leave action
-            console.log('✅ HTTP DELETE successful, updating UI immediately');
             setIsInQueue(false);
             setQueueStatus(null);
             pendingLeaveRef.current = false;
 
-            // 🔥 NEW: Temporarily unsubscribe from WebSocket to stop receiving stale messages
-            if (unsubscribeFromRankedQueue) {
-                console.log('📵 Temporarily unsubscribing from WebSocket queue updates...');
-                unsubscribeFromRankedQueue();
-            }
-
-            // Wait a bit for backend to process, then re-subscribe
+            // Frames the server sent before it processed the leave may still arrive:
+            // keep ignoring them for 2 s, then listen again.
+            clearLeaveTimeout();
             leaveTimeoutRef.current = window.setTimeout(() => {
-                console.log('🔄 Re-subscribing to WebSocket queue updates...');
-
-                // Re-enable WebSocket updates
                 manualStateOverrideRef.current = false;
-
-                // Re-subscribe to get fresh state
-                if (isConnected && subscribeToRankedQueue) {
-                    subscribeToRankedQueue();
-                }
-
                 leaveTimeoutRef.current = null;
-            }, 2000); // Wait 2 seconds for backend to process
-
+            }, 2000);
         } catch (error) {
-            console.error('Error leaving queue:', error);
             // Clear pending state on HTTP error
             pendingLeaveRef.current = false;
             manualStateOverrideRef.current = false;
-            if (leaveTimeoutRef.current) {
-                clearTimeout(leaveTimeoutRef.current);
-                leaveTimeoutRef.current = null;
-            }
+            clearLeaveTimeout();
             throw error;
         }
-    }, [leaveQueueMutation, unsubscribeFromRankedQueue, isConnected, subscribeToRankedQueue]);
+    }, [leaveQueueMutation, clearLeaveTimeout]);
 
     const acceptMatch = useCallback(() => {
         // Clear match found state and transition to game
@@ -203,30 +170,11 @@ export function useEnhancedRanked() {
         setQueueStatus(null);
         pendingLeaveRef.current = false;
         manualStateOverrideRef.current = false;
-        if (leaveTimeoutRef.current) {
-            clearTimeout(leaveTimeoutRef.current);
-            leaveTimeoutRef.current = null;
-        }
-    }, []);
+        clearLeaveTimeout();
+    }, [clearLeaveTimeout]);
 
     // Clean up timeout on unmount
-    useEffect(() => {
-        return () => {
-            if (leaveTimeoutRef.current) {
-                clearTimeout(leaveTimeoutRef.current);
-            }
-        };
-    }, []);
-
-    // Debug logging for state changes
-    useEffect(() => {
-        console.log('useEnhancedRanked state changed:', {
-            isInQueue,
-            queueStatus: queueStatus ? 'has data' : 'null',
-            pendingLeave: pendingLeaveRef.current,
-            manualOverride: manualStateOverrideRef.current
-        });
-    }, [isInQueue, queueStatus]);
+    useEffect(() => clearLeaveTimeout, [clearLeaveTimeout]);
 
     return {
         // Queue state
@@ -248,8 +196,21 @@ export function useEnhancedRanked() {
         leaveError: leaveQueueMutation.error,
 
         // WebSocket state
-        isWebSocketConnected: isConnected,
-        isWebSocketConnecting: isConnecting,
-        webSocketError: connectionError,
+        isWebSocketConnected: socketState.isConnected,
+        isWebSocketConnecting: socketState.isConnecting,
+        webSocketError: socketState.error,
     };
+}
+
+export type RankedQueue = ReturnType<typeof useRankedQueueState>;
+
+export const RankedQueueContext = createContext<RankedQueue | null>(null);
+
+/** The app's ranked queue, from RankedQueueProvider (components/game/RankedQueueProvider.tsx). */
+export function useEnhancedRanked(): RankedQueue {
+    const queue = useContext(RankedQueueContext);
+    if (!queue) {
+        throw new Error('useEnhancedRanked must be used inside RankedQueueProvider');
+    }
+    return queue;
 }

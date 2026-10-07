@@ -11,6 +11,9 @@ export const MatchFoundModal: React.FC = () => {
 
     useEffect(() => {
         if (!foundMatch) return;
+        // RankedQueueProvider keeps this dialog mounted for the app's lifetime, so every
+        // match starts a fresh countdown (unmounting PlayPage used to reset it)
+        setCountdown(15);
 
         const timer = setInterval(() => {
             setCountdown((prev) => {

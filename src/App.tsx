@@ -23,6 +23,7 @@ import { LobbyDetails } from './components/lobby/LobbyDetails';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { FriendsList } from './components/profile/FriendList';
 import { PlayPage } from './components/game/PlayPage'; // Add this import
+import { RankedQueueProvider } from './components/game/RankedQueueProvider';
 
 // Common Components
 import { Button, Loading } from './components/common';
@@ -421,6 +422,8 @@ function App() {
             <Router>
                 {/* A render error on any page shows the boundary's fallback instead of a blank page (R-29) */}
                 <ErrorBoundary>
+                {/* The ranked queue outlives every page: Match Found reaches a queued player anywhere (R-33) */}
+                <RankedQueueProvider>
                 <Routes>
                     {/* Public Routes - AuthPage handles both login and signup internally */}
                     <Route path="/login" element={
@@ -567,6 +570,7 @@ function App() {
                     {/* 404 Page */}
                     <Route path="*" element={<NotFoundPage />} />
                 </Routes>
+                </RankedQueueProvider>
                 </ErrorBoundary>
             </Router>
             <ReactQueryDevtools initialIsOpen={false} />
