@@ -100,6 +100,17 @@ export function useRankedQueueState() {
         };
     }, [handleQueueStatusUpdate, handleMatchFound]);
 
+    // A refused join or leave answers one /play visit: the provider outlives pages, so a 429
+    // cooldown or a 403 "verify your email" would otherwise greet the next visit after it stopped being true.
+    const onPlay = pathname === '/play';
+    const resetJoin = joinQueueMutation.reset;
+    const resetLeave = leaveQueueMutation.reset;
+    useEffect(() => {
+        if (onPlay) return;
+        resetJoin();
+        resetLeave();
+    }, [onPlay, resetJoin, resetLeave]);
+
     const holdSocket = pathname === '/play' || isInQueue || foundMatch !== null;
     useEffect(() => {
         if (!holdSocket) return;

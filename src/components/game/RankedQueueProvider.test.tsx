@@ -7,6 +7,7 @@ import { RankedQueueProvider } from './RankedQueueProvider'
 import { PlayButton } from './PlayButton'
 import { rankedService } from '../../services/rankedService'
 import { ApiError } from '../../services/api'
+import { captureConsole } from '../../test/captureConsole'
 
 // The tab's socket, faked: frames are delivered by hand and holders are counted.
 const socket = vi.hoisted(() => {
@@ -71,7 +72,7 @@ function renderApp(path: string, playPage: ReactNode = <Link to="/profile">Profi
             <RankedQueueProvider>
                 <Routes>
                     <Route path="/play" element={playPage} />
-                    <Route path="/profile" element={<h1>Profile page</h1>} />
+                    <Route path="/profile" element={<><h1>Profile page</h1><Link to="/play">Play</Link></>} />
                     <Route path="/game/:gameId" element={<h1>Game page</h1>} />
                 </Routes>
             </RankedQueueProvider>
@@ -132,6 +133,50 @@ describe('RankedQueueProvider (R-33, R-38)', () => {
         expect(screen.getByRole('heading', { name: 'Game page' })).toBeInTheDocument()
         act(() => socket.deliver(MATCH_FOUND, match('m2')))
         expect(screen.getByText('Auto-accepting in 15 seconds...')).toBeInTheDocument()
+    })
+})
+
+describe('Join and leave errors belong to the /play visit', () => {
+    /** /play with the queue button and a way out; /profile has the way back. */
+    const playPage = <><PlayButton /><Link to="/profile">Profile</Link></>
+
+    async function awayAndBack(user: ReturnType<typeof userEvent.setup>) {
+        await user.click(screen.getByRole('link', { name: 'Profile' }))
+        expect(screen.getByRole('heading', { name: 'Profile page' })).toBeInTheDocument()
+        await user.click(screen.getByRole('link', { name: 'Play' }))
+    }
+
+    test('a refused join is not shown again after leaving /play and coming back', async () => {
+        captureConsole()
+        try {
+            vi.mocked(rankedService.joinQueue).mockRejectedValue(new ApiError({ status: 429, message: 'You can queue again in 97 s' }))
+            renderApp('/play', playPage)
+            const user = userEvent.setup()
+            await user.click(screen.getByRole('button', { name: 'Find Match' }))
+            expect(await screen.findByText('You can queue again in 97 s')).toBeInTheDocument()
+            await awayAndBack(user)
+            expect(screen.getByRole('button', { name: 'Find Match' })).toBeInTheDocument()
+            expect(screen.queryByText('You can queue again in 97 s')).not.toBeInTheDocument()
+        } finally {
+            vi.restoreAllMocks()
+        }
+    })
+
+    test('a failed leave is not shown again after leaving /play and coming back', async () => {
+        captureConsole()
+        try {
+            vi.mocked(rankedService.leaveQueue).mockRejectedValue(new ApiError({ status: 500, message: 'Leave failed' }))
+            renderApp('/play', playPage)
+            act(() => socket.deliver(STATUS, inQueue))
+            const user = userEvent.setup()
+            await user.click(screen.getByRole('button', { name: 'Leave Queue' }))
+            expect(await screen.findByText('Error: Leave failed')).toBeInTheDocument()
+            await awayAndBack(user)
+            expect(screen.getByRole('button', { name: 'Leave Queue' })).toBeInTheDocument()
+            expect(screen.queryByText('Error: Leave failed')).not.toBeInTheDocument()
+        } finally {
+            vi.restoreAllMocks()
+        }
     })
 })
 
