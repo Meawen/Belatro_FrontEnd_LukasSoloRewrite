@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ReactNode } from 'react'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { RankedQueueProvider } from './RankedQueueProvider'
@@ -48,7 +48,7 @@ vi.mock('../../services/gameSocket', async (importOriginal) => ({
     },
 }))
 vi.mock('../../services/rankedService', () => ({
-    rankedService: { joinQueue: vi.fn(), leaveQueue: vi.fn() },
+    rankedService: { joinQueue: vi.fn(), leaveQueue: vi.fn(), declineMatch: vi.fn() },
 }))
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAuthenticated: true, user: { id: 'u1', username: 'ana' } }) }))
 
@@ -132,5 +132,28 @@ describe('RankedQueueProvider (R-33, R-38)', () => {
         expect(screen.getByRole('heading', { name: 'Game page' })).toBeInTheDocument()
         act(() => socket.deliver(MATCH_FOUND, match('m2')))
         expect(screen.getByText('Auto-accepting in 15 seconds...')).toBeInTheDocument()
+    })
+})
+
+describe('Match Found Decline (R-25)', () => {
+    test('Decline calls the decline endpoint for that game and closes the dialog', async () => {
+        vi.mocked(rankedService.declineMatch).mockResolvedValue(undefined)
+        renderApp('/profile')
+        act(() => socket.deliver(MATCH_FOUND, match('m1')))
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Decline' }))
+        expect(rankedService.declineMatch).toHaveBeenCalledWith('m1')
+        await waitFor(() => expect(screen.queryByRole('heading', { name: 'Match Found!' })).not.toBeInTheDocument())
+        // the decliner stays where they were
+        expect(screen.getByRole('heading', { name: 'Profile page' })).toBeInTheDocument()
+    })
+
+    // the copy is the SPA's own: the 409 body may say anything
+    test('a 409 says the match can no longer be declined and keeps the dialog', async () => {
+        vi.mocked(rankedService.declineMatch).mockRejectedValue(new ApiError({ status: 409, message: 'Conflict' }))
+        renderApp('/profile')
+        act(() => socket.deliver(MATCH_FOUND, match('m1')))
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Decline' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent('This match can no longer be declined')
+        expect(screen.getByRole('heading', { name: 'Match Found!' })).toBeInTheDocument()
     })
 })
