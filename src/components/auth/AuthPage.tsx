@@ -59,7 +59,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 {/* Header */}
                 <div className="text-center mb-8">
                     <div className="text-6xl mb-4">🃏</div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Belatro</h1>
+                    <h1 className="text-3xl font-bold text-white mb-2">Stiglja</h1>
                     <p className="text-slate-400">The Ultimate Card Game Experience</p>
                 </div>
 
@@ -80,7 +80,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
                 {/* Footer */}
                 <div className="text-center mt-8 text-slate-500 text-sm">
-                    <p>&copy; 2024 Belatro. All rights reserved.</p>
+                    <p>&copy; {new Date().getFullYear()} Stiglja. All rights reserved.</p>
                 </div>
             </div>
         </div>

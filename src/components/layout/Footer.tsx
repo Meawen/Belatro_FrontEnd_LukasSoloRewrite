@@ -39,9 +39,9 @@ export const Footer: React.FC = () => {
                     <div className="col-span-1 md:col-span-2">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-lg flex items-center justify-center text-emerald-900 font-bold">
-                                B
+                                S
                             </div>
-                            <h3 className="text-lg font-bold text-white">Belatro</h3>
+                            <h3 className="text-lg font-bold text-white">Stiglja</h3>
                         </div>
                         <p className="text-emerald-300 mb-4 max-w-md">
                             The ultimate online Belot experience. Challenge players worldwide,
@@ -112,7 +112,7 @@ export const Footer: React.FC = () => {
                 <div className="border-t border-emerald-800 mt-8 pt-8">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="text-emerald-400 text-sm">
-                            © {currentYear} Belatro. All rights reserved.
+                            © {currentYear} Stiglja. All rights reserved.
                         </div>
 
                         <div className="flex items-center gap-6">

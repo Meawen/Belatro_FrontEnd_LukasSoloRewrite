@@ -143,16 +143,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ children, customItems }) => {
                 {!isCollapsed && (
                     <div className="flex items-center gap-3 mb-4">
                         <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-lg flex items-center justify-center text-emerald-900 font-bold">
-                            B
+                            S
                         </div>
-                        <h1 className="text-xl font-bold text-white">Belatro</h1>
+                        <h1 className="text-xl font-bold text-white">Stiglja</h1>
                     </div>
                 )}
 
                 {isCollapsed && (
                     <div className="flex justify-center mb-4">
                         <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-lg flex items-center justify-center text-emerald-900 font-bold">
-                            B
+                            S
                         </div>
                     </div>
                 )}
