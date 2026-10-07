@@ -39,10 +39,12 @@ beforeEach(() => {
 })
 
 describe('useGameWebSocket game channels', () => {
-    test('subscribes to the public topic, the private queue and the error queue; unmount releases all', () => {
+    test('subscribes to the snapshot, the public topic, the private queue and the error queue; unmount releases all', () => {
         const { result, unmount } = renderHook(() => useGameWebSocket({}))
         act(() => result.current.subscribeToGame('g1'))
-        expect([...fake.handlers.keys()].sort()).toEqual(['/topic/games/g1', '/user/queue/errors', '/user/queue/games/g1'])
+        expect([...fake.handlers.keys()].sort()).toEqual([
+            '/app/queue/games/g1', '/topic/games/g1', '/user/queue/errors', '/user/queue/games/g1',
+        ])
         expect(fake.counters.acquired).toBe(1)
         unmount()
         expect([...fake.handlers.values()].every((set) => set.size === 0)).toBe(true)
@@ -127,5 +129,17 @@ describe('useGameWebSocket moves say whether they went out (R-30)', () => {
         } finally {
             fake.state.isConnected = true
         }
+    })
+})
+
+describe('useGameWebSocket game snapshot (R-35)', () => {
+    test('the SUBSCRIBE to /app/queue/games/{id} answers with this player\'s private view', () => {
+        const onPrivateGameUpdate = vi.fn()
+        const { result } = renderHook(() => useGameWebSocket({ onPrivateGameUpdate }))
+        act(() => result.current.subscribeToGame('g1'))
+        fake.deliver('/app/queue/games/g1', '{"yourTurn":false,"publicPart":{"gameId":"g1"}}')
+        expect(onPrivateGameUpdate).toHaveBeenCalledWith({ yourTurn: false, publicPart: { gameId: 'g1' } })
+        act(() => result.current.unsubscribeFromGame('g1'))
+        expect(fake.handlers.get('/app/queue/games/g1')?.size).toBe(0)
     })
 })

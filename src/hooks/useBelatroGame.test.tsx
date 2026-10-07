@@ -59,18 +59,17 @@ describe('useBelatroGame', () => {
         expect(ws.unsubscribeFromGame).toHaveBeenCalledWith('g1')
     })
 
-    test('once connected it asks for a snapshot, every 2 s, until the private view arrives', () => {
+    test('the snapshot comes from the /app/queue subscription: no /refresh is sent (R-35)', () => {
         vi.useFakeTimers()
-        const { rerender } = renderHook(() => useBelatroGame('g1'))
-        expect(ws.refreshGameState).not.toHaveBeenCalled()
+        const { result, rerender } = renderHook(() => useBelatroGame('g1'))
         ws.isConnected = true
         rerender()
-        expect(ws.refreshGameState).toHaveBeenCalledTimes(1)
-        act(() => { vi.advanceTimersByTime(2000) })
-        expect(ws.refreshGameState).toHaveBeenCalledTimes(2)
+        // what subscribeToGame's SUBSCRIBE to /app/queue/games/g1 answers
         act(() => ws.options.onPrivateGameUpdate?.(privateView))
-        act(() => { vi.advanceTimersByTime(6000) })
-        expect(ws.refreshGameState).toHaveBeenCalledTimes(2)
+        act(() => { vi.advanceTimersByTime(30000) })
+        expect(result.current.publicView).toBe(publicView)
+        expect(ws.refreshGameState).not.toHaveBeenCalled()
+        expect(result.current.notAvailable).toBe(false)
     })
 
     test('a private view sets both views; a later public view replaces the public part', () => {
@@ -85,8 +84,8 @@ describe('useBelatroGame', () => {
 
     test('actions send this game\'s moves and clear the last error', () => {
         const { result } = renderHook(() => useBelatroGame('g1'))
-        act(() => ws.options.onGameError?.('Not a participant in game g1'))
-        expect(result.current.error).toBe('Not a participant in game g1')
+        act(() => ws.options.onGameError?.('The dealer must call trump'))
+        expect(result.current.error).toBe('The dealer must call trump')
         act(() => result.current.actions.bidTrump('HERC'))
         expect(ws.placeBid).toHaveBeenCalledWith('g1', false, 'HERC')
         expect(result.current.error).toBeNull()
@@ -116,5 +115,75 @@ describe('useBelatroGame', () => {
         // the socket is back: the next move goes out and the notice clears
         act(() => result.current.actions.passBid())
         expect(result.current.error).toBeNull()
+    })
+
+    test('silence: one /refresh every 3 s, at most 3, then the page gives up and sends nothing more (R-35)', () => {
+        vi.useFakeTimers()
+        const { result, rerender } = renderHook(() => useBelatroGame('g1'))
+        ws.isConnected = true
+        rerender()
+        act(() => { vi.advanceTimersByTime(2999) })
+        expect(ws.refreshGameState).not.toHaveBeenCalled()
+        act(() => { vi.advanceTimersByTime(1) })
+        expect(ws.refreshGameState).toHaveBeenCalledTimes(1)
+        act(() => { vi.advanceTimersByTime(3000) })
+        act(() => { vi.advanceTimersByTime(3000) })
+        expect(ws.refreshGameState).toHaveBeenCalledTimes(3)
+        expect(result.current.notAvailable).toBe(false)
+        act(() => { vi.advanceTimersByTime(3000) })
+        expect(result.current.notAvailable).toBe(true)
+        expect(ws.unsubscribeFromGame).toHaveBeenCalledWith('g1')
+        act(() => { vi.advanceTimersByTime(60000) })
+        expect(ws.refreshGameState).toHaveBeenCalledTimes(3)
+    })
+
+    test("an error frame naming this game ends the page at once: it isn't this player's (R-35)", () => {
+        vi.useFakeTimers()
+        const { result, rerender } = renderHook(() => useBelatroGame('g1'))
+        ws.isConnected = true
+        rerender()
+        act(() => { vi.advanceTimersByTime(3000) })
+        expect(ws.refreshGameState).toHaveBeenCalledTimes(1)
+        act(() => ws.options.onGameError?.('Not a participant in game g1'))
+        expect(result.current.notAvailable).toBe(true)
+        expect(result.current.error).toBeNull()
+        act(() => { vi.advanceTimersByTime(60000) })
+        expect(ws.refreshGameState).toHaveBeenCalledTimes(1)
+    })
+
+    test('"Game not found" ends only a page with no game yet: the error queue is per user, not per game', () => {
+        const first = renderHook(() => useBelatroGame('g1'))
+        act(() => ws.options.onGameError?.('Game not found'))
+        expect(first.result.current.notAvailable).toBe(true)
+        first.unmount()
+        // a page showing its table: another tab's "Game not found" is only shown, never fatal
+        const second = renderHook(() => useBelatroGame('g1'))
+        act(() => ws.options.onPrivateGameUpdate?.(privateView))
+        act(() => ws.options.onGameError?.('Game not found'))
+        expect(second.result.current.notAvailable).toBe(false)
+        expect(second.result.current.error).toBe('Game not found')
+    })
+
+    test('a reconnect asks again through the subscription, with a fresh allowance of 3 refreshes', () => {
+        vi.useFakeTimers()
+        const { result, rerender } = renderHook(() => useBelatroGame('g1'))
+        ws.isConnected = true
+        rerender()
+        act(() => { vi.advanceTimersByTime(3000) })
+        act(() => { vi.advanceTimersByTime(3000) })
+        act(() => ws.options.onPrivateGameUpdate?.(privateView))
+        expect(ws.refreshGameState).toHaveBeenCalledTimes(2)
+        ws.isConnected = false
+        rerender()
+        ws.isConnected = true
+        rerender()
+        // silence after the reconnect: three more refreshes before the page gives up
+        act(() => { vi.advanceTimersByTime(3000) })
+        act(() => { vi.advanceTimersByTime(3000) })
+        act(() => { vi.advanceTimersByTime(3000) })
+        expect(ws.refreshGameState).toHaveBeenCalledTimes(5)
+        expect(result.current.notAvailable).toBe(false)
+        act(() => { vi.advanceTimersByTime(3000) })
+        expect(result.current.notAvailable).toBe(true)
     })
 })

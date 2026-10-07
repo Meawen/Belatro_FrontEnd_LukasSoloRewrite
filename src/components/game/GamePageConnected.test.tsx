@@ -107,4 +107,24 @@ describe('GamePageConnected', () => {
         expect(screen.getByText('Reconnect banner slot')).toBeInTheDocument()
         expect(screen.getByTestId('game-phase')).toBeInTheDocument()
     })
+
+    test("a game that isn't yours or has ended: the message and a way back, no spinner (R-35)", async () => {
+        const user = userEvent.setup()
+        vi.mocked(useBelatroGame).mockReturnValue({
+            publicView: null, privateView: null, isConnected: true, connectionError: null, error: null,
+            notAvailable: true, actions,
+        })
+        render(
+            <MemoryRouter initialEntries={['/game/g1']}>
+                <Routes>
+                    <Route path="/game/:gameId" element={<GamePageConnected />} />
+                    <Route path="/dashboard" element={<p>Dashboard page</p>} />
+                </Routes>
+            </MemoryRouter>,
+        )
+        expect(screen.getByText("This game isn't yours or has ended")).toBeInTheDocument()
+        expect(screen.queryByText('Loading game state...')).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Back to dashboard' }))
+        expect(screen.getByText('Dashboard page')).toBeInTheDocument()
+    })
 })

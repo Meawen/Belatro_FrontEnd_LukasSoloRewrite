@@ -97,12 +97,24 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
         track(`game-${gameId}-errors`, '/user/queue/errors', (body) => {
             optionsRef.current.onGameError?.(body.replace(/^"|"$/g, ''));
         });
+        // R-35: a SUBSCRIBE to this /app destination is answered once, on this subscription, with the
+        // caller's PrivateGameView (GameSocketController's @SubscribeMapping("/queue/games/{gameId}")),
+        // and with nothing for a game that is gone or not theirs. gameSocket re-sends it after every
+        // reconnect, so the table re-snapshots then too (R-30).
+        track(`game-${gameId}-snapshot`, `/app/queue/games/${gameId}`, (body) => {
+            try {
+                optionsRef.current.onPrivateGameUpdate?.(JSON.parse(body));
+            } catch (e) {
+                console.error('game snapshot parse failed', e);
+            }
+        });
     }, [track]);
 
     const unsubscribeFromGame = useCallback((gameId: string) => {
         untrack(`game-${gameId}-public`);
         untrack(`game-${gameId}-private`);
         untrack(`game-${gameId}-errors`);
+        untrack(`game-${gameId}-snapshot`);
     }, [untrack]);
 
     /* ---------- Actions: backend PlayCardMsg / BidMsg; the actor is the JWT principal ---------- */
