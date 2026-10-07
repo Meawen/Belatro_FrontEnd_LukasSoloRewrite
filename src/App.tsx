@@ -26,6 +26,7 @@ import { PlayPage } from './components/game/PlayPage'; // Add this import
 
 // Common Components
 import { Button, Loading } from './components/common';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Hooks
 import { useAuth } from './hooks/useAuth';
@@ -418,6 +419,8 @@ function App() {
     return (
         <QueryClientProvider client={queryClient}>
             <Router>
+                {/* A render error on any page shows the boundary's fallback instead of a blank page (R-29) */}
+                <ErrorBoundary>
                 <Routes>
                     {/* Public Routes - AuthPage handles both login and signup internally */}
                     <Route path="/login" element={
@@ -564,6 +567,7 @@ function App() {
                     {/* 404 Page */}
                     <Route path="*" element={<NotFoundPage />} />
                 </Routes>
+                </ErrorBoundary>
             </Router>
             <ReactQueryDevtools initialIsOpen={false} />
         </QueryClientProvider>
