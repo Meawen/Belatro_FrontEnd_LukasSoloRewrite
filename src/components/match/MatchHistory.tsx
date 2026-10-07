@@ -20,7 +20,7 @@ export const MatchHistory: React.FC = () => {
         isLoading: isHistoryLoading,
         error: historyError,
         refetch: refetchHistory
-    } = useMatchHistory(user?.id, currentPage, itemsPerPage);
+    } = useMatchHistory(user?.id, currentPage, itemsPerPage, viewMode === 'detailed');
 
     const {
         matchSummary,
