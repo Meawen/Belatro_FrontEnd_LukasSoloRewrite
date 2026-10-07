@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { JSDOM } from 'jsdom'
 import App from './App'
 import { useUser } from './hooks/useUser'
+import { userService } from './services/userService'
 import { captureConsole } from './test/captureConsole'
 
 // One switch for every test: signed in (the default) or signed out.
@@ -124,6 +125,13 @@ describe('Rules (R-41)', () => {
     test('"Read Guide" on the dashboard opens the rules', async () => {
         renderAt('/dashboard')
         await userEvent.setup().click(screen.getByRole('button', { name: 'Read Guide' }))
+        expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
+    })
+
+    test('signed in with a game in progress, /rules offers the way back to it', async () => {
+        vi.spyOn(userService, 'getActiveGame').mockResolvedValue('g9')
+        renderAt('/rules')
+        expect(await screen.findByRole('button', { name: 'Return to your game' })).toBeInTheDocument()
         expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
     })
 })

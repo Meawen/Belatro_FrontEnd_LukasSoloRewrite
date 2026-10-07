@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { LegalLinks } from '../layout/LegalLinks';
+import { ActiveGameBanner } from '../layout/ActiveGameBanner';
 
 export interface PublicPageProps {
     title: string;
@@ -10,6 +11,8 @@ export interface PublicPageProps {
 /** The frame of the pages anyone may read, signed in or not: Privacy, Terms and Rules. */
 export const PublicPage: React.FC<PublicPageProps> = ({ title, children }) => (
     <div className="min-h-screen bg-emerald-950 text-emerald-100">
+        {/* Outside AppLayout, so the way back to a running game comes here too (it hides when signed out) */}
+        <ActiveGameBanner />
         <div className="max-w-3xl mx-auto px-4 py-10">
             <Link to="/" className="text-amber-400 hover:text-amber-300 font-bold">
                 ← Stiglja
