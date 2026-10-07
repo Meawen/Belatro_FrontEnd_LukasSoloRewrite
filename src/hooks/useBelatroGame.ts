@@ -78,8 +78,11 @@ export function useBelatroGame(gameId: string, onDisconnect?: () => void) {
     // every (re)connect. Only if nothing arrives within 3 s ask with /refresh, up to 3 times (its
     // answer comes on the private queue, whose SUBSCRIBE it can race on the server's inbound pool).
     // After that the game is gone or not this player's. The old 2-s loop asked forever.
+    // A finished table needs no snapshot: its game expires a while after the end, so a late reconnect
+    // hears nothing, and the result with Play again must stay on screen.
+    const ended = publicView?.gameState === 'COMPLETED' || publicView?.gameState === 'CANCELLED';
     useEffect(() => {
-        if (!gameId || !isConnected || !snapshotPending || notAvailable) return;
+        if (!gameId || !isConnected || !snapshotPending || notAvailable || ended) return;
         const timer = window.setTimeout(() => {
             if (refreshesSent >= MAX_REFRESHES) {
                 setNotAvailable(true);
@@ -89,7 +92,7 @@ export function useBelatroGame(gameId: string, onDisconnect?: () => void) {
             setRefreshesSent((sent) => sent + 1);
         }, SNAPSHOT_WAIT_MS);
         return () => window.clearTimeout(timer);
-    }, [gameId, isConnected, snapshotPending, notAvailable, refreshesSent, refreshGameState]);
+    }, [gameId, isConnected, snapshotPending, notAvailable, ended, refreshesSent, refreshGameState]);
 
     // R-30: a move made while the socket is down is not lost silently
     const report = useCallback((sent: boolean) => setError(sent ? null : NOT_SENT_MESSAGE), []);

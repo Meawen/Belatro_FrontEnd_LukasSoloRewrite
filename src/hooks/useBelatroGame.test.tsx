@@ -190,6 +190,23 @@ describe('useBelatroGame', () => {
         expect(result.current.notAvailable).toBe(true)
     })
 
+    test.each(['COMPLETED', 'CANCELLED'])('a %s table stays on screen through a late reconnect and silence', (gameState) => {
+        vi.useFakeTimers()
+        const { result, rerender } = renderHook(() => useBelatroGame('g1'))
+        ws.isConnected = true
+        rerender()
+        const ended = { ...publicView, gameState } as PublicGameView
+        act(() => ws.options.onPrivateGameUpdate?.({ ...privateView, publicPart: ended }))
+        ws.isConnected = false
+        rerender()
+        ws.isConnected = true
+        rerender()
+        // the finished game's key has expired: nothing answers after the reconnect
+        for (let i = 0; i < 5; i++) act(() => { vi.advanceTimersByTime(3000) })
+        expect(result.current.notAvailable).toBe(false)
+        expect(result.current.publicView).toBe(ended)
+    })
+
     test('a cancelled game stays on its end screen: DISCONNECT right behind the CANCELLED view does not leave (R-31)', () => {
         const onDisconnect = vi.fn()
         renderHook(() => useBelatroGame('g1', onDisconnect))
