@@ -79,9 +79,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
                 <Loading size="large" text="Loading profile..." />
-                <div className="ml-4 text-emerald-400 text-sm">
-                    Target ID: {targetUserId}
-                </div>
             </div>
         );
     }
@@ -128,7 +125,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                     </div>
                     <h3 className="text-xl font-semibold text-white mb-2">Profile Not Found</h3>
                     <p className="text-emerald-300">Profile information is not available.</p>
-                    <p className="text-emerald-500 text-xs mt-2">Target ID: {targetUserId}</p>
                 </div>
             </div>
         );
@@ -205,7 +201,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                                     <span className="text-emerald-300 text-sm font-medium">Level</span>
                                 </div>
                                 <div className="text-2xl font-bold text-white">
-                                    {displayUser.level ?? '1'}
+                                    {/* a new player is level 0 in the database and Level 1 on every screen (R-34) */}
+                                    {displayUser.level || 1}
                                 </div>
                             </div>
 

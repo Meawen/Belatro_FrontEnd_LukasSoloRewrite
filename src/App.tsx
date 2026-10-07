@@ -31,6 +31,7 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Hooks
 import { useAuth } from './hooks/useAuth';
+import { useUser } from './hooks/useUser';
 import GamePageConnected from './components/game/GamePageConnected';
 
 // Create a client
@@ -84,6 +85,10 @@ const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
 // Dashboard Component
 const DashboardContent = () => {
     const { user } = useAuth();
+    // GET /user/{id}: the tiles show the player's own numbers, "—" where the API gives none (R-34)
+    const { user: profile } = useUser(user?.id ?? undefined);
+    // a new player is level 0 in the database and Level 1 on every screen
+    const level = profile ? profile.level || 1 : '—';
 
     return (
         <div className="space-y-6">
@@ -119,8 +124,8 @@ const DashboardContent = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-emerald-300 text-sm font-medium">ELO Rating</p>
-                            <p className="text-3xl font-bold text-white mt-1">1200</p>
-                            <p className="text-emerald-400 text-xs mt-1">Default rating</p>
+                            <p data-testid="dashboard-elo" className="text-3xl font-bold text-white mt-1">{profile?.eloRating ?? '—'}</p>
+                            <p className="text-emerald-400 text-xs mt-1">Your rating</p>
                         </div>
                         <div className="w-12 h-12 bg-amber-600/20 rounded-lg flex items-center justify-center">
                             <svg className="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,7 +139,7 @@ const DashboardContent = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-emerald-300 text-sm font-medium">Games Played</p>
-                            <p className="text-3xl font-bold text-white mt-1">0</p>
+                            <p data-testid="dashboard-games" className="text-3xl font-bold text-white mt-1">{profile?.gamesPlayed ?? '—'}</p>
                             <p className="text-emerald-400 text-xs mt-1">Start your journey</p>
                         </div>
                         <div className="w-12 h-12 bg-emerald-600/20 rounded-lg flex items-center justify-center">
@@ -149,8 +154,8 @@ const DashboardContent = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-emerald-300 text-sm font-medium">Win Rate</p>
-                            <p className="text-3xl font-bold text-white mt-1">--%</p>
-                            <p className="text-emerald-400 text-xs mt-1">Play to see stats</p>
+                            <p data-testid="dashboard-win-rate" className="text-3xl font-bold text-white mt-1">—</p>
+                            <p className="text-emerald-400 text-xs mt-1">Not tracked yet</p>
                         </div>
                         <div className="w-12 h-12 bg-blue-600/20 rounded-lg flex items-center justify-center">
                             <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,9 +168,9 @@ const DashboardContent = () => {
                 <div className="card group hover:bg-emerald-800 transition-colors">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-emerald-300 text-sm font-medium">Rank</p>
-                            <p className="text-3xl font-bold text-white mt-1">Beginner</p>
-                            <p className="text-emerald-400 text-xs mt-1">Level 1</p>
+                            <p className="text-emerald-300 text-sm font-medium">Level</p>
+                            <p data-testid="dashboard-level" className="text-3xl font-bold text-white mt-1">{level}</p>
+                            <p className="text-emerald-400 text-xs mt-1">Every player starts at 1</p>
                         </div>
                         <div className="w-12 h-12 bg-purple-600/20 rounded-lg flex items-center justify-center">
                             <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
