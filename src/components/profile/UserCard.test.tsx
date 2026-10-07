@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { UserCard } from './UserCard'
 import { useFriends } from '../../hooks/useFriends'
 import { ApiError } from '../../services/api'
@@ -28,7 +29,7 @@ beforeEach(() => {
 describe('UserCard friend request', () => {
     test('sends only the recipient - the sender is the signed-in user', async () => {
         sendFriendRequest.mockResolvedValue({})
-        render(<UserCard user={bob} currentUser={ana} onUpdate={vi.fn()} />)
+        render(<UserCard user={bob} currentUser={ana} onUpdate={vi.fn()} />, { wrapper: MemoryRouter })
         await userEvent.setup().click(screen.getByRole('button', { name: 'Add Friend' }))
         expect(sendFriendRequest).toHaveBeenCalledWith({ toUserId: 'u2' })
     })
@@ -36,21 +37,21 @@ describe('UserCard friend request', () => {
     test('a refusal is shown', async () => {
         // bob deleted his account after the user list loaded
         sendFriendRequest.mockRejectedValue(new ApiError({ status: 404, message: 'User not found with id: u2' }))
-        render(<UserCard user={bob} currentUser={ana} onUpdate={vi.fn()} />)
+        render(<UserCard user={bob} currentUser={ana} onUpdate={vi.fn()} />, { wrapper: MemoryRouter })
         await userEvent.setup().click(screen.getByRole('button', { name: 'Add Friend' }))
         expect(await screen.findByRole('alert')).toHaveTextContent('User not found with id: u2')
     })
 
     test('accept and reject only on a request to me; cancel only on a request from me', () => {
         mockFriends([{ id: 'f1', fromUser: bob, toUser: ana, status: 'PENDING', createdAt: null }])
-        const { unmount } = render(<UserCard user={bob} currentUser={ana} onUpdate={vi.fn()} />)
+        const { unmount } = render(<UserCard user={bob} currentUser={ana} onUpdate={vi.fn()} />, { wrapper: MemoryRouter })
         expect(screen.getByRole('button', { name: '✓' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: '✗' })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Pending' })).not.toBeInTheDocument()
         unmount()
 
         mockFriends([{ id: 'f2', fromUser: ana, toUser: bob, status: 'PENDING', createdAt: null }])
-        render(<UserCard user={bob} currentUser={ana} onUpdate={vi.fn()} />)
+        render(<UserCard user={bob} currentUser={ana} onUpdate={vi.fn()} />, { wrapper: MemoryRouter })
         expect(screen.getByRole('button', { name: 'Pending' })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: '✓' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: '✗' })).not.toBeInTheDocument()

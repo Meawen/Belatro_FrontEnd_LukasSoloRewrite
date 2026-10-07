@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { FriendsList } from './FriendList'
 import { useFriends } from '../../hooks/useFriends'
 import { ApiError } from '../../services/api'
@@ -32,7 +33,7 @@ describe('FriendsList actions', () => {
         const user = userEvent.setup()
         // bob cancelled the request after the list was loaded
         acceptFriendRequest.mockRejectedValue(new ApiError({ status: 409, message: 'Cannot change status once friendship is finalized.' }))
-        render(<FriendsList />)
+        render(<FriendsList />, { wrapper: MemoryRouter })
         await user.click(screen.getByRole('button', { name: /requests \(1\)/i }))
         await user.click(screen.getByRole('button', { name: 'Accept' }))
         expect(acceptFriendRequest).toHaveBeenCalledWith('f1')
@@ -45,7 +46,7 @@ describe('FriendsList actions', () => {
             { id: 'f1', fromUser: bob, toUser: ana, status: 'PENDING', createdAt: null },
             { id: 'f2', fromUser: ana, toUser: cy, status: 'PENDING', createdAt: null },
         ])
-        render(<FriendsList />)
+        render(<FriendsList />, { wrapper: MemoryRouter })
 
         await user.click(screen.getByRole('button', { name: /requests \(1\)/i }))
         expect(screen.getByText('bob')).toBeInTheDocument()

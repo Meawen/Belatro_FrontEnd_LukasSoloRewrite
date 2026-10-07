@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { LobbyDetailsPopup } from './LobbyDetailsPopup'
 import { useLobbies } from '../../hooks/useLobby'
 import { ApiError } from '../../services/api'
@@ -23,7 +24,7 @@ beforeEach(() => {
 
 async function joinWithPassword(password: string) {
     const user = userEvent.setup()
-    render(<LobbyDetailsPopup lobby={privateLobby} isOpen onClose={vi.fn()} />)
+    render(<LobbyDetailsPopup lobby={privateLobby} isOpen onClose={vi.fn()} />, { wrapper: MemoryRouter })
     await user.click(screen.getByRole('button', { name: 'Join Private Game' }))
     await user.type(screen.getByPlaceholderText('Game password...'), password)
     await user.click(screen.getByRole('button', { name: 'Join Game' }))

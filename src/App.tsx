@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
@@ -85,6 +85,7 @@ const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
 // Dashboard Component
 const DashboardContent = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     // GET /user/{id}: the tiles show the player's own numbers, "—" where the API gives none (R-34)
     const { user: profile } = useUser(user?.id ?? undefined);
     // a new player is level 0 in the database and Level 1 on every screen
@@ -108,7 +109,7 @@ const DashboardContent = () => {
                     </div>
                     <div className="hidden md:block">
                         <Button
-                            onClick={() => window.location.href = '/play'}
+                            onClick={() => navigate('/play')}
                             variant="primary"
                             className="bg-amber-600 hover:bg-amber-500 text-emerald-900 font-bold px-6 py-3"
                         >
@@ -192,7 +193,7 @@ const DashboardContent = () => {
                     </h3>
                     <div className="space-y-3">
                         <Button
-                            onClick={() => window.location.href = '/play'}
+                            onClick={() => navigate('/play')}
                             variant="primary"
                             className="w-full bg-amber-600 hover:bg-amber-500 text-emerald-900 font-bold justify-start"
                         >
@@ -203,7 +204,7 @@ const DashboardContent = () => {
                         </Button>
 
                         <Button
-                            onClick={() => window.location.href = '/matches'}
+                            onClick={() => navigate('/matches')}
                             variant="outline"
                             className="w-full border-emerald-600 text-emerald-300 hover:bg-emerald-600 hover:text-white justify-start"
                         >
@@ -214,7 +215,7 @@ const DashboardContent = () => {
                         </Button>
 
                         <Button
-                            onClick={() => window.location.href = '/users'}
+                            onClick={() => navigate('/users')}
                             variant="outline"
                             className="w-full border-emerald-600 text-emerald-300 hover:bg-emerald-600 hover:text-white justify-start"
                         >
@@ -240,7 +241,7 @@ const DashboardContent = () => {
                                 Learn the rules and strategies of this classic card game.
                             </p>
                             <Button
-                                onClick={() => window.location.href = '/guide'}
+                                onClick={() => navigate('/guide')}
                                 variant="outline"
                                 size="small"
                                 className="border-amber-600 text-amber-400 hover:bg-amber-600 hover:text-emerald-900"
@@ -255,7 +256,7 @@ const DashboardContent = () => {
                                 Add friends and challenge them to private games.
                             </p>
                             <Button
-                                onClick={() => window.location.href = '/friends'}
+                                onClick={() => navigate('/friends')}
                                 variant="outline"
                                 size="small"
                                 className="border-emerald-600 text-emerald-300 hover:bg-emerald-600 hover:text-white"
@@ -334,6 +335,7 @@ const FriendsPage = () => (
 
 const UsersPage = () => {
     const { isAuthenticated } = useAuth();
+    const navigate = useNavigate();
 
     return (
         <PageLayout title="All Users" subtitle="Browse and connect with other players">
@@ -351,7 +353,7 @@ const UsersPage = () => {
                         <p className="text-emerald-300 mb-6">Please log in to view the user leaderboard.</p>
                         <div className="space-x-4">
                             <Button
-                                onClick={() => window.location.href = '/login'}
+                                onClick={() => navigate('/login')}
                                 variant="primary"
                                 size="medium"
                                 className="bg-amber-600 hover:bg-amber-500 text-emerald-900 font-bold"
@@ -359,7 +361,7 @@ const UsersPage = () => {
                                 Login
                             </Button>
                             <Button
-                                onClick={() => window.location.href = '/signup'}
+                                onClick={() => navigate('/signup')}
                                 variant="outline"
                                 size="medium"
                                 className="border-emerald-600 text-emerald-300 hover:bg-emerald-600 hover:text-white"
@@ -403,14 +405,16 @@ const AdminPage = () => (
     </PageLayout>
 );
 
-const NotFoundPage = () => (
+const NotFoundPage = () => {
+    const navigate = useNavigate();
+    return (
     <div className="min-h-screen bg-emerald-950 flex items-center justify-center">
         <div className="text-center">
             <div className="text-6xl font-bold text-amber-500 mb-4">404</div>
             <h1 className="text-2xl font-bold text-white mb-2">Page Not Found</h1>
             <p className="text-emerald-300 mb-6">The page you're looking for doesn't exist.</p>
             <Button
-                onClick={() => window.location.href = '/dashboard'}
+                onClick={() => navigate('/dashboard')}
                 variant="primary"
                 size="medium"
                 className="bg-amber-600 hover:bg-amber-500 text-emerald-900 font-bold"
@@ -419,7 +423,8 @@ const NotFoundPage = () => (
             </Button>
         </div>
     </div>
-);
+    );
+};
 
 function App() {
     return (

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button, Input, Loading, Modal } from '../common';
 import { useAdmin } from '../../hooks/useAdmin';
 import { useAuth } from '../../hooks/useAuth';
@@ -12,6 +13,7 @@ export const UserManagement: React.FC = () => {
 
     const { users, isLoading, error, forgetUser, refetch, isForgettingUser } = useAdmin();
     const { user: currentUser } = useAuth();
+    const navigate = useNavigate();
 
     // Filter and sort users
     const filteredUsers = React.useMemo(() => {
@@ -195,7 +197,7 @@ export const UserManagement: React.FC = () => {
                                 <td className="p-3">
                                     <div className="flex gap-2">
                                         <Button
-                                            onClick={() => window.location.href = `/profile/${user.id}`}
+                                            onClick={() => navigate(`/profile/${user.id}`)}
                                             variant="outline"
                                             size="small"
                                         >
