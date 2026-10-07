@@ -181,6 +181,24 @@ describe('GamePageConnected', () => {
         expect(play).toHaveAttribute('data-navigation', 'REPLACE')
     })
 
+    test('a ranked forfeit keeps its table: only a declined match goes back to /play', () => {
+        vi.mocked(useBelatroGame).mockReturnValue({
+            publicView: { ...publicView, gameState: 'CANCELLED', endReason: 'FORFEIT', forfeitTeamId: 'B' } as PublicGameView,
+            privateView: null, isConnected: true, connectionError: null, error: null, actions,
+        })
+        render(
+            <MemoryRouter initialEntries={['/game/g1']}>
+                <Routes>
+                    <Route path="/game/:gameId" element={<GamePageConnected />} />
+                    <Route path="/play" element={<PlayPageStub />} />
+                </Routes>
+            </MemoryRouter>,
+        )
+        expect(screen.getByRole('heading', { name: 'Game over' })).toBeInTheDocument()
+        expect(screen.getByTestId('end-reason')).toHaveTextContent('Team B forfeited — Team A wins')
+        expect(screen.queryByTestId('play-notice')).not.toBeInTheDocument()
+    })
+
     test('the game-over screen gets the rematch, offered only once the game is over (R-45)', async () => {
         const user = userEvent.setup()
         vi.mocked(useBelatroGame).mockReturnValue({
