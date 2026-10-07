@@ -23,12 +23,14 @@ let inFlight: Promise<boolean> | null = null;
 /**
  * When to renew, in epoch ms: 15 min before `exp`, or half-way through the token's life when it is
  * shorter than 30 min (`iat` present). Read without verifying (the server does that); null if unreadable.
+ * Null too once `exp` has passed: the server answers that token's renewal with a 401, which would sign
+ * the tab out of pages that need no session (the mailed confirm-email and reset-password links).
  */
-function renewAt(token: string): number | null {
+function renewAt(token: string, now: number): number | null {
     try {
         const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
         const { exp, iat } = JSON.parse(atob(payload.padEnd(Math.ceil(payload.length / 4) * 4, '=')));
-        if (typeof exp !== 'number') return null;
+        if (typeof exp !== 'number' || exp * 1000 <= now) return null;
         const lead = typeof iat === 'number'
             ? Math.min(RENEW_WHEN_LEFT_MS, ((exp - iat) * 1000) / 2)
             : RENEW_WHEN_LEFT_MS;
@@ -58,7 +60,7 @@ export function renewIfExpiring(now: number = Date.now()): Promise<boolean> {
     if (inFlight) return inFlight;
     const token = localStorage.getItem('authToken');
     if (!token) return Promise.resolve(false);
-    const due = renewAt(token);
+    const due = renewAt(token, now);
     if (due === null || now <= due) return Promise.resolve(false);
     const renewal = renew(token).finally(() => {
         inFlight = null;

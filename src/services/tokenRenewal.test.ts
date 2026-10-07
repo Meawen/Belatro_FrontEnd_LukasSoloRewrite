@@ -174,6 +174,19 @@ describe('renewIfExpiring (R-10)', () => {
         expect(jsdomStorage.getItem('authToken')).toBe(FRESH)
     })
 
+    test('a token already past its exp is not renewed: no request, no sign-out, the token stays', async () => {
+        captureConsole()
+        const expired = tokenExpiringIn(-60_000, 'expired')
+        jsdomStorage.setItem('authToken', expired)
+        // what the backend would answer it
+        const fetch = vi.fn().mockResolvedValue(jsonResponse(401, { error: 'Session expired, please sign in again' }))
+        vi.stubGlobal('fetch', fetch)
+        await expect(renewIfExpiring()).resolves.toBe(false)
+        expect(fetch).not.toHaveBeenCalled()
+        expect(assign).not.toHaveBeenCalled()
+        expect(jsdomStorage.getItem('authToken')).toBe(expired)
+    })
+
     test('a 401 ends the session the normal way, through api.ts', async () => {
         captureConsole()
         jsdomStorage.setItem('authToken', OLD)
