@@ -11,8 +11,11 @@
 // add a bid no click made). From then on the game is played to its end by clicking: each later
 // hand's first bidder calls Herc, and the seat on turn clicks its first playable card. A card
 // may be illegal: the backend books it as a foul, and nobody ever presses Challenge. A bela
-// prompt is answered with a plain Play, and the 10-s post-hand window is waited out.
-// At the end every seat must show the same winner and scores, GET /matches/{id} must record the
+// prompt is answered with a plain Play, and the 10-s post-hand window is waited out. Every
+// clicked card must leave the hand, and no card turn may go to the turn timer while its seat is
+// playing it (after a restart, the first move may).
+// At the end every seat must show the same winner and scores, the winner at 1001 or more and no
+// end reason (forfeit, abandon, cancel), GET /matches/{id} must record the
 // same result ("Team A wins 1001–650": Team A's score first, en dash or hyphen), and Match
 // Details must show the same two numbers. The run also fails if any request or socket URL
 // carries ?user=, or if a tab is sent to /login after the sign-ins.
@@ -35,8 +38,9 @@
 //                         tab must reconnect by itself, without a reload, within 120 s, and the
 //                         game goes on to its end.
 //   E2E_EXPECT_RENEWAL=1  for a backend with a short JWT_EXPIRATION: every tab must renew its
-//                         token (POST /user/me/token, never refused) and keep one open socket,
-//                         and the run must outlive a 3-minute token plus the 60-s socket sweep.
+//                         token (POST /user/me/token, never refused, a later-expiring token
+//                         stored) and keep one open socket, and the game must outlive, from the
+//                         last sign-in, a 3-minute token plus the 60-s socket sweep.
 //   E2E_REMATCH=1         after the end all four press "Play again"; every tab must land on the
 //                         same new /game/{id}, in Bidding, at 0:0.
 //   E2E_VIEWPORT=375x812  every tab uses that viewport; /lobbies, the table and the end screen
@@ -73,10 +77,15 @@ const RECONNECT_BUDGET_MS = 120000;
 const COMMAND_TIMEOUT_MS = 240000;
 // The longest the table may wait for a seat to act: the 10-s post-hand window, with slack.
 const NEXT_MOVE_TIMEOUT_MS = 45000;
-// A renewal run proves nothing unless it outlives a 3-minute token plus the 60-s socket sweep.
+// A renewal run proves nothing unless it outlives a 3-minute token plus the 60-s socket sweep,
+// counted from the last sign-in (the newest token the tabs started with).
 const RENEWAL_MIN_RUN_MS = 4 * 60000;
 // A game to 1001 takes about ten hands (~320 cards); far more means it isn't ending.
 const MAX_PLAYS = 2000;
+// A game played out ends once a team reaches this (BelotGame.TARGET_SCORE).
+const TARGET_SCORE = 1001;
+// The table's notice for a move made while its socket is down (spec R-30).
+const NOT_SENT = 'Not sent — reconnecting';
 const PASSWORD = 'e2e-password-123';
 const RUN = Date.now().toString(36).slice(-5);
 const PLAYERS = [1, 2, 3, 4].map((n) => `e2e${RUN}p${n}`);
@@ -111,6 +120,15 @@ function parseViewport(value) {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const emailOf = (username) => `${username}@example.test`;
 const gameIdOf = (page) => /^\/game\/([^/]+)$/.exec(new URL(page.url()).pathname)?.[1] ?? null;
+const storedToken = (page) => page.evaluate(() => localStorage.getItem('authToken'));
+// A JWT's exp in seconds, read without verifying (the backend does that); 0 when unreadable.
+function expOf(token) {
+    try {
+        return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()).exp ?? 0;
+    } catch {
+        return 0;
+    }
+}
 
 async function waitUntil(check, timeoutMs, what) {
     const deadline = Date.now() + timeoutMs;
@@ -376,8 +394,11 @@ async function playFirstHandBids(pages, mobile) {
     return uiBids;
 }
 
-// The seat on turn clicks its first playable card. True once a clicked card left the hand; false
-// when the turn passed first (a turn timer can act right after a reconnect).
+// The seat on turn clicks its first playable card, and the play must land. The backend books even
+// an illegal card (as a foul), so a clicked card still in the hand while the turn stays is a lost
+// click and fails the run. Null once the card left the hand, or when a token renewal had the
+// socket down at the click (the table says NOT_SENT; the next round clicks again). "<seat> <card>"
+// when the turn passed without the click: the turn timer moved first.
 async function playOneCard(page, label, stats) {
     const cards = page.getByTestId('hand-card');
     const belaPrompt = page.getByRole('button', { name: 'Play + Bela', exact: true });
@@ -406,16 +427,30 @@ async function playOneCard(page, label, stats) {
         });
         if (left) {
             stats.plays += 1;
-            return true;
+            return null;
         }
-        if (!(await myTurn(page))) return false;
+        const notSent = await page.getByText(NOT_SENT, { exact: true }).isVisible().catch(() => false);
+        // another card left (the timer played for the seat, which may have won the trick and lead
+        // again), or the turn passed
+        if ((await handSize(page)) < count || !(await myTurn(page))) return `${label} ${id}`;
+        // a renewal swaps the socket (spec R-10): a click in that gap is refused in the open
+        if (EXPECT_RENEWAL && notSent) {
+            stats.notSent += 1;
+            return null;
+        }
+        stats.missedPlays += 1;
+        throw new Error(`${label}: ${id} was clicked but not played${notSent ? ` (the table says "${NOT_SENT}")` : ''}`);
     }
-    if (!(await myTurn(page))) return false;
+    if (!(await myTurn(page))) return `${label} (before its click)`;
     throw new Error(`${label}: no card in the hand was taken while it was their turn`);
 }
 
-// Every move after hand 1's bids, until all four tables say the game is over.
-async function playToTheEnd(pages, stats) {
+// Every move after hand 1's bids, until all four tables say the game is over. A card turn the
+// turn timer took while its seat was playing it fails the run at the end, except the first move
+// after a restart: its timer was re-armed while the tabs were still reconnecting (spec R-21), and
+// that auto-played card is harmless.
+async function playToTheEnd(pages, stats, restart) {
+    let firstMove = true;
     for (;;) {
         if (stats.plays > MAX_PLAYS) throw new Error(`no end after ${stats.plays} cards`);
         let actor = -1;
@@ -438,13 +473,19 @@ async function playToTheEnd(pages, stats) {
             }
             return false;
         }, NEXT_MOVE_TIMEOUT_MS, `a seat can act or the game is over (after ${stats.plays} cards)`);
-        if (over) return;
+        if (over) {
+            if (stats.lostTurns.length) throw new Error(`the turn timer took turns the harness was playing: ${stats.lostTurns.join(', ')}`);
+            return;
+        }
         if (actorPhase === 'BIDDING') {
             await bid(pages[actor], PLAYERS[actor], 'Call Herc');
             stats.trumpCalls += 1;
         } else {
-            await playOneCard(pages[actor], PLAYERS[actor], stats);
+            const lost = await playOneCard(pages[actor], PLAYERS[actor], stats);
+            if (lost && restart && firstMove) restart.firstMoveLostToTimer = lost;
+            else if (lost) stats.lostTurns.push(lost);
         }
+        firstMove = false;
     }
 }
 
@@ -482,6 +523,13 @@ async function checkTheEnd(pages) {
     if ((table.teamA > table.teamB) !== (table.winner === 'A')) {
         throw new Error(`the table names Team ${table.winner} the winner at ${table.teamA}:${table.teamB}`);
     }
+    // played out, not ended early: the winner reached the target, and no seat shows why it ended
+    // otherwise (forfeit, abandon, cancel; spec R-31)
+    if (Math.max(table.teamA, table.teamB) < TARGET_SCORE) {
+        throw new Error(`the game ended at ${table.teamA}:${table.teamB}, before either team reached ${TARGET_SCORE}`);
+    }
+    const reasons = (await Promise.all(pages.map((page) => page.getByTestId('end-reason').allTextContents()))).flat();
+    if (reasons.length) throw new Error(`the game was not played out: ${JSON.stringify(reasons)}`);
     const gameId = gameIdOf(pages[0]);
     const token = await pages[0].evaluate(() => localStorage.getItem('authToken'));
     const response = await fetch(`${API}/matches/${gameId}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -596,9 +644,8 @@ async function main() {
     }
     const pages = await Promise.all(contexts.map((context) => context.newPage()));
     const seats = pages.map((page, i) => watch(page, PLAYERS[i], leaks));
-    const stats = { plays: 0, trumpCalls: 0, belaPrompts: 0 };
+    const stats = { plays: 0, trumpCalls: 0, belaPrompts: 0, notSent: 0, missedPlays: 0, lostTurns: [] };
     const mobile = VIEWPORT ? { viewport: `${VIEWPORT.width}x${VIEWPORT.height}` } : null;
-    const startedAt = Date.now();
     let msToGame = null;
     let restart = null;
     // how each seat reached its table; refreshesBeforeState > 0 means the snapshot retry was needed
@@ -614,6 +661,9 @@ async function main() {
             if (CONFIRM_EMAIL) await confirmEmail(page, PLAYERS[i]);
         }
         await logInAgain(pages[3], PLAYERS[3]);
+        // the newest token each tab starts with: a renewal run must outlive and replace it (R-10)
+        const signedInAt = Date.now();
+        const signedInTokens = await Promise.all(pages.map(storedToken));
         seats.forEach((seat) => { seat.watchLogin = true; });
         for (const [i, page] of pages.entries()) await checkPlayPage(page, seats[i], PLAYERS[i]);
         await checkLobbiesFit(pages, mobile);
@@ -624,7 +674,7 @@ async function main() {
             restart = {};
             await restartBackend(seats, restart);
         }
-        await playToTheEnd(pages, stats);
+        await playToTheEnd(pages, stats, restart);
         await assertFits(pages, 'gameOver', mobile);
 
         const gameSockets = seats.map((seat) => seat.sockets.length);
@@ -650,11 +700,16 @@ async function main() {
         let renewal = null;
         if (EXPECT_RENEWAL) {
             const calls = seats.map((seat) => seat.renewals);
-            const runMs = Date.now() - startedAt;
-            if (runMs < RENEWAL_MIN_RUN_MS) throw new Error(`the run took ${runMs} ms, too short to outlive a 3-minute token and the 60-s sweep`);
+            const runMs = Date.now() - signedInAt;
+            if (runMs < RENEWAL_MIN_RUN_MS) throw new Error(`the game ended ${runMs} ms after the last sign-in, too soon to outlive a 3-minute token and the 60-s sweep`);
             if (!calls.every((n) => n >= 1)) throw new Error(`token renewals per tab: ${calls.join(',')}, expected at least 1 each`);
             const refused = seats.flatMap((seat) => seat.renewalErrors);
             if (refused.length) throw new Error(`POST /user/me/token answered ${refused.join(',')}`);
+            // A renewal counts only once the tab stored the new token: a POST lost to the network or
+            // to CORS leaves the old one in place.
+            const tokens = await Promise.all(pages.map(storedToken));
+            const renewed = tokens.map((token, i) => expOf(token) > expOf(signedInTokens[i]));
+            if (!renewed.every(Boolean)) throw new Error(`tabs holding a renewed token: ${renewed.join(',')}, expected true each`);
             renewal = { calls, runMs };
         }
         const final = await checkTheEnd(pages);
