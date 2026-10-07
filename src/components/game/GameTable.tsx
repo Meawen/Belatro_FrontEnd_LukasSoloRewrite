@@ -66,6 +66,8 @@ export const GameTable: React.FC<GameTableProps> = ({
     const myTeam = teamOf(publicView, me);
     const declarations = declarationLines(publicView);
     const ending = endSentence(publicView);
+    // R-23: the dealer bids last, so three passes on record mean the dealer must call trump
+    const dealerMustCall = canBid && publicView.bids.filter((bid) => bid.action === 'PASS').length >= 3;
     // R-32: the trump K or Q, chosen while the other is in hand, waits for Play or Play + Bela
     const [belaCard, setBelaCard] = useState<GameCard | null>(null);
     useEffect(() => {
@@ -176,12 +178,15 @@ export const GameTable: React.FC<GameTableProps> = ({
                     {canBid && (
                         <div className="card flex flex-wrap items-center gap-3">
                             <span className="text-emerald-200 text-sm mr-2">Your bid:</span>
-                            <Button variant="outline" onClick={onPass}>Pass</Button>
+                            <Button variant="outline" onClick={onPass} disabled={dealerMustCall}>Pass</Button>
                             {BOJE.map((boja) => (
                                 <Button key={boja} variant="primary" onClick={() => onCallTrump(boja)}>
                                     Call {SUIT_LABEL[boja]}
                                 </Button>
                             ))}
+                            {dealerMustCall && (
+                                <span data-testid="dealer-must-call" className="text-amber-300 text-sm">The dealer must call trump</span>
+                            )}
                         </div>
                     )}
 

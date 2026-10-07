@@ -302,3 +302,21 @@ describe('GameTable: bela (R-32)', () => {
         expect(screen.getAllByTestId('declaration').map((el) => el.textContent)).toEqual(['bob: bela 20'])
     })
 })
+
+describe('GameTable: the dealer must call trump (R-23)', () => {
+    const threePasses = ['alice', 'bob', 'carol'].map((playerId) => ({ playerId, action: 'PASS' as const, selectedTrump: null }))
+
+    test("with three passes on record the dealer can't pass and is told to call trump", () => {
+        // dave bids last: the dealer
+        renderTable(view({ bids: threePasses }), true, { me: 'dave' })
+        expect(screen.getByRole('button', { name: 'Pass' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Call Herc' })).toBeEnabled()
+        expect(screen.getByTestId('dealer-must-call')).toHaveTextContent('The dealer must call trump')
+    })
+
+    test('with fewer than three passes Pass stays available', () => {
+        renderTable(view({ bids: threePasses.slice(0, 2) }), true)
+        expect(screen.getByRole('button', { name: 'Pass' })).toBeEnabled()
+        expect(screen.queryByTestId('dealer-must-call')).not.toBeInTheDocument()
+    })
+})
