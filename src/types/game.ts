@@ -17,6 +17,9 @@ export type GamePhase =
     | 'CANCELLED'
     | 'HAND_COMPLETE';
 
+/** Why a game ended other than by being played out (R-20, R-25): PublicGameView.endReason. */
+export type EndReason = 'FORFEIT' | 'ABANDONED' | 'DECLINED' | 'CANCELLED';
+
 export interface GameCard {
     boja: Boja;
     rank: Rank;
@@ -65,6 +68,14 @@ export interface PublicGameView {
     declarations: Record<string, DeclarationsView>;
     belaDeclaredByPlayer: Record<string, boolean>;
     challengeWindowExpiresAt: number | null;
+    /** The bidder in BIDDING, the player to act in PLAYING, otherwise null (R-27). */
+    currentPlayerId: string | null;
+    /** Epoch ms when the running turn timer fires, otherwise null (R-27). */
+    turnExpiresAt: number | null;
+    /** Set when a game ends by forfeit, abandonment, a decline or a cancel; otherwise null. */
+    endReason: EndReason | null;
+    /** The team that forfeited or left (FORFEIT, ABANDONED); otherwise null. */
+    forfeitTeamId: 'A' | 'B' | null;
 }
 
 export interface PrivateGameView {

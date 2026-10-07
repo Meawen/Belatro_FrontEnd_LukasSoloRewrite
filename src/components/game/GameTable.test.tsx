@@ -1,8 +1,8 @@
-import { describe, test, expect, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { describe, test, expect, vi, afterEach } from 'vitest'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GameTable, type GameTableProps } from './GameTable'
-import type { GameCard, PrivateGameView, PublicGameView } from '../../types/game'
+import type { GameCard, GamePhase, PrivateGameView, PublicGameView } from '../../types/game'
 
 const seating = ['alice', 'bob', 'carol', 'dave'].map((id) => ({ id, cardsLeft: 6 }))
 
@@ -23,6 +23,10 @@ function view(overrides: Partial<PublicGameView> = {}): PublicGameView {
         declarations: {},
         belaDeclaredByPlayer: {},
         challengeWindowExpiresAt: null,
+        currentPlayerId: null,
+        turnExpiresAt: null,
+        endReason: null,
+        forfeitTeamId: null,
         ...overrides,
     }
 }
@@ -69,7 +73,7 @@ describe('GameTable', () => {
     test('on my bidding turn I can pass or call any suit; my cards stay locked', async () => {
         const user = userEvent.setup()
         const handlers = renderTable(view(), true)
-        expect(screen.getByTestId('game-phase')).toHaveTextContent('BIDDING')
+        expect(screen.getByTestId('game-phase')).toHaveTextContent('Bidding')
         expect(screen.getByTestId('your-turn')).toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: 'Pass' }))
         expect(handlers.onPass).toHaveBeenCalledTimes(1)
@@ -123,7 +127,7 @@ describe('GameTable', () => {
                 },
             },
         }), true)
-        expect(screen.getByTestId('game-phase')).toHaveTextContent('BIDDING')
+        expect(screen.getByTestId('game-phase')).toHaveTextContent('Bidding')
         expect(screen.queryByTestId('trump')).not.toBeInTheDocument()
         expect(screen.queryAllByTestId('trick-card')).toHaveLength(0)
     })
@@ -146,14 +150,14 @@ describe('GameTable', () => {
         // The server's next private view says the challenge is spent: no button any more.
         cleanup()
         renderTable(playing, false, { privateView: { ...privateFor(playing, false), challengeUsed: true } })
-        expect(screen.getByTestId('game-phase')).toHaveTextContent('PLAYING')
+        expect(screen.getByTestId('game-phase')).toHaveTextContent('Playing')
         expect(screen.queryByRole('button', { name: 'Challenge' })).not.toBeInTheDocument()
     })
 
     test('a finished game names the winner and offers the way back', async () => {
         const user = userEvent.setup()
         const handlers = renderTable(view({ gameState: 'COMPLETED', winnerTeamId: 'A', teamAScore: 1001, teamBScore: 640 }), false)
-        expect(screen.getByText('Game over')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Game over' })).toBeInTheDocument()
         expect(screen.getByText('Team A wins')).toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: 'Back to lobbies' }))
         expect(handlers.onLeave).toHaveBeenCalledTimes(1)
@@ -162,5 +166,87 @@ describe('GameTable', () => {
     test('a rejected move is shown', () => {
         renderTable(view(), false, { error: 'Not a participant in game g1' })
         expect(screen.getByRole('alert')).toHaveTextContent('Not a participant in game g1')
+    })
+})
+
+describe('GameTable: whose turn, your team, declarations, phases, the hint and the end (R-31)', () => {
+    afterEach(() => vi.useRealTimers())
+
+    test('the seat whose turn it is is highlighted, with the seconds left on its timer', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date('2026-10-05T20:00:00Z'))
+        renderTable(view({ gameState: 'PLAYING', currentPlayerId: 'alice', turnExpiresAt: Date.now() + 30_000 }), false)
+        expect(screen.getByTestId('seat-alice')).toHaveAttribute('data-current', 'true')
+        for (const other of ['bob', 'carol', 'dave']) {
+            expect(screen.getByTestId(`seat-${other}`)).not.toHaveAttribute('data-current')
+        }
+        expect(within(screen.getByTestId('seat-alice')).getByTestId('turn-countdown')).toHaveTextContent('30 s')
+        act(() => { vi.advanceTimersByTime(1000) })
+        expect(screen.getByTestId('turn-countdown')).toHaveTextContent('29 s')
+    })
+
+    test('my team is labelled', () => {
+        // teamA: alice and carol; teamB: bob and dave
+        renderTable(view(), false)
+        expect(screen.getByTestId('your-team')).toHaveTextContent('Your team: A')
+        cleanup()
+        renderTable(view(), false, { me: 'dave' })
+        expect(screen.getByTestId('your-team')).toHaveTextContent('Your team: B')
+    })
+
+    test('the scored declarations are listed', () => {
+        renderTable(view({
+            gameState: 'PLAYING',
+            declarations: {
+                alice: { bela: false, sequencesBySuit: { HERC: 50 }, fourOfAKindPoints: 0, bestSequencePoints: 50 },
+                carol: { bela: false, sequencesBySuit: {}, fourOfAKindPoints: 100, bestSequencePoints: 0 },
+            },
+        }), false)
+        expect(screen.getAllByTestId('declaration').map((el) => el.textContent)).toEqual([
+            'alice: sequence 50 (Herc)',
+            'carol: four of a kind 100',
+        ])
+    })
+
+    test('phases are shown in words; the raw state stays in data-phase', () => {
+        const words: [GamePhase, string][] = [
+            ['BIDDING', 'Bidding'], ['PLAYING', 'Playing'], ['HAND_COMPLETE', 'Hand finished'],
+            ['COMPLETED', 'Game over'], ['CANCELLED', 'Cancelled'],
+        ]
+        for (const [phase, word] of words) {
+            renderTable(view({ gameState: phase }), false)
+            expect(screen.getByTestId('game-phase').textContent).toBe(word)
+            expect(screen.getByTestId('game-phase')).toHaveAttribute('data-phase', phase)
+            cleanup()
+        }
+    })
+
+    test('the Challenge hint sits by the button while the button is offered', () => {
+        const playing = view({ gameState: 'PLAYING' })
+        renderTable(playing, false)
+        expect(screen.getByRole('button', { name: 'Challenge' })).toBeEnabled()
+        expect(screen.getByTestId('challenge-hint').textContent).toBe(
+            'Think an opponent played an illegal card this hand? Challenge to win the whole hand. A wrong challenge costs your challenge for this hand')
+        cleanup()
+        renderTable(playing, false, { privateView: { ...privateFor(playing, false), challengeUsed: true } })
+        expect(screen.queryByTestId('challenge-hint')).not.toBeInTheDocument()
+    })
+
+    test.each([
+        ['FORFEIT by A', { endReason: 'FORFEIT', forfeitTeamId: 'A' }, 'Team A forfeited — Team B wins'],
+        ['FORFEIT by B', { endReason: 'FORFEIT', forfeitTeamId: 'B' }, 'Team B forfeited — Team A wins'],
+        ['ABANDONED by A', { endReason: 'ABANDONED', forfeitTeamId: 'A' }, 'Team A left — the game was abandoned (no result)'],
+        ['ABANDONED by both teams', { endReason: 'ABANDONED', forfeitTeamId: null }, 'Everyone left — the game was abandoned (no result)'],
+        ['DECLINED', { endReason: 'DECLINED', forfeitTeamId: null }, "A player declined — you're back in the queue"],
+        ['CANCELLED', { endReason: 'CANCELLED', forfeitTeamId: null }, 'The game was cancelled'],
+    ] as const)('an end by %s says why', (_label, ending, sentence) => {
+        renderTable(view({ gameState: 'CANCELLED', ...ending }), false)
+        expect(screen.getByTestId('end-reason').textContent).toBe(sentence)
+    })
+
+    test('a forfeit is a game over with a winner, not a cancelled match', () => {
+        renderTable(view({ gameState: 'CANCELLED', endReason: 'FORFEIT', forfeitTeamId: 'B' }), false)
+        expect(screen.getByRole('heading', { name: 'Game over' })).toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: 'Match cancelled' })).not.toBeInTheDocument()
     })
 })

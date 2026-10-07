@@ -1,4 +1,4 @@
-import type { Boja, GameCard, PlayerPublicInfo, PublicGameView, Rank } from '../../types/game';
+import type { Boja, GameCard, GamePhase, PlayerPublicInfo, PublicGameView, Rank } from '../../types/game';
 
 /** Bid buttons, in this order. */
 export const BOJE: Boja[] = ['HERC', 'KARA', 'PIK', 'TREF'];
@@ -39,4 +39,71 @@ export function trumpOf(view: PublicGameView): Boja | null {
     if (view.currentTrick?.trump) return view.currentTrick.trump;
     const call = [...(view.bids ?? [])].reverse().find((bid) => bid.action === 'CALL_TRUMP');
     return call?.selectedTrump ?? null;
+}
+
+/** Phases in words (R-31). The last three are internal; they get a word in case one is ever sent. */
+export const PHASE_LABEL: Record<GamePhase, string> = {
+    BIDDING: 'Bidding',
+    PLAYING: 'Playing',
+    HAND_COMPLETE: 'Hand finished',
+    COMPLETED: 'Game over',
+    CANCELLED: 'Cancelled',
+    INITIALIZED: 'Starting',
+    DECLARATIONS: 'Declarations',
+    SCORING: 'Scoring',
+};
+
+/**
+ * By the Challenge button while it is offered (R-31). The quota resets every hand
+ * (BelotGame.resetHandState clears challengeUsed), hence "for this hand".
+ */
+export const CHALLENGE_HINT =
+    'Think an opponent played an illegal card this hand? Challenge to win the whole hand. A wrong challenge costs your challenge for this hand';
+
+/** A declined ranked match (R-25): the end sentence, and the notice /play shows after it. */
+export const DECLINED_NOTICE = "A player declined — you're back in the queue";
+
+const OTHER_TEAM = { A: 'B', B: 'A' } as const;
+
+/** The viewer's team, from the public view's team lists; null for someone who isn't seated. */
+export function teamOf(view: PublicGameView, me: string): 'A' | 'B' | null {
+    if (view.teamA?.some((seat) => seat.id === me)) return 'A';
+    if (view.teamB?.some((seat) => seat.id === me)) return 'B';
+    return null;
+}
+
+/**
+ * The scored declarations, one line each (R-31). The server lists only the zvanja that counted, and
+ * only once trump is called (ScoredDeclarations): a player's best sequence and four of a kind.
+ */
+export function declarationLines(view: PublicGameView): string[] {
+    const lines: string[] = [];
+    Object.entries(view.declarations ?? {}).forEach(([player, scored]) => {
+        const [suit] = Object.keys(scored.sequencesBySuit ?? {}) as Boja[];
+        if (scored.bestSequencePoints) {
+            lines.push(`${player}: sequence ${scored.bestSequencePoints}${suit ? ` (${SUIT_LABEL[suit]})` : ''}`);
+        }
+        if (scored.fourOfAKindPoints) lines.push(`${player}: four of a kind ${scored.fourOfAKindPoints}`);
+    });
+    return lines;
+}
+
+/** Why a game ended other than by being played out (R-31); null for a game played to its end. */
+export function endSentence(view: PublicGameView): string | null {
+    const team = view.forfeitTeamId;
+    switch (view.endReason) {
+        case 'FORFEIT':
+            return team ? `Team ${team} forfeited — Team ${OTHER_TEAM[team]} wins` : null;
+        case 'ABANDONED':
+            return team
+                ? `Team ${team} left — the game was abandoned (no result)`
+                : 'Everyone left — the game was abandoned (no result)';
+        case 'DECLINED':
+            return DECLINED_NOTICE;
+        case 'CANCELLED':
+            return 'The game was cancelled';
+        default:
+            // an older backend sends no endReason
+            return view.gameState === 'CANCELLED' ? 'The game was cancelled' : null;
+    }
 }

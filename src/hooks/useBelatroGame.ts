@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGameWebSocket } from './useGameWebSocket';
-import type { Boja, GameCard, PrivateGameView, PublicGameView } from '../types/game';
+import type { Boja, GameCard, GamePhase, PrivateGameView, PublicGameView } from '../types/game';
 
 /** How long a page waits for its snapshot before asking again with /refresh (R-35). */
 const SNAPSHOT_WAIT_MS = 3000;
@@ -18,6 +18,8 @@ export function useBelatroGame(gameId: string, onDisconnect?: () => void) {
     const [refreshesSent, setRefreshesSent] = useState(0);
     // R-35: the game is gone or not this player's; the page shows a way back and sends nothing more
     const [notAvailable, setNotAvailable] = useState(false);
+    // The newest phase, also between a frame and the render it causes (see onGameDisconnect)
+    const lastPhase = useRef<GamePhase | null>(null);
 
     const {
         isConnected,
@@ -29,8 +31,12 @@ export function useBelatroGame(gameId: string, onDisconnect?: () => void) {
         playCard,
         challenge: sendChallenge,
     } = useGameWebSocket({
-        onPublicGameUpdate: setPublicView,
+        onPublicGameUpdate: (view) => {
+            lastPhase.current = view.gameState;
+            setPublicView(view);
+        },
         onPrivateGameUpdate: (view) => {
+            lastPhase.current = view.publicPart.gameState;
             setPrivateView(view);
             setPublicView(view.publicPart);
             setSnapshotPending(false);
@@ -45,7 +51,12 @@ export function useBelatroGame(gameId: string, onDisconnect?: () => void) {
             }
             setError(message);
         },
-        onGameDisconnect: onDisconnect,
+        // R-31: a cancelled game stays on its end screen, which says why. The backend sends DISCONNECT
+        // right behind the CANCELLED view, often before React has rendered it, hence the ref.
+        // DISCONNECT still moves on when no CANCELLED view came first (an older backend).
+        onGameDisconnect: () => {
+            if (lastPhase.current !== 'CANCELLED') onDisconnect?.();
+        },
     });
 
     useEffect(() => {

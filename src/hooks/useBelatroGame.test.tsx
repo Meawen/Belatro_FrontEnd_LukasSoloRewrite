@@ -186,4 +186,15 @@ describe('useBelatroGame', () => {
         act(() => { vi.advanceTimersByTime(3000) })
         expect(result.current.notAvailable).toBe(true)
     })
+
+    test('a cancelled game stays on its end screen: DISCONNECT right behind the CANCELLED view does not leave (R-31)', () => {
+        const onDisconnect = vi.fn()
+        renderHook(() => useBelatroGame('g1', onDisconnect))
+        act(() => {
+            ws.options.onPublicGameUpdate?.({ ...publicView, gameState: 'CANCELLED', endReason: 'CANCELLED' } as PublicGameView)
+            // the next frame, before React has rendered the view
+            ws.options.onGameDisconnect?.()
+        })
+        expect(onDisconnect).not.toHaveBeenCalled()
+    })
 })

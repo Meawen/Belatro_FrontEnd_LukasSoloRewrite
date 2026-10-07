@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '../common/Button';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { PlayingCard } from '../common/PlayingCard';
 import type { Boja, GameCard, PrivateGameView, PublicGameView } from '../../types/game';
-import { BOJE, SUIT_LABEL, cardLabel, seatsFromMe, trumpOf } from './gameView';
+import { BOJE, CHALLENGE_HINT, PHASE_LABEL, SUIT_LABEL, cardLabel, declarationLines, endSentence, seatsFromMe, teamOf, trumpOf } from './gameView';
 
 export interface GameTableProps {
     publicView: PublicGameView;
@@ -25,6 +25,17 @@ const SEAT_CELL = [
     'col-start-2 row-start-1',
     'col-start-1 row-start-2',
 ];
+
+/** Seconds left on the running turn timer (R-31), ticking once a second; never below 0. */
+function TurnCountdown({ expiresAt }: { expiresAt: number }) {
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {
+        const timer = window.setInterval(() => setNow(Date.now()), 1000);
+        return () => window.clearInterval(timer);
+    }, []);
+    const seconds = Math.max(0, Math.ceil((expiresAt - now) / 1000));
+    return <span data-testid="turn-countdown" className="font-mono text-amber-300">{seconds} s</span>;
+}
 
 export const GameTable: React.FC<GameTableProps> = ({
     publicView,
@@ -51,6 +62,9 @@ export const GameTable: React.FC<GameTableProps> = ({
     const myMove = canBid || canPlay;
     const canChallenge = (phase === 'PLAYING' || phase === 'HAND_COMPLETE')
         && privateView !== null && !privateView.challengeUsed;
+    const myTeam = teamOf(publicView, me);
+    const declarations = declarationLines(publicView);
+    const ending = endSentence(publicView);
 
     return (
         <div className="max-w-5xl mx-auto px-4 space-y-6">
@@ -60,7 +74,9 @@ export const GameTable: React.FC<GameTableProps> = ({
                     <span className="text-red-300">Team B: <span data-testid="score-b">{publicView.teamBScore}</span></span>
                 </div>
                 <div className="flex flex-wrap items-center gap-4 text-sm text-emerald-200">
-                    <span>Phase: <span data-testid="game-phase" className="font-medium text-white">{phase}</span></span>
+                    {myTeam && <span data-testid="your-team" className="font-medium text-white">{`Your team: ${myTeam}`}</span>}
+                    {/* R-31: the phase in words; data-phase keeps the raw state for scripts (e2e) */}
+                    <span>Phase: <span data-testid="game-phase" data-phase={phase} className="font-medium text-white">{PHASE_LABEL[phase] ?? phase}</span></span>
                     {trump && (
                         <span>Trump: <span data-testid="trump" className="font-medium text-amber-300">{SUIT_LABEL[trump]}</span></span>
                     )}
@@ -75,13 +91,14 @@ export const GameTable: React.FC<GameTableProps> = ({
             {finished ? (
                 <div className="card text-center space-y-4">
                     <h2 className="text-2xl font-bold text-white">
-                        {phase === 'CANCELLED' ? 'Match cancelled' : 'Game over'}
+                        {phase === 'CANCELLED' && publicView.endReason !== 'FORFEIT' ? 'Match cancelled' : 'Game over'}
                     </h2>
                     {phase === 'COMPLETED' && (
                         <p className="text-emerald-200">
                             {publicView.winnerTeamId ? `Team ${publicView.winnerTeamId} wins` : 'Draw'}
                         </p>
                     )}
+                    {ending && <p data-testid="end-reason" className="text-emerald-200">{ending}</p>}
                     <Button onClick={onLeave} variant="primary">Back to lobbies</Button>
                 </div>
             ) : (
@@ -89,16 +106,24 @@ export const GameTable: React.FC<GameTableProps> = ({
                     <div className="card grid grid-cols-3 grid-rows-3 gap-2 min-h-[22rem] items-center justify-items-center">
                         {seats.map((seat, index) => {
                             const played = plays[seat.id];
+                            // R-31: the seat to act, with the seconds left on its turn timer
+                            const current = seat.id === publicView.currentPlayerId;
                             return (
                                 <div
                                     key={seat.id}
                                     data-testid={`seat-${seat.id}`}
-                                    className={`${SEAT_CELL[index]} flex flex-col items-center gap-2`}
+                                    data-current={current ? 'true' : undefined}
+                                    className={`${SEAT_CELL[index]} flex flex-col items-center gap-2 rounded-lg p-2 ${
+                                        current ? 'ring-2 ring-amber-400' : ''
+                                    }`}
                                 >
                                     <div className="text-sm text-emerald-200">
                                         <span className="font-medium text-white">{seat.id === me ? 'You' : seat.id}</span>
                                         {' · '}
                                         <span data-testid={`cards-left-${seat.id}`}>{seat.cardsLeft}</span> cards
+                                        {current && publicView.turnExpiresAt != null && (
+                                            <>{' · '}<TurnCountdown expiresAt={publicView.turnExpiresAt} /></>
+                                        )}
                                     </div>
                                     {played && (
                                         <div data-testid="trick-card" data-card={`${played.boja}-${played.rank}`}>
@@ -123,6 +148,17 @@ export const GameTable: React.FC<GameTableProps> = ({
                         </div>
                     )}
 
+                    {declarations.length > 0 && (
+                        <div className="card">
+                            <h3 className="text-sm font-semibold text-emerald-200 mb-2">Declarations</h3>
+                            <ul className="flex flex-wrap gap-3 text-sm text-white">
+                                {declarations.map((line) => (
+                                    <li key={line} data-testid="declaration">{line}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
                     {canBid && (
                         <div className="card flex flex-wrap items-center gap-3">
                             <span className="text-emerald-200 text-sm mr-2">Your bid:</span>
@@ -142,6 +178,9 @@ export const GameTable: React.FC<GameTableProps> = ({
                                 <Button variant="outline" size="small" onClick={onChallenge}>Challenge</Button>
                             )}
                         </div>
+                        {canChallenge && (
+                            <p data-testid="challenge-hint" className="text-xs text-emerald-300 mb-3">{CHALLENGE_HINT}</p>
+                        )}
                         <div data-testid="hand" className="flex flex-wrap justify-center gap-2">
                             {hand.map((card) => (
                                 <button

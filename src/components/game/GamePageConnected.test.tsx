@@ -57,7 +57,7 @@ describe('GamePageConnected', () => {
             publicView, privateView: null, isConnected: true, connectionError: null, error: null, actions,
         })
         renderPage()
-        expect(screen.getByTestId('game-phase')).toHaveTextContent('BIDDING')
+        expect(screen.getByTestId('game-phase')).toHaveTextContent('Bidding')
         expect(screen.getAllByTestId(/^seat-/)[0]).toHaveAttribute('data-testid', 'seat-carol')
     })
 
@@ -88,9 +88,9 @@ describe('GamePageConnected', () => {
                 </Routes>
             </MemoryRouter>,
         )
-        expect(screen.getByTestId('game-phase')).toHaveTextContent('COMPLETED')
+        expect(screen.getByTestId('game-phase')).toHaveTextContent('Game over')
         await user.click(screen.getByRole('link', { name: 'Next game' }))
-        expect(screen.getByTestId('game-phase')).toHaveTextContent('BIDDING')
+        expect(screen.getByTestId('game-phase')).toHaveTextContent('Bidding')
         expect(vi.mocked(useBelatroGame).mock.lastCall?.[0]).toBe('g2')
     })
 
