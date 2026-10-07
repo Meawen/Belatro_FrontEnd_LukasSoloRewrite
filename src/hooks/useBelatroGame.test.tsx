@@ -93,6 +93,9 @@ describe('useBelatroGame', () => {
         expect(ws.placeBid).toHaveBeenLastCalledWith('g1', true)
         act(() => result.current.actions.play({ boja: 'KARA', rank: 'DESETKA' }))
         expect(ws.playCard).toHaveBeenCalledWith('g1', { boja: 'KARA', rank: 'DESETKA' }, false)
+        // R-32: the table's Play + Bela
+        act(() => result.current.actions.play({ boja: 'HERC', rank: 'BABA' }, true))
+        expect(ws.playCard).toHaveBeenLastCalledWith('g1', { boja: 'HERC', rank: 'BABA' }, true)
         act(() => result.current.actions.challenge())
         expect(ws.challenge).toHaveBeenCalledWith('g1')
     })

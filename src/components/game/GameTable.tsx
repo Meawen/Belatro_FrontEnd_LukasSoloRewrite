@@ -3,7 +3,7 @@ import { Button } from '../common/Button';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { PlayingCard } from '../common/PlayingCard';
 import type { Boja, GameCard, PrivateGameView, PublicGameView } from '../../types/game';
-import { BOJE, CHALLENGE_HINT, PHASE_LABEL, SUIT_LABEL, cardLabel, declarationLines, endSentence, seatsFromMe, teamOf, trumpOf } from './gameView';
+import { BOJE, CHALLENGE_HINT, PHASE_LABEL, SUIT_LABEL, cardLabel, declarationLines, endSentence, isBelaCard, seatsFromMe, teamOf, trumpOf } from './gameView';
 
 export interface GameTableProps {
     publicView: PublicGameView;
@@ -13,7 +13,8 @@ export interface GameTableProps {
     error: string | null;
     onPass: () => void;
     onCallTrump: (trump: Boja) => void;
-    onPlayCard: (card: GameCard) => void;
+    /** declareBela is true only from the bela prompt: the trump K or Q played with the other in hand (R-32). */
+    onPlayCard: (card: GameCard, declareBela: boolean) => void;
     onChallenge: () => void;
     onLeave: () => void;
 }
@@ -65,6 +66,19 @@ export const GameTable: React.FC<GameTableProps> = ({
     const myTeam = teamOf(publicView, me);
     const declarations = declarationLines(publicView);
     const ending = endSentence(publicView);
+    // R-32: the trump K or Q, chosen while the other is in hand, waits for Play or Play + Bela
+    const [belaCard, setBelaCard] = useState<GameCard | null>(null);
+    useEffect(() => {
+        if (!canPlay) setBelaCard(null);
+    }, [canPlay]);
+    const chooseCard = (card: GameCard) => {
+        if (isBelaCard(card, hand, trump)) setBelaCard(card);
+        else onPlayCard(card, false);
+    };
+    const answerBela = (declareBela: boolean) => {
+        if (belaCard) onPlayCard(belaCard, declareBela);
+        setBelaCard(null);
+    };
 
     return (
         <div className="max-w-5xl mx-auto px-4 space-y-6">
@@ -181,6 +195,13 @@ export const GameTable: React.FC<GameTableProps> = ({
                         {canChallenge && (
                             <p data-testid="challenge-hint" className="text-xs text-emerald-300 mb-3">{CHALLENGE_HINT}</p>
                         )}
+                        {canPlay && belaCard && (
+                            <div data-testid="bela-prompt" className="flex flex-wrap items-center justify-center gap-3 mb-3">
+                                <span className="text-sm text-emerald-200">Declare bela with {cardLabel(belaCard)}?</span>
+                                <Button variant="outline" size="small" onClick={() => answerBela(false)}>Play</Button>
+                                <Button variant="primary" size="small" onClick={() => answerBela(true)}>Play + Bela</Button>
+                            </div>
+                        )}
                         <div data-testid="hand" className="flex flex-wrap justify-center gap-2">
                             {hand.map((card) => (
                                 <button
@@ -190,7 +211,7 @@ export const GameTable: React.FC<GameTableProps> = ({
                                     data-card={`${card.boja}-${card.rank}`}
                                     aria-label={cardLabel(card)}
                                     disabled={!canPlay}
-                                    onClick={() => onPlayCard(card)}
+                                    onClick={() => chooseCard(card)}
                                     className={`w-16 h-24 rounded-lg transition-transform ${
                                         canPlay ? 'hover:-translate-y-1 cursor-pointer' : 'opacity-60 cursor-not-allowed'
                                     }`}

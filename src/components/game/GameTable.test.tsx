@@ -108,7 +108,7 @@ describe('GameTable', () => {
         expect(screen.getAllByTestId('bid').map((el) => el.textContent)).toEqual(['alice: Pass', 'bob: Herc'])
         expect(within(screen.getByTestId('seat-dave')).getByTestId('trick-card')).toHaveAttribute('data-card', 'PIK-AS')
         await user.click(screen.getByRole('button', { name: 'As Herc' }))
-        expect(handlers.onPlayCard).toHaveBeenCalledWith({ boja: 'HERC', rank: 'AS' })
+        expect(handlers.onPlayCard).toHaveBeenCalledWith({ boja: 'HERC', rank: 'AS' }, false)
     })
 
     test("while bidding the last hand's trick and its trump are not shown", () => {
@@ -248,5 +248,57 @@ describe('GameTable: whose turn, your team, declarations, phases, the hint and t
         renderTable(view({ gameState: 'CANCELLED', endReason: 'FORFEIT', forfeitTeamId: 'B' }), false)
         expect(screen.getByRole('heading', { name: 'Game over' })).toBeInTheDocument()
         expect(screen.queryByRole('heading', { name: 'Match cancelled' })).not.toBeInTheDocument()
+    })
+})
+
+describe('GameTable: bela (R-32)', () => {
+    const playing = view({ gameState: 'PLAYING', currentTrick: { leadPlayerId: 'carol', trump: 'HERC', plays: {} } })
+    const withHand = (hand: GameCard[]) =>
+        renderTable(playing, true, { privateView: { publicPart: playing, hand, yourTurn: true, challengeUsed: false } })
+    const kingAndQueenOfTrump: GameCard[] = [
+        { boja: 'HERC', rank: 'KRALJ' },
+        { boja: 'HERC', rank: 'BABA' },
+        { boja: 'KARA', rank: 'AS' },
+        { boja: 'PIK', rank: 'BABA' },
+    ]
+
+    test('the trump queen while holding the trump king asks Play or Play + Bela; Play + Bela declares it', async () => {
+        const user = userEvent.setup()
+        const handlers = withHand(kingAndQueenOfTrump)
+        await user.click(screen.getByRole('button', { name: 'Baba Herc' }))
+        expect(handlers.onPlayCard).not.toHaveBeenCalled()
+        expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Play + Bela' }))
+        expect(handlers.onPlayCard).toHaveBeenCalledWith({ boja: 'HERC', rank: 'BABA' }, true)
+        expect(screen.queryByTestId('bela-prompt')).not.toBeInTheDocument()
+    })
+
+    test('Play sends the same card without bela', async () => {
+        const user = userEvent.setup()
+        const handlers = withHand(kingAndQueenOfTrump)
+        await user.click(screen.getByRole('button', { name: 'Kralj Herc' }))
+        await user.click(screen.getByRole('button', { name: 'Play' }))
+        expect(handlers.onPlayCard).toHaveBeenCalledTimes(1)
+        expect(handlers.onPlayCard).toHaveBeenCalledWith({ boja: 'HERC', rank: 'KRALJ' }, false)
+    })
+
+    test('any other card is played at once, without bela', async () => {
+        const user = userEvent.setup()
+        const handlers = withHand(kingAndQueenOfTrump)
+        await user.click(screen.getByRole('button', { name: 'As Karo' }))
+        await user.click(screen.getByRole('button', { name: 'Baba Pik' }))
+        expect(handlers.onPlayCard).toHaveBeenNthCalledWith(1, { boja: 'KARA', rank: 'AS' }, false)
+        expect(handlers.onPlayCard).toHaveBeenNthCalledWith(2, { boja: 'PIK', rank: 'BABA' }, false)
+        cleanup()
+        // the trump queen without the king in hand: no bela to declare
+        const alone = withHand([{ boja: 'HERC', rank: 'BABA' }, { boja: 'KARA', rank: 'AS' }])
+        await user.click(screen.getByRole('button', { name: 'Baba Herc' }))
+        expect(alone.onPlayCard).toHaveBeenCalledWith({ boja: 'HERC', rank: 'BABA' }, false)
+        expect(screen.queryByTestId('bela-prompt')).not.toBeInTheDocument()
+    })
+
+    test('who declared bela is shown', () => {
+        renderTable(view({ gameState: 'PLAYING', belaDeclaredByPlayer: { alice: false, bob: true, carol: false, dave: false } }), false)
+        expect(screen.getAllByTestId('declaration').map((el) => el.textContent)).toEqual(['bob: bela 20'])
     })
 })

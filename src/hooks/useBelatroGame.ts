@@ -102,8 +102,9 @@ export function useBelatroGame(gameId: string, onDisconnect?: () => void) {
         report(placeBid(gameId, true));
     }, [gameId, placeBid, report]);
 
-    const play = useCallback((card: GameCard) => {
-        report(playCard(gameId, card, false));
+    // R-32: declareBela comes from the table's bela prompt
+    const play = useCallback((card: GameCard, declareBela = false) => {
+        report(playCard(gameId, card, declareBela));
     }, [gameId, playCard, report]);
 
     const challenge = useCallback(() => {

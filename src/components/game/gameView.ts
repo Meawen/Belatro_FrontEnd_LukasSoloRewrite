@@ -85,6 +85,10 @@ export function declarationLines(view: PublicGameView): string[] {
         }
         if (scored.fourOfAKindPoints) lines.push(`${player}: four of a kind ${scored.fourOfAKindPoints}`);
     });
+    // R-32: bela once declared, from belaDeclaredByPlayer (a declarations entry never carries it)
+    Object.entries(view.belaDeclaredByPlayer ?? {}).forEach(([player, declared]) => {
+        if (declared) lines.push(`${player}: bela 20`);
+    });
     return lines;
 }
 
@@ -106,4 +110,14 @@ export function endSentence(view: PublicGameView): string | null {
             // an older backend sends no endReason
             return view.gameState === 'CANCELLED' ? 'The game was cancelled' : null;
     }
+}
+
+/**
+ * R-32: the trump K (Kralj) or Q (Baba) while the other is still in hand: the only plays that can
+ * declare bela (BelotGame.processBela checks the same and adds 20 points).
+ */
+export function isBelaCard(card: GameCard, hand: GameCard[], trump: Boja | null): boolean {
+    if (!trump || card.boja !== trump) return false;
+    const partner = card.rank === 'KRALJ' ? 'BABA' : card.rank === 'BABA' ? 'KRALJ' : null;
+    return partner !== null && hand.some((held) => held.boja === trump && held.rank === partner);
 }
