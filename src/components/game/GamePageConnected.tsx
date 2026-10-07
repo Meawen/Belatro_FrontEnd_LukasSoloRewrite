@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useBelatroGame } from '../../hooks/useBelatroGame';
@@ -5,6 +6,7 @@ import { Button, Loading } from '../common';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 import { GameTable } from './GameTable';
 import { ReconnectBanner } from './ReconnectBanner';
+import { DECLINED_NOTICE } from './gameView';
 
 export default function GamePageConnected() {
     const { gameId = '' } = useParams();
@@ -25,6 +27,12 @@ function GamePage({ gameId }: { gameId: string }) {
 
     const { publicView, privateView, isConnected, connectionError, error, notAvailable, actions } =
         useBelatroGame(gameId, () => navigate('/lobbies'));
+
+    // R-25: someone declined the ranked match; the other three are back in the queue, which /play shows
+    const declined = publicView?.gameState === 'CANCELLED' && publicView.endReason === 'DECLINED';
+    useEffect(() => {
+        if (declined) navigate('/play', { replace: true, state: { notice: DECLINED_NOTICE } });
+    }, [declined, navigate]);
 
     // R-35: the server never sent this game, or said it isn't this player's: a way back, not a spinner
     if (notAvailable) {

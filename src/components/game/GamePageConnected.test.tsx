@@ -2,7 +2,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { useState } from 'react'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom'
 import GamePageConnected from './GamePageConnected'
 import { useBelatroGame } from '../../hooks/useBelatroGame'
 import type { PublicGameView } from '../../types/game'
@@ -38,6 +38,13 @@ function useGameStateKeptAcrossIds(gameId: string) {
         gameState: gameId === 'g1' ? 'COMPLETED' : 'BIDDING',
     }))
     return { publicView: view, privateView: null, isConnected: true, connectionError: null, error: null, actions }
+}
+
+/** Stands in for PlayPage (Phase 7): shows the notice the table passed along, and how it got here. */
+function PlayPageStub() {
+    const location = useLocation()
+    const navigationType = useNavigationType()
+    return <p data-testid="play-notice" data-navigation={navigationType}>{(location.state as { notice?: string } | null)?.notice}</p>
 }
 
 beforeEach(() => vi.clearAllMocks())
@@ -145,5 +152,23 @@ describe('GamePageConnected', () => {
         } finally {
             vi.restoreAllMocks()
         }
+    })
+
+    test('a declined ranked match goes back to /play with the notice, replacing the game page (R-25)', () => {
+        vi.mocked(useBelatroGame).mockReturnValue({
+            publicView: { ...publicView, gameState: 'CANCELLED', endReason: 'DECLINED', forfeitTeamId: null } as PublicGameView,
+            privateView: null, isConnected: true, connectionError: null, error: null, actions,
+        })
+        render(
+            <MemoryRouter initialEntries={['/game/g1']}>
+                <Routes>
+                    <Route path="/game/:gameId" element={<GamePageConnected />} />
+                    <Route path="/play" element={<PlayPageStub />} />
+                </Routes>
+            </MemoryRouter>,
+        )
+        const play = screen.getByTestId('play-notice')
+        expect(play).toHaveTextContent("A player declined — you're back in the queue")
+        expect(play).toHaveAttribute('data-navigation', 'REPLACE')
     })
 })
