@@ -19,6 +19,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({
         email: '',
         password: '',
         confirmPassword: '',
+        inviteCode: '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [createdEmail, setCreatedEmail] = useState<string | null>(null);
@@ -83,11 +84,14 @@ export const SignupForm: React.FC<SignupFormProps> = ({
                 username: formData.username
             });
 
+            const inviteCode = formData.inviteCode.trim();
             const result = await signup({
                 // the backend validates the raw value, so stray spaces would be a 400
                 username: formData.username.trim(),
                 email: formData.email.trim(),
-                password: formData.password
+                password: formData.password,
+                // R-11: the server requires it only while SIGNUP_INVITE_CODE is set; sent when typed
+                ...(inviteCode ? { inviteCode } : {}),
             });
 
             console.log('Signup successful:', { username: result.user?.username });
@@ -97,6 +101,11 @@ export const SignupForm: React.FC<SignupFormProps> = ({
             console.error('Signup error:', error);
             // a 500 while the backend's session store is down, or no answer: not the raw text
             const status = error instanceof ApiError ? error.status : 0;
+            // R-11: signup's only 403 is a missing or wrong invite code ("Invalid invite code")
+            if (status === 403) {
+                setErrors({ inviteCode: (error as ApiError).message });
+                return;
+            }
             setErrors({
                 submit: isNetworkOrServerFailure(status) ? SOMETHING_WENT_WRONG : error instanceof Error ? error.message : 'Registration failed'
             });
@@ -190,6 +199,21 @@ export const SignupForm: React.FC<SignupFormProps> = ({
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     }
+                />
+
+                <Input
+                    label="Invite code"
+                    name="inviteCode"
+                    type="text"
+                    value={formData.inviteCode}
+                    onChange={handleChange}
+                    error={errors.inviteCode}
+                    placeholder="From your invitation"
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    fullWidth
                 />
 
                 {errors.submit && (
