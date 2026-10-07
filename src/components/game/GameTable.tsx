@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '../common/Button';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { PlayingCard } from '../common/PlayingCard';
+import type { RematchState } from '../../hooks/useRematch';
 import type { Boja, GameCard, PrivateGameView, PublicGameView } from '../../types/game';
-import { BOJE, CHALLENGE_HINT, PHASE_LABEL, SUIT_LABEL, cardLabel, declarationLines, endSentence, isBelaCard, seatsFromMe, teamOf, trumpOf } from './gameView';
+import { BOJE, CHALLENGE_HINT, PHASE_LABEL, SUIT_LABEL, cardLabel, declarationLines, endSentence, isBelaCard, rematchOffered, seatsFromMe, teamOf, trumpOf } from './gameView';
 
 export interface GameTableProps {
     publicView: PublicGameView;
@@ -17,6 +18,8 @@ export interface GameTableProps {
     onPlayCard: (card: GameCard, declareBela: boolean) => void;
     onChallenge: () => void;
     onLeave: () => void;
+    /** The game-over rematch (R-45). Without it, or for a game with no rematch, only Back to lobbies. */
+    rematch?: RematchState;
 }
 
 // Grid cells for seatsFromMe order: you (bottom), next player (right), partner (top), left.
@@ -48,6 +51,7 @@ export const GameTable: React.FC<GameTableProps> = ({
     onPlayCard,
     onChallenge,
     onLeave,
+    rematch,
 }) => {
     const phase = publicView.gameState;
     const yourTurn = privateView?.yourTurn === true;
@@ -115,7 +119,28 @@ export const GameTable: React.FC<GameTableProps> = ({
                         </p>
                     )}
                     {ending && <p data-testid="end-reason" className="text-emerald-200">{ending}</p>}
-                    <Button onClick={onLeave} variant="primary">Back to lobbies</Button>
+                    {rematch && rematchOffered(publicView) ? (
+                        // R-45: Play again votes; Leave declines for everyone and goes back to the lobbies
+                        <div className="space-y-3">
+                            <p data-testid="rematch-votes" className="text-emerald-200">{`${rematch.votes}/4 want a rematch`}</p>
+                            {rematch.cancelledBy && (
+                                <p className="text-amber-300">{`${rematch.cancelledBy} left — no rematch`}</p>
+                            )}
+                            {rematch.expired && !rematch.cancelledBy && <p className="text-amber-300">Rematch expired</p>}
+                            <div className="flex flex-wrap justify-center gap-3">
+                                <Button
+                                    variant="primary"
+                                    onClick={rematch.playAgain}
+                                    disabled={rematch.cancelledBy !== null || rematch.expired}
+                                >
+                                    Play again
+                                </Button>
+                                <Button variant="outline" onClick={rematch.leave}>Leave</Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <Button onClick={onLeave} variant="primary">Back to lobbies</Button>
+                    )}
                 </div>
             ) : (
                 <>

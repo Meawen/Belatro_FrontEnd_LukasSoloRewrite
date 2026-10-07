@@ -200,4 +200,11 @@ describe('useBelatroGame', () => {
         })
         expect(onDisconnect).not.toHaveBeenCalled()
     })
+
+    test("a rematch refusal is shown as the table's error, not as \"not your game\" (R-45)", () => {
+        const { result } = renderHook(() => useBelatroGame('g1'))
+        act(() => ws.options.onGameError?.('Rematch is not available for game g1'))
+        expect(result.current.error).toBe('Rematch is not available for game g1')
+        expect(result.current.notAvailable).toBe(false)
+    })
 })

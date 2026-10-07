@@ -121,3 +121,8 @@ export function isBelaCard(card: GameCard, hand: GameCard[], trump: Boja | null)
     const partner = card.rank === 'KRALJ' ? 'BABA' : card.rank === 'BABA' ? 'KRALJ' : null;
     return partner !== null && hand.some((held) => held.boja === trump && held.rank === partner);
 }
+
+/** R-45: a rematch follows a finished game, and a ranked forfeit (CANCELLED with endReason FORFEIT). */
+export function rematchOffered(view: PublicGameView): boolean {
+    return view.gameState === 'COMPLETED' || (view.gameState === 'CANCELLED' && view.endReason === 'FORFEIT');
+}

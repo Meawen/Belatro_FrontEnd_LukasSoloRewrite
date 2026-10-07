@@ -2,11 +2,12 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useBelatroGame } from '../../hooks/useBelatroGame';
+import { useRematch } from '../../hooks/useRematch';
 import { Button, Loading } from '../common';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 import { GameTable } from './GameTable';
 import { ReconnectBanner } from './ReconnectBanner';
-import { DECLINED_NOTICE } from './gameView';
+import { DECLINED_NOTICE, rematchOffered } from './gameView';
 
 export default function GamePageConnected() {
     const { gameId = '' } = useParams();
@@ -27,6 +28,7 @@ function GamePage({ gameId }: { gameId: string }) {
 
     const { publicView, privateView, isConnected, connectionError, error, notAvailable, actions } =
         useBelatroGame(gameId, () => navigate('/lobbies'));
+    const rematch = useRematch(gameId, publicView !== null && rematchOffered(publicView));
 
     // R-25: someone declined the ranked match; the other three are back in the queue, which /play shows
     const declined = publicView?.gameState === 'CANCELLED' && publicView.endReason === 'DECLINED';
@@ -69,6 +71,7 @@ function GamePage({ gameId }: { gameId: string }) {
                 onPlayCard={actions.play}
                 onChallenge={actions.challenge}
                 onLeave={() => navigate('/lobbies')}
+                rematch={rematch}
             />
         </>
     );

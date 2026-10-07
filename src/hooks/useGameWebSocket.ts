@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { gameSocket } from '../services/gameSocket';
 import type { MatchDTO } from '../types/match';
-import type { Boja, GameCard, PrivateGameView, PublicGameView, QueueStatusDTO } from '../types/game';
+import type { Boja, GameCard, PrivateGameView, PublicGameView, QueueStatusDTO, RematchFrame } from '../types/game';
 
 /** Display card of the mock boards in src/MockComponents (UI names such as 'Herc'/'As'), not the wire card. */
 export interface Card {
@@ -17,6 +17,7 @@ interface GameWebSocketOptions {
     onPrivateGameUpdate?: (view: PrivateGameView) => void;
     onGameError?: (message: string) => void;
     onGameDisconnect?: () => void;
+    onRematchUpdate?: (frame: RematchFrame) => void;
 }
 
 /**
@@ -117,6 +118,27 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
         untrack(`game-${gameId}-snapshot`);
     }, [untrack]);
 
+    /* ---------- Rematch (R-45): RematchSocketController ---------- */
+    const subscribeToRematch = useCallback((gameId: string) => {
+        track(`rematch-${gameId}`, `/topic/games/${gameId}/rematch`, (body) => {
+            try {
+                optionsRef.current.onRematchUpdate?.(JSON.parse(body));
+            } catch (e) {
+                console.warn('rematch parse failed', e);
+            }
+        });
+    }, [track]);
+
+    const unsubscribeFromRematch = useCallback((gameId: string) => {
+        untrack(`rematch-${gameId}`);
+    }, [untrack]);
+
+    const voteRematch = useCallback((gameId: string): boolean =>
+        gameSocket.publish(`/app/games/${gameId}/rematch/vote`, {}), []);
+
+    const declineRematch = useCallback((gameId: string): boolean =>
+        gameSocket.publish(`/app/games/${gameId}/rematch/decline`, {}), []);
+
     /* ---------- Actions: backend PlayCardMsg / BidMsg; the actor is the JWT principal ---------- */
     // Moves say whether they went out (R-30): false while the socket is down
     const playCard = useCallback((gameId: string, card: GameCard, declareBela: boolean): boolean =>
@@ -149,6 +171,12 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
         // game
         subscribeToGame,
         unsubscribeFromGame,
+
+        // rematch (R-45)
+        subscribeToRematch,
+        unsubscribeFromRematch,
+        voteRematch,
+        declineRematch,
 
         // actions
         playCard,

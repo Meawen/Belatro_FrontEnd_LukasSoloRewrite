@@ -2,6 +2,7 @@ import { describe, test, expect, vi, afterEach } from 'vitest'
 import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GameTable, type GameTableProps } from './GameTable'
+import type { RematchState } from '../../hooks/useRematch'
 import type { GameCard, GamePhase, PrivateGameView, PublicGameView } from '../../types/game'
 
 const seating = ['alice', 'bob', 'carol', 'dave'].map((id) => ({ id, cardsLeft: 6 }))
@@ -318,5 +319,44 @@ describe('GameTable: the dealer must call trump (R-23)', () => {
         renderTable(view({ bids: threePasses.slice(0, 2) }), true)
         expect(screen.getByRole('button', { name: 'Pass' })).toBeEnabled()
         expect(screen.queryByTestId('dealer-must-call')).not.toBeInTheDocument()
+    })
+})
+
+describe('GameTable: Play again after the game (R-45)', () => {
+    const rematch = (overrides: Partial<RematchState> = {}): RematchState => ({
+        votes: 0, cancelledBy: null, expired: false, playAgain: vi.fn(), leave: vi.fn(), ...overrides,
+    })
+
+    test('game over offers Play again and Leave, with how many want a rematch', async () => {
+        const user = userEvent.setup()
+        const state = rematch({ votes: 2 })
+        renderTable(view({ gameState: 'COMPLETED', winnerTeamId: 'A' }), false, { rematch: state })
+        expect(screen.getByTestId('rematch-votes').textContent).toBe('2/4 want a rematch')
+        expect(screen.queryByRole('button', { name: 'Back to lobbies' })).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Play again' }))
+        expect(state.playAgain).toHaveBeenCalledTimes(1)
+        await user.click(screen.getByRole('button', { name: 'Leave' }))
+        expect(state.leave).toHaveBeenCalledTimes(1)
+    })
+
+    test('a ranked forfeit offers it too; a plain cancel offers only the way back', () => {
+        renderTable(view({ gameState: 'CANCELLED', endReason: 'FORFEIT', forfeitTeamId: 'B' }), false, { rematch: rematch() })
+        expect(screen.getByRole('button', { name: 'Play again' })).toBeEnabled()
+        cleanup()
+        renderTable(view({ gameState: 'CANCELLED', endReason: 'CANCELLED' }), false, { rematch: rematch() })
+        expect(screen.queryByRole('button', { name: 'Play again' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Back to lobbies' })).toBeInTheDocument()
+    })
+
+    test('someone left: their name, and Play again is off', () => {
+        renderTable(view({ gameState: 'COMPLETED', winnerTeamId: 'B' }), false, { rematch: rematch({ votes: 1, cancelledBy: 'bob' }) })
+        expect(screen.getByText('bob left — no rematch')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Play again' })).toBeDisabled()
+    })
+
+    test('two minutes without a start: Rematch expired, and Play again is off', () => {
+        renderTable(view({ gameState: 'COMPLETED', winnerTeamId: 'A' }), false, { rematch: rematch({ votes: 3, expired: true }) })
+        expect(screen.getByText('Rematch expired')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Play again' })).toBeDisabled()
     })
 })

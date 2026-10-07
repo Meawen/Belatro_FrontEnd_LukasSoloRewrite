@@ -143,3 +143,23 @@ describe('useGameWebSocket game snapshot (R-35)', () => {
         expect(fake.handlers.get('/app/queue/games/g1')?.size).toBe(0)
     })
 })
+
+describe('useGameWebSocket rematch (R-45)', () => {
+    test('the rematch topic of the finished game, and the vote and decline sends', () => {
+        const onRematchUpdate = vi.fn()
+        const { result } = renderHook(() => useGameWebSocket({ onRematchUpdate }))
+        act(() => result.current.subscribeToRematch('g1'))
+        fake.deliver('/topic/games/g1/rematch', '{"type":"VOTE","accepted":["alice"]}')
+        expect(onRematchUpdate).toHaveBeenCalledWith({ type: 'VOTE', accepted: ['alice'] })
+        act(() => {
+            result.current.voteRematch('g1')
+            result.current.declineRematch('g1')
+        })
+        expect(fake.published).toEqual([
+            { destination: '/app/games/g1/rematch/vote', body: {} },
+            { destination: '/app/games/g1/rematch/decline', body: {} },
+        ])
+        act(() => result.current.unsubscribeFromRematch('g1'))
+        expect(fake.handlers.get('/topic/games/g1/rematch')?.size).toBe(0)
+    })
+})

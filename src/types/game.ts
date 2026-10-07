@@ -92,3 +92,9 @@ export interface QueueStatusDTO {
     mmr: number;
     matchId?: string;
 }
+
+/** Frames on /topic/games/{id}/rematch (RematchSocketController, R-45). */
+export type RematchFrame =
+    | { type: 'VOTE'; accepted: string[] }
+    | { type: 'START'; newGameId: string }
+    | { type: 'CANCEL'; by: string };

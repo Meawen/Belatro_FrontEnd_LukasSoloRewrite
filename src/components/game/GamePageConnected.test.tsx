@@ -12,6 +12,12 @@ vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u3', user
 vi.mock('../../hooks/useBelatroGame', () => ({ useBelatroGame: vi.fn() }))
 // The banner reads the real socket store; here it is a marker that shows where the page mounts it
 vi.mock('./ReconnectBanner', () => ({ ReconnectBanner: () => <p>Reconnect banner slot</p> }))
+// useRematch holds its own socket channel; here it is a stub the tests read back
+const rematchMock = vi.hoisted(() => ({
+    useRematch: vi.fn(),
+    state: { votes: 0, cancelledBy: null, expired: false, playAgain: vi.fn(), leave: vi.fn() },
+}))
+vi.mock('../../hooks/useRematch', () => ({ useRematch: rematchMock.useRematch }))
 
 const actions = { bidTrump: vi.fn(), passBid: vi.fn(), play: vi.fn(), challenge: vi.fn() }
 const seating = ['alice', 'bob', 'carol', 'dave'].map((id) => ({ id, cardsLeft: 6 }))
@@ -47,7 +53,10 @@ function PlayPageStub() {
     return <p data-testid="play-notice" data-navigation={navigationType}>{(location.state as { notice?: string } | null)?.notice}</p>
 }
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+    vi.clearAllMocks()
+    rematchMock.useRematch.mockReturnValue(rematchMock.state)
+})
 
 describe('GamePageConnected', () => {
     test('waits for the connection and the first snapshot', () => {
@@ -170,5 +179,23 @@ describe('GamePageConnected', () => {
         const play = screen.getByTestId('play-notice')
         expect(play).toHaveTextContent("A player declined — you're back in the queue")
         expect(play).toHaveAttribute('data-navigation', 'REPLACE')
+    })
+
+    test('the game-over screen gets the rematch, offered only once the game is over (R-45)', async () => {
+        const user = userEvent.setup()
+        vi.mocked(useBelatroGame).mockReturnValue({
+            publicView, privateView: null, isConnected: true, connectionError: null, error: null, actions,
+        })
+        renderPage()
+        expect(rematchMock.useRematch).toHaveBeenLastCalledWith('g1', false)
+        cleanup()
+        vi.mocked(useBelatroGame).mockReturnValue({
+            publicView: { ...publicView, gameState: 'COMPLETED', winnerTeamId: 'A' }, privateView: null,
+            isConnected: true, connectionError: null, error: null, actions,
+        })
+        renderPage()
+        expect(rematchMock.useRematch).toHaveBeenLastCalledWith('g1', true)
+        await user.click(screen.getByRole('button', { name: 'Play again' }))
+        expect(rematchMock.state.playAgain).toHaveBeenCalledTimes(1)
     })
 })
