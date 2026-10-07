@@ -39,7 +39,13 @@ describe('SignupForm credential rules', () => {
 
     test('a username outside the pattern is refused', async () => {
         await fill('ana.b', 'long-enough-1')
-        expect(screen.getByText('Username must be 3-20 characters: letters, digits or underscore')).toBeInTheDocument()
+        expect(screen.getByText('Username must be 3-20 characters: English letters a-z, digits or underscore')).toBeInTheDocument()
+        expect(auth.signup).not.toHaveBeenCalled()
+    })
+
+    test('a username with Croatian letters is told to use English letters a-z (R-17)', async () => {
+        await fill('mišo', 'long-enough-1')
+        expect(screen.getByText('Username must be 3-20 characters: English letters a-z, digits or underscore')).toBeInTheDocument()
         expect(auth.signup).not.toHaveBeenCalled()
     })
 

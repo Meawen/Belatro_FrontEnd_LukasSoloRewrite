@@ -33,7 +33,11 @@ describe('usernameRuleError (mirrors SignupRequestDTO @Pattern)', () => {
         expect(usernameRuleError('ana.b')).toBe(USERNAME_RULE_MESSAGE)
         expect(usernameRuleError('ana b')).toBe(USERNAME_RULE_MESSAGE)
     })
+    test('letters outside a-z, such as Croatian ones, are refused (R-17)', () => {
+        expect(usernameRuleError('mišo')).toBe(USERNAME_RULE_MESSAGE)
+        expect(usernameRuleError('miso')).toBeNull()
+    })
     test('the message is the backend one, word for word', () => {
-        expect(USERNAME_RULE_MESSAGE).toBe('Username must be 3-20 characters: letters, digits or underscore')
+        expect(USERNAME_RULE_MESSAGE).toBe('Username must be 3-20 characters: English letters a-z, digits or underscore')
     })
 })
