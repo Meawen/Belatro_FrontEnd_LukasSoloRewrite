@@ -1,5 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { JSDOM } from 'jsdom'
 import App from './App'
 import { useUser } from './hooks/useUser'
@@ -109,5 +110,20 @@ describe('Privacy and Terms (R-40)', () => {
             expect(screen.queryByText('Page Not Found'), href).not.toBeInTheDocument()
             cleanup()
         }
+    })
+})
+
+describe('Rules (R-41)', () => {
+    test('/rules is readable signed out and says a challenge is per hand', () => {
+        auth.isAuthenticated = false
+        renderAt('/rules')
+        expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
+        expect(screen.getByText('Each player has one challenge per hand; a wrong challenge uses it up for that hand.')).toBeInTheDocument()
+    })
+
+    test('"Read Guide" on the dashboard opens the rules', async () => {
+        renderAt('/dashboard')
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Read Guide' }))
+        expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
     })
 })

@@ -20,6 +20,7 @@ import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from './components/auth/ResetPasswordPage';
 import { PrivacyPage } from './components/info/PrivacyPage';
 import { TermsPage } from './components/info/TermsPage';
+import { RulesPage } from './components/info/RulesPage';
 import { LobbyList } from './components/lobby/LobbyList';
 import { LobbyDetails } from './components/lobby/LobbyDetails';
 import { AdminDashboard } from './components/admin/AdminDashboard';
@@ -243,7 +244,7 @@ const DashboardContent = () => {
                                 Learn the rules and strategies of this classic card game.
                             </p>
                             <Button
-                                onClick={() => navigate('/guide')}
+                                onClick={() => navigate('/rules')}
                                 variant="outline"
                                 size="small"
                                 className="border-amber-600 text-amber-400 hover:bg-amber-600 hover:text-emerald-900"
@@ -457,6 +458,7 @@ function App() {
                     {/* Public information pages: readable signed in or out (R-40) */}
                     <Route path="/privacy" element={<PrivacyPage />} />
                     <Route path="/terms" element={<TermsPage />} />
+                    <Route path="/rules" element={<RulesPage />} />
 
                     {/* Protected Routes - Using AppLayout with Sidebar enabled */}
                     <Route path="/" element={

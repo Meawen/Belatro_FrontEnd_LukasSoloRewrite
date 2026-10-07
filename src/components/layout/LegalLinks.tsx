@@ -21,6 +21,7 @@ export interface LegalLinksProps {
  */
 export const LegalLinks: React.FC<LegalLinksProps> = ({ className = '' }) => (
     <nav aria-label="Site links" className={`flex flex-wrap items-center gap-x-6 gap-y-2 text-sm ${className}`}>
+        <Link to="/rules" className="hover:text-white transition-colors">Rules</Link>
         <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>
         <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
         <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-white transition-colors">Contact: {SUPPORT_EMAIL}</a>
