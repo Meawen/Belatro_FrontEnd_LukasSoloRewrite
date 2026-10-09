@@ -178,3 +178,23 @@ describe('apiClient logging', () => {
         expect(logs.text()).toMatch(/API Response: 500/)
     })
 })
+
+describe('apiClient base URL (R-28)', () => {
+    afterEach(() => {
+        vi.doUnmock('../config')
+        vi.resetModules()
+        jsdomStorage.clear()
+        vi.unstubAllGlobals()
+    })
+
+    test('a production bundle sends requests to the API origin from config.ts, never to localhost', async () => {
+        vi.doMock('../config', () => ({ API_BASE_URL: 'https://api.example.test', WS_URL: 'https://api.example.test/ws' }))
+        vi.resetModules()
+        vi.stubGlobal('localStorage', jsdomStorage)
+        const fetchMock = vi.fn().mockResolvedValue(fakeResponse(200, { id: 'u1' }))
+        vi.stubGlobal('fetch', fetchMock)
+        const { apiClient: productionClient } = await import('./api')
+        await productionClient.get('/user/me')
+        expect(fetchMock.mock.calls[0][0]).toBe('https://api.example.test/user/me')
+    })
+})

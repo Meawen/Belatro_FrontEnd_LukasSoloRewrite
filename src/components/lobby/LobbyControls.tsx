@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button, Modal, Select, ErrorAlert } from '../common';
 import { useLobbies, useLobby } from '../../hooks/useLobby';
 import type { LobbyDTO, KickPlayerRequestDTO } from '../../types/lobby';
@@ -31,6 +32,7 @@ export const LobbyControls: React.FC<LobbyControlsProps> = ({
         deleteLobby,
         isDeleting
     } = useLobby(lobby.id || undefined);
+    const navigate = useNavigate();
 
     const isHost = currentUser?.id === lobby.hostUser?.id;
     const isPlayerInLobby = [
@@ -56,7 +58,7 @@ export const LobbyControls: React.FC<LobbyControlsProps> = ({
             await leaveLobby(lobby.id);
 
             // Navigate back to lobby list
-            window.location.href = '/lobbies';
+            navigate('/lobbies');
         } catch (error) {
             console.error('Failed to leave lobby:', error);
             setActionError(errorMessage(error, 'Failed to leave lobby'));
@@ -97,7 +99,7 @@ export const LobbyControls: React.FC<LobbyControlsProps> = ({
             setActionError(null);
             await deleteLobby();
             // Navigate back to lobby list
-            window.location.href = '/lobbies';
+            navigate('/lobbies');
         } catch (error) {
             console.error('Failed to delete lobby:', error);
             setActionError(errorMessage(error, 'Failed to delete lobby'));

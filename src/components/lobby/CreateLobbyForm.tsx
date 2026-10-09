@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Input, Select, Checkbox } from '../common';
+import { Button, Input, Checkbox } from '../common';
 import { useLobbies } from '../../hooks/useLobby';
 import type { CreateLobbyDTO } from '../../types/lobby';
 
@@ -10,7 +10,6 @@ export interface CreateLobbyFormProps {
 
 interface CreateLobbyFormData {
     name: string;
-    gameMode: string;
     privateLobby: boolean;
     password: string;
 }
@@ -21,7 +20,6 @@ export const CreateLobbyForm: React.FC<CreateLobbyFormProps> = ({
                                                                 }) => {
     const [formData, setFormData] = useState<CreateLobbyFormData>({
         name: '',
-        gameMode: 'CASUAL',
         privateLobby: false,
         password: ''
     });
@@ -88,25 +86,10 @@ export const CreateLobbyForm: React.FC<CreateLobbyFormProps> = ({
                 />
             </div>
 
-            {/* Game Mode */}
-            <div>
-                <Select
-                    label="Game Mode"
-                    value={formData.gameMode}
-                    onChange={(e) => handleChange('gameMode', e.target.value)}
-                    options={[
-                        { value: 'CASUAL', label: '🎮 Casual' },
-                        { value: 'RANKED', label: '🏆 Ranked' }
-                    ]}
-                    required
-                />
-                <p className="text-xs text-slate-400 mt-1">
-                    {formData.gameMode === 'RANKED'
-                        ? 'Ranked games affect your ELO rating'
-                        : 'Casual games are for fun and practice'
-                    }
-                </p>
-            </div>
+            {/* Game Mode: the server makes every lobby CASUAL; ranked games come from the queue on /play (R-34) */}
+            <p className="text-sm text-slate-300">
+                Lobby games are casual: they don't change your rating.
+            </p>
 
             {/* Private Lobby */}
             <div>

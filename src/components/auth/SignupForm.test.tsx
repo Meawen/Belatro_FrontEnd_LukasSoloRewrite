@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SignupForm } from './SignupForm'
 import { ApiError } from '../../services/api'
@@ -39,7 +39,13 @@ describe('SignupForm credential rules', () => {
 
     test('a username outside the pattern is refused', async () => {
         await fill('ana.b', 'long-enough-1')
-        expect(screen.getByText('Username must be 3-20 characters: letters, digits or underscore')).toBeInTheDocument()
+        expect(screen.getByText('Username must be 3-20 characters: English letters a-z, digits or underscore')).toBeInTheDocument()
+        expect(auth.signup).not.toHaveBeenCalled()
+    })
+
+    test('a username with Croatian letters is told to use English letters a-z (R-17)', async () => {
+        await fill('mišo', 'long-enough-1')
+        expect(screen.getByText('Username must be 3-20 characters: English letters a-z, digits or underscore')).toBeInTheDocument()
         expect(auth.signup).not.toHaveBeenCalled()
     })
 
@@ -119,5 +125,44 @@ describe('SignupForm logging', () => {
         expect(screen.getByText('Passwords do not match')).toBeInTheDocument()
         expect(auth.signup).not.toHaveBeenCalled()
         expect(logs.leaked(PASSWORD, 'not-the-same-pw')).toEqual([])
+    })
+})
+
+describe('SignupForm legal line (R-40)', () => {
+    test('links the Terms and the Privacy notice under Create Account', () => {
+        render(<SignupForm onSuccess={vi.fn()} />)
+        expect(screen.getByText(/By creating an account you accept the/)).toHaveTextContent(
+            'By creating an account you accept the Terms; see the Privacy notice.')
+        expect(screen.getByRole('link', { name: 'Terms' })).toHaveAttribute('href', '/terms')
+        expect(screen.getByRole('link', { name: 'Privacy notice' })).toHaveAttribute('href', '/privacy')
+    })
+})
+
+describe('SignupForm invite code (R-11)', () => {
+    async function fillWithInvite(invite: string) {
+        const user = userEvent.setup()
+        render(<SignupForm onSuccess={vi.fn()} />)
+        await user.type(screen.getByLabelText('Username'), 'ana')
+        await user.type(screen.getByLabelText('Email'), 'ana@example.com')
+        await user.type(screen.getByLabelText('Password'), 'long-enough-1')
+        await user.type(screen.getByLabelText('Confirm Password'), 'long-enough-1')
+        await user.type(screen.getByLabelText('Invite code'), invite)
+        await user.click(screen.getByRole('button', { name: /create account/i }))
+    }
+
+    test('the code is sent as inviteCode, trimmed', async () => {
+        auth.signup.mockResolvedValue({ token: 't', user: { id: 'u1', username: 'ana' }, message: null })
+        await fillWithInvite('  friends-2026  ')
+        expect(auth.signup).toHaveBeenCalledWith({
+            username: 'ana', email: 'ana@example.com', password: 'long-enough-1', inviteCode: 'friends-2026',
+        })
+    })
+
+    test('a 403 "Invalid invite code" shows on the invite field', async () => {
+        auth.signup.mockRejectedValue(new ApiError({ status: 403, message: 'Invalid invite code' }))
+        await fillWithInvite('wrong')
+        const field = screen.getByLabelText('Invite code').closest('.flex-col') as HTMLElement
+        expect(await within(field).findByText('Invalid invite code')).toBeInTheDocument()
+        expect(screen.getAllByText('Invalid invite code')).toHaveLength(1)
     })
 })

@@ -40,12 +40,16 @@ export class ErrorBoundary extends Component<Props, State> {
                         <p className="text-slate-400 mb-4">
                             An unexpected error occurred. Please refresh the page or try again later.
                         </p>
-                        <button
-                            onClick={() => window.location.reload()}
-                            className="btn-primary"
-                        >
-                            Refresh Page
-                        </button>
+                        {/* Full page loads on purpose (R-29): this boundary also wraps the app's
+                            routes (Phase 7), and a fresh load drops whatever state crashed. */}
+                        <div className="flex flex-wrap justify-center gap-3">
+                            <button type="button" onClick={() => window.location.reload()} className="btn-primary">
+                                Reload
+                            </button>
+                            <button type="button" onClick={() => window.location.assign('/dashboard')} className="btn-secondary">
+                                Go to dashboard
+                            </button>
+                        </div>
                     </div>
                 </div>
             );

@@ -150,7 +150,7 @@ export const GameSidebar: React.FC<SidebarProps> = ({ children, customItems }) =
                             <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-lg flex items-center justify-center text-emerald-900 font-bold">
                                 B
                             </div>
-                            <h1 className="text-xl font-bold text-white">Belatro</h1>
+                            <h1 className="text-xl font-bold text-white">Stiglja</h1>
                         </div>
                     )}
 

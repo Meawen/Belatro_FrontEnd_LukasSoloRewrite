@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../common';
 import type { LobbyDTO } from '../../types/lobby';
 import type { UserSimpleDTO } from '../../types/user';
@@ -15,6 +16,7 @@ export const LobbyCard: React.FC<LobbyCardProps> = ({
                                                         currentUser,
                                                         onJoin
                                                     }) => {
+    const navigate = useNavigate();
     const isHost = currentUser?.id === lobby.hostUser?.id;
     const isPlayerInLobby = [
         ...(lobby.teamAPlayers || []),
@@ -161,7 +163,7 @@ export const LobbyCard: React.FC<LobbyCardProps> = ({
                         className="flex-1"
                         onClick={() => {
                             // Navigate to lobby details
-                            window.location.href = `/lobby/${lobby.id}`;
+                            navigate(`/lobby/${lobby.id}`);
                         }}
                     >
                         Enter Lobby

@@ -1,0 +1,36 @@
+# SPA gate: the type check, the Vitest suite and a production build for every push to master and
+# every pull request into it. The build needs an API origin (vite.config.ts refuses a production
+# build without one); a placeholder is enough, nothing is deployed from here. Lint is not a gate.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          # jsdom 30 needs Node 22.22.2 or later; the runner's cached 22.x may be older
+          check-latest: true
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Type check
+        run: npx tsc -b
+      - name: Unit tests
+        run: npx vitest run
+      - name: Production build
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: https://api.example.test
