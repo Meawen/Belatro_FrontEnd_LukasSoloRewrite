@@ -306,14 +306,17 @@ async function formLobby(pages) {
     for (const [index, guest] of guests.entries()) {
         await guest.goto(`${SPA}/lobbies`);
         await guest.getByText(name, { exact: true }).click({ timeout: 15000 });
-        const join = guest.getByRole('button', { name: 'Join Game', exact: true });
-        await join.click();
-        await join.waitFor({ state: 'detached', timeout: 15000 });
+        await guest.getByRole('button', { name: 'Join Game', exact: true }).click();
+        // The button reads "Joining..." while the request runs, so "Join Game" is gone at once;
+        // only the popup closing means the join landed. Leaving earlier aborts the request.
+        const joining = guest.getByRole('button', { name: /^(Join Game|Joining\.\.\.)$/ });
+        await waitUntil(async () => (await joining.count()) === 0, 15000, `${PLAYERS[index + 1]} joined the lobby`);
         await guest.goto(lobbyUrl);
         const team = index === 0 ? 'Join Team A' : 'Join Team B';
-        const teamButton = guest.getByRole('button', { name: team, exact: true });
-        await teamButton.click({ timeout: 15000 });
-        await teamButton.waitFor({ state: 'detached', timeout: 15000 });
+        await guest.getByRole('button', { name: team, exact: true }).click({ timeout: 15000 });
+        // likewise "Switching..." while the team change runs
+        const switching = guest.getByRole('button', { name: new RegExp(`^(${team}|Switching\\.\\.\\.)$`) });
+        await waitUntil(async () => (await switching.count()) === 0, 15000, `${PLAYERS[index + 1]} joined ${team.slice(5)}`);
     }
 
     const start = host.getByRole('button', { name: /Start Match/ });
