@@ -80,6 +80,10 @@ const NEXT_MOVE_TIMEOUT_MS = 45000;
 // A renewal run proves nothing unless it outlives a 3-minute token plus the 60-s socket sweep,
 // counted from the last sign-in (the newest token the tabs started with).
 const RENEWAL_MIN_RUN_MS = 4 * 60000;
+// A quick game ends in under 3 minutes, so a renewal run waits this long before each card: even
+// a five-hand game then outlives RENEWAL_MIN_RUN_MS, and a long one stays well under the 20
+// renewals per hour each player is allowed.
+const RENEWAL_PACE_MS = 1000;
 // A game to 1001 takes about ten hands (~320 cards); far more means it isn't ending.
 const MAX_PLAYS = 2000;
 // A game played out ends once a team reaches this (BelotGame.TARGET_SCORE).
@@ -484,6 +488,7 @@ async function playToTheEnd(pages, stats, restart) {
             await bid(pages[actor], PLAYERS[actor], 'Call Herc');
             stats.trumpCalls += 1;
         } else {
+            if (EXPECT_RENEWAL) await sleep(RENEWAL_PACE_MS);
             const lost = await playOneCard(pages[actor], PLAYERS[actor], stats);
             if (lost && restart && firstMove) restart.firstMoveLostToTimer = lost;
             else if (lost) stats.lostTurns.push(lost);
