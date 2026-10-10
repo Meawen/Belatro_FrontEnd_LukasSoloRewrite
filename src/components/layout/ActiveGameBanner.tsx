@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { userService } from '../../services/userService';
 import { isExpired } from '../../services/tokenRenewal';
+import { Banner, Button } from '../ui';
 
 /** How often a signed-in page asks again whether the player has a seat in a running game. */
 export const ACTIVE_GAME_POLL_MS = 30_000;
@@ -48,19 +49,16 @@ export const ActiveGameBanner: React.FC = () => {
     if (!isAuthenticated || onGamePage || !gameId) return null;
 
     return (
-        <div
-            role="region"
-            aria-label="Game in progress"
-            className="bg-amber-600/20 border-b border-amber-500/40 px-6 py-3 flex flex-wrap items-center gap-3 text-sm text-amber-100"
+        <Banner
+            label="Game in progress"
+            icon="play"
+            action={
+                <Button size="sm" onClick={() => navigate(`/game/${gameId}`)}>
+                    Return to your game
+                </Button>
+            }
         >
-            <span>You have a game in progress.</span>
-            <button
-                type="button"
-                onClick={() => navigate(`/game/${gameId}`)}
-                className="px-3 py-1.5 rounded-lg bg-amber-500 text-emerald-950 font-semibold hover:bg-amber-400 transition-colors"
-            >
-                Return to your game
-            </button>
-        </div>
+            You have a game in progress.
+        </Banner>
     );
 };

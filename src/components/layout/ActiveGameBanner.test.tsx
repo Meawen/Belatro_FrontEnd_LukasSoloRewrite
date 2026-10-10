@@ -5,6 +5,9 @@ import { Link, MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { ActiveGameBanner, ACTIVE_GAME_POLL_MS } from './ActiveGameBanner'
 import { userService } from '../../services/userService'
 
+// Tailwind's own colour scale (bg-amber-600, text-emerald-950, …): the design uses tokens only
+const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange)-\d/
+
 const auth = vi.hoisted(() => ({ isAuthenticated: true }))
 vi.mock('../../hooks/useAuth', () => ({
     useAuth: () => ({ isAuthenticated: auth.isAuthenticated, token: auth.isAuthenticated ? 'tok-1' : null }),
@@ -100,5 +103,13 @@ describe('ActiveGameBanner (R-33)', () => {
         renderAt('/game/g1')
         await settle()
         expect(userService.getActiveGame).not.toHaveBeenCalled()
+    })
+
+    test('the banner is a strip on the design tokens, its action a button (spec §3.2, §3.7)', async () => {
+        vi.mocked(userService.getActiveGame).mockResolvedValue('g1')
+        renderAt('/profile')
+        const banner = await screen.findByRole('region', { name: 'Game in progress' })
+        expect(banner).toHaveTextContent('You have a game in progress.')
+        expect(banner.outerHTML).not.toMatch(RAW_PALETTE)
     })
 })
