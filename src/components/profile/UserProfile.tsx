@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ChangePasswordForm } from './ChangePasswordForm';
-import { ChangeEmailForm } from './ChangeEmailForm';
+import { ChangePasswordForm } from '../settings/ChangePasswordForm';
+import { ChangeEmailForm } from '../settings/ChangeEmailForm';
 import { ResendConfirmationButton } from '../auth/ResendConfirmationButton';
 import { ProfileStats } from './ProfileStats';
 import { Button, ErrorAlert, Loading, Modal } from '../common';

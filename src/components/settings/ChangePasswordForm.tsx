@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Button, Input } from '../common';
+import { Button, Input } from '../ui';
+import { ErrorAlert } from '../common/ErrorAlert';
 // direct module import (not the ../../hooks barrel): keeps component tests from
 // loading every hook module, incl. the WebSocket ones
 import { useMutation } from '../../hooks/useApi';
@@ -86,7 +87,7 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSucces
     // noValidate: the form renders its own inline errors below each field, so
     // native browser constraint bubbles must not pre-empt handleSubmit
     return (
-        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
             <Input
                 label="Current Password"
                 type="password"
@@ -115,29 +116,13 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSucces
                 required
             />
 
-            {errors.submit && (
-                <div className="text-red-400 text-sm bg-red-900/20 p-3 rounded border border-red-500/30">
-                    {errors.submit}
-                </div>
-            )}
+            <ErrorAlert message={errors.submit || null} />
 
-            <div className="flex gap-3 pt-4">
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={onCancel}
-                    disabled={changePasswordMutation.isLoading}
-                    className="flex-1"
-                >
+            <div className="flex flex-wrap justify-end gap-2 pt-2">
+                <Button variant="secondary" onClick={onCancel} disabled={changePasswordMutation.isLoading}>
                     Cancel
                 </Button>
-                <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={changePasswordMutation.isLoading}
-                    isLoading={changePasswordMutation.isLoading}
-                    className="flex-1"
-                >
+                <Button type="submit" loading={changePasswordMutation.isLoading}>
                     Change Password
                 </Button>
             </div>

@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { JSDOM } from 'jsdom'
 import { MotionProvider } from '../motion/MotionProvider'
 
@@ -9,6 +9,14 @@ const KEY = 'stiglja:table-effects'
 const auth = vi.hoisted(() => ({ logout: vi.fn() }))
 vi.mock('../hooks/useAuth', () => ({
     useAuth: () => ({ user: { id: 'u1', username: 'ana' }, isAuthenticated: true, isLoading: false, logout: auth.logout }),
+}))
+// Account and the nav read GET /user/me
+vi.mock('../hooks/useUser', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../hooks/useUser')>()),
+    useMe: () => ({
+        data: { id: 'u1', username: 'ana', email: 'ana@example.com', pendingEmail: null, emailVerified: true, roles: ['ROLE_USER'], deletionRequested: false },
+        isLoading: false, error: null, refetch: vi.fn(),
+    }),
 }))
 
 // Node 26's own localStorage global is unusable here; borrow jsdom's (see services/api.test.ts)
@@ -62,6 +70,26 @@ describe('Settings (spec §4.13)', () => {
     test('under reduced motion a note says the table shows no particles', async () => {
         await renderSettings('always')
         expect(screen.getByText('Your device asks for reduced motion, so the table shows no particles, whatever you pick here.')).toBeInTheDocument()
+    })
+
+    // R-34 as amended (spec §2.5): Settings is in the nav again because it is a real page
+    test("the nav's Settings leads to a page with Table effects and Account (R-34 amended)", async () => {
+        const { Sidebar } = await import('../components/layout/Sidebar')
+        const { SettingsPage } = await import('./SettingsPage')
+        render(
+            <MemoryRouter initialEntries={['/dashboard']}>
+                <Sidebar />
+                <Routes>
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="*" element={null} />
+                </Routes>
+            </MemoryRouter>,
+        )
+        const nav = screen.getByRole('navigation', { name: 'Main navigation' })
+        await userEvent.setup().click(within(nav).getByRole('link', { name: 'Settings' }))
+        expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument()
+        expect(screen.getByRole('region', { name: 'Table effects' })).toBeInTheDocument()
+        expect(screen.getByRole('region', { name: 'Account' })).toHaveAttribute('id', 'account')
     })
 
     test('Log out signs out (a full page load to /, through useAuth)', async () => {

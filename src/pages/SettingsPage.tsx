@@ -1,5 +1,6 @@
 import { Page } from '../components/layout/Page';
 import { TableEffectsSection } from '../components/settings/TableEffectsSection';
+import { AccountSection } from '../components/settings/AccountSection';
 import { Button, Panel, PixelIcon } from '../components/ui';
 import { useAuth } from '../hooks/useAuth';
 
@@ -10,6 +11,7 @@ export function SettingsPage() {
         <Page title="Settings" width="read">
             <div className="flex flex-col gap-4">
                 <TableEffectsSection />
+                <AccountSection />
                 <Panel as="section" padding="lg" aria-label="Log out" className="flex flex-wrap items-center justify-between gap-3">
                     <p className="t-callout text-text-2">Signed in as {user?.username}</p>
                     {/* a full page load to / (useAuth), as from the navigation */}

@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Button, ErrorAlert, Input } from '../common';
+import { Button, Input } from '../ui';
+import { ErrorAlert } from '../common/ErrorAlert';
 // direct module import (not the ../../hooks barrel): keeps component tests from
 // loading every hook module, incl. the WebSocket ones
 import { useMutation } from '../../hooks/useApi';
@@ -69,7 +70,7 @@ export const ChangeEmailForm: React.FC<ChangeEmailFormProps> = ({ currentEmail, 
     // noValidate: the form renders its own inline errors below each field, so
     // native browser constraint bubbles must not pre-empt handleSubmit
     return (
-        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
             <Input
                 label="New email address"
                 type="email"
@@ -88,30 +89,18 @@ export const ChangeEmailForm: React.FC<ChangeEmailFormProps> = ({ currentEmail, 
             />
 
             {/* No promise of a mail: an address another account holds is accepted the same way, but never mailed. */}
-            <p className="text-sm text-slate-400">
+            <p className="t-footnote text-text-2">
                 If the address can be used, we send a confirmation link to it.
                 {currentEmail && ' Your current address stays in use until you confirm.'}
             </p>
 
             <ErrorAlert message={errors.submit ?? null} />
 
-            <div className="flex gap-3 pt-4">
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={onCancel}
-                    disabled={changeEmailMutation.isLoading}
-                    className="flex-1"
-                >
+            <div className="flex flex-wrap justify-end gap-2 pt-2">
+                <Button variant="secondary" onClick={onCancel} disabled={changeEmailMutation.isLoading}>
                     Cancel
                 </Button>
-                <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={changeEmailMutation.isLoading}
-                    isLoading={changeEmailMutation.isLoading}
-                    className="flex-1"
-                >
+                <Button type="submit" loading={changeEmailMutation.isLoading}>
                     Send confirmation link
                 </Button>
             </div>
