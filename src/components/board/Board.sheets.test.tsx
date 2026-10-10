@@ -116,6 +116,21 @@ describe('Board: the hand result and the end sheet on real views (spec §5.4, R-
         expect(screen.queryByText('Next hand shortly')).not.toBeInTheDocument()
     })
 
+    test('while the last trick is held, Challenge and its hint stay in the HUD; then they move into the sheet (spec §5.3.5 rule 5)', () => {
+        vi.useFakeTimers()
+        const last = indexOf(table, 'hand-complete')
+        const { rerenderWith } = renderBoard({ state: tableState(table[last - 1]) })
+        rerenderWith({ state: tableState(table[indexOf(table, 'window-open')]) })
+        expect(screen.queryByTestId('hand-result')).not.toBeInTheDocument()
+        expect(screen.getAllByRole('button', { name: 'Challenge' })).toHaveLength(1)
+        expect(screen.getAllByTestId('challenge-hint')).toHaveLength(1)
+        act(() => { vi.advanceTimersByTime(900) })
+        const sheet = screen.getByTestId('hand-result')
+        expect(screen.getAllByRole('button', { name: 'Challenge' })).toHaveLength(1)
+        expect(within(sheet).getByRole('button', { name: 'Challenge' })).toBeInTheDocument()
+        expect(screen.getAllByTestId('challenge-hint')).toHaveLength(1)
+    })
+
     test('Challenge and its hint sit in the hand-result sheet in HAND_COMPLETE, not in the HUD', async () => {
         const user = userEvent.setup()
         const moves = actions()

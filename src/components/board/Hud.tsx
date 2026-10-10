@@ -45,8 +45,10 @@ export interface HudProps {
     calledBy: string | null;
     /** Counts the trump calls, so each call flies once. */
     calls: number;
-    /** Challenge while playing (in HAND_COMPLETE it sits in the hand-result sheet). */
+    /** Challenge while playing, and in HAND_COMPLETE until the hand-result sheet (which then holds it) is open. */
     onChallenge: () => void;
+    /** The hand-result sheet is open: Challenge sits there, not here. */
+    resultOpen: boolean;
     onMenu: () => void;
     /** Phones: "Blok" opens Bela Blok as a sheet; null where it is a column. */
     onBlok: (() => void) | null;
@@ -57,7 +59,7 @@ export interface HudProps {
  * the trump badge, whose inner `trump` element holds exactly the suit name and exists only once trump
  * is called ("Bidding" and the season word sit outside it); Challenge while playing; Blok (phones); the menu.
  */
-export function Hud({ model, instant, calledBy, calls, onChallenge, onMenu, onBlok }: HudProps) {
+export function Hud({ model, instant, calledBy, calls, onChallenge, resultOpen, onMenu, onBlok }: HudProps) {
     const reduced = useReducedMotion();
     const badge = useRef<HTMLSpanElement>(null);
     const mine = model.myTeam ?? 'A';
@@ -95,7 +97,8 @@ export function Hud({ model, instant, calledBy, calls, onChallenge, onMenu, onBl
                         <span className="board-hud__chip">Blok</span>
                     </button>
                 )}
-                {model.canChallenge && model.playing && <Challenge place="hud" onChallenge={onChallenge} />}
+                {/* nothing waits for the hold (§5.3.5 rule 5): while the last trick is held the window is already open */}
+                {model.canChallenge && (model.playing || (model.handComplete && !resultOpen)) && <Challenge place="hud" onChallenge={onChallenge} />}
             </div>
             <div className="board-hud__group">
                 <span className="board-hud__chip">

@@ -294,7 +294,7 @@ export function Board(props: BoardProps) {
                         )}
                         <SweepLayer stage={current} model={model} layout={layout} targets={targets} reduced={reduced} />
                         <Hud model={model} instant={instant} calledBy={called?.type === 'TrumpCalled' ? called.playerId : null} calls={current.calls} onChallenge={actions.challenge}
-                            onMenu={() => setPanel('menu')} onBlok={layout.blok ? null : () => open('blok')} />
+                            resultOpen={model.handComplete && current.held === null} onMenu={() => setPanel('menu')} onBlok={layout.blok ? null : () => open('blok')} />
                         {error && <div className="board-error"><ErrorAlert message={error} /></div>}
                     </div>
                     {layout.blok && <BlokColumn model={model} hands={hands} />}
