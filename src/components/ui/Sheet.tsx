@@ -108,7 +108,6 @@ function SheetLayer({
 
     useEffect(() => {
         if (modal && !present) giveBack(panelRef.current);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [modal, present]);
 
     // Modal: the page under the sheet does not scroll while it is open.
