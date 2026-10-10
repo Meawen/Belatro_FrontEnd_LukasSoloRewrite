@@ -26,6 +26,7 @@ import { PlayPage } from './pages/PlayPage';
 import { LobbiesPage } from './pages/LobbiesPage';
 import { LobbyPage } from './pages/LobbyPage';
 import { MatchesPage } from './pages/MatchesPage';
+import { MatchDetailsPage } from './pages/MatchDetailsPage';
 import { ProfilePage, UserProfilePage } from './pages/ProfilePage';
 import { FriendsPage } from './pages/FriendsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -81,6 +82,7 @@ function App() {
                         <Route path="/lobbies" element={<LobbiesPage />} />
                         <Route path="/lobby/:lobbyId" element={<LobbyPage />} />
                         <Route path="/matches" element={<MatchesPage />} />
+                        <Route path="/matches/:id" element={<MatchDetailsPage />} />
                         <Route path="/profile" element={<ProfilePage />} />
                         <Route path="/profile/:userId" element={<UserProfilePage />} />
                         <Route path="/friends" element={<FriendsPage />} />

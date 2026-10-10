@@ -1,714 +1,205 @@
-import React, { useState } from 'react';
-import { Modal, Button } from '../common';
-import { PlayingCard } from '../common/PlayingCard';
-import type { PlayerMatchHistoryDTO } from '../../types/user';
-import type { UserSimpleDTO, HandDTO, TrumpCallDTO, MoveDTO, TrickDTO, ChallengeDTO } from '../../types';
-import { parseMatchResult } from './matchResult';
+import type { ReactNode } from 'react';
+import { m } from 'motion/react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Page } from '../layout/Page';
+import { Avatar, Button, EmptyState, ErrorState, Loader, Panel, PixelIcon, Tag } from '../ui';
+import type { IconName } from '../ui';
+import { cx } from '../ui/cx';
+import { spring } from '../../motion/tokens';
+import { useAuth } from '../../hooks/useAuth';
+import type { HandDTO, MatchDTO } from '../../types/match';
+import type { UserSimpleDTO } from '../../types/user';
+import { matchOutcome, type MatchOutcome } from './MatchRow';
+import { parseMatchResult, yourResult } from './matchResult';
+import { matchesPath, pageFromState } from './matchesPath';
+import { useMatchDetails } from './useMatchDetails';
 
-interface MatchDetailsProps {
-    historyItem: PlayerMatchHistoryDTO;
-    currentUserId?: string;
-    onClose: () => void;
+/** "h:mm:ss" from an hour on, else "m:ss"; "Unknown" without both times (today's Match Details rule). */
+export function formatDuration(startTime: string | null, endTime: string | null): string {
+    if (!startTime || !endTime) return 'Unknown';
+    const durationMs = new Date(endTime).getTime() - new Date(startTime).getTime();
+    const hours = Math.floor(durationMs / 3_600_000);
+    const minutes = Math.floor((durationMs % 3_600_000) / 60_000);
+    const seconds = Math.floor((durationMs % 60_000) / 1000);
+    const mm = String(minutes).padStart(2, '0');
+    const ss = String(seconds).padStart(2, '0');
+    return hours > 0 ? `${hours}:${mm}:${ss}` : `${minutes}:${ss}`;
 }
 
-export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, currentUserId, onClose }) => {
-    const { history, yourResult } = historyItem;
-    const match = history?.match;
-    const moves = history?.moves;
-    const structuredMoves = history?.structuredMoves;
+// The result colour on the hero's tile and title (spec §4.9), as on the list's rows; text pairs on --surface
+const TONE: Record<MatchOutcome, { tile: string; word: string; icon: IconName }> = {
+    win: { tile: 'bg-success/20 text-success', word: 'text-success', icon: 'check' },
+    loss: { tile: 'bg-danger/20 text-danger-text', word: 'text-danger-text', icon: 'x' },
+    draw: { tile: 'bg-accent/20 text-accent', word: 'text-accent', icon: 'more' },
+};
 
-    const [expandedHands, setExpandedHands] = useState<Set<number>>(new Set());
+/** Item 1: the result icon, the result as the page's h1, "Match ID: {last 12}", the mode, "{n} Players". */
+function Hero({ match, result }: { match: MatchDTO; result: string | null }) {
+    const outcome = matchOutcome(result);
+    const tone = outcome ? TONE[outcome] : null;
+    const players = (match.teamA?.length ?? 0) + (match.teamB?.length ?? 0);
+    return (
+        <Panel as="section" padding="lg" className="flex flex-wrap items-center gap-4">
+            <span className={cx('notch grid size-15 shrink-0 place-items-center', tone?.tile ?? 'bg-surface-2 text-text-2')}>
+                <PixelIcon name={tone?.icon ?? 'more'} scale={3} />
+            </span>
+            <div className="min-w-0 flex-1">
+                <h1 className={cx('t-display break-words', tone?.word ?? 'text-text')}>{result || 'Unknown Result'}</h1>
+                <p className="t-footnote mt-2 flex flex-wrap items-center gap-2 text-text-2">
+                    <span>{`Match ID: ${match.id?.slice(-12) || 'Unknown'}`}</span>
+                    <Tag tone={match.gameMode === 'RANKED' ? 'mode' : 'neutral'}>{match.gameMode || 'Unknown'}</Tag>
+                </p>
+            </div>
+            <p className="flex items-baseline gap-2">
+                <span className="t-score-xl tabular-nums">{players}</span> <span className="t-callout text-text-2">Players</span>
+            </p>
+        </Panel>
+    );
+}
 
-    if (!match) {
-        return (
-            <Modal isOpen={true} onClose={onClose} title="Match Details">
-                <div className="text-center py-12">
-                    <svg className="w-16 h-16 text-emerald-400/50 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p className="text-emerald-400/70">Match data is not available</p>
+/** Item 2: one stat tile. */
+function Tile({ label, value, numeric = true }: { label: string; value: ReactNode; numeric?: boolean }) {
+    return (
+        <Panel padding="none" className="px-4 py-3">
+            <dt className="t-caption text-text-2">{label}</dt>
+            <dd className={cx('mt-1 tabular-nums', numeric ? 't-score' : 't-headline')}>{value}</dd>
+        </Panel>
+    );
+}
+
+/** Item 3: "Team A" / "Team B", "{n} members", each member's avatar and name, YOU on mine. */
+function TeamPanel({ team, members, myId }: { team: 'A' | 'B'; members: UserSimpleDTO[]; myId: string | null | undefined }) {
+    return (
+        <Panel as="section" aria-label={`Team ${team}`}>
+            <div className="flex items-center gap-3">
+                <span aria-hidden="true" className={cx('notch grid size-9 place-items-center t-headline text-ink', team === 'A' ? 'bg-team-a' : 'bg-team-b')}>
+                    {team}
+                </span>
+                <div>
+                    <h2 className="t-headline">Team {team}</h2>
+                    <p className="t-footnote text-text-3">{members.length} members</p>
                 </div>
-            </Modal>
+            </div>
+            <ul className="mt-3 flex flex-col gap-1.5">
+                {members.map((player, index) => {
+                    const me = !!myId && player.id === myId;
+                    return (
+                        <li key={player.id ?? index} className={cx('notch flex items-center gap-3 bg-bg px-2 py-2', me && 'shadow-[inset_0_0_0_2px_var(--accent)]')}>
+                            <Avatar initial={player.username || '?'} tone={team === 'A' ? 'team-a' : 'team-b'} size="sm" />
+                            <span className="t-callout min-w-0 truncate">{player.username || 'Unknown'}</span>
+                            {me && <span className="t-caption text-accent">YOU</span>}
+                        </li>
+                    );
+                })}
+            </ul>
+        </Panel>
+    );
+}
+
+/** A team's final score: the number alone in `final-a` / `final-b`, then its label (spec §7.4 reads both). */
+function FinalScore({ team, score, decl }: { team: 'A' | 'B'; score: number; decl: number }) {
+    return (
+        <div>
+            <div data-testid={team === 'A' ? 'final-a' : 'final-b'} className={cx('t-score-xl tabular-nums', team === 'A' ? 'text-team-a' : 'text-team-b')}>
+                {score}
+            </div>
+            <div className="t-footnote">Team {team} Final</div>
+            {decl > 0 && <div className="t-footnote text-text-3">{decl} decl</div>}
+        </div>
+    );
+}
+
+/** Item 4: the final scores from `result` (R-36) with the match's declarations; a forfeit says so. */
+function MatchSummary({ result, hands }: { result: string; hands: HandDTO[] | null }) {
+    const scores = parseMatchResult(result);
+    const decl = (team: 'A' | 'B') =>
+        (hands ?? []).reduce((sum, hand) => sum + ((team === 'A' ? hand.handSummary?.teamADeclPoints : hand.handSummary?.teamBDeclPoints) || 0), 0);
+    let body: ReactNode;
+    if (scores === 'forfeit') {
+        // a forfeit result carries no points (R-36)
+        body = (
+            <div className="text-center">
+                <p className="t-headline">Won by forfeit</p>
+                <p className="t-footnote mt-1 text-text-2">{result}</p>
+            </div>
+        );
+    } else if (scores) {
+        body = (
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
+                <FinalScore team="A" score={scores.teamAScore} decl={decl('A')} />
+                <p className="t-callout max-w-40 text-text-2">{result}</p>
+                <FinalScore team="B" score={scores.teamBScore} decl={decl('B')} />
+            </div>
+        );
+    } else {
+        body = <p className="t-callout text-center text-text-2">{result}</p>;
+    }
+    return (
+        <Panel as="section" aria-label="Match summary">
+            <h2 className="t-title mb-3">Match summary</h2>
+            {body}
+        </Panel>
+    );
+}
+
+/**
+ * Match details, /matches/:id (spec §4.9; D-29): one match on its own page, pushed from the right. Every
+ * feature of the old Match Details modal is kept. "‹ Match History" and "Back to Match History" return to
+ * the list page the row was on (its router state), else to page 1.
+ */
+export function MatchDetails({ id }: { id: string }) {
+    const { user } = useAuth();
+    const navigate = useNavigate();
+    const listPath = matchesPath(pageFromState(useLocation().state));
+    const details = useMatchDetails(id);
+    const match = details.loading || details.failed ? null : details.match;
+    const toList = <Button onClick={() => navigate(listPath)}>Back to Match History</Button>;
+
+    let content: ReactNode;
+    if (details.loading) {
+        content = <Loader text="Loading match…" />;
+    } else if (details.failed) {
+        content = (
+            <Panel>
+                <ErrorState title="Couldn't load this match" action={<Button variant="secondary" onClick={details.retry}>Try again</Button>} />
+            </Panel>
+        );
+    } else if (!match) {
+        content = (
+            <Panel>
+                <EmptyState icon="info" title="Match data is not available" action={toList} />
+            </Panel>
+        );
+    } else {
+        const { hands } = details;
+        content = (
+            <div className="flex flex-col gap-3">
+                <Hero match={match} result={yourResult(match, user?.id)} />
+                <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <Tile label="Duration" value={formatDuration(match.startTime, match.endTime)} />
+                    <Tile label="Mode" value={match.gameMode || 'Unknown'} numeric={false} />
+                    <Tile label="Hands" value={hands ? hands.length : '—'} />
+                    <Tile label="Tricks" value={hands ? hands.reduce((total, hand) => total + (hand.tricks?.length ?? 0), 0) : '—'} />
+                </dl>
+                <div className="grid gap-3 md:grid-cols-2">
+                    <TeamPanel team="A" members={match.teamA ?? []} myId={user?.id} />
+                    <TeamPanel team="B" members={match.teamB ?? []} myId={user?.id} />
+                </div>
+                {match.result && <MatchSummary result={match.result} hands={hands} />}
+                <div className="flex justify-end">{toList}</div>
+            </div>
         );
     }
 
-    const formatDuration = (startTime?: string, endTime?: string) => {
-        if (!startTime || !endTime) return 'Unknown';
-
-        const start = new Date(startTime).getTime();
-        const end = new Date(endTime).getTime();
-        const durationMs = end - start;
-
-        const hours = Math.floor(durationMs / (1000 * 60 * 60));
-        const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((durationMs % (1000 * 60)) / 1000);
-
-        if (hours > 0) {
-            return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    };
-
-    const duration = formatDuration(match.startTime || undefined, match.endTime || undefined);
-    const totalPlayers = (match.teamA?.length || 0) + (match.teamB?.length || 0);
-
-    // Enhanced result styling
-    const getResultStyling = () => {
-        if (yourResult?.toLowerCase().includes('win')) return 'bg-gradient-to-r from-emerald-600 to-green-600';
-        if (yourResult?.toLowerCase().includes('draw')) return 'bg-gradient-to-r from-amber-600 to-yellow-600';
-        if (yourResult?.toLowerCase().includes('loss')) return 'bg-gradient-to-r from-red-600 to-rose-600';
-        return 'bg-gradient-to-r from-emerald-600 to-teal-600';
-    };
-
-    const getResultIcon = () => {
-        const iconClass = "w-8 h-8 text-white";
-
-        if (yourResult?.toLowerCase().includes('win')) {
-            return <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>;
-        }
-        if (yourResult?.toLowerCase().includes('draw')) {
-            return <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>;
-        }
-        if (yourResult?.toLowerCase().includes('loss')) {
-            return <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>;
-        }
-        return <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>;
-    };
-
-    // Helper functions for card display
-    const parseCardName = (cardString: string) => {
-        // Parse "DECKO of PIK" format
-        const parts = cardString.split(' of ');
-        if (parts.length === 2) {
-            return { rank: parts[0].trim(), suit: parts[1].trim() };
-        }
-
-        // Fallback for other formats
-        return { rank: cardString, suit: '' };
-    };
-
-    const toggleHandExpansion = (handIndex: number) => {
-        const newExpanded = new Set(expandedHands);
-        if (newExpanded.has(handIndex)) {
-            newExpanded.delete(handIndex);
-        } else {
-            newExpanded.add(handIndex);
-        }
-        setExpandedHands(newExpanded);
-    };
-
-    const getPlayerColor = (playerName: string | null | undefined) => {
-        if (!playerName) return 'bg-gray-500/20 border border-gray-400/30 text-gray-200';
-
-        // Check if player is current user
-        const currentUser = match.teamA?.find(p => p.id === currentUserId) || match.teamB?.find(p => p.id === currentUserId);
-        if (currentUser && currentUser.username === playerName) {
-            return 'bg-gradient-to-r from-purple-500/20 to-emerald-500/20 border border-purple-400/30 text-purple-200';
-        }
-
-        // Check team membership for color coding
-        const isTeamA = match.teamA?.some(p => p.username === playerName);
-        if (isTeamA) {
-            return 'bg-blue-500/20 border border-blue-400/30 text-blue-200';
-        }
-        return 'bg-red-500/20 border border-red-400/30 text-red-200';
-    };
-
-    // Helper function to count illegal moves in a hand
-    const countIllegalMovesInHand = (hand: HandDTO) => {
-        if (!hand.tricks) return 0;
-        return hand.tricks.reduce((count, trick) => {
-            if (!trick.moves) return count;
-            return count + trick.moves.filter(move => move.legal === false).length;
-        }, 0);
-    };
-
-    // Helper function to calculate total declarations across all hands
-    const calculateTotalDeclarations = (hands: HandDTO[]) => {
-        let teamADeclTotal = 0;
-        let teamBDeclTotal = 0;
-
-        hands.forEach(hand => {
-            if (hand.handSummary) {
-                teamADeclTotal += hand.handSummary.teamADeclPoints || 0;
-                teamBDeclTotal += hand.handSummary.teamBDeclPoints || 0;
-            }
-        });
-
-        return { teamADeclTotal, teamBDeclTotal };
-    };
-
-
     return (
-        <Modal
-            isOpen={true}
-            onClose={onClose}
-            title="Match Details"
-            size="large"
-        >
-            <div className="space-y-6">
-                {/* Hero Section - Match Result */}
-                <div className={`${getResultStyling()} p-6 rounded-xl text-white`}>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                                {getResultIcon()}
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-bold">{yourResult || 'Unknown Result'}</h2>
-                                <p className="text-white/80">Match ID: {match.id?.slice(-12) || 'Unknown'}</p>
-                                <div className="flex items-center gap-2 mt-2">
-                                    <span className="bg-white/20 text-white px-2 py-1 rounded-full text-sm">
-                                        {match.gameMode || 'Unknown'}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <div className="text-3xl font-bold">{totalPlayers}</div>
-                            <div className="text-white/80">Players</div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Key Stats Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-emerald-900/30 p-4 rounded-lg border border-emerald-700/30">
-                        <div className="flex items-center gap-2 mb-2">
-                            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span className="text-emerald-400 text-sm font-medium">Duration</span>
-                        </div>
-                        <div className="text-white text-lg font-semibold">{duration}</div>
-                    </div>
-
-                    <div className="bg-emerald-900/30 p-4 rounded-lg border border-emerald-700/30">
-                        <div className="flex items-center gap-2 mb-2">
-                            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                            <span className="text-emerald-400 text-sm font-medium">Mode</span>
-                        </div>
-                        <div className="text-white text-lg font-semibold">{match.gameMode || 'Unknown'}</div>
-                    </div>
-
-                    <div className="bg-emerald-900/30 p-4 rounded-lg border border-emerald-700/30">
-                        <div className="flex items-center gap-2 mb-2">
-                            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            <span className="text-emerald-400 text-sm font-medium">Hands</span>
-                        </div>
-                        <div className="text-white text-lg font-semibold">{structuredMoves?.length || 0}</div>
-                    </div>
-
-                    <div className="bg-emerald-900/30 p-4 rounded-lg border border-emerald-700/30">
-                        <div className="flex items-center gap-2 mb-2">
-                            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                            </svg>
-                            <span className="text-emerald-400 text-sm font-medium">Tricks</span>
-                        </div>
-                        <div className="text-white text-lg font-semibold">
-                            {structuredMoves?.reduce((total, hand) => total + (hand.tricks?.length || 0), 0) || 0}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Teams Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Team A */}
-                    <div className="bg-emerald-900/20 border border-emerald-700/30 p-5 rounded-xl">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                                <span className="text-white font-bold text-lg">A</span>
-                            </div>
-                            <div>
-                                <h3 className="text-emerald-300 font-semibold text-lg">Team Alpha</h3>
-                                <p className="text-emerald-400/70 text-sm">{match.teamA?.length || 0} members</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3">
-                            {match.teamA?.map((player: UserSimpleDTO) => (
-                                <div
-                                    key={player.id}
-                                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                                        player.id === currentUserId
-                                            ? 'bg-gradient-to-r from-purple-900/50 to-emerald-900/50 border border-purple-500/30'
-                                            : 'bg-emerald-950/30 hover:bg-emerald-950/50'
-                                    }`}
-                                >
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
-                                        player.id === currentUserId
-                                            ? 'bg-gradient-to-r from-purple-500 to-emerald-500 text-white'
-                                            : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
-                                    }`}>
-                                        {player.username?.charAt(0).toUpperCase() || '?'}
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="text-emerald-200 font-medium">
-                                            {player.username}
-                                            {player.id === currentUserId && (
-                                                <span className="ml-2 bg-purple-500/30 text-purple-300 px-2 py-0.5 rounded-full text-xs">
-                                                    You
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Team B */}
-                    <div className="bg-emerald-900/20 border border-emerald-700/30 p-5 rounded-xl">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-pink-500 rounded-lg flex items-center justify-center">
-                                <span className="text-white font-bold text-lg">B</span>
-                            </div>
-                            <div>
-                                <h3 className="text-emerald-300 font-semibold text-lg">Team Bravo</h3>
-                                <p className="text-emerald-400/70 text-sm">{match.teamB?.length || 0} members</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3">
-                            {match.teamB?.map((player: UserSimpleDTO) => (
-                                <div
-                                    key={player.id}
-                                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                                        player.id === currentUserId
-                                            ? 'bg-gradient-to-r from-purple-900/50 to-emerald-900/50 border border-purple-500/30'
-                                            : 'bg-emerald-950/30 hover:bg-emerald-950/50'
-                                    }`}
-                                >
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
-                                        player.id === currentUserId
-                                            ? 'bg-gradient-to-r from-purple-500 to-emerald-500 text-white'
-                                            : 'bg-gradient-to-r from-red-500 to-pink-500 text-white'
-                                    }`}>
-                                        {player.username?.charAt(0).toUpperCase() || '?'}
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="text-emerald-200 font-medium">
-                                            {player.username}
-                                            {player.id === currentUserId && (
-                                                <span className="ml-2 bg-purple-500/30 text-purple-300 px-2 py-0.5 rounded-full text-xs">
-                                                    You
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Match Summary */}
-                {match.result && structuredMoves && structuredMoves.length > 0 && (
-                    <div className="bg-emerald-900/20 border border-emerald-700/30 p-5 rounded-xl">
-                        <div className="flex items-center gap-3 mb-4">
-                            <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <h3 className="text-emerald-300 font-semibold text-lg">Match Summary</h3>
-                        </div>
-                        {(() => {
-                            const scores = parseMatchResult(match.result) ?? { teamAScore: 0, teamBScore: 0 };
-                            // a forfeit result carries no points (R-36)
-                            if (scores === 'forfeit') {
-                                return (
-                                    <div className="text-center">
-                                        <div className="text-emerald-100 font-semibold text-lg">Won by forfeit</div>
-                                        <div className="text-emerald-300/80 text-sm mt-1">{match.result}</div>
-                                    </div>
-                                );
-                            }
-                            const { teamAScore, teamBScore } = scores;
-                            const { teamADeclTotal, teamBDeclTotal } = calculateTotalDeclarations(structuredMoves);
-                            
-                            return (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    {/* Final Scores */}
-                                    <div className="text-center">
-                                        <div className="text-blue-300 font-bold text-2xl">{teamAScore}</div>
-                                        <div className="text-blue-300/70 text-sm">Team A Final</div>
-                                        {teamADeclTotal > 0 && <div className="text-blue-300/60 text-xs mt-1">{teamADeclTotal} decl</div>}
-                                    </div>
-                                    
-                                    <div className="text-center flex items-center justify-center">
-                                        <div className="text-emerald-100 font-medium">{match.result}</div>
-                                    </div>
-                                    
-                                    <div className="text-center">
-                                        <div className="text-red-300 font-bold text-2xl">{teamBScore}</div>
-                                        <div className="text-red-300/70 text-sm">Team B Final</div>
-                                        {teamBDeclTotal > 0 && <div className="text-red-300/60 text-xs mt-1">{teamBDeclTotal} decl</div>}
-                                    </div>
-                                </div>
-                            );
-                        })()}
-                    </div>
-                )}
-
-                {/* Enhanced Game Details with Structured Moves */}
-                {structuredMoves && structuredMoves.length > 0 && (
-                    <div className="bg-emerald-900/20 border border-emerald-700/30 p-5 rounded-xl">
-                        <div className="mb-6">
-                            <h3 className="text-emerald-300 font-semibold text-xl flex items-center gap-3">
-                                <div className="w-8 h-8 bg-emerald-600/30 rounded-lg flex items-center justify-center">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                    </svg>
-                                </div>
-                                Game History ({structuredMoves.length} hands)
-                            </h3>
-                        </div>
-
-                        <div className="space-y-4">
-                            {structuredMoves.map((hand: HandDTO, handIndex: number) => (
-                                <div key={handIndex} className="bg-emerald-950/50 border border-emerald-800/50 rounded-xl overflow-hidden">
-                                    {/* Hand Header */}
-                                    <div
-                                        className="p-4 cursor-pointer hover:bg-emerald-950/70 transition-colors"
-                                        onClick={() => toggleHandExpansion(handIndex)}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 bg-emerald-600/40 rounded-lg flex items-center justify-center text-emerald-200 font-bold text-sm">
-                                                    {hand.handNo || handIndex + 1}
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-emerald-200 font-semibold">
-                                                            Hand {hand.handNo || handIndex + 1}
-                                                        </span>
-                                                        {hand.handSummary?.padanje && (
-                                                            <span className="bg-amber-600/30 text-amber-300 px-2 py-1 rounded-full text-xs font-bold border border-amber-500/30">
-                                                                 Padanje
-                                                            </span>
-                                                        )}
-                                                        {countIllegalMovesInHand(hand) > 0 && (
-                                                            <span className="bg-red-600/30 text-red-300 px-2 py-0.5 rounded-full text-xs font-medium">
-                                                                {countIllegalMovesInHand(hand)} illegal
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {hand.handSummary && (hand.handSummary.finalScoreA !== undefined || hand.handSummary.finalScoreB !== undefined) && (
-                                                        <div className="mt-1 text-sm text-emerald-300/80 font-medium">
-                                                            {hand.handSummary.finalScoreA || 0} - {hand.handSummary.finalScoreB || 0}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-3">
-                                                {/* Trump calls preview */}
-                                                {hand.trumpCalls && hand.trumpCalls.length > 0 && (
-                                                    <div className="flex gap-1">
-                                                        {hand.trumpCalls.slice(0, 2).map((call: TrumpCallDTO, i: number) => (
-                                                            <span key={i} className={`px-2 py-1 rounded text-xs font-medium ${
-                                                                call.trump === 'PASS'
-                                                                    ? 'bg-gray-600/30 text-gray-300'
-                                                                    : 'bg-amber-600/30 text-amber-300'
-                                                            }`}>
-                                                                {call.trump}
-                                                            </span>
-                                                        ))}
-                                                        {hand.trumpCalls.length > 2 && (
-                                                            <span className="text-emerald-400/60 text-xs">+{hand.trumpCalls.length - 2}</span>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                <svg
-                                                    className={`w-5 h-5 text-emerald-400 transition-transform ${
-                                                        expandedHands.has(handIndex) ? 'rotate-180' : ''
-                                                    }`}
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    viewBox="0 0 24 24"
-                                                >
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Expanded Hand Details */}
-                                    {expandedHands.has(handIndex) && (
-                                        <div className="border-t border-emerald-800/30 p-4 space-y-5">
-                                            {/* Hand Summary */}
-                                            {hand.handSummary && (
-                                                <div className="bg-emerald-900/30 rounded-lg p-3">
-                                                    <h4 className="text-emerald-300 font-medium mb-2">Hand Summary</h4>
-                                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                                        <div>
-                                                            <span className="text-blue-300">Team A: {hand.handSummary.teamAPoints} pts</span>
-                                                            {hand.handSummary.teamADeclPoints > 0 && <span className="text-blue-300/70 ml-2">({hand.handSummary.teamADeclPoints} decl)</span>}
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-red-300">Team B: {hand.handSummary.teamBPoints} pts</span>
-                                                            {hand.handSummary.teamBDeclPoints > 0 && <span className="text-red-300/70 ml-2">({hand.handSummary.teamBDeclPoints} decl)</span>}
-                                                        </div>
-                                                        <div className="text-emerald-400/70">Tricks: {hand.tricks?.length || 0}</div>
-                                                        <div className="text-emerald-400/70">Trump Calls: {hand.trumpCalls?.length || 0}</div>
-                                                    </div>
-                                                    {(hand.handSummary.capot || hand.handSummary.padanje) && (
-                                                        <div className="flex gap-2 mt-2">
-                                                            {hand.handSummary.capot && (
-                                                                <span className="bg-purple-600/30 text-purple-300 px-2 py-0.5 rounded-full text-xs font-medium">
-                                                                    Capot
-                                                                </span>
-                                                            )}
-                                                            {hand.handSummary.padanje && (
-                                                                <span className="bg-amber-600/30 text-amber-300 px-2 py-0.5 rounded-full text-xs font-medium">
-                                                                    Hand Awarded (Padanje)
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            {/* Trump Calls */}
-                                            {hand.trumpCalls && hand.trumpCalls.length > 0 && (
-                                                <div>
-                                                    <h4 className="text-emerald-300 font-medium mb-3 flex items-center gap-2">
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4V2a1 1 0 011-1h4a1 1 0 011 1v2h4a1 1 0 011 1v4a1 1 0 01-1 1h-1l-1 10a1 1 0 01-1 1H8a1 1 0 01-1-1L6 10H5a1 1 0 01-1-1V6a1 1 0 011-1h2z" />
-                                                        </svg>
-                                                        Trump Declarations
-                                                    </h4>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                        {hand.trumpCalls.map((call: TrumpCallDTO, i: number) => (
-                                                            <div key={i} className={`p-3 rounded-lg border ${getPlayerColor(call.player)}`}>
-                                                                <div className="flex items-center justify-between">
-                                                                    <span className="font-medium">{call.player || 'Unknown'}</span>
-                                                                    <div className={`px-3 py-1 rounded-full text-sm font-bold ${
-                                                                        call.trump === 'PASS'
-                                                                            ? 'bg-gray-600/50 text-gray-200'
-                                                                            : 'bg-amber-600/50 text-amber-200'
-                                                                    }`}>
-                                                                        {call.trump}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Challenges */}
-                                            {hand.challenges && hand.challenges.length > 0 && (
-                                                <div>
-                                                    <h4 className="text-emerald-300 font-medium mb-3 flex items-center gap-2">
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                        </svg>
-                                                        Challenges
-                                                    </h4>
-                                                    <div className="space-y-2">
-                                                        {hand.challenges.map((challenge: ChallengeDTO, i: number) => (
-                                                            <div key={i} className={`p-3 rounded-lg border flex items-center justify-between ${
-                                                                challenge.success 
-                                                                    ? 'bg-green-900/30 border-green-700/50 text-green-200' 
-                                                                    : 'bg-red-900/30 border-red-700/50 text-red-200'
-                                                            }`}>
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                                                                        challenge.success 
-                                                                            ? 'bg-green-600/50 text-green-100' 
-                                                                            : 'bg-red-600/50 text-red-100'
-                                                                    }`}>
-                                                                        {challenge.success ? '✓' : '✗'}
-                                                                    </div>
-                                                                    <span className="font-medium">Challenge by {challenge.player || 'Unknown'}</span>
-                                                                </div>
-                                                                <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                                                                    challenge.success 
-                                                                        ? 'bg-green-600/50 text-green-200' 
-                                                                        : 'bg-red-600/50 text-red-200'
-                                                                }`}>
-                                                                    {challenge.success ? 'Success' : 'Fail'}
-                                                                </span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Tricks */}
-                                            {hand.tricks && hand.tricks.length > 0 && (
-                                                <div>
-                                                    <h4 className="text-emerald-300 font-medium mb-4 flex items-center gap-2">
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                                        </svg>
-                                                        Tricks Played
-                                                    </h4>
-                                                    <div className="space-y-4">
-                                                        {hand.tricks.map((trick: TrickDTO, trickIndex: number) => (
-                                                            <div key={trickIndex} className="bg-emerald-900/40 border border-emerald-800/30 rounded-lg p-4">
-                                                                <div className="flex items-center gap-2 mb-3">
-                                                                    <div className="w-6 h-6 bg-emerald-600/50 rounded-full flex items-center justify-center text-xs font-bold text-emerald-100">
-                                                                        {trick.trickNo || trickIndex + 1}
-                                                                    </div>
-                                                                    <span className="text-emerald-200 font-medium">
-                                                                        Trick {trick.trickNo || trickIndex + 1}
-                                                                    </span>
-                                                                    <span className="text-emerald-400/60 text-sm">
-                                                                        ({trick.moves?.length || 0} cards)
-                                                                    </span>
-                                                                    {trick.moves && trick.moves.length < 4 && (
-                                                                        <span className="text-amber-400/60 text-xs bg-amber-600/20 px-2 py-0.5 rounded-full">
-                                                                            Partial trick (hand ended)
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-
-                                                                {/* Cards played in this trick */}
-                                                                {trick.moves && trick.moves.length > 0 && (
-                                                                    <div className={`grid ${
-                                                                        trick.moves.length <= 2 ? 'grid-cols-1 md:grid-cols-2' :
-                                                                        trick.moves.length === 3 ? 'grid-cols-2 md:grid-cols-3' :
-                                                                        'grid-cols-2 md:grid-cols-4'
-                                                                    } gap-4`}>
-                                                                        {trick.moves.map((move: MoveDTO, moveIndex: number) => {
-                                                                            const { rank, suit } = parseCardName(move.card || '');
-                                                                            const isIllegal = move.legal === false;
-                                                                            const isWinner = move.player === trick.winnerId;
-                                                                            
-                                                                            // Get trump suit from hand's trump calls
-                                                                            const handTrump = hand.trumpCalls?.find(call => call.trump !== 'PASS')?.trump;
-                                                                            const isTrumpCard = handTrump && suit === handTrump;
-                                                                            
-                                                                            let baseColor = getPlayerColor(move.player);
-                                                                            
-                                                                            // Winner highlighting - golden border and background
-                                                                            if (isWinner) {
-                                                                                baseColor = 'bg-gradient-to-r from-yellow-900/30 to-amber-900/30 border-2 border-yellow-500/50 text-yellow-100';
-                                                                            }
-                                                                            
-                                                                            return (
-                                                                                <div 
-                                                                                    key={moveIndex} 
-                                                                                    className={`p-3 rounded-lg border ${baseColor} relative ${isTrumpCard ? 'ring-2 ring-amber-400/60' : ''}`}
-                                                                                    title={isIllegal ? "This play violated rules; points only awarded if challenge succeeds." : ""}
-                                                                                >
-                                                                                    {/* Player name - fixed height */}
-                                                                                    <div className="h-5 mb-2">
-                                                                                        <span className="text-sm font-medium block">{move.player || 'Unknown'}</span>
-                                                                                    </div>
-                                                                                    
-                                                                                    {/* Badges section - fixed height */}
-                                                                                    <div className="h-6 mb-2 flex flex-wrap gap-1 justify-center relative z-20">
-                                                                                        {isWinner && (
-                                                                                            <span className="bg-yellow-600/80 text-yellow-100 px-1.5 py-0.5 rounded text-xs font-bold">
-                                                                                                Winner
-                                                                                            </span>
-                                                                                        )}
-                                                                                        {isTrumpCard && (
-                                                                                            <span className="bg-amber-600/80 text-amber-100 px-1.5 py-0.5 rounded text-xs font-bold">
-                                                                                                Trump
-                                                                                            </span>
-                                                                                        )}
-                                                                                    </div>
-
-                                                                                    {/* Card - consistent positioning */}
-                                                                                    <div className="aspect-[5/7] w-16 mx-auto mb-2 relative z-10">
-
-                                                                                        <PlayingCard
-                                                                                            suit={suit}
-                                                                                            rank={rank}
-                                                                                            className="w-full h-full"
-                                                                                        />
-                                                                                    </div>
-                                                                                    
-                                                                                    {/* Illegal badge section - fixed height */}
-                                                                                    <div className="h-6 text-center">
-                                                                                        {isIllegal && (
-                                                                                            <span className="bg-red-600/80 text-red-100 px-2 py-0.5 rounded text-xs font-bold">
-                                                                                                Illegal
-                                                                                            </span>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Raw moves fallback */}
-                {moves && moves.length > 0 && (!structuredMoves || structuredMoves.length === 0) && (
-                    <div className="bg-emerald-900/20 border border-emerald-700/30 p-5 rounded-xl">
-                        <h3 className="text-emerald-300 font-semibold text-lg mb-4">
-                            Game Moves ({moves.length})
-                        </h3>
-                        <div className="max-h-48 overflow-y-auto">
-                            <div className="grid grid-cols-3 gap-2 text-sm">
-                                <div className="text-emerald-400 font-medium pb-2">Order</div>
-                                <div className="text-emerald-400 font-medium pb-2">Player</div>
-                                <div className="text-emerald-400 font-medium pb-2">Card</div>
-                                {moves.map((move: MoveDTO, index: number) => (
-                                    <React.Fragment key={index}>
-                                        <div className="text-emerald-300 py-1">{move.order}</div>
-                                        <div className="text-emerald-200 py-1">{move.player}</div>
-                                        <div className="text-amber-400 py-1 font-mono">{move.card}</div>
-                                    </React.Fragment>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex justify-end gap-3 pt-4 border-t border-emerald-700/30">
-                    <Button onClick={onClose} variant="primary">
-                        Close Details
-                    </Button>
-                </div>
-            </div>
-
-            <style>{`
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 6px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: rgba(16, 185, 129, 0.1);
-                    border-radius: 3px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: rgba(16, 185, 129, 0.3);
-                    border-radius: 3px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: rgba(16, 185, 129, 0.5);
-                }
-            `}</style>
-        </Modal>
+        // pushed from the right (spec §3.8 spring.ui; a fade under reduced motion); the clip keeps the slide
+        // from scrolling the page sideways
+        <div className="overflow-x-clip">
+            <m.div initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={spring.ui}>
+                <Page title="Match details" heading={match ? null : undefined} back={{ to: listPath, label: 'Match History' }}>
+                    {content}
+                </Page>
+            </m.div>
+        </div>
     );
-};
+}
