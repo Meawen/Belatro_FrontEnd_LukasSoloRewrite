@@ -293,6 +293,7 @@
     align-items: center;
     gap: 6px;
     min-width: 0;
+    min-height: 44px;
 }
 .board-hud__group:last-child {
     flex: none;
@@ -358,10 +359,16 @@
 .board-bid {
     left: 50%;
     top: 44%;
+    width: max-content;
+    max-width: calc(100% - 16px);
     translate: -50% -50%;
 }
 .board[data-layout="landscape"] .board-bid {
     top: 46%;
+}
+/* phones: above the side seats' chips, below the partner's */
+.board[data-layout="portrait"] .board-bid {
+    top: 36%;
 }
 .board-bid__buttons,
 .board-bela__buttons {
@@ -370,11 +377,19 @@
     justify-content: center;
     gap: 8px;
 }
+/* on phones Pass spans the row over the four suits, so the panel clears the side fans */
+.board[data-layout="portrait"] .board-bid__buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 52px);
+}
+.board[data-layout="portrait"] .board-bid__buttons > .ui-btn {
+    grid-column: 1 / -1;
+}
 .board-bid__suit {
     display: grid;
     place-items: center;
-    width: 56px;
-    height: 56px;
+    width: 52px;
+    height: 52px;
     border: 0;
     padding: 0;
     clip-path: var(--notch);
@@ -499,7 +514,6 @@
     display: inline-flex;
     align-items: center;
     height: 44px;
-    margin: -4px 0;
     padding: 0;
     border: 0;
     background: none;

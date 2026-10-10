@@ -26,7 +26,9 @@ export function seatSpot(seat: SeatModel, targets: Targets, layout: Layout): CSS
     if (seat.isMe) {
         const pile = targets.piles[seat.team ?? 'A'];
         const pileTop = pile.top + (pile.height * (1 - pile.scale)) / 2;
-        return { left: 12, top: Math.max(layout.hud + 8, pileTop - 34) };
+        const pileLeft = pile.left + (pile.width * (1 - pile.scale)) / 2;
+        // over my pile: bottom-left on phones and desktops, beside the hand in landscape
+        return { left: Math.max(12, pileLeft - 4), top: Math.max(layout.hud + 8, pileTop - 34) };
     }
     const backs = Object.entries(targets.cards).filter(([key]) => key.startsWith(`back:${seat.id}:`)).map(([, target]) => target);
     const across = (target: Target) => (seat.position === 'partner' ? target.height : target.width) * target.scale;
