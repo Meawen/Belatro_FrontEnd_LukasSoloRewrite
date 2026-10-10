@@ -394,3 +394,35 @@
 .board-bid__suit.bg-suit-tref:focus-visible {
     outline-color: var(--ink);
 }
+
+/* Challenge (§5.3.3): in the HUD while playing, in the hand-result sheet in HAND_COMPLETE */
+.board-challenge {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: auto;
+}
+.board-challenge__buttons {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+.board-challenge--hud .board-challenge__buttons {
+    padding-right: 2px;
+    background: var(--material-ink);
+    clip-path: var(--notch);
+}
+.board-challenge__hint {
+    width: min(300px, calc(100vw - 32px));
+    padding: 8px 10px;
+    background: var(--ink);
+    color: var(--text);
+    white-space: normal;
+}
+.board-challenge--hud .board-challenge__hint {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: var(--z-bid);
+}

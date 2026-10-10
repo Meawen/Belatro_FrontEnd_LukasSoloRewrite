@@ -3,6 +3,7 @@ import { AnimatePresence, animate, m } from 'motion/react';
 import { fade, spring } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
 import { SuitIcon } from '../ui/SuitIcon';
+import { Challenge } from './Challenge';
 import type { BoardModel } from './model/boardModel';
 
 const INSTANT = { duration: 0 } as const;
@@ -43,14 +44,16 @@ export interface HudProps {
     calledBy: string | null;
     /** Counts the trump calls, so each call flies once. */
     calls: number;
+    /** Challenge while playing (in HAND_COMPLETE it sits in the hand-result sheet). */
+    onChallenge: () => void;
 }
 
 /**
  * The HUD (spec §5.4): the score chip, Mi for my team; the phase in words (`game-phase`, `data-phase`);
  * the trump badge, whose inner `trump` element holds exactly the suit name and exists only once trump
- * is called ("Bidding" and the season word sit outside it).
+ * is called ("Bidding" and the season word sit outside it); Challenge while playing.
  */
-export function Hud({ model, instant, calledBy, calls }: HudProps) {
+export function Hud({ model, instant, calledBy, calls, onChallenge }: HudProps) {
     const reduced = useReducedMotion();
     const badge = useRef<HTMLSpanElement>(null);
     const mine = model.myTeam ?? 'A';
@@ -82,6 +85,7 @@ export function Hud({ model, instant, calledBy, calls }: HudProps) {
                     <span className="board-hud__sep" aria-hidden="true" />
                     <span className="board-hud__team"><span className="t-caption text-text-2">Vi</span><Score value={score(theirs)} testId={`score-${theirs.toLowerCase()}`} instant={instant} /></span>
                 </span>
+                {model.canChallenge && model.playing && <Challenge place="hud" onChallenge={onChallenge} />}
             </div>
             <div className="board-hud__group">
                 <span className="board-hud__chip">

@@ -5,6 +5,7 @@ import { useReducedMotion } from '../../motion/useReducedMotion';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { cardLabel } from '../game/gameView';
 import { cx } from '../ui/cx';
+import { showToast } from '../ui/Toast';
 import { Arena } from './Arena';
 import { BelaPrompt } from './BelaPrompt';
 import { BidPanel } from './BidPanel';
@@ -14,7 +15,7 @@ import { Hud } from './Hud';
 import { Piles } from './Piles';
 import { Seats } from './Seats';
 import { Summary } from './Summary';
-import { seatName } from './announce';
+import { announce, seatName, toastFor } from './announce';
 import { cardTargets, layoutFor, type Layout, type Targets } from './model/cardTargets';
 import { answerBela, pendingUntil, pressBid, pressCard, unlock, type InputResult, type Move } from './model/input';
 import { dropLeaving, emptyStage, landTrick, settleStage, shownPiles, stepStage, sweepHeld, tableTrick, withInput, type Stage } from './stage';
@@ -190,7 +191,7 @@ export interface BoardProps {
  * waits for an animation: the timers only decide when finished tricks leave the table.
  */
 export function Board(props: BoardProps) {
-    const { state, me, actions, error, isConnected, viewport } = props;
+    const { state, me, actions, error, isConnected, hands, viewport } = props;
     const [stage, setStage] = useState(() => emptyStage(me));
     let current = stage;
     if (stage.state !== state) {
@@ -213,6 +214,21 @@ export function Board(props: BoardProps) {
     const onBela = (declareBela: boolean) => apply(answerBela(latest.current.model!, latest.current.local.input, declareBela, Date.now()));
     const onBid = (call: Boja | 'PASS') => apply(pressBid(latest.current.model!, latest.current.local.input, call, Date.now()));
     const closeBela = () => setStage((s) => withInput(s, { ...s.local.input, belaCardId: null }));
+
+    // one polite message per event (spec §5.8), and a toast for every challenge result (O-4)
+    const [said, setSaid] = useState<{ seq: number; lines: string[] }>({ seq: 0, lines: [] });
+    useEffect(() => {
+        const events = current.events;
+        if (!events || events.length === 0 || !current.model) return;
+        const lines = announce(events, current.model, hands?.ended?.handNo ?? null);
+        if (lines.length) setSaid({ seq: current.seq, lines });
+        for (const event of events) {
+            const toast = toastFor(event);
+            if (toast) showToast(toast);
+        }
+        // once per step
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [current.seq]);
 
     // the 2-s lift: the card drops back, the lock holds until the server answers (O-2)
     const liftEnds = pendingUntil(current.local.input);
@@ -260,11 +276,14 @@ export function Board(props: BoardProps) {
                             <BelaPrompt card={model.belaPrompt} target={targets.cards[model.belaPrompt.id]} onAnswer={onBela} onDismiss={closeBela} />
                         )}
                         <SweepLayer stage={current} model={model} layout={layout} targets={targets} reduced={reduced} />
-                        <Hud model={model} instant={instant} calledBy={called?.type === 'TrumpCalled' ? called.playerId : null} calls={current.calls} />
+                        <Hud model={model} instant={instant} calledBy={called?.type === 'TrumpCalled' ? called.playerId : null} calls={current.calls} onChallenge={actions.challenge} />
                         {error && <div className="board-error"><ErrorAlert message={error} /></div>}
                     </div>
                 </div>
                 <Summary model={model} />
+                <div role="log" aria-live="polite" className="sr-only">
+                    {said.lines.map((line, i) => <p key={`${said.seq}:${i}`}>{line}</p>)}
+                </div>
             </section>
         </LazyMotion>
     );
