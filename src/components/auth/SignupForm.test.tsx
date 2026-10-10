@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { SignupForm } from './SignupForm'
 import { ApiError } from '../../services/api'
 import { captureConsole } from '../../test/captureConsole'
@@ -12,10 +13,15 @@ vi.mock('../../hooks/useAuth', () => ({
 
 beforeEach(() => vi.clearAllMocks())
 
+/** The form links to /login, so it renders inside a router. */
+function renderForm(onSuccess = vi.fn()) {
+    render(<MemoryRouter><SignupForm onSuccess={onSuccess} /></MemoryRouter>)
+    return onSuccess
+}
+
 async function fill(username: string, password: string, confirm = password) {
     const user = userEvent.setup()
-    const onSuccess = vi.fn()
-    render(<SignupForm onSuccess={onSuccess} />)
+    const onSuccess = renderForm()
     await user.type(screen.getByLabelText('Username'), username)
     await user.type(screen.getByLabelText('Email'), 'ana@example.com')
     await user.type(screen.getByLabelText('Password'), password)
@@ -54,7 +60,7 @@ describe('SignupForm credential rules', () => {
     test('a valid form sends the trimmed address, the one the panel names', async () => {
         const user = userEvent.setup()
         auth.signup.mockResolvedValue({ token: 't', user: { id: 'u1', username: 'ana' }, message: null })
-        render(<SignupForm onSuccess={vi.fn()} />)
+        renderForm()
         await user.type(screen.getByLabelText('Username'), 'ana')
         await user.type(screen.getByLabelText('Email'), '  ana@example.com  ')
         await user.type(screen.getByLabelText('Password'), 'long-enough-1')
@@ -126,11 +132,19 @@ describe('SignupForm logging', () => {
         expect(auth.signup).not.toHaveBeenCalled()
         expect(logs.leaked(PASSWORD, 'not-the-same-pw')).toEqual([])
     })
+
+    test('a sign-up writes nothing to the console (X-14)', async () => {
+        auth.signup.mockResolvedValue({ token: TOKEN, user: { id: 'u1', username: 'ana' }, message: null })
+        const logs = captureConsole()
+        await fill('ana', PASSWORD)
+        await waitFor(() => expect(screen.getByText('Check your inbox')).toBeInTheDocument())
+        expect(logs.text()).toBe('')
+    })
 })
 
 describe('SignupForm legal line (R-40)', () => {
     test('links the Terms and the Privacy notice under Create Account', () => {
-        render(<SignupForm onSuccess={vi.fn()} />)
+        renderForm()
         expect(screen.getByText(/By creating an account you accept the/)).toHaveTextContent(
             'By creating an account you accept the Terms; see the Privacy notice.')
         expect(screen.getByRole('link', { name: 'Terms' })).toHaveAttribute('href', '/terms')
@@ -141,7 +155,7 @@ describe('SignupForm legal line (R-40)', () => {
 describe('SignupForm invite code (R-11)', () => {
     async function fillWithInvite(invite: string) {
         const user = userEvent.setup()
-        render(<SignupForm onSuccess={vi.fn()} />)
+        renderForm()
         await user.type(screen.getByLabelText('Username'), 'ana')
         await user.type(screen.getByLabelText('Email'), 'ana@example.com')
         await user.type(screen.getByLabelText('Password'), 'long-enough-1')
@@ -161,8 +175,9 @@ describe('SignupForm invite code (R-11)', () => {
     test('a 403 "Invalid invite code" shows on the invite field', async () => {
         auth.signup.mockRejectedValue(new ApiError({ status: 403, message: 'Invalid invite code' }))
         await fillWithInvite('wrong')
-        const field = screen.getByLabelText('Invite code').closest('.flex-col') as HTMLElement
-        expect(await within(field).findByText('Invalid invite code')).toBeInTheDocument()
+        expect(await screen.findByText('Invalid invite code')).toBeInTheDocument()
+        // on the field: its own error line, which describes the input to assistive tech
+        expect(screen.getByLabelText('Invite code')).toHaveAccessibleDescription('Invalid invite code')
         expect(screen.getAllByText('Invalid invite code')).toHaveLength(1)
     })
 })

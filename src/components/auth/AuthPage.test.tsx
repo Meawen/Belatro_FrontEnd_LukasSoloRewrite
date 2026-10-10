@@ -66,4 +66,13 @@ describe('Sign in and sign up are two URLs (X-2)', () => {
         expect(screen.getByTestId('where')).toHaveTextContent('/signup {"from":"/lobby/abc"}')
         expect(screen.getByRole('heading', { name: 'Create Account' })).toBeInTheDocument()
     })
+
+    test('"Sign in" on /signup is a link back to /login, still carrying the return path', async () => {
+        renderAuth({ pathname: '/signup', state: { from: '/lobby/abc' } })
+        const link = screen.getByRole('link', { name: 'Sign in' })
+        expect(link).toHaveAttribute('href', '/login')
+        await userEvent.setup().click(link)
+        expect(screen.getByTestId('where')).toHaveTextContent('/login {"from":"/lobby/abc"}')
+        expect(screen.getByRole('heading', { level: 1, name: 'Welcome Back' })).toBeInTheDocument()
+    })
 })
