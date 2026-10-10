@@ -97,7 +97,7 @@ describe('the return path (spec §4.1 AC 7, D-20)', () => {
     test('a signed-out visit to /lobby/abc, then Sign up, Create Account and Continue, lands on /lobby/abc', async () => {
         renderAt('/lobby/abc')
         const user = userEvent.setup()
-        // a button today; a link once sign in and sign up are separate URLs (X-2)
+        // a link since sign in and sign up are separate URLs (X-2)
         await user.click(screen.getByText('Sign up', { selector: 'a, button' }))
         await user.type(screen.getByLabelText('Username'), 'ana_1')
         await user.type(screen.getByLabelText('Email'), 'ana@example.test')
