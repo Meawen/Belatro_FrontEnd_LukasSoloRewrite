@@ -1,9 +1,13 @@
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button } from '../common';
+import { Button } from '../ui';
+import { ErrorAlert } from '../common/ErrorAlert';
 import { authService } from '../../services/authService';
 import { ApiError } from '../../services/api';
 import { errorMessage, INVALID_LINK, isNetworkOrServerFailure } from '../../utils/errorMessage';
+import { safeReturnPath } from '../../routing/returnPath';
+import { AuthFrame, AUTH_LINK } from './AuthFrame';
+import { useReturnState } from './returnState';
 
 type Outcome =
     | { kind: 'idle' }
@@ -38,7 +42,7 @@ function nextStep(token: string, outcome: Outcome): string | null {
  * single-use, and StrictMode's double effects (or a mail scanner that runs
  * scripts) would otherwise spend it before the reader sees the page.
  */
-export const ConfirmEmailPage: React.FC = () => {
+export function ConfirmEmailPage() {
     const [searchParams] = useSearchParams();
     const token = (searchParams.get('token') ?? '').trim();
     const [outcome, setOutcome] = useState<Outcome>({ kind: 'idle' });
@@ -46,6 +50,8 @@ export const ConfirmEmailPage: React.FC = () => {
     // click that lands before React re-renders the button as disabled.
     const posted = useRef(false);
     const signedIn = authService.isAuthenticated();
+    // the return path (spec §4.1): signed in, Continue goes there; signed out, sign-in is handed it
+    const returnState = useReturnState();
     const hint = nextStep(token, outcome);
     const reload = reloadHint(outcome);
 
@@ -68,32 +74,30 @@ export const ConfirmEmailPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-emerald-950 flex items-center justify-center p-4">
-            <div className="card max-w-md w-full text-center space-y-4">
-                <h1 className="text-2xl font-bold text-white">Confirm your email address</h1>
+        <AuthFrame>
+            <div className="flex flex-col items-center gap-4 text-center">
+                <h1 className="t-title">Confirm your email address</h1>
 
                 {!token ? (
-                    <p role="alert" className="text-red-300">{INVALID_LINK}</p>
+                    <ErrorAlert message={INVALID_LINK} className="w-full text-left" />
                 ) : outcome.kind === 'confirmed' ? (
                     <>
-                        <p className="text-emerald-200">Your email address is confirmed.</p>
+                        <p className="t-body text-success">Your email address is confirmed.</p>
                         <Link
-                            to={signedIn ? '/dashboard' : '/login'}
-                            className="text-yellow-500 hover:text-yellow-400 font-medium"
+                            to={signedIn ? safeReturnPath(returnState?.from) : '/login'}
+                            state={signedIn ? undefined : returnState}
+                            className={`inline-flex min-h-11 items-center ${AUTH_LINK}`}
                         >
                             Continue
                         </Link>
                     </>
                 ) : (
                     <>
-                        {outcome.kind === 'failed' && (
-                            <p role="alert" className="text-red-300">{outcome.message}</p>
-                        )}
+                        {outcome.kind === 'failed' && <ErrorAlert message={outcome.message} className="w-full text-left" />}
                         <Button
-                            variant="primary"
-                            fullWidth
+                            block
                             onClick={handleConfirm}
-                            isLoading={outcome.kind === 'pending'}
+                            loading={outcome.kind === 'pending'}
                             disabled={outcome.kind !== 'idle'}
                         >
                             Confirm email address
@@ -101,18 +105,19 @@ export const ConfirmEmailPage: React.FC = () => {
                     </>
                 )}
 
-                {reload && <p className="text-sm text-slate-400">{reload}</p>}
+                {reload && <p className="t-footnote text-text-2">{reload}</p>}
 
                 {hint && (
-                    <p className="text-sm text-slate-400">
+                    <p className="t-footnote text-text-2">
                         {signedIn ? (
-                            <>You can {hint} from <Link to="/profile" className="text-yellow-500 hover:text-yellow-400">your profile</Link>.</>
+                            // X-11: e-mail management lives in Settings
+                            <>You can {hint} from <Link to="/settings" className={AUTH_LINK}>Settings</Link>.</>
                         ) : (
-                            <><Link to="/login" className="text-yellow-500 hover:text-yellow-400">Sign in</Link> to {hint}.</>
+                            <><Link to="/login" state={returnState} className={AUTH_LINK}>Sign in</Link> to {hint}.</>
                         )}
                     </p>
                 )}
             </div>
-        </div>
+        </AuthFrame>
     );
-};
+}
