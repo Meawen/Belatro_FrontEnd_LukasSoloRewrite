@@ -676,6 +676,80 @@
         }
     }
 
+    /* Switch (§3.7): the native checkbox stays focusable but invisible; the track (edged in --edge-strong, O-4)
+       shows its state; the focus ring goes round the whole label row */
+    .ui-switch {
+        position: relative;
+    }
+    .ui-switch__input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+    }
+    .ui-switch__label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        min-height: 44px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .ui-switch__input:disabled + .ui-switch__label {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+    .ui-switch__track {
+        position: relative;
+        isolation: isolate;
+        flex: none;
+        width: 46px;
+        height: 26px;
+    }
+    .ui-switch__track::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: var(--surface-2);
+        box-shadow: inset 0 0 0 2px var(--edge-strong);
+        clip-path: var(--notch);
+    }
+    .ui-switch__input:checked + .ui-switch__label .ui-switch__track::before {
+        background: var(--accent);
+        box-shadow: inset 0 -3px 0 var(--accent-ledge);
+    }
+    .ui-switch__knob {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        width: 18px;
+        height: 18px;
+        background: var(--text-2);
+        transition: transform 160ms ease-out;
+    }
+    .ui-switch__input:checked + .ui-switch__label .ui-switch__knob {
+        background: var(--ink);
+        transform: translateX(20px);
+    }
+    .ui-switch__input:focus-visible + .ui-switch__label {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+    }
+    @media (forced-colors: active) {
+        .ui-switch__track {
+            border: 1px solid;
+        }
+        .ui-switch__knob {
+            forced-color-adjust: none;
+            background: CanvasText;
+        }
+        .ui-switch__input:checked + .ui-switch__label .ui-switch__knob {
+            background: Highlight;
+        }
+    }
+
     /* end of the ui component styles */
 }
 
