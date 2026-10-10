@@ -316,6 +316,48 @@
 
 /* The ui components (src/components/ui), one block per component */
 @layer components {
+    /* Loader (§3.7): a blinking 12-px accent square; static under reduced motion */
+    .ui-loader {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        text-align: center;
+    }
+    .ui-loader--block {
+        padding: 32px 16px;
+    }
+    .ui-loader--page {
+        min-height: 60vh;
+        padding: 32px 16px;
+    }
+    .ui-loader--inline {
+        display: inline-flex;
+        flex-direction: row;
+        gap: 8px;
+    }
+    .ui-loader__square {
+        width: 12px;
+        height: 12px;
+        flex: none;
+        background: var(--accent);
+        animation: ui-blink 1s steps(2, jump-none) infinite;
+    }
+    @keyframes ui-blink {
+        from {
+            opacity: 1;
+        }
+        to {
+            opacity: 0;
+        }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .ui-loader__square {
+            animation: none;
+        }
+    }
+
     /* end of the ui component styles */
 }
 
