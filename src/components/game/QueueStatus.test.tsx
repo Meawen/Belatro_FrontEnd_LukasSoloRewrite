@@ -76,4 +76,12 @@ describe('QueueStatus (spec §4.5; US-20)', () => {
         expect(css).toMatch(/@keyframes queue-turn \{\s*0% \{\s*opacity: 1;\s*\}\s*25%,\s*100% \{\s*opacity: 0\.25;\s*\}\s*\}/)
         expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\.queue-turn > span \{\s*animation: none;/)
     })
+
+    test("the squares take the four suits' colours in the order they light: Herc, Karo, Pik, Tref (owner, 2026-10-10)", () => {
+        const css = queueCss()
+        expect(css).toMatch(/\.queue-turn > span \{[^}]*background: var\(--suit-herc\);/)
+        expect(css).toMatch(/\.queue-turn > span:nth-child\(2\) \{[^}]*background: var\(--suit-karo\);/)
+        expect(css).toMatch(/\.queue-turn > span:nth-child\(3\) \{[^}]*background: var\(--suit-pik\);/)
+        expect(css).toMatch(/\.queue-turn > span:nth-child\(4\) \{[^}]*background: var\(--suit-tref\);/)
+    })
 })

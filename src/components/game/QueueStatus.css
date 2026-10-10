@@ -7,17 +7,21 @@
 .queue-turn > span {
     width: 8px;
     height: 8px;
-    background: var(--accent);
+    background: var(--suit-herc);
     animation: queue-turn 1s step-end infinite;
 }
-/* negative delays: every square is mid-cycle from the first frame, each a quarter behind the one before */
+/* negative delays: every square is mid-cycle from the first frame, each a quarter behind the one before;
+   the squares in the four suits' colours (owner, 2026-10-10: "a little more colour") */
 .queue-turn > span:nth-child(2) {
+    background: var(--suit-karo);
     animation-delay: -0.75s;
 }
 .queue-turn > span:nth-child(3) {
+    background: var(--suit-pik);
     animation-delay: -0.5s;
 }
 .queue-turn > span:nth-child(4) {
+    background: var(--suit-tref);
     animation-delay: -0.25s;
 }
 @keyframes queue-turn {
