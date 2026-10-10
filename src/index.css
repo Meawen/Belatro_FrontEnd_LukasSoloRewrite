@@ -545,6 +545,70 @@
         }
     }
 
+    /* Segmented (§3.7): a notched track edged in --edge-strong (O-4); the selected segment on --surface-3
+       (text on it: --text or --text-2) */
+    .ui-seg {
+        position: relative;
+        isolation: isolate;
+        display: inline-flex;
+        gap: 2px;
+        padding: 3px;
+    }
+    .ui-seg::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: var(--surface-2);
+        box-shadow: inset 0 0 0 2px var(--edge-strong);
+        clip-path: var(--notch);
+    }
+    .ui-seg__item {
+        --seg-bg: transparent;
+        position: relative;
+        isolation: isolate;
+        flex: 1 1 0;
+        min-height: 44px;
+        padding: 0 14px;
+        border: 0;
+        background: none;
+        color: var(--text-2);
+        font-family: var(--font-sys);
+        font-size: 0.9375rem;
+        font-weight: 600;
+        white-space: nowrap;
+        cursor: pointer;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 90ms ease-out;
+    }
+    .ui-seg__item::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: var(--seg-bg);
+        clip-path: var(--notch);
+    }
+    .ui-seg__item:active {
+        transform: translateY(2px);
+    }
+    .ui-seg__item:focus-visible {
+        outline-offset: -5px;
+    }
+    .ui-seg__item[aria-pressed="true"] {
+        --seg-bg: var(--surface-3);
+        color: var(--text);
+    }
+    @media (forced-colors: active) {
+        .ui-seg {
+            border: 1px solid;
+        }
+        .ui-seg__item[aria-pressed="true"] {
+            border: 1px solid;
+        }
+    }
+
     /* end of the ui component styles */
 }
 
