@@ -189,6 +189,9 @@ export function useFriends(userId?: string) {
     };
 }
 
+/** What useFriends gives: the signed-in player's friendships and the actions on them. */
+export type FriendsState = ReturnType<typeof useFriends>;
+
 export function useAllFriendships() {
     const apiFunction = useMemo(() => () => friendshipService.getAllFriendships(), []);
     return useApi(apiFunction, { staleTime: CACHE_DURATION });
