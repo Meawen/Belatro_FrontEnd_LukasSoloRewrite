@@ -819,6 +819,11 @@
         gap: 12px;
         padding: 20px 16px 8px;
     }
+    /* a long title (a 50-character lobby name in one word) wraps inside the sheet instead of widening it */
+    .ui-sheet__header > h2 {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
     .ui-sheet--full .ui-sheet__header {
         padding-top: calc(20px + var(--safe-top));
     }

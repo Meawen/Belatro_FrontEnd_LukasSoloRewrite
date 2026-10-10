@@ -11,7 +11,10 @@ import { useNow } from './useNow';
 /** The turn timer's length (TurnTimerService, 30 s): where the countdown bar starts. */
 export const TURN_SECONDS = 30;
 
-/** Where a seat's chips sit (spec §5.6): under the partner's fan, under the side fans, mine above my pile. */
+/**
+ * Where a seat's chips sit (spec §5.6): under the partner's fan, under the side fans, mine above my pile; how wide
+ * they may grow: the side seats each up to the board's middle, so a 20-character name never runs into the other.
+ */
 function seatSpot(seat: SeatModel, targets: Targets, layout: Layout): CSSProperties {
     const anchor = targets.anchors[seat.id] ?? { x: 0, y: 0, rotate: 0 };
     if (seat.isMe) {
@@ -26,12 +29,17 @@ function seatSpot(seat: SeatModel, targets: Targets, layout: Layout): CSSPropert
     if (seat.position === 'partner' && layout.kind === 'landscape') {
         // beside the fan: under it would cover the partner's trick card
         const right = backs.length ? Math.max(...backs.map((t) => t.left + t.width / 2 + (t.width * t.scale) / 2)) : anchor.x + 20;
-        return { left: right + 8, top: anchor.y - 13 };
+        return { left: right + 8, top: anchor.y - 13, maxWidth: layout.board.w - right - 20 };
     }
     const bottom = backs.length ? Math.max(...backs.map((t) => t.top + t.height / 2 + across(t) / 2)) : anchor.y + 24;
-    if (seat.position === 'partner') return { left: anchor.x, top: bottom + 6, transform: 'translateX(-50%)' };
-    if (seat.position === 'left') return { left: Math.max(8, anchor.x - 24), top: bottom + 6 };
-    return { left: Math.min(layout.board.w - 8, anchor.x + 24), top: bottom + 6, transform: 'translateX(-100%)' };
+    const middle = layout.board.w / 2;
+    if (seat.position === 'partner') return { left: anchor.x, top: bottom + 6, transform: 'translateX(-50%)', maxWidth: layout.board.w - 32 };
+    if (seat.position === 'left') {
+        const left = Math.max(8, anchor.x - 24);
+        return { left, top: bottom + 6, maxWidth: middle - left - 6 };
+    }
+    const right = Math.min(layout.board.w - 8, anchor.x + 24);
+    return { left: right, top: bottom + 6, transform: 'translateX(-100%)', maxWidth: right - middle - 6 };
 }
 
 /** A chip that pops in at its seat (spring.quick); a snap shows it at once. */
@@ -88,7 +96,7 @@ export function Seats({ model, targets, layout, instant }: SeatsProps) {
                     <div key={seat.id} data-testid={`seat-${seat.id}`} data-current={seat.current ? 'true' : undefined} className="board-seat" style={seatSpot(seat, targets, layout)}>
                         <span className="board-seat__name notch t-footnote font-semibold" data-turn={seat.current || undefined}>
                             <span className={seat.team === 'B' ? 'board-seat__team bg-team-b' : 'board-seat__team bg-team-a'} aria-hidden="true" />
-                            <span>{seat.isMe ? 'You' : seat.id}</span>
+                            <span className="board-seat__label" title={seat.isMe ? undefined : seat.id}>{seat.isMe ? 'You' : seat.id}</span>
                             {seat.dealer && (
                                 <span data-testid="dealer-chip" className="board-seat__dealer font-pix">
                                     <span aria-hidden="true">D</span>

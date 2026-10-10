@@ -221,6 +221,19 @@
     background: var(--material-ink);
     color: var(--text);
 }
+/* a long name ends in an ellipsis inside the seat's width (Seats' maxWidth); the dealer chip and seconds stay whole */
+.board-seat__name {
+    max-width: 100%;
+}
+.board-seat__name > * {
+    flex-shrink: 0;
+}
+.board-seat__name > .board-seat__label {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .board-seat__name[data-turn] {
     background: var(--accent);
     color: var(--ink);
