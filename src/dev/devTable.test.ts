@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
-import { devHands, devStream, devTable, frameOf, parseDevOptions, resolveAt } from './devTable'
+import { devHands, devStream, devTable, frameOf, parseDevOptions, recordedStream, resolveAt, type RecordedViews } from './devTable'
 import { blokRows, endedHand, handTricks } from '../components/board/model/hands'
-import { indexOf, playTable } from '../test/fixtures/views/table'
+import { deliveries, indexOf, playTable } from '../test/fixtures/views/table'
 
 const table = playTable({ hands: 2 })
 
@@ -9,8 +9,9 @@ describe('the dev board’s data (spec §4.17)', () => {
     test('URL options, with defaults for everything left out', () => {
         expect(parseDevOptions('')).toEqual({
             seat: 'alice', seed: 7, trump: 'HERC', hands: 2, scores: null, at: null, chaos: false, layout: 'fit',
-            reduced: false, effects: null, controls: true, skip: false, play: false, speed: 1, names: false,
+            reduced: false, effects: null, controls: true, skip: false, play: false, speed: 1, names: false, fixture: null,
         })
+        expect(parseDevOptions('?fixture=recorded-k3f9q').fixture).toBe('recorded-k3f9q')
         expect(parseDevOptions('?seat=carol&at=window-open&layout=812x375&motion=reduce&effects=off&chaos=1&controls=0&skip=1&play=1&speed=2&scores=990,900&trump=KARA'))
             .toMatchObject({ seat: 'carol', at: 'window-open', layout: '812x375', reduced: true, effects: 'off', chaos: true, controls: false, skip: true, play: true, speed: 2, scores: [990, 900], trump: 'KARA' })
         expect(parseDevOptions('?seat=eve&layout=1x1&effects=sparkly')).toMatchObject({ seat: 'alice', layout: 'fit', effects: 'full' })
@@ -36,6 +37,20 @@ describe('the dev board’s data (spec §4.17)', () => {
         const versions = chaos.filter((s) => s.delivery.channel === 'private').map((s) => s.delivery.body.publicPart.stateVersion!)
         expect(versions.some((v, i) => i > 0 && v < versions[i - 1])).toBe(true)
         expect(frameOf({ channel: 'snapshot', body: table[3].private.carol })).toEqual({ kind: 'private', view: table[3].private.carol, source: 'snapshot' })
+    })
+
+    test('a recording: as its seat received it, or with chaos (duplicates, older frames after newer ones); each step names its frame', () => {
+        const frames = deliveries(table, 'carol').map((delivery, i) => ({ ...delivery, at: i * 800 }))
+        const recording: RecordedViews = { format: 'stiglja-recorded-views/1', gameId: 'g1', me: 'carol', frames }
+        const clean = recordedStream(recording, false)
+        expect(clean.map((s) => s.delivery)).toEqual(frames)
+        expect(clean.map((s) => s.fanOut)).toEqual(frames.map((_, i) => i))
+        expect(frameOf(clean[0].delivery)).toEqual({ kind: 'public', view: table[0].public })
+        const chaos = recordedStream(recording, true)
+        expect(chaos[0].delivery).toBe(chaos[1].delivery)
+        expect(chaos[0].fanOut).toBe(0)
+        const versions = chaos.filter((s) => s.delivery.channel === 'private').map((s) => s.delivery.body.publicPart.stateVersion!)
+        expect(versions.some((v, i) => i > 0 && v < versions[i - 1])).toBe(true)
     })
 
     test('the stored hands as the server would have them: tricks with winners, the summary once a hand ends', () => {

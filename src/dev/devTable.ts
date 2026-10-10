@@ -47,6 +47,8 @@ export interface DevOptions {
     speed: number;
     /** Every seat named by a 20-character name (LONG_NAMES): the visual harness's names check. */
     names: boolean;
+    /** A recording to replay instead of the table (`recorded-…`, a file under src/test/fixtures/views/); null: the table. */
+    fixture: string | null;
 }
 
 const one = <T extends string>(value: string | null, allowed: readonly T[], fallback: T): T =>
@@ -71,6 +73,7 @@ export function parseDevOptions(search: string): DevOptions {
         skip: q.get('skip') === '1',
         play: q.get('play') === '1',
         speed: Math.min(8, Math.max(0.25, Number(q.get('speed')) || 1)),
+        fixture: q.get('fixture'),
         names: q.get('names') === 'long',
     };
 }
@@ -123,6 +126,28 @@ export function devStream(fanOuts: readonly FanOut[], me: string, chaos: boolean
     });
     const stream = chaos ? duplicated(staleRedelivery(deliveries(fanOuts, me))) : privateFirst(fanOuts, me);
     return stream.map((delivery) => ({ fanOut: origin.get(delivery.body) ?? 0, delivery }));
+}
+
+/**
+ * A recorded view sequence (src/test/fixtures/views/recorded-*.json, written by e2e/gameplay.mjs with
+ * E2E_RECORD_VIEWS=1; spec §4.17): the game frames one seat received on the rig, bodies only, in the
+ * order they arrived, `at` ms after the first.
+ */
+export type RecordedFrame = Delivery & { at: number };
+
+export interface RecordedViews {
+    format: 'stiglja-recorded-views/1';
+    gameId: string;
+    /** The player id whose frames these are: the board renders for this seat. */
+    me: string;
+    frames: RecordedFrame[];
+}
+
+/** What the board gets from a recording: the frames as they arrived, or with chaos (each twice, older private frames after newer ones). */
+export function recordedStream(recording: RecordedViews, chaos: boolean): DevStep[] {
+    const clean: Delivery[] = recording.frames;
+    const index = new Map<Delivery, number>(clean.map((delivery, i) => [delivery, i]));
+    return (chaos ? duplicated(staleRedelivery(clean)) : clean).map((delivery) => ({ fanOut: index.get(delivery) ?? 0, delivery }));
 }
 
 /** A delivery as the acceptance rule takes it (useGameViews' routing). */

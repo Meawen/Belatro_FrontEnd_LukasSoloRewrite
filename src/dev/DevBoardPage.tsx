@@ -9,7 +9,9 @@ import { Select } from '../components/ui/Select';
 import { Switch } from '../components/ui/Switch';
 import { MotionProvider } from '../motion/MotionProvider';
 import { useTableEffects, writeTableEffects, type TableEffects } from '../settings/tableEffects';
-import { LAYOUTS, SEATS, devHands, devStream, devTable, frameOf, parseDevOptions, resolveAt, seatId, type DevLayout, type DevOptions } from './devTable';
+import { LAYOUTS, SEATS, devHands, devStream, devTable, frameOf, parseDevOptions, recordedStream, resolveAt, seatId, type DevLayout, type DevOptions } from './devTable';
+import { RECORDINGS } from './recordings';
+import type { FanOut } from '../test/fixtures/views/table';
 import type { GameActions } from '../hooks/useGameViews';
 import type { MatchHands } from '../hooks/useMatchHands';
 import type { RematchState } from '../hooks/useRematch';
@@ -32,6 +34,9 @@ function jumpTo(options: DevOptions, index: number, now: number) {
 }
 
 function fromStart(options: DevOptions, now: number) {
+    // a recording replays as recorded: it has no table (so no stored hands and no jumps)
+    const recording = options.fixture ? RECORDINGS[options.fixture] : undefined;
+    if (recording) return { table: [] as FanOut[], stream: recordedStream(recording, options.chaos), accepted: NOTHING_ACCEPTED as Accepted, cursor: 0, fanOut: 0 };
     const table = devTable(options, now, 0);
     return { table, stream: devStream(table, seatId(options), options.chaos), accepted: NOTHING_ACCEPTED as Accepted, cursor: 0, fanOut: 0 };
 }
@@ -61,7 +66,7 @@ export default function DevBoardPage() {
         const now = Date.now();
         const table = devTable(options, now, 0);
         const at = resolveAt(table, options.at);
-        return options.at ? jumpTo(options, at, now) : fromStart(options, now);
+        return options.at && !options.fixture ? jumpTo(options, at, now) : fromStart(options, now);
     });
     const [playing, setPlaying] = useState(options.play);
     const [jump, setJump] = useState(String(run.fanOut));
@@ -105,26 +110,33 @@ export default function DevBoardPage() {
         ? { width: preset[0], height: preset[1] }
         : options.controls ? { width: windowSize.width, height: Math.max(0, windowSize.height - BAR) } : undefined;
     const label = run.table[run.fanOut]?.label ?? '';
+    const recording = options.fixture ? RECORDINGS[options.fixture] : undefined;
+
+    if (options.fixture && !recording) {
+        return <p className="p-4 text-text-2">{`No recording named ${options.fixture} under src/test/fixtures/views/.`}</p>;
+    }
 
     return (
         <div className="min-h-dvh bg-bg text-text">
             {options.controls && (
                 <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-surface t-footnote" style={{ minHeight: BAR }}>
                     <strong className="font-pix text-xl">Dev board</strong>
-                    <Select label="Seat" hideLabel value={options.seat} options={SEATS.map((seat) => ({ value: seat, label: seat }))} onChange={(seat) => restart({ ...options, seat })} />
+                    {!recording && <Select label="Seat" hideLabel value={options.seat} options={SEATS.map((seat) => ({ value: seat, label: seat }))} onChange={(seat) => restart({ ...options, seat })} />}
                     <Button size="sm" variant="secondary" onClick={() => setPlaying((p) => !p)}>{playing ? 'Pause' : 'Play'}</Button>
                     <Button size="sm" variant="secondary" onClick={step}>Step</Button>
                     <Select label="Speed" hideLabel value={String(options.speed)} options={SPEEDS.map((speed) => ({ value: String(speed), label: `${speed}×` }))} onChange={(speed) => setOptions({ ...options, speed: Number(speed) })} />
                     <Switch label="Chaos" checked={options.chaos} onChange={(chaos) => restart({ ...options, chaos })} />
+                    {!recording && (<>
                     <label className="inline-flex items-center gap-1">
                         <span>Jump to</span>
                         <input className="w-28 bg-surface-2 px-2 py-1 text-text" value={jump} onChange={(event) => setJump(event.target.value)} aria-label="Fan-out index or label" />
                     </label>
                     <Button size="sm" variant="secondary" onClick={doJump}>Jump</Button>
+                    </>)}
                     <Select label="Layout" hideLabel value={options.layout} options={LAYOUTS.map((layout) => ({ value: layout, label: layout }))} onChange={(layout) => setOptions({ ...options, layout: layout as DevLayout })} />
                     <Segmented<TableEffects> label="Effects" value={effects} options={[{ value: 'full', label: 'Full' }, { value: 'calm', label: 'Calm' }, { value: 'off', label: 'Off' }]} onChange={setEffects} />
                     <Switch label="Reduced motion" checked={options.reduced} onChange={(reduced) => setOptions({ ...options, reduced })} />
-                    <span className="text-text-2">{`${run.fanOut}/${run.table.length - 1} ${label} · ${run.cursor}/${run.stream.length}`}</span>
+                    <span className="text-text-2">{recording ? `${options.fixture} · ${run.cursor}/${run.stream.length}` : `${run.fanOut}/${run.table.length - 1} ${label} · ${run.cursor}/${run.stream.length}`}</span>
                 </div>
             )}
             {state ? (
@@ -133,7 +145,7 @@ export default function DevBoardPage() {
                         <Board
                             key={`${options.seat}:${options.chaos}`}
                             state={state}
-                            me={seatId(options)}
+                            me={recording?.me ?? seatId(options)}
                             actions={ACTIONS}
                             error={null}
                             isConnected
