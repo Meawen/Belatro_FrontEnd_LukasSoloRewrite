@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { HomePage } from './HomePage'
 import { useUser } from '../hooks/useUser'
+import { matchHistoryService } from '../services/matchHistoryService'
+import type { PlayerMatchSummaryDTO } from '../types/user'
 
 // Tailwind's own colour scale (bg-amber-600, text-emerald-950, …): the design uses tokens only (spec §3.2)
 const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange|teal|lime|pink)-\d/
@@ -16,6 +18,11 @@ vi.mock('../hooks/useUser', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../hooks/useUser')>()),
     useUser: vi.fn(),
 }))
+vi.mock('../services/matchHistoryService', () => ({ matchHistoryService: { getMatchSummary: vi.fn() } }))
+
+function row(matchId: string, yourOutcome: string): PlayerMatchSummaryDTO {
+    return { matchId, endTime: null, result: 'Team A wins 1001–650', yourOutcome, gameMode: 'RANKED' }
+}
 
 /** Where a button or link led. */
 function Where() {
@@ -45,6 +52,7 @@ beforeEach(() => {
         user: { id: 'u1', username: 'ana', eloRating: 1450, level: 0, gamesPlayed: 42 },
         isLoading: false, error: null, refetch: vi.fn(),
     } as never)
+    vi.mocked(matchHistoryService.getMatchSummary).mockResolvedValue([])
 })
 
 describe('Home (spec §4.4; D-26)', () => {
@@ -84,5 +92,40 @@ describe('Home (spec §4.4; D-26)', () => {
         const strip = screen.getByTestId('dashboard-elo').closest('dl') as HTMLElement
         expect(within(strip).getAllByRole('term').map((term) => term.textContent)).toEqual(['Elo', 'Games', 'Level'])
         expect(container.innerHTML).not.toMatch(RAW_PALETTE)
+    })
+})
+
+describe('Home: recent matches (spec §4.4 item 6)', () => {
+    test('the newest three from the summary, each opening its match, and "All matches"', async () => {
+        vi.mocked(matchHistoryService.getMatchSummary).mockResolvedValue([row('m1', 'WIN'), row('m2', 'LOSS'), row('m3', 'WIN')])
+        const user = userEvent.setup()
+        const { unmount } = renderHome()
+        expect(await screen.findAllByRole('link', { name: /Victory|Defeat/ })).toHaveLength(3)
+        expect(matchHistoryService.getMatchSummary).toHaveBeenCalledWith('u1', 0, 3)
+        await user.click(screen.getAllByRole('link', { name: /Victory/ })[0])
+        expect(screen.getByText('at /matches/m1')).toBeInTheDocument()
+        unmount()
+        renderHome()
+        await user.click(screen.getByRole('button', { name: 'All matches' }))
+        expect(screen.getByText('at /matches')).toBeInTheDocument()
+    })
+
+    test('a loader while they load, then "No matches yet"', async () => {
+        let answer: (rows: PlayerMatchSummaryDTO[]) => void = () => {}
+        vi.mocked(matchHistoryService.getMatchSummary).mockReturnValue(new Promise((resolve) => (answer = resolve)))
+        renderHome()
+        await settle()
+        expect(screen.getByText('Loading matches...')).toBeInTheDocument()
+        await act(async () => answer([]))
+        expect(screen.getByText('No matches yet')).toBeInTheDocument()
+        expect(screen.queryByText('Loading matches...')).not.toBeInTheDocument()
+    })
+
+    test('a failed load is a quiet line, not an alert, and the rest of Home stays', async () => {
+        vi.mocked(matchHistoryService.getMatchSummary).mockRejectedValue(new Error('down'))
+        renderHome()
+        expect(await screen.findByText("Couldn't load your recent matches.")).toBeInTheDocument()
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Play ranked' })).toBeInTheDocument()
     })
 })
