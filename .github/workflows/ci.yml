@@ -1,6 +1,7 @@
 # SPA gate: the type check, the Vitest suite and a production build for every push to master and
-# every pull request into it. The build needs an API origin (vite.config.ts refuses a production
-# build without one); a placeholder is enough, nothing is deployed from here. Lint is not a gate.
+# every pull request into it. The build needs an API origin and a card art origin (vite.config.ts
+# refuses a production build without either); a placeholder API is enough, nothing is deployed from
+# here, and the card art stays on the r2.dev bucket until the custom domain exists (P-4). Lint is not a gate.
 name: CI
 
 on:
@@ -34,3 +35,4 @@ jobs:
         run: npm run build
         env:
           VITE_API_BASE_URL: https://api.example.test
+          VITE_CARD_ART_BASE_URL: https://pub-35c6a55a85654bcaa462dcc5f31c7c71.r2.dev/v1
