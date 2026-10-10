@@ -1,10 +1,12 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { HomePage } from './HomePage'
 import { useUser } from '../hooks/useUser'
+import { userService } from '../services/userService'
 import { matchHistoryService } from '../services/matchHistoryService'
+import { ACTIVE_GAME_POLL_MS } from '../components/layout/ActiveGameBanner'
 import type { PlayerMatchSummaryDTO } from '../types/user'
 
 // Tailwind's own colour scale (bg-amber-600, text-emerald-950, …): the design uses tokens only (spec §3.2)
@@ -18,6 +20,7 @@ vi.mock('../hooks/useUser', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../hooks/useUser')>()),
     useUser: vi.fn(),
 }))
+vi.mock('../services/userService', () => ({ userService: { getActiveGame: vi.fn() } }))
 vi.mock('../services/matchHistoryService', () => ({ matchHistoryService: { getMatchSummary: vi.fn() } }))
 
 function row(matchId: string, yourOutcome: string): PlayerMatchSummaryDTO {
@@ -52,8 +55,10 @@ beforeEach(() => {
         user: { id: 'u1', username: 'ana', eloRating: 1450, level: 0, gamesPlayed: 42 },
         isLoading: false, error: null, refetch: vi.fn(),
     } as never)
+    vi.mocked(userService.getActiveGame).mockResolvedValue(null)
     vi.mocked(matchHistoryService.getMatchSummary).mockResolvedValue([])
 })
+afterEach(() => vi.useRealTimers())
 
 describe('Home (spec §4.4; D-26)', () => {
     test('greets the player in the page’s only h1, and the tab is titled Home', async () => {
@@ -127,5 +132,44 @@ describe('Home: recent matches (spec §4.4 item 6)', () => {
         expect(await screen.findByText("Couldn't load your recent matches.")).toBeInTheDocument()
         expect(screen.queryByRole('alert')).not.toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Play ranked' })).toBeInTheDocument()
+    })
+})
+
+describe('Home: Return to your game (spec §4.4 item 2; §2.5 R-33)', () => {
+    test('a game in progress (200) shows the card, and it leads to the game', async () => {
+        vi.mocked(userService.getActiveGame).mockResolvedValue('g1')
+        renderHome()
+        const card = await screen.findByRole('region', { name: 'Game in progress' })
+        expect(card).toHaveTextContent('You have a game in progress.')
+        expect(card).toHaveClass('ui-panel--accent')
+        await userEvent.setup().click(within(card).getByRole('button', { name: 'Return to your game' }))
+        expect(screen.getByText('at /game/g1')).toBeInTheDocument()
+    })
+
+    test('no game (204): no card', async () => {
+        renderHome()
+        await settle()
+        expect(userService.getActiveGame).toHaveBeenCalledTimes(1)
+        expect(screen.queryByRole('region', { name: 'Game in progress' })).not.toBeInTheDocument()
+    })
+
+    test('the card asks again every 30 s: a failed check keeps it, a 204 then hides it', async () => {
+        vi.useFakeTimers()
+        vi.mocked(userService.getActiveGame)
+            .mockResolvedValueOnce('g1')
+            .mockRejectedValueOnce(new Error('down'))
+            .mockResolvedValue(null)
+        renderHome()
+        await settle()
+        expect(screen.getByRole('region', { name: 'Game in progress' })).toBeInTheDocument()
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(ACTIVE_GAME_POLL_MS)
+        })
+        expect(screen.getByRole('region', { name: 'Game in progress' })).toBeInTheDocument()
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(ACTIVE_GAME_POLL_MS)
+        })
+        expect(userService.getActiveGame).toHaveBeenCalledTimes(3)
+        expect(screen.queryByRole('region', { name: 'Game in progress' })).not.toBeInTheDocument()
     })
 })

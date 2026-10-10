@@ -1,13 +1,44 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ACTIVE_GAME_POLL_MS } from '../components/layout/ActiveGameBanner';
 import { Page } from '../components/layout/Page';
 import { MatchRow } from '../components/match/MatchRow';
 import { Button, Loader, Panel, PixelIcon } from '../components/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useMatchSummary } from '../hooks/useMatchHistory';
 import { useUser } from '../hooks/useUser';
+import { userService } from '../services/userService';
 
 /** How many of the newest matches Home lists (spec §4.4: `size=3`). */
 export const RECENT_MATCHES = 3;
+
+/**
+ * The player's running game, for Home's "Return to your game" card, which stands in for the banner here
+ * (§2.5 R-33): asked on arrival and every 30 s like the banner; a failed check keeps the last answer.
+ */
+function useActiveGame(): string | null {
+    const [gameId, setGameId] = useState<string | null>(null);
+    useEffect(() => {
+        let current = true;
+        const check = () => {
+            userService.getActiveGame().then(
+                (id) => {
+                    if (current) setGameId(id);
+                },
+                () => {
+                    // keep what we knew
+                },
+            );
+        };
+        check();
+        const timer = window.setInterval(check, ACTIVE_GAME_POLL_MS);
+        return () => {
+            current = false;
+            window.clearInterval(timer);
+        };
+    }, []);
+    return gameId;
+}
 
 function Stat({ label, value, testId }: { label: string; value: number | string; testId: string }) {
     return (
@@ -26,6 +57,7 @@ export function HomePage() {
     const navigate = useNavigate();
     // GET /user/{id}: the player's own numbers, "—" where the API gives none (R-34)
     const { user: profile } = useUser(user?.id ?? undefined);
+    const gameId = useActiveGame();
     const { matchSummary, error: matchesError } = useMatchSummary(user?.id, 0, RECENT_MATCHES);
     const elo = profile?.eloRating ?? '—';
     // a new player is level 0 in the database and Level 1 on every screen
@@ -53,6 +85,15 @@ export function HomePage() {
     return (
         <Page title="Home" heading={`Hi, ${user?.username || 'Player'}`}>
             <div className="flex flex-col gap-4">
+                {gameId && (
+                    <Panel as="section" edge="accent" aria-label="Game in progress" className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="t-body">You have a game in progress.</p>
+                        <Button onClick={() => navigate(`/game/${gameId}`)} leftIcon={<PixelIcon name="play" />}>
+                            Return to your game
+                        </Button>
+                    </Panel>
+                )}
+
                 <div className="grid gap-4 lg:grid-cols-2">
                     <Panel as="section" padding="lg" className="flex flex-col items-start gap-4">
                         <h2 className="t-title">Ranked</h2>

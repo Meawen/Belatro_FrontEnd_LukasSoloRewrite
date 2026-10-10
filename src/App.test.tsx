@@ -92,6 +92,20 @@ describe('Dashboard tiles (R-34)', () => {
     })
 })
 
+describe('Home with a game in progress (spec §2.5 R-33)', () => {
+    test("/dashboard shows the Return to your game card in the banner's place, and it leads to the game", async () => {
+        vi.spyOn(userService, 'getActiveGame').mockResolvedValue('g1')
+        renderAt('/dashboard')
+        const card = await screen.findByRole('region', { name: 'Game in progress' })
+        await act(async () => {})
+        expect(card).toHaveClass('ui-panel--accent')
+        expect(screen.getAllByRole('region', { name: 'Game in progress' })).toEqual([card])
+        expect(screen.getAllByRole('button', { name: 'Return to your game' })).toHaveLength(1)
+        await userEvent.setup().click(within(card).getByRole('button', { name: 'Return to your game' }))
+        expect(screen.getByRole('heading', { name: 'The table' })).toBeInTheDocument()
+    })
+})
+
 describe('Privacy and Terms (R-40)', () => {
     test('/privacy is readable signed out and names who runs the service', () => {
         auth.isAuthenticated = false
