@@ -9,6 +9,8 @@ import { showToast } from '../ui/Toast';
 import { Arena } from './Arena';
 import { BelaPrompt } from './BelaPrompt';
 import { BidPanel } from './BidPanel';
+import { EndSheet } from './EndSheet';
+import { HandResult } from './HandResult';
 import { BackCard, SweepCard, TrickCard } from './Cards';
 import { Hand } from './Hand';
 import { Hud } from './Hud';
@@ -191,7 +193,7 @@ export interface BoardProps {
  * waits for an animation: the timers only decide when finished tricks leave the table.
  */
 export function Board(props: BoardProps) {
-    const { state, me, actions, error, isConnected, hands, viewport } = props;
+    const { state, me, actions, error, isConnected, hands, rematch, onLeave, viewport } = props;
     const [stage, setStage] = useState(() => emptyStage(me));
     let current = stage;
     if (stage.state !== state) {
@@ -281,6 +283,9 @@ export function Board(props: BoardProps) {
                     </div>
                 </div>
                 <Summary model={model} />
+                {/* both rise once the last trick has left the table (spec §5.3.4 HandCompleted, Ended) */}
+                <HandResult model={model} open={model.handComplete && current.held === null} hands={hands} delta={current.handDelta} onChallenge={actions.challenge} />
+                <EndSheet model={model} open={model.end !== null && current.held === null} rematch={rematch} onLeave={onLeave} />
                 <div role="log" aria-live="polite" className="sr-only">
                     {said.lines.map((line, i) => <p key={`${said.seq}:${i}`}>{line}</p>)}
                 </div>
