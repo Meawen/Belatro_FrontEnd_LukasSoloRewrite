@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { JSDOM } from 'jsdom'
 import { PlayPage } from './PlayPage'
@@ -17,6 +17,11 @@ vi.mock('@stomp/stompjs', () => ({
     },
 }))
 vi.mock('sockjs-client', () => ({ default: class FakeSockJS {} }))
+// The Elo comes from GET /user/{id} through useUser
+vi.mock('../../hooks/useUser', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../../hooks/useUser')>()),
+    useUser: () => ({ user: { id: 'u1', username: 'ana', eloRating: 1450, level: 3, gamesPlayed: 42 }, isLoading: false, error: null, refetch: () => {} }),
+}))
 vi.mock('../../hooks/useAuth', () => ({
     useAuth: () => ({ user: { id: 'u1', username: 'ana' }, isAuthenticated: true, isLoading: false, token: 'tok-1' }),
 }))
@@ -50,5 +55,20 @@ describe('/play page (B7)', () => {
             </MemoryRouter>,
         )
         expect(screen.getByText("A player declined — you're back in the queue")).toBeInTheDocument()
+    })
+
+    test('one calm panel: RANKED, "Find a match", the Elo and the queue button; no marketing blocks (X-3)', () => {
+        render(<MemoryRouter initialEntries={['/play']}><RankedQueueProvider><PlayPage /></RankedQueueProvider></MemoryRouter>)
+        const panel = screen.getByRole('region', { name: 'Find a match' })
+        expect(within(panel).getByText('RANKED')).toBeInTheDocument()
+        expect(within(panel).getByRole('heading', { level: 1, name: 'Find a match' })).toBeInTheDocument()
+        expect(within(panel).getByText('Elo').nextElementSibling).toHaveTextContent(/^1450$/)
+        // the socket of this test never connects
+        expect(within(panel).getByRole('button', { name: 'Connecting...' })).toBeDisabled()
+        expect(within(panel).getByText('Connecting to game server...')).toBeInTheDocument()
+        for (const gone of ['Are you ready?', 'How It Works', 'Battle & Climb', 'Fast']) {
+            expect(screen.queryByText(gone)).not.toBeInTheDocument()
+        }
+        expect(screen.queryByText(/MMR/)).not.toBeInTheDocument()
     })
 })

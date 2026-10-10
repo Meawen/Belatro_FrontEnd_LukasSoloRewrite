@@ -8,10 +8,11 @@ vi.mock('../../hooks/useEnhancedRanked', () => ({ useEnhancedRanked: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAuthenticated: true }) }))
 vi.mock('../../services/userService', () => ({ userService: { resendEmailConfirmation: vi.fn() } }))
 
-function ranked(joinError: ApiError | null) {
+function ranked(joinError: ApiError | null, state: Record<string, unknown> = {}) {
     vi.mocked(useEnhancedRanked).mockReturnValue({
         isInQueue: false, joinQueue: vi.fn(), leaveQueue: vi.fn(), isJoining: false, isLeaving: false,
         joinError, leaveError: null, isWebSocketConnected: true, isWebSocketConnecting: false, webSocketError: null,
+        ...state,
     } as never)
 }
 
@@ -41,5 +42,20 @@ describe('PlayButton', () => {
         render(<PlayButton />)
         expect(screen.getByText('Error: Internal Server Error')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Resend confirmation email' })).not.toBeInTheDocument()
+    })
+
+    test('the queue button: Find Match is the primary action, busy while joining, Leave Queue the secondary one (spec §4.5)', () => {
+        ranked(null)
+        const { rerender } = render(<PlayButton />)
+        expect(screen.getByRole('button', { name: 'Find Match' })).toHaveClass('ui-btn--primary')
+        ranked(null, { isJoining: true })
+        rerender(<PlayButton />)
+        const joining = screen.getByRole('button', { name: 'Joining Queue...' })
+        expect(joining).toBeDisabled()
+        expect(joining).toHaveAttribute('aria-busy', 'true')
+        ranked(null, { isInQueue: true })
+        rerender(<PlayButton />)
+        expect(screen.getByRole('button', { name: 'Leave Queue' })).toHaveClass('ui-btn--secondary')
+        expect(screen.getByRole('button', { name: 'Leave Queue' })).toBeEnabled()
     })
 })
