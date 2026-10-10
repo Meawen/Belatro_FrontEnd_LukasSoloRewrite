@@ -5,7 +5,7 @@ import { SupportEmailLink } from '../layout/LegalLinks';
 /** The privacy notice of the invite-only beta (R-40); text approved by the owner. */
 export const PrivacyPage: React.FC = () => (
     <PublicPage title="Privacy notice">
-        <p className="text-emerald-300 text-sm">Last updated: October 2026.</p>
+        <p className="t-footnote text-text-2">Last updated: October 2026.</p>
         <p>
             This notice explains what Stiglja, an invite-only beta of the card game Belot, does with
             your personal data.
@@ -109,7 +109,7 @@ export const PrivacyPage: React.FC = () => (
             <p>
                 If you think we handle your data unlawfully, you can complain to the Croatian data
                 protection authority, Agencija za zaštitu osobnih podataka (AZOP):{' '}
-                <a href="https://azop.hr" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 underline">azop.hr</a>.
+                <a href="https://azop.hr" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2 hover:text-text">azop.hr</a>.
             </p>
         </Section>
 

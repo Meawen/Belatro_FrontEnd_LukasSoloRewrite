@@ -16,17 +16,17 @@ export const RulesPage: React.FC = () => (
             </p>
             <table className="w-full text-sm border-collapse">
                 <thead>
-                    <tr className="text-left text-emerald-300">
+                    <tr className="t-callout text-left text-text-2">
                         <th className="py-1 pr-4">Order, highest first</th>
                         <th className="py-1">Card points</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr className="border-t border-emerald-800">
+                    <tr className="border-t-2 border-edge">
                         <td className="py-2 pr-4">Trump suit: Decko, 9, As, 10, Kralj, Baba, 8, 7</td>
                         <td className="py-2">Decko 20, 9 14, As 11, 10 10, Kralj 4, Baba 3, 8 and 7 nothing</td>
                     </tr>
-                    <tr className="border-t border-emerald-800">
+                    <tr className="border-t-2 border-edge">
                         <td className="py-2 pr-4">Other suits: As, 10, Kralj, Baba, Decko, 9, 8, 7</td>
                         <td className="py-2">As 11, 10 10, Kralj 4, Baba 3, Decko 2, 9, 8 and 7 nothing</td>
                     </tr>

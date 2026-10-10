@@ -5,7 +5,7 @@ import { SupportEmailLink } from '../layout/LegalLinks';
 /** The terms of use of the invite-only beta (R-40); text approved by the owner. */
 export const TermsPage: React.FC = () => (
     <PublicPage title="Terms of use">
-        <p className="text-emerald-300 text-sm">Last updated: October 2026.</p>
+        <p className="t-footnote text-text-2">Last updated: October 2026.</p>
         <p>By creating an account you accept these terms.</p>
 
         <Section title="The service">

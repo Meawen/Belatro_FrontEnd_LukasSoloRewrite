@@ -10,14 +10,14 @@ export interface PublicPageProps {
 export const PublicPage: React.FC<PublicPageProps> = ({ title, children }) => (
     // PublicFrame is outside the app shell, so the way back to a running game comes there too (it hides when signed out)
     <PublicFrame title={title}>
-        <div className="space-y-8 leading-relaxed">{children}</div>
+        <div className="space-y-8">{children}</div>
     </PublicFrame>
 );
 
 /** One titled part of a public page. */
 export const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">{title}</h2>
+        <h2 className="t-headline text-text">{title}</h2>
         {children}
     </section>
 );
