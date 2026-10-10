@@ -358,6 +358,119 @@
         }
     }
 
+    /* Button and IconButton (§3.7). The fill, edge and notch are drawn on ::before (a clip-path on the
+       button itself would clip its ring); the ring is drawn inside, like every notched control (§3.4). */
+    .ui-btn {
+        --btn-bg: transparent;
+        --btn-fg: var(--text);
+        --btn-edge: none;
+        --btn-inset: 0;
+        position: relative;
+        isolation: isolate;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 44px;
+        padding: 0 16px;
+        border: 0;
+        background: none;
+        color: var(--btn-fg);
+        font-family: var(--font-sys);
+        font-size: 0.9375rem;
+        line-height: 1.2;
+        font-weight: 600;
+        letter-spacing: -0.005em;
+        cursor: pointer;
+        user-select: none;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 90ms ease-out;
+    }
+    .ui-btn::before {
+        content: "";
+        position: absolute;
+        inset: var(--btn-inset);
+        z-index: -1;
+        background: var(--btn-bg);
+        box-shadow: var(--btn-edge);
+        clip-path: var(--notch);
+    }
+    .ui-btn:active:not(:disabled) {
+        transform: translateY(2px);
+    }
+    .ui-btn:focus-visible {
+        outline-offset: -5px;
+    }
+    .ui-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+    .ui-btn--primary {
+        --btn-bg: var(--accent);
+        --btn-fg: var(--ink);
+        --btn-edge: inset 0 -3px 0 var(--accent-ledge);
+    }
+    .ui-btn--primary:active:not(:disabled) {
+        --btn-edge: inset 0 -1px 0 var(--accent-ledge);
+    }
+    .ui-btn--primary:focus-visible {
+        outline-color: var(--ink);
+    }
+    .ui-btn--secondary {
+        --btn-bg: var(--surface-2);
+        --btn-edge: inset 0 0 0 2px var(--edge);
+    }
+    .ui-btn--quiet {
+        --btn-fg: var(--text-2);
+    }
+    .ui-btn--danger {
+        --btn-fg: var(--danger-text);
+        --btn-edge: inset 0 0 0 2px var(--danger);
+    }
+    @media (hover: hover) {
+        .ui-btn:hover:not(:disabled)::before {
+            filter: brightness(1.12);
+        }
+        .ui-btn--quiet:hover:not(:disabled),
+        .ui-btn--danger:hover:not(:disabled) {
+            --btn-bg: var(--surface-2);
+        }
+    }
+    .ui-btn--sm {
+        --btn-inset: 4px 0;
+        padding: 0 12px;
+        font-size: 0.8125rem;
+    }
+    .ui-btn--icon {
+        min-width: 44px;
+        padding: 0;
+    }
+    .ui-btn--icon.ui-btn--sm {
+        --btn-inset: 4px;
+    }
+    .ui-btn--block {
+        display: flex;
+        width: 100%;
+    }
+    .ui-btn__busy {
+        width: 8px;
+        height: 8px;
+        flex: none;
+        background: currentColor;
+        animation: ui-blink 1s steps(2, jump-none) infinite;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .ui-btn__busy {
+            animation: none;
+        }
+    }
+    @media (forced-colors: active) {
+        .ui-btn {
+            border: 1px solid;
+        }
+    }
+
     /* end of the ui component styles */
 }
 
