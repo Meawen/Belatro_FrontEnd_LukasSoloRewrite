@@ -6,8 +6,6 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 // Layout Components
 import { AppLayout } from './components/layout/AppLayout';
 import { PageLayout } from './components/layout/PageLayout';
-import { MockGameBoard } from './MockComponents/MockGameBoard';
-import { RealisticGameBoard } from './MockComponents/RealisticGameBoard'; // Add this import
 
 
 // Page Components
@@ -481,24 +479,6 @@ function App() {
                         <ProtectedRoute>
                             <AppLayout showSidebar={true}>
                                 <PlayGamePage />
-                            </AppLayout>
-                        </ProtectedRoute>
-                    } />
-                    <Route path="/play/mock" element={
-                        <ProtectedRoute>
-                            <AppLayout showSidebar={true}>
-                                <PageLayout title="Game Development" subtitle="Mock game board for testing">
-                                    <MockGameBoard />
-                                </PageLayout>
-                            </AppLayout>
-                        </ProtectedRoute>
-                    } />
-                    <Route path="/play/realistic" element={
-                        <ProtectedRoute>
-                            <AppLayout showSidebar={true}>
-                                <PageLayout title="Realistic Game Demo" subtitle="Experience a full Belot game with animations">
-                                    <RealisticGameBoard />
-                                </PageLayout>
                             </AppLayout>
                         </ProtectedRoute>
                     } />

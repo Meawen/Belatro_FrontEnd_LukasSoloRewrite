@@ -4,12 +4,6 @@ import { gameSocket } from '../services/gameSocket';
 import type { MatchDTO } from '../types/match';
 import type { Boja, GameCard, PrivateGameView, PublicGameView, QueueStatusDTO, RematchFrame } from '../types/game';
 
-/** Display card of the mock boards in src/MockComponents (UI names such as 'Herc'/'As'), not the wire card. */
-export interface Card {
-    suit: string;
-    rank: string;
-}
-
 interface GameWebSocketOptions {
     onQueueStatusUpdate?: (status: QueueStatusDTO) => void;
     onMatchFound?: (match: MatchDTO) => void;

@@ -5,6 +5,5 @@ export { lobbyService } from './lobbyService';
 export { matchService } from './matchService';
 export { friendshipService } from './friendshipService';
 export { adminService } from './adminService';
-export { cardService } from './cardService';
 export { rankedService } from './rankedService';
 export { matchHistoryService } from './matchHistoryService';
