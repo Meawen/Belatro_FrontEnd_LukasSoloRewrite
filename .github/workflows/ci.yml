@@ -36,3 +36,14 @@ jobs:
         env:
           VITE_API_BASE_URL: https://api.example.test
           VITE_CARD_ART_BASE_URL: https://pub-35c6a55a85654bcaa462dcc5f31c7c71.r2.dev/v1
+      # spec §4.17, §7.5: the dev board playground is never in a production bundle
+      - name: No dev board in the production bundle
+        run: |
+          if grep -rq '/dev/board' dist/; then echo 'dist/ contains /dev/board'; exit 1; fi
+      # spec §3.8, §7.5: gzip -9 JS within the fca13bb baseline (194266 B) + 35 KB, the pixel font within 30 KB
+      - name: Bundle size
+        run: |
+          js=0; for f in dist/assets/*.js; do js=$((js + $(gzip -9 -c "$f" | wc -c))); done
+          font=0; for f in dist/assets/*.woff2; do font=$((font + $(wc -c < "$f"))); done
+          echo "JS gzip: $js B (limit 230106); font: $font B (limit 30720)"
+          test "$js" -le 230106 && test "$font" -le 30720
