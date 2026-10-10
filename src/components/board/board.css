@@ -27,3 +27,316 @@
     image-rendering: pixelated;
     pointer-events: none;
 }
+
+/* The board root (§5.6): the felt to the edges, nothing ever widens the page (overflow: clip) */
+.board {
+    overflow: clip;
+    isolation: isolate;
+    color: var(--text);
+    background: var(--bg);
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.board--screen {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100dvh;
+}
+.board--framed {
+    position: relative;
+}
+/* inside the safe areas (§3.4): the stage; the board area is centred in it on desktops (max 1100) */
+.board-stage,
+.board-area {
+    position: absolute;
+}
+.board-region {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.board-backs,
+.board-piles {
+    z-index: var(--z-piles);
+}
+.board-trick {
+    z-index: var(--z-trick);
+    perspective: 900px;
+}
+.board-hand {
+    z-index: var(--z-hand);
+    perspective: 900px;
+}
+.board-chips {
+    z-index: var(--z-chips);
+}
+.board-sweep {
+    z-index: var(--z-sweep);
+    perspective: 900px;
+}
+
+/* Card elements: positioned by left/top from cardTargets; Motion moves them with transforms only */
+.board-card {
+    position: absolute;
+    z-index: var(--z, 0);
+    display: block;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    transform-style: preserve-3d;
+}
+.board-card__face,
+.board-card__back,
+.board-card__pend,
+.board-card__lift {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+}
+.board-card__face,
+.board-card__back {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+.board-card__back {
+    transform: rotateY(180deg);
+}
+/* the static hard shadow of cards on the felt (§3.4) */
+.board-card .ui-card {
+    filter: drop-shadow(0 3px 0 rgb(0 0 0 / 0.35));
+}
+.board-hand-card {
+    pointer-events: auto;
+    cursor: pointer;
+}
+.board-hand-card:disabled {
+    cursor: default;
+}
+/* the owner's hover lift (D-35, §5.6.5): −24 px and 1.08 over 160 ms, on an inner layer, z-order up */
+.board-card__lift {
+    transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (hover: hover) and (pointer: fine) {
+    .board-hand-card:not(:disabled):hover {
+        z-index: 40;
+    }
+    .board-hand-card:not(:disabled):hover .board-card__lift {
+        transform: translateY(-24px) scale(1.08);
+    }
+}
+/* the pending card's gold ring (§5.3.5), and the trick winner's */
+.board-card__pend[data-pending]::after,
+.board-card__win {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    box-shadow: 0 0 0 3px var(--accent);
+    pointer-events: none;
+}
+/* while bidding, a hovered suit (a hand card or a bid button) rings every hand card of that suit (D-35) */
+.board-card__ring {
+    position: absolute;
+    inset: -3px;
+    box-shadow: 0 0 0 3px var(--ring, transparent);
+    opacity: 0;
+    transition: opacity 120ms ease;
+    pointer-events: none;
+}
+.board-hand-card[data-suit="HERC"] { --ring: var(--suit-herc); }
+.board-hand-card[data-suit="KARA"] { --ring: var(--suit-karo); }
+.board-hand-card[data-suit="PIK"] { --ring: var(--suit-pik); }
+.board-hand-card[data-suit="TREF"] { --ring: var(--suit-tref); }
+@media (hover: hover) and (pointer: fine) {
+    .board[data-phase="BIDDING"]:has([data-suit="HERC"]:hover) .board-hand-card[data-suit="HERC"] .board-card__ring,
+    .board[data-phase="BIDDING"]:has([data-suit="KARA"]:hover) .board-hand-card[data-suit="KARA"] .board-card__ring,
+    .board[data-phase="BIDDING"]:has([data-suit="PIK"]:hover) .board-hand-card[data-suit="PIK"] .board-card__ring,
+    .board[data-phase="BIDDING"]:has([data-suit="TREF"]:hover) .board-hand-card[data-suit="TREF"] .board-card__ring {
+        opacity: 1;
+    }
+}
+.board-crown {
+    position: absolute;
+    left: 50%;
+    top: -14px;
+    translate: -50% 0;
+    color: var(--accent);
+    filter: drop-shadow(0 2px 0 var(--ink));
+}
+
+/* Piles (§5.3.3) */
+.board-pile {
+    position: absolute;
+}
+.board-pile--button {
+    pointer-events: auto;
+    cursor: pointer;
+    padding: 0;
+    border: 0;
+    background: none;
+}
+/* a 44-px tap target around the small pile (§3.9) */
+.board-pile--button::before {
+    content: "";
+    position: absolute;
+    inset: -8px;
+}
+.board-pile__card {
+    position: absolute;
+    inset: 0;
+}
+.board-pile__count {
+    position: absolute;
+    right: -8px;
+    bottom: -8px;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 4px;
+    display: grid;
+    place-items: center;
+    background: var(--ink);
+    color: var(--text);
+    clip-path: var(--notch);
+    font-size: 0.875rem;
+}
+
+/* Seat chips (§5.3.3): ink chips on the felt; the seat to act in the accent */
+.board-seat {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    white-space: nowrap;
+}
+.board-seat__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 8px;
+    background: var(--material-ink);
+    color: var(--text);
+}
+.board-seat__name[data-turn] {
+    background: var(--accent);
+    color: var(--ink);
+}
+.board-seat__name[data-turn] .text-text-2 {
+    color: var(--ink);
+}
+.board-seat__team {
+    width: 6px;
+    height: 6px;
+}
+.board-seat__dealer {
+    padding: 0 4px;
+    line-height: 16px;
+    background: var(--accent);
+    color: var(--ink);
+}
+.board-seat__name[data-turn] .board-seat__dealer {
+    background: var(--ink);
+    color: var(--accent);
+}
+.board-seat__seconds {
+    font-variant-numeric: tabular-nums;
+}
+.board-seat__timer {
+    display: block;
+    width: 100%;
+    height: 3px;
+    overflow: hidden;
+    background: rgb(242 240 230 / 0.15);
+}
+.board-seat__timer i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transform-origin: left;
+}
+.board-seat__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.board-your-turn {
+    position: absolute;
+    left: 50%;
+    z-index: var(--z-chips);
+    translate: -50% 0;
+    padding: 4px 10px;
+    background: var(--accent);
+    color: var(--ink);
+    pointer-events: none;
+}
+
+/* The HUD (§5.4): ink chips at the top of the board area, inside the safe area */
+.board-hud {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    z-index: var(--z-chips);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 6px;
+    pointer-events: none;
+}
+.board-hud__group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.board-hud__group:last-child {
+    flex: none;
+    justify-content: flex-end;
+}
+.board-hud__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 10px;
+    background: var(--material-ink);
+    color: var(--text);
+    clip-path: var(--notch);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    pointer-events: auto;
+}
+.board-hud__team {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+}
+.board-hud__sep {
+    width: 2px;
+    height: 18px;
+    background: var(--edge);
+}
+.board-score {
+    position: relative;
+    display: inline-flex;
+    overflow: hidden;
+    min-width: 1ch;
+}
+@media (max-width: 639.98px) {
+    .board-hud__season {
+        display: none;
+    }
+}
+.board-error {
+    position: absolute;
+    top: 52px;
+    left: 50%;
+    z-index: var(--z-chips);
+    width: min(420px, calc(100% - 32px));
+    translate: -50% 0;
+}
