@@ -9,7 +9,7 @@ import { Select } from '../components/ui/Select';
 import { Switch } from '../components/ui/Switch';
 import { MotionProvider } from '../motion/MotionProvider';
 import { useTableEffects, writeTableEffects, type TableEffects } from '../settings/tableEffects';
-import { LAYOUTS, SEATS, devHands, devStream, devTable, frameOf, parseDevOptions, resolveAt, type DevLayout, type DevOptions } from './devTable';
+import { LAYOUTS, SEATS, devHands, devStream, devTable, frameOf, parseDevOptions, resolveAt, seatId, type DevLayout, type DevOptions } from './devTable';
 import type { GameActions } from '../hooks/useGameViews';
 import type { MatchHands } from '../hooks/useMatchHands';
 import type { RematchState } from '../hooks/useRematch';
@@ -25,15 +25,15 @@ const REMATCH: RematchState = { votes: 1, cancelledBy: null, expired: false, pla
 /** The accepted state after a snapshot of fan-out `index` (the jump), and where the stream goes on from. */
 function jumpTo(options: DevOptions, index: number, now: number) {
     const table = devTable(options, now, index);
-    const stream = devStream(table, options.seat, options.chaos);
-    const accepted = acceptFrame(NOTHING_ACCEPTED, frameOf({ channel: 'snapshot', body: table[index].private[options.seat] }), now);
+    const stream = devStream(table, seatId(options), options.chaos);
+    const accepted = acceptFrame(NOTHING_ACCEPTED, frameOf({ channel: 'snapshot', body: table[index].private[seatId(options)] }), now);
     const cursor = stream.findIndex((step) => step.fanOut > index);
     return { table, stream, accepted, cursor: cursor < 0 ? stream.length : cursor, fanOut: index };
 }
 
 function fromStart(options: DevOptions, now: number) {
     const table = devTable(options, now, 0);
-    return { table, stream: devStream(table, options.seat, options.chaos), accepted: NOTHING_ACCEPTED as Accepted, cursor: 0, fanOut: 0 };
+    return { table, stream: devStream(table, seatId(options), options.chaos), accepted: NOTHING_ACCEPTED as Accepted, cursor: 0, fanOut: 0 };
 }
 
 function useWindowSize() {
@@ -133,7 +133,7 @@ export default function DevBoardPage() {
                         <Board
                             key={`${options.seat}:${options.chaos}`}
                             state={state}
-                            me={options.seat}
+                            me={seatId(options)}
                             actions={ACTIONS}
                             error={null}
                             isConnected

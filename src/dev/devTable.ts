@@ -10,6 +10,13 @@ import type { Boja, GameCard, PublicGameView } from '../types/game';
 import type { HandDTO, TrickDTO } from '../types/match';
 
 export const SEATS = ['alice', 'bob', 'carol', 'dave'] as const;
+/** names=long: every seat named by the longest username the backend allows (20 of [A-Za-z0-9_]), wide letters and narrow. */
+export const LONG_NAMES: Readonly<Record<(typeof SEATS)[number], string>> = {
+    alice: 'WWWWWWWWWWWWWWWWWWWW',
+    bob: 'MMMMMMMMMMMMMMMMMMMM',
+    carol: 'mmmmmmmmmmmmmmmmmmmm',
+    dave: 'aaaaaaaaaaaaaaaaaaaa',
+};
 export const LAYOUTS = ['fit', '375x812', '812x375', '1440x900'] as const;
 export type DevLayout = (typeof LAYOUTS)[number];
 
@@ -38,12 +45,14 @@ export interface DevOptions {
     play: boolean;
     /** Deliveries per 400 ms. */
     speed: number;
+    /** Every seat named by a 20-character name (LONG_NAMES): the visual harness's names check. */
+    names: boolean;
 }
 
 const one = <T extends string>(value: string | null, allowed: readonly T[], fallback: T): T =>
     allowed.includes(value as T) ? (value as T) : fallback;
 
-/** `/dev/board?seat=carol&at=window-open&layout=375x812&effects=off&motion=reduce&chaos=1&controls=0&skip=1&play=1&speed=2&seed=7&trump=KARA&hands=2&scores=990,900` */
+/** `/dev/board?seat=carol&at=window-open&layout=375x812&effects=off&motion=reduce&chaos=1&controls=0&skip=1&play=1&speed=2&seed=7&trump=KARA&hands=2&scores=990,900&names=long` */
 export function parseDevOptions(search: string): DevOptions {
     const q = new URLSearchParams(search);
     const scores = (q.get('scores') ?? '').split(',').map(Number);
@@ -62,15 +71,30 @@ export function parseDevOptions(search: string): DevOptions {
         skip: q.get('skip') === '1',
         play: q.get('play') === '1',
         speed: Math.min(8, Math.max(0.25, Number(q.get('speed')) || 1)),
+        names: q.get('names') === 'long',
     };
 }
 
+/** The id the board plays as: the seat, or its long name with names=long. */
+export function seatId(options: Pick<DevOptions, 'seat' | 'names'>): string {
+    return options.names ? LONG_NAMES[options.seat as (typeof SEATS)[number]] : options.seat;
+}
+
+/** Every player id in the frames (a whole JSON string: keys and values) replaced by its long name; labels stay. */
+function withLongNames(fanOuts: FanOut[]): FanOut[] {
+    const labels = fanOuts.map((f) => f.label);
+    let text = JSON.stringify(fanOuts.map((f) => ({ ...f, label: '' })));
+    for (const seat of SEATS) text = text.split(JSON.stringify(seat)).join(JSON.stringify(LONG_NAMES[seat]));
+    return (JSON.parse(text) as FanOut[]).map((f, i) => ({ ...f, label: labels[i] }));
+}
+
 /** The table for these options, its clock set so that fan-out `atIndex` happens now (live countdowns). */
-export function devTable(options: Pick<DevOptions, 'seed' | 'trump' | 'hands' | 'scores'>, now: number, atIndex = 0): FanOut[] {
+export function devTable(options: Pick<DevOptions, 'seed' | 'trump' | 'hands' | 'scores'> & { names?: boolean }, now: number, atIndex = 0): FanOut[] {
     const base = { seed: options.seed, trump: options.trump, hands: options.hands, ...(options.scores ? { scores: options.scores } : {}) };
     const probe = playTable(base);
     const offset = probe[Math.min(Math.max(0, atIndex), probe.length - 1)].at - probe[0].at;
-    return playTable({ ...base, start: now - offset });
+    const table = playTable({ ...base, start: now - offset });
+    return options.names ? withLongNames(table) : table;
 }
 
 /** A fan-out index from `at`: a number, or the first label starting with it; 0 when neither. */
