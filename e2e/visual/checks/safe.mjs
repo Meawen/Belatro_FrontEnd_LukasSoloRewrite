@@ -36,7 +36,7 @@ export default {
                         const safe = { left: insets.left, top: insets.top, right: window.innerWidth - insets.right, bottom: window.innerHeight - insets.bottom };
                         const problems = [];
                         const seen = new Set();
-                        const items = document.querySelectorAll('.board .board-card, .board [data-testid^="seat-"], .board [data-testid^="pile-"], .board button, .board [data-testid="your-turn"], .ui-sheet button');
+                        const items = document.querySelectorAll('.board .board-card, .board .board-hud__chip, .board [data-testid^="seat-"], .board [data-testid^="pile-"], .board button, .board [data-testid="your-turn"], .ui-sheet button');
                         for (const element of items) {
                             if (seen.has(element) || element.closest('[inert]')) continue;
                             seen.add(element);
