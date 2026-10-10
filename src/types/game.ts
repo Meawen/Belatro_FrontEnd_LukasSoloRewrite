@@ -42,6 +42,16 @@ export interface LiveTrick {
     leadPlayerId: string;
     trump: Boja | null;
     plays: Record<string, GameCard>;
+    /** The card winning so far (Trick.getWinningCard); on a completed trick, the winner's card. */
+    winningCard?: GameCard | null;
+}
+
+/** The hand's last completed trick (§6.1 lastTrick): `order` is the play order from `leadPlayerId`. */
+export interface LastTrickView {
+    leadPlayerId: string;
+    plays: Record<string, GameCard>;
+    order: string[];
+    winnerId: string;
 }
 
 export interface DeclarationsView {
@@ -76,6 +86,18 @@ export interface PublicGameView {
     endReason: EndReason | null;
     /** The team that forfeited or left (FORFEIT, ABANDONED); otherwise null. */
     forfeitTeamId: 'A' | 'B' | null;
+    // The fields below come from a newer backend (UI redesign spec §6.1); an older one sends none of them.
+    /** Per-game counter, increased by every save; frames of one fan-out carry the same value. */
+    stateVersion?: number;
+    /** The hand's last completed trick; null before the first completes, reset at the deal. */
+    lastTrick?: LastTrickView | null;
+    /** Completed tricks of the current hand won by each team. */
+    tricksWonA?: number;
+    tricksWonB?: number;
+    /** The current dealer's player id. */
+    dealerId?: string | null;
+    /** Epoch ms when the server built this view (clock skew for the countdowns). */
+    serverNow?: number;
 }
 
 export interface PrivateGameView {
