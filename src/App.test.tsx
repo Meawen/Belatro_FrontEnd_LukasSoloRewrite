@@ -63,6 +63,8 @@ describe('App error boundary (R-29)', () => {
         expect(screen.getByText('Something went wrong')).toBeInTheDocument()
         expect(screen.getByText('Reload')).toBeInTheDocument()
         expect(screen.getByText('Go to dashboard')).toBeInTheDocument()
+        // the root fallback sits in the minimal wordmark frame (spec §4.1)
+        expect(screen.getByText('Stiglja')).toBeInTheDocument()
         expect(logs.text()).toContain('render failed')
     })
 })

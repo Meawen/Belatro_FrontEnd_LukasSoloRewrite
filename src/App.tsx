@@ -44,7 +44,7 @@ function App() {
         <QueryClientProvider client={queryClient}>
             <Router>
                 {/* A render error on any page shows the boundary's fallback instead of a blank page (R-29) */}
-                <ErrorBoundary>
+                <ErrorBoundary fullPage>
                 {/* The ranked queue outlives every page: Match Found reaches a queued player anywhere (R-33) */}
                 <RankedQueueProvider>
                 <Routes>
