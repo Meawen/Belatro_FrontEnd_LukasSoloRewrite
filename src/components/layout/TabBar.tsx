@@ -65,7 +65,13 @@ export function TabBar() {
                 <ul className="flex flex-col gap-2">
                     {more.map((item) => (
                         <li key={item.to}>
-                            <ListRow as="link" to={item.to} leading={<NavIcon name={item.icon} />} title={item.label} />
+                            <ListRow
+                                as="link"
+                                to={item.to}
+                                aria-current={isCurrent(item, location.pathname) ? 'page' : undefined}
+                                leading={<NavIcon name={item.icon} />}
+                                title={item.label}
+                            />
                         </li>
                     ))}
                     <li>

@@ -56,6 +56,13 @@ describe('TabBar (spec §4.1, R-37 amended)', () => {
         expect(screen.getByRole('button', { name: 'More' })).toHaveAttribute('aria-expanded', 'true')
     })
 
+    test('on a page under More, its row in More is the current page (spec §4.1)', async () => {
+        renderTabBar('/friends')
+        const { sheet } = await openMore()
+        expect(within(sheet).getByRole('link', { name: 'Friends' })).toHaveAttribute('aria-current', 'page')
+        expect(within(sheet).getAllByRole('link').filter((link) => link.hasAttribute('aria-current')).map((link) => link.textContent)).toEqual(['Friends'])
+    })
+
     test('an admin per /user/me also finds Admin under More', async () => {
         vi.mocked(useMe).mockReturnValue({ data: { roles: ['ROLE_ADMIN'] } } as never)
         renderTabBar()

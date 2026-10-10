@@ -17,6 +17,8 @@ interface ListRowBase {
     className?: string;
     /** The accessible name of a button or link row, when its text alone would read badly. */
     'aria-label'?: string;
+    /** A link row in a navigation list: the page it leads to is the one shown (spec §4.1). */
+    'aria-current'?: 'page';
 }
 
 export type ListRowProps = ListRowBase &
@@ -61,7 +63,7 @@ export function ListRow(props: ListRowProps) {
     }
     if (props.as === 'link') {
         return (
-            <Link to={props.to} state={props.state} className={classes} aria-label={props['aria-label']}>
+            <Link to={props.to} state={props.state} className={classes} aria-label={props['aria-label']} aria-current={props['aria-current']}>
                 {content}
             </Link>
         );
