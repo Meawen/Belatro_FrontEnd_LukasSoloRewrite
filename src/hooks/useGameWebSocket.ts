@@ -9,6 +9,12 @@ interface GameWebSocketOptions {
     onMatchFound?: (match: MatchDTO) => void;
     onPublicGameUpdate?: (view: PublicGameView) => void;
     onPrivateGameUpdate?: (view: PrivateGameView) => void;
+    /**
+     * Snapshot tagging (UI redesign spec §5.3.1): when given, the /app/queue/games/{id} answer and the
+     * first private frame after subscribing or after a lost connection come here instead of
+     * onPrivateGameUpdate. Without it, they go to onPrivateGameUpdate as before.
+     */
+    onGameSnapshot?: (view: PrivateGameView) => void;
     onGameError?: (message: string) => void;
     onGameDisconnect?: () => void;
     onRematchUpdate?: (frame: RematchFrame) => void;
@@ -23,6 +29,12 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
     const optionsRef = useRef(options);
     optionsRef.current = options;
     const unsubscribersRef = useRef(new Map<string, () => void>());
+    // The next private frame is a snapshot: set on subscribing and whenever the connection is lost
+    const freshRef = useRef(false);
+
+    useEffect(() => gameSocket.onStateChange(() => {
+        if (!gameSocket.getState().isConnected) freshRef.current = true;
+    }), []);
 
     useEffect(() => {
         const release = gameSocket.acquire();
@@ -69,6 +81,7 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
 
     /* ---------- Game channels ---------- */
     const subscribeToGame = useCallback((gameId: string) => {
+        freshRef.current = true;
         track(`game-${gameId}-public`, `/topic/games/${gameId}`, (body) => {
             // On cancel the backend sends this bare string on the JSON topic.
             if (body === 'DISCONNECT') {
@@ -83,7 +96,14 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
         });
         track(`game-${gameId}-private`, `/user/queue/games/${gameId}`, (body) => {
             try {
-                optionsRef.current.onPrivateGameUpdate?.(JSON.parse(body));
+                const view: PrivateGameView = JSON.parse(body);
+                const { onGameSnapshot, onPrivateGameUpdate } = optionsRef.current;
+                if (freshRef.current && onGameSnapshot) {
+                    freshRef.current = false;
+                    onGameSnapshot(view);
+                } else {
+                    onPrivateGameUpdate?.(view);
+                }
             } catch (e) {
                 console.error('private game parse failed', e);
             }
@@ -98,7 +118,10 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
         // reconnect, so the table re-snapshots then too (R-30).
         track(`game-${gameId}-snapshot`, `/app/queue/games/${gameId}`, (body) => {
             try {
-                optionsRef.current.onPrivateGameUpdate?.(JSON.parse(body));
+                const view: PrivateGameView = JSON.parse(body);
+                const { onGameSnapshot, onPrivateGameUpdate } = optionsRef.current;
+                freshRef.current = false;
+                (onGameSnapshot ?? onPrivateGameUpdate)?.(view);
             } catch (e) {
                 console.error('game snapshot parse failed', e);
             }
