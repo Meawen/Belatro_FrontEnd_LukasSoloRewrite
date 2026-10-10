@@ -495,3 +495,123 @@
     min-height: 44px;
     align-self: flex-start;
 }
+.board-hud__hit {
+    display: inline-flex;
+    align-items: center;
+    height: 44px;
+    margin: -4px 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    pointer-events: auto;
+}
+.board-hud__menu {
+    pointer-events: auto;
+}
+
+/* Bela Blok (§5.4): a 320-px column on desktops, a sheet on phones */
+.board-blok {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--z-chips);
+    width: 320px;
+    padding: 16px;
+    overflow: auto;
+    background: var(--surface);
+    box-shadow: inset 3px 0 0 var(--edge);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.board-blok__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+.board-blok__table th {
+    padding: 4px 6px;
+    text-align: right;
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-2);
+}
+.board-blok__table td {
+    padding: 6px;
+    text-align: right;
+    font-family: var(--font-pix);
+    font-size: 1.125rem;
+    font-variant-numeric: tabular-nums;
+    box-shadow: inset 0 -1px 0 rgb(155 173 183 / 0.12);
+}
+.board-blok__table th:first-child,
+.board-blok__table td:first-child {
+    text-align: left;
+    color: var(--text-3);
+}
+.board-blok__table tfoot td {
+    padding-top: 10px;
+    font-size: 1.5rem;
+    color: var(--text);
+    box-shadow: none;
+}
+.board-blok__table td.board-blok__empty {
+    font-family: var(--font-sys);
+    font-size: 0.875rem;
+    text-align: left;
+    color: var(--text-3);
+}
+
+/* The peek (§5.4): a row per trick my team won, four thumbnails, the winner crowned */
+.board-peek {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.board-peek__trick {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.board-peek__trick > .t-footnote {
+    width: 56px;
+}
+.board-peek__card {
+    position: relative;
+    display: inline-flex;
+}
+.board-peek__crown {
+    position: absolute;
+    left: 50%;
+    top: -10px;
+    translate: -50% 0;
+    color: var(--accent);
+}
+
+/* The game menu (§5.4) */
+.board-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.board-menu__hand ol,
+.board-menu__hand ul {
+    margin: 4px 0 0;
+    padding-left: 18px;
+}
+.board-menu__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+}
+.board-menu__leave {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}

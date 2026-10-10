@@ -5,15 +5,19 @@ import { useReducedMotion } from '../../motion/useReducedMotion';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { cardLabel } from '../game/gameView';
 import { cx } from '../ui/cx';
+import { Sheet } from '../ui/Sheet';
 import { showToast } from '../ui/Toast';
 import { Arena } from './Arena';
 import { BelaPrompt } from './BelaPrompt';
 import { BidPanel } from './BidPanel';
+import { BlokColumn, BlokTable, BLOK_HINT } from './BelaBlok';
 import { EndSheet } from './EndSheet';
+import { GameMenu } from './GameMenu';
 import { HandResult } from './HandResult';
 import { BackCard, SweepCard, TrickCard } from './Cards';
 import { Hand } from './Hand';
 import { Hud } from './Hud';
+import { Peek } from './Peek';
 import { Piles } from './Piles';
 import { Seats } from './Seats';
 import { Summary } from './Summary';
@@ -24,7 +28,7 @@ import { dropLeaving, emptyStage, landTrick, settleStage, shownPiles, stepStage,
 import { useBoardViewport } from './useBoardViewport';
 import type { BoardState } from './model/accept';
 import type { Boja } from '../../types/game';
-import type { BoardModel } from './model/boardModel';
+import type { BoardModel, Team } from './model/boardModel';
 import type { GameActions } from '../../hooks/useGameViews';
 import type { MatchHands } from '../../hooks/useMatchHands';
 import type { RematchState } from '../../hooks/useRematch';
@@ -217,6 +221,17 @@ export function Board(props: BoardProps) {
     const onBid = (call: Boja | 'PASS') => apply(pressBid(latest.current.model!, latest.current.local.input, call, Date.now()));
     const closeBela = () => setStage((s) => withInput(s, { ...s.local.input, belaCardId: null }));
 
+    // the menu, Bela Blok (a sheet on phones) and the peek; opening a panel of stored hands asks for fresh ones
+    const [panel, setPanel] = useState<'menu' | 'blok' | 'peek' | null>(null);
+    const open = (next: 'blok' | 'peek') => {
+        hands?.refresh();
+        setPanel(next);
+    };
+    const onPile = (team: Team) => {
+        if (team === (latest.current.model?.myTeam ?? 'A')) open('peek');
+        else showToast("You can only look at your team's tricks");
+    };
+
     // one polite message per event (spec §5.8), and a toast for every challenge result (O-4)
     const [said, setSaid] = useState<{ seq: number; lines: string[] }>({ seq: 0, lines: [] });
     useEffect(() => {
@@ -268,7 +283,7 @@ export function Board(props: BoardProps) {
                 <div className="board-stage" style={{ left: box.insets.left, top: box.insets.top, width: box.viewport.width, height: box.viewport.height }}>
                     <div className="board-area" style={{ left: layout.board.x, top: layout.board.y, width: layout.board.w, height: layout.board.h }}>
                         <Backs stage={current} model={model} targets={targets} reduced={reduced} />
-                        {piles && <Piles counts={piles} targets={targets} myTeam={model.myTeam ?? 'A'} />}
+                        {piles && <Piles counts={piles} targets={targets} myTeam={model.myTeam ?? 'A'} onTap={onPile} />}
                         <TrickRegion stage={current} model={model} targets={targets} reduced={reduced} />
                         <Hand cards={model.hand} targets={targets} deal={current.deal} entrances={current.entrances} instant={instant} reduced={reduced} onPress={onCard} />
                         <Seats model={model} targets={targets} layout={layout} instant={instant} />
@@ -278,14 +293,22 @@ export function Board(props: BoardProps) {
                             <BelaPrompt card={model.belaPrompt} target={targets.cards[model.belaPrompt.id]} onAnswer={onBela} onDismiss={closeBela} />
                         )}
                         <SweepLayer stage={current} model={model} layout={layout} targets={targets} reduced={reduced} />
-                        <Hud model={model} instant={instant} calledBy={called?.type === 'TrumpCalled' ? called.playerId : null} calls={current.calls} onChallenge={actions.challenge} />
+                        <Hud model={model} instant={instant} calledBy={called?.type === 'TrumpCalled' ? called.playerId : null} calls={current.calls} onChallenge={actions.challenge}
+                            onMenu={() => setPanel('menu')} onBlok={layout.blok ? null : () => open('blok')} />
                         {error && <div className="board-error"><ErrorAlert message={error} /></div>}
                     </div>
+                    {layout.blok && <BlokColumn model={model} hands={hands} />}
                 </div>
                 <Summary model={model} />
                 {/* both rise once the last trick has left the table (spec §5.3.4 HandCompleted, Ended) */}
                 <HandResult model={model} open={model.handComplete && current.held === null} hands={hands} delta={current.handDelta} onChallenge={actions.challenge} />
                 <EndSheet model={model} open={model.end !== null && current.held === null} rematch={rematch} onLeave={onLeave} />
+                <GameMenu model={model} open={panel === 'menu'} onClose={() => setPanel(null)} onBlok={layout.blok ? null : () => open('blok')} />
+                <Sheet open={panel === 'blok' && !layout.blok} onClose={() => setPanel(null)} title="Bela Blok" showClose data-testid="bela-blok">
+                    <BlokTable model={model} hands={hands} />
+                    <p className="t-footnote text-text-3 mt-3">{BLOK_HINT}</p>
+                </Sheet>
+                <Peek model={model} hands={hands} open={panel === 'peek'} onClose={() => setPanel(null)} />
                 <div role="log" aria-live="polite" className="sr-only">
                     {said.lines.map((line, i) => <p key={`${said.seq}:${i}`}>{line}</p>)}
                 </div>
