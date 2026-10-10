@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Panel, PixelIcon, Tag } from '../ui';
 import { cx } from '../ui/cx';
 import { BOJE, SUIT_LABEL } from '../game/gameView';
-import type { HandDTO, HandSummary } from '../../types/match';
+import type { ChallengeDTO, HandDTO, HandSummary, MatchDTO, TrumpCallDTO } from '../../types/match';
+import { PlayerChip } from './PlayerChip';
+import { teamOfPlayer } from './trickReplay';
 
 const counted = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -49,8 +51,54 @@ function HandSummaryBox({ hand, summary }: { hand: HandDTO; summary: HandSummary
     );
 }
 
+// A call's row carries its team's colour on the left edge
+const TEAM_EDGE = { A: 'shadow-[inset_3px_0_0_var(--team-a)]', B: 'shadow-[inset_3px_0_0_var(--team-b)]' } as const;
+
+/** Item 6, "Trump declarations": who said what, PASS or the suit. */
+function Declarations({ calls, match, me }: { calls: TrumpCallDTO[]; match: MatchDTO; me: string | null }) {
+    return (
+        <section aria-label="Trump declarations" className="notch bg-surface p-3">
+            <h3 className="t-caption mb-2 text-text-2">Trump declarations</h3>
+            <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {calls.map((call, i) => {
+                    const team = teamOfPlayer(match, call.player);
+                    return (
+                        <li key={i} className={cx('notch t-callout flex items-center justify-between gap-2 bg-bg px-2.5 py-2', team && TEAM_EDGE[team])}>
+                            <PlayerChip player={call.player} match={match} me={me} />
+                            <CallTag call={call.trump} />
+                        </li>
+                    );
+                })}
+            </ul>
+        </section>
+    );
+}
+
+/** Item 6, "Challenges": who challenged, and whether it held. */
+function Challenges({ challenges, match, me }: { challenges: ChallengeDTO[]; match: MatchDTO; me: string | null }) {
+    return (
+        <section aria-label="Challenges" className="notch bg-surface p-3">
+            <h3 className="t-caption mb-2 text-text-2">Challenges</h3>
+            <ul className="flex flex-col gap-1.5">
+                {challenges.map((challenge, i) => (
+                    <li key={i} className="notch t-callout flex items-center justify-between gap-2 bg-bg px-2.5 py-2">
+                        <span className="flex min-w-0 flex-wrap items-center gap-2">
+                            <span className={cx('notch grid size-7 shrink-0 place-items-center', challenge.success ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger-text')}>
+                                <PixelIcon name={challenge.success ? 'check' : 'x'} />
+                            </span>
+                            <span>Challenge by</span>
+                            <PlayerChip player={challenge.player} match={match} me={me} />
+                        </span>
+                        <Tag tone={challenge.success ? 'win' : 'bad'}>{challenge.success ? 'SUCCESS' : 'FAIL'}</Tag>
+                    </li>
+                ))}
+            </ul>
+        </section>
+    );
+}
+
 /** Item 5: one hand's row, and its details while it is open. */
-function HandRow({ hand, index }: { hand: HandDTO; index: number }) {
+function HandRow({ hand, index, match, me }: { hand: HandDTO; index: number; match: MatchDTO; me: string | null }) {
     const [open, setOpen] = useState(false);
     const number = hand.handNo || index + 1;
     const summary = hand.handSummary;
@@ -97,13 +145,19 @@ function HandRow({ hand, index }: { hand: HandDTO; index: number }) {
                 )}
                 <PixelIcon name="chevron" className={cx('shrink-0 text-text-3 motion-safe:transition-transform', open && 'rotate-90')} />
             </button>
-            {open && <div className="flex flex-col gap-2 px-2 pb-3 sm:px-3">{summary && <HandSummaryBox hand={hand} summary={summary} />}</div>}
+            {open && (
+                <div className="flex flex-col gap-2 px-2 pb-3 sm:px-3">
+                    {summary && <HandSummaryBox hand={hand} summary={summary} />}
+                    {calls.length > 0 && <Declarations calls={calls} match={match} me={me} />}
+                    {(hand.challenges ?? []).length > 0 && <Challenges challenges={hand.challenges ?? []} match={match} me={me} />}
+                </div>
+            )}
         </li>
     );
 }
 
-/** Item 5: "Game history ({n} hands)", one collapsible row per hand (spec §4.9). */
-export function HandHistory({ hands }: { hands: HandDTO[] }) {
+/** Item 5: "Game history ({n} hands)", one collapsible row per hand (spec §4.9); `me` is my username. */
+export function HandHistory({ hands, match, me }: { hands: HandDTO[]; match: MatchDTO; me: string | null }) {
     return (
         <Panel as="section" aria-label="Game history" padding="none" className="p-3 sm:p-4">
             <h2 className="t-title mb-3">
@@ -111,7 +165,7 @@ export function HandHistory({ hands }: { hands: HandDTO[] }) {
             </h2>
             <ul className="flex flex-col gap-2">
                 {hands.map((hand, index) => (
-                    <HandRow key={index} hand={hand} index={index} />
+                    <HandRow key={index} hand={hand} index={index} match={match} me={me} />
                 ))}
             </ul>
         </Panel>

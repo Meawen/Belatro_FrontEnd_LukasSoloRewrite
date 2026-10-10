@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HandHistory } from './HandHistory'
-import type { HandDTO, HandSummary, MoveDTO, TrickDTO } from '../../types/match'
+import type { HandDTO, HandSummary, MatchDTO, MoveDTO, TrickDTO } from '../../types/match'
 
 // Tailwind's own colour scale (bg-emerald-900, text-red-300, …): the design uses tokens only (spec §3.2)
 const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange|teal|pink)-\d/
@@ -32,8 +32,16 @@ const CAPOT: HandDTO = {
     handSummary: summary({ teamAPoints: 252, teamBPoints: 0, teamADeclPoints: 20, capot: true, finalScoreA: 272, finalScoreB: 162 }),
 }
 
+// Seat (turn) order A1, B1, A2, B2: ana, cy, bob, dan; I am ana
+const MATCH: MatchDTO = {
+    id: 'm1', gameMode: 'CASUAL', result: 'Team A wins 1001–650', originLobby: null,
+    teamA: [{ id: 'u1', username: 'ana' }, { id: 'u2', username: 'bob' }],
+    teamB: [{ id: 'u3', username: 'cy' }, { id: 'u4', username: 'dan' }],
+    startTime: null, endTime: null,
+}
+
 function renderHands(hands: HandDTO[]) {
-    return render(<HandHistory hands={hands} />)
+    return render(<HandHistory hands={hands} match={MATCH} me="ana" />)
 }
 
 /** A hand's row: a button named "Hand n, …" (its tags and running score follow the number). */
@@ -106,5 +114,41 @@ describe('Game history rows (spec §4.9 item 5)', () => {
         expect(within(row).queryByText(/ - /)).not.toBeInTheDocument()
         await userEvent.setup().click(row)
         expect(screen.queryByRole('region', { name: 'Hand summary' })).not.toBeInTheDocument()
+    })
+})
+
+describe('An open hand’s declarations and challenges (spec §4.9 item 6)', () => {
+    test('trump declarations: each call with its player’s chip (team colour, YOU on mine), then PASS or the suit chip', async () => {
+        renderHands([FELL])
+        await userEvent.setup().click(handRow(1))
+        const calls = within(screen.getByRole('region', { name: 'Trump declarations' })).getAllByRole('listitem')
+        expect(calls).toHaveLength(4)
+        expect(within(calls[0]).getByText('cy')).toBeInTheDocument()
+        expect(within(calls[0]).getByText('C')).toHaveClass('bg-team-b')
+        expect(within(calls[0]).getByText('PASS')).toBeInTheDocument()
+        expect(within(calls[1]).getByText('B')).toHaveClass('bg-team-a')
+        expect(within(calls[0]).queryByText('YOU')).not.toBeInTheDocument()
+        expect(within(calls[3]).getByText('ana').parentElement).toHaveTextContent('YOU')
+        expect(within(calls[3]).getByText('Tref').closest('.ui-tag')).toHaveClass('bg-suit-tref')
+    })
+
+    test('challenges: a check or x tile, "Challenge by" the player’s chip, SUCCESS or FAIL', async () => {
+        renderHands([{ ...CAPOT, challenges: [{ order: 1, player: 'dan', success: true }, { order: 2, player: 'ana', success: false }] }])
+        await userEvent.setup().click(handRow(2))
+        const rows = within(screen.getByRole('region', { name: 'Challenges' })).getAllByRole('listitem')
+        expect(rows).toHaveLength(2)
+        expect(within(rows[0]).getByText('Challenge by')).toBeInTheDocument()
+        expect(within(rows[0]).getByText('dan')).toBeInTheDocument()
+        expect(within(rows[0]).getByText('SUCCESS').closest('.ui-tag')).toHaveClass('bg-success')
+        expect(within(rows[1]).getByText('ana').parentElement).toHaveTextContent('YOU')
+        expect(within(rows[1]).getByText('FAIL').closest('.ui-tag')).toHaveClass('bg-danger-fill')
+    })
+
+    test('a hand without calls or challenges shows neither section', async () => {
+        renderHands([{ ...CAPOT, trumpCalls: [] }])
+        await userEvent.setup().click(handRow(2))
+        expect(screen.getByRole('region', { name: 'Hand summary' })).toBeInTheDocument()
+        expect(screen.queryByRole('region', { name: 'Trump declarations' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('region', { name: 'Challenges' })).not.toBeInTheDocument()
     })
 })

@@ -173,7 +173,7 @@ function RawMoves({ moves }: { moves: MoveDTO[] }) {
 }
 
 /** Items 5 and 7 with their states: the hands, or "Couldn't load the hands" and a retry, or the raw moves. */
-function HandsSection({ details }: { details: MatchDetailsData }) {
+function HandsSection({ details, me }: { details: MatchDetailsData; me: string | null }) {
     if (details.handsFailed || details.handsLoading) {
         return (
             <Panel as="section" aria-label="Game history">
@@ -185,7 +185,7 @@ function HandsSection({ details }: { details: MatchDetailsData }) {
             </Panel>
         );
     }
-    if (details.hands && details.hands.length > 0) return <HandHistory hands={details.hands} />;
+    if (details.hands && details.hands.length > 0 && details.match) return <HandHistory hands={details.hands} match={details.match} me={me} />;
     if (details.moves && details.moves.length > 0) return <RawMoves moves={details.moves} />;
     return null;
 }
@@ -220,6 +220,8 @@ export function MatchDetails({ id }: { id: string }) {
         );
     } else {
         const { hands } = details;
+        // moves and calls name players by username: mine as this match lists me, else my own
+        const me = [...(match.teamA ?? []), ...(match.teamB ?? [])].find((player) => player.id === user?.id)?.username ?? user?.username ?? null;
         content = (
             <div className="flex flex-col gap-3">
                 <Hero match={match} result={yourResult(match, user?.id)} />
@@ -234,7 +236,7 @@ export function MatchDetails({ id }: { id: string }) {
                     <TeamPanel team="B" members={match.teamB ?? []} myId={user?.id} />
                 </div>
                 {match.result && <MatchSummary result={match.result} hands={hands} />}
-                <HandsSection details={details} />
+                <HandsSection details={details} me={me} />
                 <div className="flex justify-end">{toList}</div>
             </div>
         );
