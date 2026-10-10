@@ -1,23 +1,75 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { UserCard } from './UserCard';
-import { Loading, Button, Input } from '../common';
-import { useUsersPage, useUser } from '../../hooks/useUser';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Avatar, Button, EmptyState, ErrorState, Input, ListRow, Loader, Pager, PixelIcon, Tag } from '../ui';
+import { FriendActions } from './FriendActions';
+import { useMediaQuery } from '../layout/useMediaQuery';
+import { useUsersPage, USERS_PAGE_SIZE } from '../../hooks/useUser';
+import { useFriends, type FriendsState } from '../../hooks/useFriends';
 import { useAuth } from '../../hooks/useAuth';
 import type { User } from '../../types/user';
 import { errorMessage } from '../../utils/errorMessage';
 
 // The server searches; wait for a pause in typing before asking it.
 const SEARCH_DEBOUNCE_MS = 300;
+// One refresh every 3 s at most: it asks the server again.
+const REFRESH_LOCK_MS = 3000;
 
-export interface UserListProps {
-    showOnlyOnline?: boolean;
+/** Phones get compact rows (spec §4.12): rank, name, Elo, and the friend action as an icon button. */
+export const COMPACT_ROWS_QUERY = '(max-width: 767.98px)';
+
+/** A player with at least one game is ranked; accounts without one are listed after them as Unranked (O-3). */
+export const isRanked = (user: User): boolean => (user.gamesPlayed ?? 0) > 0;
+
+interface PlayerRowProps {
+    player: User;
+    /** The place on the leaderboard, or null: unranked, or a search is applied. */
+    rank: number | null;
+    isMe: boolean;
+    meId: string | null;
+    friends: FriendsState;
+    compact: boolean;
 }
 
-export const UserList: React.FC<UserListProps> = ({
-                                                      showOnlyOnline = false
-                                                  }) => {
+function PlayerRow({ player, rank, isMe, meId, friends, compact }: PlayerRowProps) {
+    const name = player.username || 'Unknown User';
+    const games = player.gamesPlayed ?? 0;
+    return (
+        <ListRow
+            highlight={isMe}
+            leading={
+                <span className="flex items-center gap-3">
+                    <span className={compact ? 't-score w-9 text-right text-text-2' : 't-score w-12 text-right text-text-2'}>
+                        {rank !== null ? `#${rank}` : ''}
+                    </span>
+                    {!compact && <Avatar initial={name} tone={isMe ? 'accent' : 'neutral'} />}
+                </span>
+            }
+            title={
+                <span className="flex items-center gap-2">
+                    <Link to={`/profile/${player.id}`} className="inline-flex min-h-11 min-w-0 items-center truncate hover:underline">
+                        {name}
+                    </Link>
+                    {isMe && <Tag tone="you">You</Tag>}
+                    {!isRanked(player) && <Tag>Unranked</Tag>}
+                </span>
+            }
+            meta={compact ? undefined : `${games} ${games === 1 ? 'game' : 'games'} · Level ${player.level || 1}`}
+            trailing={
+                <>
+                    <span className="flex flex-col items-end">
+                        <span className="t-score tabular-nums">{player.eloRating ?? '—'}</span>
+                        <span className="t-caption text-text-3">Elo</span>
+                    </span>
+                    {!isMe && <FriendActions user={player} meId={meId} friends={friends} compact={compact} className="items-end" />}
+                </>
+            }
+        />
+    );
+}
+
+/** /users, the leaderboard (spec §4.12; D-28): the server's Elo-ranked page as it is, me included. */
+export const UserList: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortBy, setSortBy] = useState<'username' | 'eloRating' | 'level'>('username');
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const [page, setPage] = useState(0);
@@ -37,297 +89,121 @@ export const UserList: React.FC<UserListProps> = ({
     const { data: usersPage, isLoading, error, refetch } = useUsersPage(page, query);
     const users = usersPage?.content;
     const totalUsers = usersPage?.totalElements ?? 0;
-    const { user: authUser, isAuthenticated } = useAuth();
+    const { user: authUser } = useAuth();
+    const meId = authUser?.id ?? null;
+    // one friendships list for every row's buttons
+    const friends = useFriends(meId ?? undefined);
+    const compact = useMediaQuery(COMPACT_ROWS_QUERY);
 
-    // Fetch the full user data for the current user with caching
-    const { user: currentUserFull } = useUser(authUser?.id || undefined);
-
-    // Debounced search handler
-    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchTerm(e.target.value);
-    }, []);
-
-    // Memoized filtered users with error handling
-    const filteredUsers = useMemo(() => {
-        if (!users || !Array.isArray(users)) return [];
-
-        try {
-            let filtered = users.filter((user: User) => {
-                // Safety check for user object
-                if (!user || typeof user !== 'object') return false;
-
-                // Exclude current user
-                if (user.id === authUser?.id) return false;
-
-                // Online filter (placeholder - you'd need actual online status)
-                if (showOnlyOnline) {
-                    // This would need actual online status from your backend
-                    // For now, we'll assume all users are potentially online
-                    return true;
-                }
-
-                return true;
-            });
-
-            // Sort users with null safety
-            filtered.sort((a: User, b: User) => {
-                try {
-                    switch (sortBy) {
-                        case 'username':
-                            return (a.username || '').localeCompare(b.username || '');
-                        case 'eloRating':
-                            return (b.eloRating || 0) - (a.eloRating || 0);
-                        case 'level':
-                            return (b.level || 0) - (a.level || 0);
-                        default:
-                            return 0;
-                    }
-                } catch (err) {
-                    console.warn('Error sorting users:', err);
-                    return 0;
-                }
-            });
-
-            return filtered;
-        } catch (err) {
-            console.error('Error filtering users:', err);
-            return [];
-        }
-    }, [users, authUser?.id, sortBy, showOnlyOnline]);
-
-    // Handle refresh with rate limiting
     const handleRefresh = useCallback(async () => {
         if (isRefreshing) return;
-
         setIsRefreshing(true);
         try {
             await refetch();
-        } catch (err) {
-            console.error('Refresh failed:', err);
+        } catch {
+            // the error state below shows what went wrong
         } finally {
-            // Rate limit refreshes to prevent spamming
-            setTimeout(() => setIsRefreshing(false), 3000);
+            window.setTimeout(() => setIsRefreshing(false), REFRESH_LOCK_MS);
         }
     }, [refetch, isRefreshing]);
 
-    const clearSearch = useCallback(() => {
-        setSearchTerm('');
-    }, []);
+    const clearSearch = useCallback(() => setSearchTerm(''), []);
 
-    // Icon components to replace emojis
-    const LockIcon = () => (
-        <svg className="w-16 h-16 text-slate-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 15v2m-6 4h12a2 2 0 002-2v-9a2 2 0 00-2-2H9V6a3 3 0 116 0v4a2 2 0 002 2v9a2 2 0 01-2 2z" />
-        </svg>
-    );
-
-    const WarningIcon = () => (
-        <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
-        </svg>
-    );
-
-    const UsersIcon = () => (
-        <svg className="w-16 h-16 text-slate-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-        </svg>
-    );
-
-    const RefreshIcon = ({ isSpinning = false }: { isSpinning?: boolean }) => (
-        <svg className={`w-4 h-4 mr-1 ${isSpinning ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-    );
-
-    const LoadingIcon = () => (
-        <svg className="w-4 h-4 mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-    );
-
-    // Don't render if not authenticated (but allow viewing leaderboard)
-    if (!isAuthenticated && showOnlyOnline) {
-        return (
-            <div className="card text-center py-12">
-                <LockIcon />
-                <h3 className="text-xl font-semibold text-white mb-2">Authentication Required</h3>
-                <p className="text-slate-400">Please log in to view online users.</p>
-            </div>
-        );
-    }
-
-    if (isLoading && !users) {
-        return <Loading size="large" text="Loading users..." />;
+    if (!usersPage && !error) {
+        return <Loader text="Loading users..." />;
     }
 
     if (error) {
         return (
-            <div className="card bg-red-900/20 border-red-500/30">
-                <div className="flex items-center gap-3">
-                    <WarningIcon />
-                    <div>
-                        <h3 className="text-red-400 font-semibold">Error Loading Users</h3>
-                        <p className="text-red-300 text-sm">
-                            {errorMessage(error, 'Failed to load user list')}
-                        </p>
-                    </div>
-                </div>
-                <Button
-                    onClick={handleRefresh}
-                    variant="outline"
-                    size="small"
-                    className="mt-4"
-                    disabled={isRefreshing}
-                >
-                    {isRefreshing ? 'Retrying...' : 'Try Again'}
-                </Button>
-            </div>
+            <ErrorState
+                title="Error Loading Users"
+                body={errorMessage(error, 'Failed to load user list')}
+                action={
+                    <Button variant="secondary" onClick={handleRefresh} disabled={isRefreshing}>
+                        {isRefreshing ? 'Retrying...' : 'Try Again'}
+                    </Button>
+                }
+            />
+        );
+    }
+
+    let list;
+    if (!users || users.length === 0) {
+        list = query ? (
+            <EmptyState
+                icon="search"
+                title={`No players match '${query}'`}
+                action={
+                    <Button variant="secondary" onClick={clearSearch}>
+                        Clear Search
+                    </Button>
+                }
+            />
+        ) : (
+            <EmptyState icon="people" title="No Users Found" body="No users available." />
+        );
+    } else {
+        // Ranks only without a search term (spec §4.12): a search shows a slice, not places
+        const offset = (usersPage?.number ?? 0) * USERS_PAGE_SIZE;
+        list = (
+            <ul className="flex flex-col gap-2">
+                {users.map((player, index) => (
+                    <li key={player.id ?? index}>
+                        <PlayerRow
+                            player={player}
+                            rank={!query && isRanked(player) ? offset + index + 1 : null}
+                            isMe={!!meId && player.id === meId}
+                            meId={meId}
+                            friends={friends}
+                            compact={compact}
+                        />
+                    </li>
+                ))}
+            </ul>
         );
     }
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold text-white">
-                        {showOnlyOnline ? 'Online Users' : 'Leaderboard'}
-                    </h2>
-                    <p className="text-slate-400">
-                        {totalUsers} {totalUsers === 1 ? 'user' : 'users'} found
-                    </p>
-                </div>
+        <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="t-callout text-text-2">
+                    {totalUsers} {totalUsers === 1 ? 'user' : 'users'} found
+                </p>
                 <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={handleRefresh}
-                    variant="outline"
-                    size="small"
                     disabled={isRefreshing || isLoading}
+                    leftIcon={<PixelIcon name="refresh" />}
                 >
-                    {isRefreshing ? (
-                        <>
-                            <LoadingIcon />
-                            Refreshing...
-                        </>
-                    ) : (
-                        <>
-                            <RefreshIcon />
-                            Refresh
-                        </>
-                    )}
+                    {isRefreshing ? 'Refreshing...' : 'Refresh'}
                 </Button>
             </div>
 
-            {/* Filters */}
-            <div className="card">
-                <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1">
-                        <Input
-                            type="text"
-                            placeholder="Search users by username..."
-                            value={searchTerm}
-                            onChange={handleSearchChange}
-                        />
-                    </div>
+            <Input
+                label="Search players"
+                hideLabel
+                type="text"
+                placeholder="Search users by username..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
 
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setSortBy('username')}
-                            className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                                sortBy === 'username'
-                                    ? 'bg-purple-600 text-white'
-                                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                            }`}
-                        >
-                            Name
-                        </button>
-                        <button
-                            onClick={() => setSortBy('eloRating')}
-                            className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                                sortBy === 'eloRating'
-                                    ? 'bg-purple-600 text-white'
-                                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                            }`}
-                        >
-                            ELO
-                        </button>
-                        <button
-                            onClick={() => setSortBy('level')}
-                            className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                                sortBy === 'level'
-                                    ? 'bg-purple-600 text-white'
-                                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                            }`}
-                        >
-                            Level
-                        </button>
-                    </div>
-                </div>
-            </div>
+            {isLoading && <Loader layout="inline" text="Loading users..." />}
 
-            {/* Loading indicator for refresh */}
-            {isLoading && users && (
-                <div className="text-center py-2">
-                    <span className="text-slate-400 text-sm flex items-center justify-center gap-2">
-                        <RefreshIcon isSpinning />
-                        Loading users...
-                    </span>
-                </div>
-            )}
-
-            {/* Users Grid */}
-            {filteredUsers.length === 0 ? (
-                <div className="card text-center py-12">
-                    <UsersIcon />
-                    <h3 className="text-xl font-semibold text-white mb-2">No Users Found</h3>
-                    <p className="text-slate-400 mb-6">
-                        {searchTerm ? 'No users match your search criteria.' : 'No users available.'}
-                    </p>
-                    {searchTerm && (
-                        <Button
-                            onClick={clearSearch}
-                            variant="outline"
-                        >
-                            Clear Search
-                        </Button>
-                    )}
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredUsers.map((user: User) => (
-                        <UserCard
-                            key={user.id || Math.random()}
-                            user={user}
-                            currentUser={currentUserFull}
-                            onUpdate={handleRefresh}
-                        />
-                    ))}
-                </div>
-            )}
+            {list}
 
             {/* Step from the page the server answered with, and not while the next one loads
                 (useApi keeps the old page on screen meanwhile, so a double-click would skip one). */}
             {usersPage && usersPage.totalPages > 1 && (
-                <div className="flex items-center justify-center gap-4">
-                    <Button
-                        variant="outline"
-                        size="small"
-                        disabled={isLoading || usersPage.number <= 0}
-                        onClick={() => setPage(Math.max(0, usersPage.number - 1))}
-                    >
-                        Previous
-                    </Button>
-                    <span className="text-slate-400 text-sm">
-                        Page {usersPage.number + 1} of {usersPage.totalPages}
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="small"
-                        disabled={isLoading || usersPage.number + 1 >= usersPage.totalPages}
-                        onClick={() => setPage(usersPage.number + 1)}
-                    >
-                        Next
-                    </Button>
-                </div>
+                <Pager
+                    className="mt-2"
+                    page={usersPage.number}
+                    pageCount={usersPage.totalPages}
+                    hasNext={usersPage.number + 1 < usersPage.totalPages}
+                    disabled={isLoading}
+                    onPage={(next) => setPage(Math.max(0, next))}
+                />
             )}
         </div>
     );
