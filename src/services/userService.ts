@@ -51,10 +51,12 @@ export const userService = {
 
     // The server pages, sorts by username and filters on q (case-insensitive substring).
     // It answers 400 for a NUL in q, so NUL characters are dropped before sending.
-    async getUsersPage(params: { page: number; size: number; q?: string }): Promise<Page<User>> {
+    // sort "elo" (spec §6.2): the players who have played first, by Elo, then the accounts without a game.
+    async getUsersPage(params: { page: number; size: number; q?: string; sort?: 'elo' }): Promise<Page<User>> {
         const query = new URLSearchParams({ page: String(params.page), size: String(params.size) });
         const q = params.q?.replace(/\0/g, '');
         if (q) query.set('q', q);
+        if (params.sort) query.set('sort', params.sort);
         return apiClient.get<Page<User>>(`/user/findAll?${query.toString()}`);
     },
 

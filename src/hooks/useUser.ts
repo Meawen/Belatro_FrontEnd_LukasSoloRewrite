@@ -32,9 +32,10 @@ export function useUser(userId?: string) {
 /** Page size of the players list; the backend clamps it to 1..100. */
 export const USERS_PAGE_SIZE = 20;
 
+/** One page of the leaderboard, ranked by Elo on the server (spec §4.12, §6.2). */
 export function useUsersPage(page: number, q: string) {
     const apiFunction = useMemo(
-        () => () => userService.getUsersPage({ page, size: USERS_PAGE_SIZE, q }),
+        () => () => userService.getUsersPage({ page, size: USERS_PAGE_SIZE, q, sort: 'elo' }),
         [page, q]
     );
 

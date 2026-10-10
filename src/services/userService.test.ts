@@ -113,6 +113,15 @@ describe('userService hardened contract', () => {
         await userService.getUsersPage({ page: 0, size: 20, q: '\0' })
         expect(get).toHaveBeenLastCalledWith('/user/findAll?page=0&size=20')
     })
+
+    // spec §6.2: the leaderboard's order is the server's (players with games first, by Elo)
+    test('getUsersPage asks for the Elo order when told to, after the search term', async () => {
+        const get = vi.spyOn(apiClient, 'get').mockResolvedValue({ content: [] })
+        await userService.getUsersPage({ page: 1, size: 20, q: 'ana', sort: 'elo' })
+        expect(get).toHaveBeenCalledWith('/user/findAll?page=1&size=20&q=ana&sort=elo')
+        await userService.getUsersPage({ page: 0, size: 20, q: '', sort: 'elo' })
+        expect(get).toHaveBeenLastCalledWith('/user/findAll?page=0&size=20&sort=elo')
+    })
 })
 
 // The server closes the user's sockets with 1008 at its first session bump, before the
