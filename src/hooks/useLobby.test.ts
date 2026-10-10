@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { LOBBY_LIST_POLL_MS, useOpenLobbies } from './useLobby'
+import { LOBBY_LIST_POLL_MS, LOBBY_POLL_MS, useLobby, useOpenLobbies } from './useLobby'
 import { lobbyService } from '../services/lobbyService'
 import { ApiError } from '../services/api'
 import type { LobbyDTO } from '../types/lobby'
@@ -77,7 +77,7 @@ describe('useOpenLobbies (spec §4.6 Data)', () => {
         expect(getOpen).toHaveBeenCalledTimes(2)
     })
 
-    test('a failed first load shows no list and does not poll; Try again loads it', async () => {
+    test('a failed first load shows no list and does not poll; Try again loads it (the list)', async () => {
         const getOpen = vi.spyOn(lobbyService, 'getAllOpenLobbies').mockRejectedValue(new ApiError({ status: 503, message: 'Service Unavailable' }))
         const { result } = renderHook(() => useOpenLobbies())
         await settle()
@@ -88,5 +88,49 @@ describe('useOpenLobbies (spec §4.6 Data)', () => {
         getOpen.mockResolvedValue([])
         await act(() => result.current.refresh())
         expect(result.current).toMatchObject({ lobbies: [], loading: false, failed: false })
+    })
+})
+
+describe('useLobby (spec §4.7 Data)', () => {
+    test('loads the lobby, then polls every 2 s while visible and not while hidden (AC 8, D-16)', async () => {
+        const getLobby = vi.spyOn(lobbyService, 'getLobby').mockResolvedValue(lobby('l1'))
+        const { result } = renderHook(() => useLobby('l1'))
+        await settle()
+        expect(result.current.lobby?.id).toBe('l1')
+        expect(getLobby).toHaveBeenCalledWith('l1')
+        await wait(LOBBY_POLL_MS)
+        expect(getLobby).toHaveBeenCalledTimes(2)
+        setVisibility('hidden')
+        await wait(3 * LOBBY_POLL_MS)
+        expect(getLobby).toHaveBeenCalledTimes(2)
+        setVisibility('visible')
+        await settle()
+        expect(getLobby).toHaveBeenCalledTimes(3)
+        expect(LOBBY_POLL_MS).toBe(2000)
+    })
+
+    test('a 404 means the lobby was closed, and the polling stops', async () => {
+        const getLobby = vi.spyOn(lobbyService, 'getLobby').mockResolvedValue(lobby('l1'))
+        const { result } = renderHook(() => useLobby('l1'))
+        await settle()
+        getLobby.mockRejectedValue(new ApiError({ status: 404, message: 'Lobby not found' }))
+        await wait(LOBBY_POLL_MS)
+        expect(result.current.closed).toBe(true)
+        expect(result.current.pollError).toBeNull()
+        await wait(3 * LOBBY_POLL_MS)
+        expect(getLobby).toHaveBeenCalledTimes(2)
+    })
+
+    test('a failed poll keeps the last lobby and says why; polling off stops it', async () => {
+        const getLobby = vi.spyOn(lobbyService, 'getLobby').mockResolvedValue(lobby('l1'))
+        const { result, rerender } = renderHook(({ on }) => useLobby('l1', on), { initialProps: { on: true } })
+        await settle()
+        getLobby.mockRejectedValue(new ApiError({ status: 503, message: 'Service Unavailable' }))
+        await wait(LOBBY_POLL_MS)
+        expect(result.current.lobby?.id).toBe('l1')
+        expect(result.current.pollError).toBe('Could not refresh the lobby: Service Unavailable')
+        rerender({ on: false })
+        await wait(3 * LOBBY_POLL_MS)
+        expect(getLobby).toHaveBeenCalledTimes(2)
     })
 })
