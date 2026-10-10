@@ -5,6 +5,5 @@ export { useLobby, useLobbies } from './useLobby';
 export { useMatch, useAllMatches, useMatchByLobby } from './useMatch';
 export { useFriends, useAllFriendships, useFriendship } from './useFriends';
 export { useAdmin } from './useAdmin';
-export { useRanked } from './useRanked';
 export { useLocalStorage, useSessionStorage } from './useLocalStorage';
 export { useWebSocket } from './useWebSocket';
