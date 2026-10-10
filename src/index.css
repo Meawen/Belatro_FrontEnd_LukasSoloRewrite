@@ -1,17 +1,306 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  }
+/*
+ * The Stiglja design system (spec §3): tokens, type, materials and the pixel utilities. Every colour
+ * a component uses comes from a token below, through its Tailwind name (bg-surface-2, text-text-2,
+ * border-edge, bg-suit-herc, ...). New code never uses the raw palette (emerald-*, slate-*, ...).
+ */
 
-  body {
-    margin: 0;
-    min-height: 100vh;
-    @apply bg-emerald-950 text-white;
-  }
+@layer base {
+    :root {
+        color-scheme: dark;
+
+        /* type families (§3.3): the pixel face only for the wordmark, page titles and score numerals */
+        --font-sys: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --font-pix: "Jersey 10", var(--font-sys);
+
+        /* surfaces (§3.2) */
+        --bg: #0a1916;
+        --surface: #11292a;
+        --surface-2: #17363a;
+        --surface-3: #1e4448;
+        --edge: #2c5a52;
+        /* always the boundary of Input, Select, Switch and the Segmented track (O-4: ≥ 3:1) */
+        --edge-strong: #6aa898;
+        --ink: #222034;
+
+        /* text */
+        --text: #f2f0e6;
+        --text-2: #9badb7;
+        --text-3: #8aa2ad;
+
+        /* accents, all from the cards' DawnBringer 32 palette */
+        --accent: #fbf236;
+        --accent-ledge: #8f974a;
+        --success: #99e550;
+        --danger: #d95763;
+        --danger-text: #f08a94;
+        --danger-fill: #ac3232;
+        --warn-fill: #8f563b;
+        --team-a: #5fcde4;
+        --team-b: #d77bba;
+        --team-b-text: #e08ac6;
+
+        /* suits: chips and trump rings */
+        --suit-herc: #ac3232;
+        --suit-karo: #fbf236;
+        --suit-pik: #4b692f;
+        --suit-tref: #df7126;
+
+        /* the table: the neutral felt (a 4-px dither pair), the wooden rim, a felt per season (§5.7) */
+        --felt-a: #1b6b4c;
+        --felt-b: #1a6449;
+        --rim: #663931;
+        --rim-hi: #8f563b;
+        --felt-spring-a: #2f8f4e;
+        --felt-spring-b: #2b8448;
+        --felt-summer-a: #9a7a1e;
+        --felt-summer-b: #8f711b;
+        --felt-autumn-a: #8a4a1f;
+        --felt-autumn-b: #7f441c;
+        --felt-winter-a: #1d2f52;
+        --felt-winter-b: #1a2a4a;
+
+        /* materials (§3.4): only chrome that floats over scrolling content is translucent */
+        --material-bar: rgba(10, 25, 22, 0.86);
+        --material-blur: blur(16px) saturate(140%);
+        --material-ink: rgba(34, 32, 52, 0.88);
+
+        /* pixel corners (§3.4): four 3-px (controls, chips, panels, rows) or 6-px (table, sheets) notches */
+        --notch: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
+        --notch-6: polygon(0 6px, 6px 6px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px));
+
+        /* layers (§3.4): use as z-(--z-modal). Off the board, the tab bar and action bars sit at --z-bar */
+        --z-felt: 0;
+        --z-particles: 1;
+        --z-piles: 10;
+        --z-trick: 20;
+        --z-hand: 30;
+        --z-chips: 40;
+        --z-bar: 40;
+        --z-bid: 50;
+        --z-sweep: 60;
+        --z-sheet: 70;
+        --z-scrim: 80;
+        --z-modal: 90;
+        --z-toast: 100;
+
+        /* safe areas (§4.1: the tab bar is 64 px + the bottom inset); real on iOS thanks to viewport-fit=cover */
+        --safe-top: env(safe-area-inset-top, 0px);
+        --safe-right: env(safe-area-inset-right, 0px);
+        --safe-bottom: env(safe-area-inset-bottom, 0px);
+        --safe-left: env(safe-area-inset-left, 0px);
+    }
+
+    @media (prefers-reduced-transparency: reduce) {
+        :root {
+            --material-bar: var(--surface);
+            --material-blur: none;
+            --material-ink: var(--ink);
+        }
+    }
+
+    @media (prefers-contrast: more) {
+        :root {
+            --edge: var(--edge-strong);
+            --text-2: #d8e1e5;
+            --text-3: #b5c3ca;
+        }
+    }
+
+    body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-sys);
+        background: var(--bg);
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* §3.9: every interactive element shows a 2-px accent ring on keyboard focus */
+    :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+    }
 }
 
+/* Tailwind names for the colour tokens: bg-<token>, text-<token>, border-<token>, ring-<token>, ... */
+@theme inline {
+    --color-bg: var(--bg);
+    --color-surface: var(--surface);
+    --color-surface-2: var(--surface-2);
+    --color-surface-3: var(--surface-3);
+    --color-edge: var(--edge);
+    --color-edge-strong: var(--edge-strong);
+    --color-ink: var(--ink);
+    --color-text: var(--text);
+    --color-text-2: var(--text-2);
+    --color-text-3: var(--text-3);
+    --color-accent: var(--accent);
+    --color-accent-ledge: var(--accent-ledge);
+    --color-success: var(--success);
+    --color-danger: var(--danger);
+    --color-danger-text: var(--danger-text);
+    --color-danger-fill: var(--danger-fill);
+    --color-warn-fill: var(--warn-fill);
+    --color-team-a: var(--team-a);
+    --color-team-b: var(--team-b);
+    --color-team-b-text: var(--team-b-text);
+    --color-suit-herc: var(--suit-herc);
+    --color-suit-karo: var(--suit-karo);
+    --color-suit-pik: var(--suit-pik);
+    --color-suit-tref: var(--suit-tref);
+    --color-felt-a: var(--felt-a);
+    --color-felt-b: var(--felt-b);
+    --color-rim: var(--rim);
+    --color-rim-hi: var(--rim-hi);
+}
+
+/* The type set (§3.3): size, leading, tracking and weight together; sizes in rem so text size scales layout */
+@utility t-display {
+    font-family: var(--font-pix);
+    font-size: 2.625rem;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    font-weight: 400;
+}
+@utility t-title {
+    font-family: var(--font-pix);
+    font-size: 1.75rem;
+    line-height: 1.05;
+    letter-spacing: 0.01em;
+    font-weight: 400;
+}
+@utility t-score-xl {
+    font-family: var(--font-pix);
+    font-size: 3rem;
+    line-height: 1;
+    letter-spacing: 0;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+@utility t-score {
+    font-family: var(--font-pix);
+    font-size: 1.5rem;
+    line-height: 1;
+    letter-spacing: 0;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+@utility t-headline {
+    font-family: var(--font-sys);
+    font-size: 1.0625rem;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+}
+@utility t-body {
+    font-family: var(--font-sys);
+    font-size: 1rem;
+    line-height: 1.5;
+    letter-spacing: 0;
+    font-weight: 400;
+}
+/* weight 400-600: pick it with font-normal / font-semibold */
+@utility t-callout {
+    font-family: var(--font-sys);
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    letter-spacing: 0;
+}
+@utility t-footnote {
+    font-family: var(--font-sys);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    letter-spacing: 0.005em;
+    font-weight: 400;
+}
+@utility t-caption {
+    font-family: var(--font-sys);
+    font-size: 0.75rem;
+    line-height: 1.35;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+@utility font-sys {
+    font-family: var(--font-sys);
+}
+@utility font-pix {
+    font-family: var(--font-pix);
+}
+
+/* Pixel corners, edges and the hard pixel shadow (§3.4). No border-radius anywhere. A clip-path also
+   clips the element's own outline and filters, so: a notched focusable element adds `focus-inside` (its
+   2-px ring is drawn 5 px inside, within the clip), and a hard shadow (`px-shadow`) goes on an unclipped
+   wrapper. The ui controls cut their notch on a ::before layer and draw the ring inside too. */
+@utility notch {
+    clip-path: var(--notch);
+}
+@utility notch-6 {
+    clip-path: var(--notch-6);
+}
+@utility px-edge {
+    box-shadow: inset 0 0 0 3px var(--edge);
+}
+@utility px-shadow {
+    filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.35));
+}
+@utility pixelated {
+    image-rendering: pixelated;
+}
+@utility focus-inside {
+    &:focus-visible {
+        outline-offset: -5px;
+    }
+}
+
+/* Materials (§3.4): the phone tab bar, the lobby action bar and sticky list headers; HUD and seat chips */
+@utility material-bar {
+    background: var(--material-bar);
+    -webkit-backdrop-filter: var(--material-blur);
+    backdrop-filter: var(--material-blur);
+    box-shadow: inset 0 2px 0 var(--edge);
+}
+@utility ink-chip {
+    background: var(--material-ink);
+}
+
+/* The dithered felt (§3.2) and its seasons (§5.7): `felt felt-summer` */
+@utility felt {
+    background: repeating-conic-gradient(var(--felt-a) 0% 25%, var(--felt-b) 0% 50%) 0 0 / 4px 4px;
+}
+@utility felt-spring {
+    --felt-a: var(--felt-spring-a);
+    --felt-b: var(--felt-spring-b);
+}
+@utility felt-summer {
+    --felt-a: var(--felt-summer-a);
+    --felt-b: var(--felt-summer-b);
+}
+@utility felt-autumn {
+    --felt-a: var(--felt-autumn-a);
+    --felt-b: var(--felt-autumn-b);
+}
+@utility felt-winter {
+    --felt-a: var(--felt-winter-a);
+    --felt-b: var(--felt-winter-b);
+}
+
+/* Press feedback (§3.1, §3.8 `press`): on pointer-down, transform only */
+@utility press {
+    transition: transform 90ms ease-out;
+    &:active:not(:disabled):not([aria-disabled="true"]) {
+        transform: translateY(2px);
+    }
+}
+
+/* The ui components (src/components/ui), one block per component */
+@layer components {
+    /* end of the ui component styles */
+}
+
+/* The pre-redesign component classes, kept until no screen uses them (Phase 10 removes them) */
 @layer components {
   .btn-primary {
     @apply bg-emerald-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-500;
