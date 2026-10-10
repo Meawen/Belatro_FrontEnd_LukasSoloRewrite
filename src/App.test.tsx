@@ -84,9 +84,11 @@ describe('Dashboard tiles (R-34)', () => {
 
     test('show — where the API gives nothing', () => {
         renderAt('/dashboard')
-        for (const tile of ['dashboard-elo', 'dashboard-games', 'dashboard-level', 'dashboard-win-rate']) {
+        for (const tile of ['dashboard-elo', 'dashboard-games', 'dashboard-level']) {
             expect(screen.getByTestId(tile)).toHaveTextContent(/^—$/)
         }
+        // the Win Rate tile goes: Home is a launcher, and no number is shown that the API does not give (D-26)
+        expect(screen.queryByTestId('dashboard-win-rate')).not.toBeInTheDocument()
     })
 })
 
