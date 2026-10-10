@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act, within } from '@testing-library/react'
+import { cleanup, render, screen, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useNavigationType, useParams } from 'react-router-dom'
 import { JSDOM } from 'jsdom'
@@ -242,6 +242,37 @@ describe('LobbyRoom: polling (spec §4.7 Data, States)', () => {
         } finally {
             vi.unstubAllGlobals()
         }
+    })
+
+    test('loading, a failed first load, closed and removed each have one h1, Lobby (spec §3.9)', async () => {
+        vi.useFakeTimers()
+        const h1s = () => screen.getAllByRole('heading', { level: 1 }).map((heading) => heading.textContent)
+        vi.mocked(lobbyService.getLobby).mockImplementation(() => new Promise<LobbyDTO>(() => {}))
+        renderLobby()
+        expect(screen.getByText('Loading lobby...')).toBeInTheDocument()
+        expect(h1s()).toEqual(['Lobby'])
+        cleanup()
+        vi.mocked(lobbyService.getLobby).mockRejectedValue(new ApiError({ status: 500, message: 'Internal Server Error' }))
+        renderLobby()
+        await settle()
+        expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load this lobby")
+        expect(h1s()).toEqual(['Lobby'])
+        cleanup()
+        serve(lobby({ teamBPlayers: [cy] }))
+        renderLobby()
+        await settle()
+        vi.mocked(lobbyService.getLobby).mockRejectedValue(lobbyGone())
+        await wait(2000)
+        expect(screen.getByText('This lobby was closed.')).toBeInTheDocument()
+        expect(h1s()).toEqual(['Lobby'])
+        cleanup()
+        serve(lobby({ hostUser: bob, teamAPlayers: [bob], unassignedPlayers: [ana] }))
+        renderLobby()
+        await settle()
+        serve(lobby({ hostUser: bob, teamAPlayers: [bob], unassignedPlayers: [] }))
+        await wait(2000)
+        expect(screen.getByText('You were removed from this lobby.')).toBeInTheDocument()
+        expect(h1s()).toEqual(['Lobby'])
     })
 
     test('a 404 poll shows "This lobby was closed." with the way back (AC 6)', async () => {

@@ -79,7 +79,7 @@ export function LobbyRoom({ lobbyId }: LobbyRoomProps) {
     // Only the first load shows a spinner; later polls keep the page in place.
     if (loading && lobby === null) {
         return (
-            <Page title="Lobby" heading={null} back={BACK}>
+            <Page title="Lobby" back={BACK}>
                 <Loader text="Loading lobby..." />
             </Page>
         );
@@ -90,7 +90,7 @@ export function LobbyRoom({ lobbyId }: LobbyRoomProps) {
     // Only a failed first load replaces the page; a failed poll leaves the last lobby up.
     if (lobby === null) {
         return (
-            <Page title="Lobby" heading={null} back={BACK}>
+            <Page title="Lobby" back={BACK}>
                 <ErrorState
                     title="Couldn't load this lobby"
                     body={errorMessage(loadError, 'Failed to load lobby')}
@@ -116,7 +116,7 @@ export function LobbyRoom({ lobbyId }: LobbyRoomProps) {
 function LobbyGone({ title }: { title: string }) {
     const navigate = useNavigate();
     return (
-        <Page title="Lobby" heading={null} back={BACK}>
+        <Page title="Lobby" back={BACK}>
             <EmptyState icon="door" title={title} action={<Button onClick={() => navigate('/lobbies')}>Back to lobbies</Button>} />
         </Page>
     );
