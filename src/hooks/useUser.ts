@@ -48,24 +48,6 @@ export function useUsersPage(page: number, q: string) {
     });
 }
 
-export function useUserHistory(playerId: string, pagination?: PaginationParams) {
-    const apiFunction = useMemo(() => {
-        if (!playerId) {
-            return () => Promise.reject(new Error('No player ID provided'));
-        }
-        return () => userService.getUserHistory(playerId, pagination);
-    }, [playerId, pagination?.page, pagination?.size]);
-
-    return useApi(
-        apiFunction,
-        {
-            immediate: !!playerId,
-            dependencies: [playerId, pagination?.page, pagination?.size],
-            staleTime: 180000 // Cache for 3 minutes
-        }
-    );
-}
-
 export function useUserHistorySummary(playerId: string, pagination?: PaginationParams) {
     const apiFunction = useMemo(() => {
         if (!playerId) {

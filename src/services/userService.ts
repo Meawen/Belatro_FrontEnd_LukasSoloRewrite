@@ -6,7 +6,6 @@ import type {
     ChangePasswordRequest,
     ChangeEmailRequest,
     JwtResponseDTO,
-    PlayerMatchHistoryDTO,
     PlayerMatchSummaryDTO,
     PaginationParams,
     Page,
@@ -14,8 +13,6 @@ import type {
 
 export const userService = {
     async getUserById(id: string): Promise<User> {
-        console.log('userService.getUserById called with id:', id);
-        console.log('Current token:', localStorage.getItem('authToken') ? 'present' : 'missing');
         return apiClient.get<User>(`/user/${id}`);
     },
 
@@ -58,18 +55,6 @@ export const userService = {
         if (q) query.set('q', q);
         if (params.sort) query.set('sort', params.sort);
         return apiClient.get<Page<User>>(`/user/findAll?${query.toString()}`);
-    },
-
-    async getUserHistory(
-        playerId: string,
-        pagination?: PaginationParams
-    ): Promise<PlayerMatchHistoryDTO> {
-        const params = new URLSearchParams();
-        if (pagination?.page !== undefined) params.append('page', pagination.page.toString());
-        if (pagination?.size !== undefined) params.append('size', pagination.size.toString());
-
-        const query = params.toString() ? `?${params.toString()}` : '';
-        return apiClient.get<PlayerMatchHistoryDTO>(`/user/${playerId}/history${query}`);
     },
 
     async getUserHistorySummary(

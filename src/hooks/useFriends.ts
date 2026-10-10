@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 import { friendshipService } from '../services';
 import { useApi, useMutation } from './useApi';
 import type { CreateFriendshipDTO, Friendship } from '../types';
@@ -38,7 +38,6 @@ const cleanupCache = () => {
 };
 
 export function useFriends(userId?: string) {
-    const requestCountRef = useRef(0);
     const cacheKey = userId ? `friendships_${userId}` : '';
 
     // Memoize the API function to prevent unnecessary re-executions
@@ -53,13 +52,11 @@ export function useFriends(userId?: string) {
             const now = Date.now();
 
             if (cached && (now - cached.timestamp < CACHE_DURATION) && !cached.isLoading) {
-                console.log(`useFriends: Using cached data for ${userId}`);
                 return cached.data;
             }
 
             // Prevent duplicate requests
             if (cached?.isLoading) {
-                console.log(`useFriends: Request already in progress for ${userId}`);
                 // Wait for the existing request
                 return new Promise<Friendship[]>((resolve) => {
                     const checkCache = () => {
@@ -80,8 +77,6 @@ export function useFriends(userId?: string) {
                 timestamp: cached?.timestamp || 0,
                 isLoading: true
             });
-
-            console.log(`useFriends: Making fresh API request for ${userId} (request #${++requestCountRef.current})`);
 
             try {
                 const result = await friendshipService.getFriendshipsByUser(userId);
@@ -191,32 +186,3 @@ export function useFriends(userId?: string) {
 
 /** What useFriends gives: the signed-in player's friendships and the actions on them. */
 export type FriendsState = ReturnType<typeof useFriends>;
-
-export function useAllFriendships() {
-    const apiFunction = useMemo(() => () => friendshipService.getAllFriendships(), []);
-    return useApi(apiFunction, { staleTime: CACHE_DURATION });
-}
-
-export function useFriendship(friendshipId?: string) {
-    const apiFunction = useMemo(() => {
-        if (!friendshipId) {
-            return () => Promise.reject(new Error('No friendship ID provided'));
-        }
-        return () => friendshipService.getFriendshipById(friendshipId);
-    }, [friendshipId]);
-
-    return useApi(
-        apiFunction,
-        {
-            immediate: !!friendshipId,
-            dependencies: [friendshipId],
-            staleTime: CACHE_DURATION
-        }
-    );
-}
-
-// Utility function to clear all friendship caches (useful for debugging or logout)
-export function clearFriendshipCache() {
-    friendshipCache.clear();
-    console.log('Friendship cache cleared');
-}
