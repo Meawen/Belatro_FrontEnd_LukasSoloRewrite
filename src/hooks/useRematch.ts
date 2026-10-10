@@ -6,7 +6,7 @@ import type { RematchFrame } from '../types/game';
 /** How long the game-over screen waits for a rematch to start; the server keeps votes 2 minutes. */
 const REMATCH_WINDOW_MS = 2 * 60 * 1000;
 
-/** The game-over screen's rematch (R-45), for GameTable's `rematch` prop. */
+/** The game-over screen's rematch (R-45), for the board's end sheet (Board's `rematch` prop). */
 export interface RematchState {
     /** How many of the four want a rematch, from the latest VOTE frame. */
     votes: number;

@@ -1,15 +1,16 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useState } from 'react'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom'
 import GamePageConnected from './GamePageConnected'
-import { useBelatroGame } from '../../hooks/useBelatroGame'
-import type { PublicGameView } from '../../types/game'
+import { useGameViews, type GameViews } from '../../hooks/useGameViews'
+import type { BoardState } from '../board/model/accept'
+import type { PrivateGameView, PublicGameView } from '../../types/game'
 import { captureConsole } from '../../test/captureConsole'
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u3', username: 'carol' } }) }))
-vi.mock('../../hooks/useBelatroGame', () => ({ useBelatroGame: vi.fn() }))
+vi.mock('../../hooks/useGameViews', () => ({ useGameViews: vi.fn() }))
 // The banner reads the real socket store; here it is a marker that shows where the page mounts it
 vi.mock('./ReconnectBanner', () => ({ ReconnectBanner: () => <p>Reconnect banner slot</p> }))
 // useRematch holds its own socket channel; here it is a stub the tests read back
@@ -18,6 +19,10 @@ const rematchMock = vi.hoisted(() => ({
     state: { votes: 0, cancelledBy: null, expired: false, playAgain: vi.fn(), leave: vi.fn() },
 }))
 vi.mock('../../hooks/useRematch', () => ({ useRematch: rematchMock.useRematch }))
+// useMatchHands asks the REST API for the stored moves; here nothing is stored yet
+vi.mock('../../hooks/useMatchHands', () => ({ useMatchHands: () => ({ hands: null, ended: null, loading: false, error: null, refresh: vi.fn() }) }))
+const art = vi.hoisted(() => ({ preloadCardArt: vi.fn(() => Promise.resolve()) }))
+vi.mock('../../services/cardArt', async (importOriginal) => ({ ...(await importOriginal<object>()), preloadCardArt: art.preloadCardArt }))
 
 const actions = { bidTrump: vi.fn(), passBid: vi.fn(), play: vi.fn(), challenge: vi.fn() }
 const seating = ['alice', 'bob', 'carol', 'dave'].map((id) => ({ id, cardsLeft: 6 }))
@@ -26,7 +31,16 @@ const publicView = {
     currentTrick: { leadPlayerId: '_NO_LEAD_', trump: null, plays: {} },
     teamAScore: 0, teamBScore: 0, teamA: [], teamB: [], challengeUsedByPlayer: {}, winnerTeamId: null,
     tieBreaker: false, seatingOrder: seating, declarations: {}, belaDeclaredByPlayer: {}, challengeWindowExpiresAt: null,
-} as PublicGameView
+} as unknown as PublicGameView
+
+/** What useGameViews returns for these views: the accepted state the board renders, and its two parts. */
+function views(pub: PublicGameView | null, priv: PrivateGameView | null = null, more: Partial<GameViews> = {}): GameViews {
+    const view: BoardState | null = pub ? { publicView: pub, privateView: priv, receivedAt: 1, skew: 0, source: 'live' } : null
+    return {
+        view, snapshot: false, publicView: pub, privateView: priv,
+        isConnected: true, connectionError: null, error: null, notAvailable: false, actions, ...more,
+    }
+}
 
 function renderPage() {
     render(
@@ -37,13 +51,13 @@ function renderPage() {
 }
 
 /** Like the real hook: the view lives in state, and a new game id does not reset it. */
-function useGameStateKeptAcrossIds(gameId: string) {
+function useGameStateKeptAcrossIds(gameId: string): GameViews {
     const [view] = useState<PublicGameView>(() => ({
         ...publicView,
         gameId,
         gameState: gameId === 'g1' ? 'COMPLETED' : 'BIDDING',
     }))
-    return { publicView: view, privateView: null, isConnected: true, connectionError: null, error: null, actions }
+    return views(view)
 }
 
 /** Stands in for PlayPage (Phase 7): shows the notice the table passed along, and how it got here. */
@@ -53,40 +67,42 @@ function PlayPageStub() {
     return <p data-testid="play-notice" data-navigation={navigationType}>{(location.state as { notice?: string } | null)?.notice}</p>
 }
 
+// the whole board renders in every test: slower than a 5-s default on a busy machine
+vi.setConfig({ testTimeout: 20_000 })
+
 beforeEach(() => {
     vi.clearAllMocks()
     rematchMock.useRematch.mockReturnValue(rematchMock.state)
+    // jsdom draws nothing: no 2D context for the arena's canvas
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+})
+afterEach(() => {
+    vi.restoreAllMocks()
 })
 
 describe('GamePageConnected', () => {
     test('waits for the connection and the first snapshot', () => {
-        vi.mocked(useBelatroGame).mockReturnValue({
-            publicView: null, privateView: null, isConnected: false, connectionError: null, error: null, actions,
-        })
+        vi.mocked(useGameViews).mockReturnValue(views(null, null, { isConnected: false }))
         renderPage()
         expect(screen.getByText('Connecting to game...')).toBeInTheDocument()
-        expect(vi.mocked(useBelatroGame).mock.calls[0][0]).toBe('g1')
+        expect(vi.mocked(useGameViews).mock.calls[0][0]).toBe('g1')
     })
 
     test('renders the table for the signed-in player', () => {
-        vi.mocked(useBelatroGame).mockReturnValue({
-            publicView, privateView: null, isConnected: true, connectionError: null, error: null, actions,
-        })
+        vi.mocked(useGameViews).mockReturnValue(views(publicView))
         renderPage()
         expect(screen.getByTestId('game-phase')).toHaveTextContent('Bidding')
         expect(screen.getAllByTestId(/^seat-/)[0]).toHaveAttribute('data-testid', 'seat-carol')
+        expect(art.preloadCardArt).toHaveBeenCalled()
     })
 
     test("the table's bid buttons call the game's own actions", async () => {
         const user = userEvent.setup()
-        vi.mocked(useBelatroGame).mockReturnValue({
-            publicView,
-            privateView: { publicPart: publicView, hand: [], yourTurn: true, challengeUsed: false },
-            isConnected: true, connectionError: null, error: null, actions,
-        })
+        vi.mocked(useGameViews).mockReturnValue(views(publicView, { publicPart: publicView, hand: [], yourTurn: true, challengeUsed: false }))
         renderPage()
         await user.click(screen.getByRole('button', { name: 'Pass' }))
         expect(actions.passBid).toHaveBeenCalledTimes(1)
+        // the stub says the pass didn't go out (it returns nothing), so the panel stays free for the next bid
         await user.click(screen.getByRole('button', { name: 'Call Karo' }))
         expect(actions.bidTrump).toHaveBeenCalledTimes(1)
         expect(actions.bidTrump).toHaveBeenCalledWith('KARA')
@@ -96,7 +112,7 @@ describe('GamePageConnected', () => {
 
     test("moving to another game id shows that game, never the previous game's view", async () => {
         const user = userEvent.setup()
-        vi.mocked(useBelatroGame).mockImplementation(useGameStateKeptAcrossIds)
+        vi.mocked(useGameViews).mockImplementation(useGameStateKeptAcrossIds)
         render(
             <MemoryRouter initialEntries={['/game/g1']}>
                 <Routes>
@@ -107,19 +123,15 @@ describe('GamePageConnected', () => {
         expect(screen.getByTestId('game-phase')).toHaveTextContent('Game over')
         await user.click(screen.getByRole('link', { name: 'Next game' }))
         expect(screen.getByTestId('game-phase')).toHaveTextContent('Bidding')
-        expect(vi.mocked(useBelatroGame).mock.lastCall?.[0]).toBe('g2')
+        expect(vi.mocked(useGameViews).mock.lastCall?.[0]).toBe('g2')
     })
 
     test('the reconnect banner sits on the loading screen and above the table (R-30)', () => {
-        vi.mocked(useBelatroGame).mockReturnValue({
-            publicView: null, privateView: null, isConnected: false, connectionError: null, error: null, actions,
-        })
+        vi.mocked(useGameViews).mockReturnValue(views(null, null, { isConnected: false }))
         renderPage()
         expect(screen.getByText('Reconnect banner slot')).toBeInTheDocument()
         cleanup()
-        vi.mocked(useBelatroGame).mockReturnValue({
-            publicView, privateView: null, isConnected: true, connectionError: null, error: null, actions,
-        })
+        vi.mocked(useGameViews).mockReturnValue(views(publicView))
         renderPage()
         expect(screen.getByText('Reconnect banner slot')).toBeInTheDocument()
         expect(screen.getByTestId('game-phase')).toBeInTheDocument()
@@ -127,10 +139,7 @@ describe('GamePageConnected', () => {
 
     test("a game that isn't yours or has ended: the message and a way back, no spinner (R-35)", async () => {
         const user = userEvent.setup()
-        vi.mocked(useBelatroGame).mockReturnValue({
-            publicView: null, privateView: null, isConnected: true, connectionError: null, error: null,
-            notAvailable: true, actions,
-        })
+        vi.mocked(useGameViews).mockReturnValue(views(null, null, { notAvailable: true }))
         render(
             <MemoryRouter initialEntries={['/game/g1']}>
                 <Routes>
@@ -148,7 +157,7 @@ describe('GamePageConnected', () => {
     test('a crash in the table shows the error screen and leaves the app shell standing (R-29)', () => {
         captureConsole()
         try {
-            vi.mocked(useBelatroGame).mockImplementation(() => { throw new Error('unexpected view shape') })
+            vi.mocked(useGameViews).mockImplementation(() => { throw new Error('unexpected view shape') })
             render(
                 <MemoryRouter initialEntries={['/game/g1']}>
                     <nav>App shell</nav>
@@ -164,10 +173,7 @@ describe('GamePageConnected', () => {
     })
 
     test('a declined ranked match goes back to /play with the notice, replacing the game page (R-25)', () => {
-        vi.mocked(useBelatroGame).mockReturnValue({
-            publicView: { ...publicView, gameState: 'CANCELLED', endReason: 'DECLINED', forfeitTeamId: null } as PublicGameView,
-            privateView: null, isConnected: true, connectionError: null, error: null, actions,
-        })
+        vi.mocked(useGameViews).mockReturnValue(views({ ...publicView, gameState: 'CANCELLED', endReason: 'DECLINED', forfeitTeamId: null }))
         render(
             <MemoryRouter initialEntries={['/game/g1']}>
                 <Routes>
@@ -182,10 +188,7 @@ describe('GamePageConnected', () => {
     })
 
     test('a ranked forfeit keeps its table: only a declined match goes back to /play', () => {
-        vi.mocked(useBelatroGame).mockReturnValue({
-            publicView: { ...publicView, gameState: 'CANCELLED', endReason: 'FORFEIT', forfeitTeamId: 'B' } as PublicGameView,
-            privateView: null, isConnected: true, connectionError: null, error: null, actions,
-        })
+        vi.mocked(useGameViews).mockReturnValue(views({ ...publicView, gameState: 'CANCELLED', endReason: 'FORFEIT', forfeitTeamId: 'B' }))
         render(
             <MemoryRouter initialEntries={['/game/g1']}>
                 <Routes>
@@ -201,16 +204,11 @@ describe('GamePageConnected', () => {
 
     test('the game-over screen gets the rematch, offered only once the game is over (R-45)', async () => {
         const user = userEvent.setup()
-        vi.mocked(useBelatroGame).mockReturnValue({
-            publicView, privateView: null, isConnected: true, connectionError: null, error: null, actions,
-        })
+        vi.mocked(useGameViews).mockReturnValue(views(publicView))
         renderPage()
         expect(rematchMock.useRematch).toHaveBeenLastCalledWith('g1', false)
         cleanup()
-        vi.mocked(useBelatroGame).mockReturnValue({
-            publicView: { ...publicView, gameState: 'COMPLETED', winnerTeamId: 'A' }, privateView: null,
-            isConnected: true, connectionError: null, error: null, actions,
-        })
+        vi.mocked(useGameViews).mockReturnValue(views({ ...publicView, gameState: 'COMPLETED', winnerTeamId: 'A' }))
         renderPage()
         expect(rematchMock.useRematch).toHaveBeenLastCalledWith('g1', true)
         await user.click(screen.getByRole('button', { name: 'Play again' }))
