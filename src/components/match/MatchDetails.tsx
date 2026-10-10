@@ -7,12 +7,13 @@ import type { IconName } from '../ui';
 import { cx } from '../ui/cx';
 import { spring } from '../../motion/tokens';
 import { useAuth } from '../../hooks/useAuth';
-import type { HandDTO, MatchDTO } from '../../types/match';
+import type { HandDTO, MatchDTO, MoveDTO } from '../../types/match';
 import type { UserSimpleDTO } from '../../types/user';
+import { HandHistory } from './HandHistory';
 import { matchOutcome, type MatchOutcome } from './MatchRow';
 import { parseMatchResult, yourResult } from './matchResult';
 import { matchesPath, pageFromState } from './matchesPath';
-import { useMatchDetails } from './useMatchDetails';
+import { useMatchDetails, type MatchDetailsData } from './useMatchDetails';
 
 /** "h:mm:ss" from an hour on, else "m:ss"; "Unknown" without both times (today's Match Details rule). */
 export function formatDuration(startTime: string | null, endTime: string | null): string {
@@ -142,6 +143,53 @@ function MatchSummary({ result, hands }: { result: string; hands: HandDTO[] | nu
     );
 }
 
+/** Item 7: the raw moves (Order / Player / Card), for a match without structured hands. */
+function RawMoves({ moves }: { moves: MoveDTO[] }) {
+    return (
+        <Panel as="section" aria-label="Game moves">
+            <h2 className="t-title mb-3">Game moves ({moves.length})</h2>
+            <div className="max-h-64 overflow-y-auto">
+                <table className="t-callout w-full">
+                    <thead>
+                        <tr className="t-caption text-left text-text-2">
+                            <th className="px-2 py-1">Order</th>
+                            <th className="px-2 py-1">Player</th>
+                            <th className="px-2 py-1">Card</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {moves.map((move, index) => (
+                            <tr key={index} className="shadow-[inset_0_-1px_0_var(--surface-3)]">
+                                <td className="px-2 py-1 tabular-nums">{move.order}</td>
+                                <td className="px-2 py-1">{move.player}</td>
+                                <td className="px-2 py-1 font-mono text-accent">{move.card}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </Panel>
+    );
+}
+
+/** Items 5 and 7 with their states: the hands, or "Couldn't load the hands" and a retry, or the raw moves. */
+function HandsSection({ details }: { details: MatchDetailsData }) {
+    if (details.handsFailed || details.handsLoading) {
+        return (
+            <Panel as="section" aria-label="Game history">
+                {details.handsLoading ? (
+                    <Loader />
+                ) : (
+                    <ErrorState title="Couldn't load the hands" action={<Button variant="secondary" onClick={details.retryHands}>Try again</Button>} />
+                )}
+            </Panel>
+        );
+    }
+    if (details.hands && details.hands.length > 0) return <HandHistory hands={details.hands} />;
+    if (details.moves && details.moves.length > 0) return <RawMoves moves={details.moves} />;
+    return null;
+}
+
 /**
  * Match details, /matches/:id (spec §4.9; D-29): one match on its own page, pushed from the right. Every
  * feature of the old Match Details modal is kept. "‹ Match History" and "Back to Match History" return to
@@ -186,6 +234,7 @@ export function MatchDetails({ id }: { id: string }) {
                     <TeamPanel team="B" members={match.teamB ?? []} myId={user?.id} />
                 </div>
                 {match.result && <MatchSummary result={match.result} hands={hands} />}
+                <HandsSection details={details} />
                 <div className="flex justify-end">{toList}</div>
             </div>
         );

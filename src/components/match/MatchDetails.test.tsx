@@ -211,3 +211,40 @@ describe('Match details (spec §4.9 items 1–4, 8, 9)', () => {
         expect(screen.getByTestId('where')).toHaveTextContent('/matches?page=2')
     })
 })
+
+describe('Match details hands (spec §4.9 items 5, 7, States)', () => {
+    test('no structured hands: the raw moves, "Game moves ({n})" with Order, Player and Card', async () => {
+        const moves = [
+            { order: 1, player: 'ana', card: 'AS of HERC', legal: true },
+            { order: 2, player: 'cy', card: 'DESETKA of HERC', legal: true },
+        ]
+        const get = serve({ ...details('Team A wins 1001–650'), [`${MATCH_URL}/structured-moves`]: [], [`${MATCH_URL}/moves`]: moves })
+        renderAt(MATCH_URL)
+        const raw = await screen.findByRole('region', { name: 'Game moves' })
+        expect(within(raw).getByRole('heading', { name: 'Game moves (2)' })).toBeInTheDocument()
+        expect(within(raw).getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Order', 'Player', 'Card'])
+        expect(within(raw).getAllByRole('row').slice(1).map((tr) => tr.textContent)).toEqual(['1anaAS of HERC', '2cyDESETKA of HERC'])
+        expect(screen.queryByRole('region', { name: 'Game history' })).not.toBeInTheDocument()
+        expect(get).toHaveBeenCalledWith(`${MATCH_URL}/moves`)
+    })
+
+    test('only the hands failing: the hero and teams still show; "Couldn\'t load the hands" and its retry', async () => {
+        const answers = details('Team A wins 1001–650')
+        let failing = true
+        vi.spyOn(apiClient, 'get').mockImplementation((async (url: string) => {
+            if (url.endsWith('/structured-moves') && failing) throw new ApiError({ message: 'Bad Gateway', status: 502 })
+            return answers[url]
+        }) as never)
+        renderAt(MATCH_URL)
+        const alert = await screen.findByRole('alert')
+        expect(alert).toHaveTextContent("Couldn't load the hands")
+        expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('WIN')
+        expect(screen.getByRole('region', { name: 'Team A' })).toBeInTheDocument()
+        expect(screen.getByTestId('final-a')).toHaveTextContent(/^1001$/)
+        expect(screen.getByText('Hands', { selector: 'dt' }).nextElementSibling).toHaveTextContent('—')
+        failing = false
+        await userEvent.setup().click(within(alert).getByRole('button', { name: 'Try again' }))
+        expect(await screen.findByRole('heading', { name: 'Game history (2 hands)' })).toBeInTheDocument()
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+})
