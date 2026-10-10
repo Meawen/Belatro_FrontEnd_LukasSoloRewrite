@@ -866,6 +866,38 @@
         clip-path: var(--notch);
     }
 
+    /* Banner (§3.7): a slim notched strip */
+    .ui-banner {
+        --banner-bg: var(--surface-2);
+        --banner-stripe: var(--accent);
+        position: relative;
+        isolation: isolate;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        min-height: 44px;
+        padding: 8px 12px 8px 16px;
+        color: var(--text);
+    }
+    .ui-banner::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: var(--banner-bg);
+        box-shadow: inset 4px 0 0 var(--banner-stripe);
+        clip-path: var(--notch);
+    }
+    .ui-banner--warn {
+        --banner-bg: var(--warn-fill);
+        --banner-stripe: var(--warn-fill);
+    }
+    .ui-banner--danger {
+        --banner-bg: var(--danger-fill);
+        --banner-stripe: var(--danger);
+    }
+
     /* end of the ui component styles */
 }
 
