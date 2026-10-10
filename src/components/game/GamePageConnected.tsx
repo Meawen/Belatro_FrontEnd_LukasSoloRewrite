@@ -20,9 +20,13 @@ export default function GamePageConnected() {
     // The table has its own error boundary (R-29): a crash in it leaves the app shell standing,
     // and the key gives the next game id a fresh boundary as well.
     return (
-        <ErrorBoundary key={gameId}>
-            <GamePage gameId={gameId} />
-        </ErrorBoundary>
+        <>
+            {/* one h1 per page (spec §3.9) in every state, the crash screen too: the HUD names the table visually */}
+            <h1 className="sr-only">Game</h1>
+            <ErrorBoundary key={gameId}>
+                <GamePage gameId={gameId} />
+            </ErrorBoundary>
+        </>
     );
 }
 

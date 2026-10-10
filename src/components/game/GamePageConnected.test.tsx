@@ -88,6 +88,25 @@ describe('GamePageConnected', () => {
         expect(vi.mocked(useGameViews).mock.calls[0][0]).toBe('g1')
     })
 
+    test('every state of the page has one h1, "Game": connecting, the table, not yours, a crash (spec §3.9)', () => {
+        const h1s = () => screen.getAllByRole('heading', { level: 1 }).map((heading) => heading.textContent)
+        for (const state of [views(null, null, { isConnected: false }), views(publicView), views(null, null, { notAvailable: true })]) {
+            vi.mocked(useGameViews).mockReturnValue(state)
+            renderPage()
+            expect(h1s()).toEqual(['Game'])
+            cleanup()
+        }
+        captureConsole()
+        try {
+            vi.mocked(useGameViews).mockImplementation(() => { throw new Error('unexpected view shape') })
+            renderPage()
+            expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeInTheDocument()
+            expect(h1s()).toEqual(['Game'])
+        } finally {
+            vi.restoreAllMocks()
+        }
+    })
+
     test('renders the table for the signed-in player', () => {
         vi.mocked(useGameViews).mockReturnValue(views(publicView))
         renderPage()
