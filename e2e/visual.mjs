@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // The visual harness (spec §7.3): screenshots of the SPA's pages, served by the Vite dev server with a
-// mocked API, for the owner's look check after every UI phase (and, from Phase 10, baselines).
+// mocked API, for the owner's look check after every UI phase; baselines to compare them with; and the
+// checks of §7.3 (hit-testing, reduced motion, more contrast, forced colours, focus, performance, …).
 //
 // What it does
 //   - Starts the Vite dev server itself (127.0.0.1, --port, strict: a busy port fails the run), with
@@ -13,22 +14,34 @@
 //     localStorage before any script runs (a fake, unexpired JWT and the user; Table effects "off");
 //     answers /backend/** from the scene's API fixtures; blocks the game socket (/ws/**) and every
 //     other host; answers the card art from e2e/visual/fixtures/cards/ (a missing file is a 404, so the
-//     card shows its text face); hides React Query's dev-only devtools toggle; opens the path, runs the
-//     scene's setup, waits for fonts and the network to settle, and saves <out>/<scene name>@<W>x<H>.png
-//     (animations disabled).
+//     card shows its text face); hides React Query's dev-only devtools toggle; skips every motion animation
+//     (MotionGlobalConfig.skipAnimations, set by src/main.tsx on the dev server); fixes the page's clock
+//     (Date only) at 2026-10-10 12:00 UTC, its language (en-US) and time zone (Europe/Zagreb); opens the
+//     path, runs the scene's setup, waits for fonts and the network to settle, and saves
+//     <out>/<scene name>@<W>x<H>.png (animations disabled). The machinery is e2e/visual/lib.mjs.
 //   - Fails the run when a page at most 375 px wide scrolls sideways.
 //   Phones (the short side at most 500 px) get a touch screen at 2× unless the scene says `dpr`; the
 //   rest 1×.
 //
 // CLI
-//   node e2e/visual.mjs [--scenes shell,lobby] [--only <scene name>] [--out <dir>] [--port 5199] [--list]
-//     --scenes  the scene files to load (e2e/visual/scenes/<name>.mjs); default: every file there
-//     --only    just the scene with this name
-//     --out     where the PNGs go; default e2e/visual/out (git-ignored); created if missing
-//     --port    the dev server's port; default 5199
-//     --list    print the chosen scenes and exit, starting nothing (no browser needed)
-//   Exit 0: every shot taken and nothing scrolls sideways at 375 px; 1: a shot failed or a page scrolls
-//   sideways; 2: bad arguments or a bad scene file.
+//   node e2e/visual.mjs [--scenes shell,lobby] [--only <scene name>] [--out <dir>] [--port 5199]
+//                       [--update | --compare] [--check <name,…|all>] [--list] [--list-checks]
+//     --scenes       the scene files to load (e2e/visual/scenes/<name>.mjs); default: every file there
+//     --only         just the scene with this name
+//     --out          where the PNGs go; default e2e/visual/out (git-ignored); created if missing
+//     --port         the dev server's port; default 5199
+//     --update       record: shoot the chosen scenes into the baselines of this platform and Chromium,
+//                    e2e/visual/baseline/<platform>-<arch>-chromium<version>/ (spec §7.3)
+//     --compare      shoot into --out, then compare every shot with its baseline inside Chromium: more
+//                    than 0.2 % of its pixels differing fails it, and <name>@<W>x<H>.diff.png shows where.
+//                    No baselines for this platform and Chromium fails with "re-record baselines".
+//     --check        run these checks (e2e/visual/checks/<name>.mjs, or every one with "all") instead of
+//                    shooting; a check may use the chosen scenes
+//     --list         print the chosen scenes and exit, starting nothing (no browser needed)
+//     --list-checks  print the checks and exit, starting nothing
+//   Exit 0: every shot taken (and matching its baseline, with --compare) or every check passed, and nothing
+//   scrolls sideways at 375 px; 1: a shot, a comparison or a check failed; 2: bad arguments, a bad scene
+//   or check file.
 //
 // Scene format: every file in e2e/visual/scenes/ (one per UI area; a phase never edits another's)
 // default-exports an array of scenes:
@@ -48,39 +61,32 @@
 //     fullPage: false,                       // optional: the whole page instead of the viewport
 //     dpr: 1,                                // optional: device pixel ratio
 //   }
+//   A check may read more fields of a scene; each check's file says which.
+//
+// Check format: every file in e2e/visual/checks/ default-exports
+//   { name: 'hit', about: 'one line', run: async (ctx) => string[] }   // the failures; [] passes
+//   ctx: { browser, origin (the dev server), scenes (the chosen ones), scene(name) (any scene, by name), out,
+//          tool (an about:blank page), countColours(png, ["#fbf236"], tolerance?) → { "#fbf236": n },
+//          open(scene, viewport, { context?: more context options, animate?: false }) → { context, page,
+//          unanswered } (close the context; animations are skipped unless animate), log(line) }
 
 import { createRequire } from 'node:module';
-import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const VISUAL = join(ROOT, 'e2e', 'visual');
-const SCENES_DIR = join(VISUAL, 'scenes');
-const API_DIR = join(VISUAL, 'fixtures', 'api');
-const CARDS_DIR = join(VISUAL, 'fixtures', 'cards');
-// The dev server's card art origin during a run; nothing is fetched from it, the harness answers it.
-const CARD_ART = 'https://card-art.visual.test/v1';
-// Pages at most this wide must not scroll sideways (spec §7.3, R-37).
-const NARROW = 375;
-const GOTO_TIMEOUT_MS = 60000;
-// Sheets and toasts spring in for about 0.3 s; animations are off for the shot itself.
-const SETTLE_MS = 400;
-// React Query's devtools toggle (dev server only; a build has none) floats over the bottom-right corner,
-// the tab bar's More included: hidden in every shot.
-const DEV_ONLY_CSS = '.tsqd-open-btn-container { display: none !important; }';
-
-const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { basename, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import {
+    BASELINE_DIR, CHECKS_DIR, MAX_DIFF, NARROW, SCENES_DIR, VISUAL,
+    apiTable, comparePngs, countColours, openScene, parseViewport, platformKey, shoot, startDevServer,
+} from './visual/lib.mjs';
 
 function usage(message) {
     console.error(message);
-    console.error('usage: node e2e/visual.mjs [--scenes a,b] [--only <scene name>] [--out <dir>] [--port <n>] [--list]');
+    console.error('usage: node e2e/visual.mjs [--scenes a,b] [--only <scene name>] [--out <dir>] [--port <n>] [--update | --compare] [--check <a,b|all>] [--list] [--list-checks]');
     process.exit(2);
 }
 
 function parseArgs(argv) {
-    const opt = { scenes: null, only: null, out: join(VISUAL, 'out'), port: 5199, list: false };
+    const opt = { scenes: null, only: null, out: join(VISUAL, 'out'), port: 5199, list: false, listChecks: false, update: false, compare: false, check: null };
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         const value = () => {
@@ -93,21 +99,21 @@ function parseArgs(argv) {
         else if (arg === '--out') opt.out = resolve(value());
         else if (arg === '--port') opt.port = Number(value());
         else if (arg === '--list') opt.list = true;
+        else if (arg === '--list-checks') opt.listChecks = true;
+        else if (arg === '--update') opt.update = true;
+        else if (arg === '--compare') opt.compare = true;
+        else if (arg === '--check') opt.check = value().split(',').map((name) => name.trim()).filter(Boolean);
         else usage(`unknown argument ${arg}`);
     }
     if (!Number.isInteger(opt.port) || opt.port <= 0) usage('--port must be a port number');
+    if (opt.update && opt.compare) usage('--update and --compare go one at a time');
+    if (opt.check && (opt.update || opt.compare)) usage('--check runs instead of shooting: leave out --update and --compare');
     return opt;
 }
 
-function parseViewport(text) {
-    const match = /^(\d+)x(\d+)$/.exec(text);
-    if (!match) usage(`a viewport looks like 375x812, not "${text}"`);
-    return { width: Number(match[1]), height: Number(match[2]) };
-}
-
-async function loadScenes(opt) {
+async function loadScenes(opt, all = false) {
     const files = readdirSync(SCENES_DIR).filter((file) => file.endsWith('.mjs')).map((file) => basename(file, '.mjs')).sort();
-    const chosenFiles = opt.scenes ?? files;
+    const chosenFiles = all ? files : opt.scenes ?? files;
     for (const name of chosenFiles) if (!files.includes(name)) usage(`no scene file e2e/visual/scenes/${name}.mjs`);
     const scenes = [];
     for (const file of chosenFiles) {
@@ -121,130 +127,30 @@ async function loadScenes(opt) {
         }
         if (names.has(scene.name)) usage(`two scenes are named ${scene.name}`);
         names.add(scene.name);
-        scene.viewports.forEach(parseViewport);
-        apiTable(scene);
+        for (const viewport of scene.viewports) if (!parseViewport(viewport)) usage(`a viewport looks like 375x812, not "${viewport}"`);
+        try {
+            apiTable(scene);
+        } catch (error) {
+            usage(error.message);
+        }
     }
+    if (all) return scenes;
     const chosen = opt.only ? scenes.filter((scene) => scene.name === opt.only) : scenes;
     if (opt.only && chosen.length === 0) usage(`no scene named ${opt.only}`);
     return chosen;
 }
 
-/** The scene's answers, merged left to right, as rows to match; exact paths before "*" patterns. */
-function apiTable(scene) {
-    const merged = {};
-    for (const source of scene.api ?? []) {
-        if (typeof source !== 'string') Object.assign(merged, source);
-        else if (existsSync(join(API_DIR, source))) Object.assign(merged, JSON.parse(readFileSync(join(API_DIR, source), 'utf8')));
-        else usage(`scene ${scene.name}: no fixture e2e/visual/fixtures/api/${source}`);
+async function loadChecks(names) {
+    const files = existsSync(CHECKS_DIR) ? readdirSync(CHECKS_DIR).filter((file) => file.endsWith('.mjs')).sort() : [];
+    const checks = [];
+    for (const file of files) {
+        const check = (await import(pathToFileURL(join(CHECKS_DIR, file)).href)).default;
+        if (!check?.name || typeof check.run !== 'function') usage(`e2e/visual/checks/${file} must default-export { name, about, run }`);
+        checks.push(check);
     }
-    return Object.entries(merged)
-        .map(([key, answer]) => {
-            const [method, path] = key.split(' ');
-            const segments = path.split('/').map((part) => (part === '*' ? '[^/]+' : part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-            return { method, pattern: new RegExp(`^${segments.join('/')}$`), exact: !path.split('/').includes('*'), answer };
-        })
-        .sort((a, b) => Number(b.exact) - Number(a.exact));
-}
-
-/** An unsigned JWT the SPA accepts as a live session: it reads `exp`, the server is never asked. */
-function fakeToken(user) {
-    const part = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
-    const now = Math.floor(Date.now() / 1000);
-    return `${part({ alg: 'none' })}.${part({ sub: user.username, iat: now, exp: now + 7200 })}.visual`;
-}
-
-async function startDevServer(port) {
-    const server = spawn(process.execPath, [join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js'), '--host', '127.0.0.1', '--port', String(port), '--strictPort'], {
-        cwd: ROOT,
-        env: { ...process.env, VITE_CARD_ART_BASE_URL: CARD_ART },
-        stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let output = '';
-    server.stdout.on('data', (chunk) => (output += chunk));
-    server.stderr.on('data', (chunk) => (output += chunk));
-    const origin = `http://127.0.0.1:${port}`;
-    const deadline = Date.now() + 60000;
-    while (Date.now() < deadline) {
-        if (server.exitCode !== null) throw new Error(`the dev server stopped:\n${output}`);
-        try {
-            if ((await fetch(origin)).ok) return { server, origin };
-        } catch {
-            // not listening yet
-        }
-        await sleep(250);
-    }
-    server.kill('SIGTERM');
-    throw new Error(`the dev server did not answer on ${origin} within 60 s:\n${output}`);
-}
-
-/** Every request of the page: card art and the API from fixtures, the app from Vite, nothing else. */
-function answer(route, table, unanswered, origin) {
-    const request = route.request();
-    const url = new URL(request.url());
-    if (url.href.startsWith(`${CARD_ART}/`)) {
-        const file = join(CARDS_DIR, basename(decodeURIComponent(url.pathname)));
-        if (existsSync(file)) return route.fulfill({ status: 200, contentType: 'image/png', body: readFileSync(file) });
-        return route.fulfill({ status: 404, body: '' });
-    }
-    if (url.origin !== origin) return route.abort();
-    if (url.pathname === '/ws' || url.pathname.startsWith('/ws/')) return route.abort();
-    if (url.pathname.startsWith('/backend/')) {
-        const path = url.pathname.slice('/backend'.length);
-        const row = table.find(({ method, pattern }) => method === request.method() && pattern.test(path));
-        if (!row) {
-            unanswered.add(`${request.method()} ${path}`);
-            return route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ message: 'no fixture' }) });
-        }
-        const { status = 200, json } = row.answer;
-        return route.fulfill({ status, contentType: 'application/json', body: json === undefined ? '' : JSON.stringify(json) });
-    }
-    return route.continue();
-}
-
-async function shoot(browser, origin, scene, viewport, out) {
-    const { width, height } = parseViewport(viewport);
-    const phone = Math.min(width, height) <= 500;
-    const context = await browser.newContext({
-        viewport: { width, height },
-        deviceScaleFactor: scene.dpr ?? (phone ? 2 : 1),
-        isMobile: phone,
-        hasTouch: phone,
-        colorScheme: 'dark',
-    });
-    const table = apiTable(scene);
-    const unanswered = new Set();
-    try {
-        await context.addInitScript(({ token, user, devOnlyCss }) => {
-            try {
-                localStorage.setItem('stiglja:table-effects', 'off');
-                if (token) {
-                    localStorage.setItem('authToken', token);
-                    localStorage.setItem('user', JSON.stringify(user));
-                }
-            } catch {
-                // about:blank has no storage
-            }
-            document.addEventListener('DOMContentLoaded', () => {
-                const style = document.createElement('style');
-                style.textContent = devOnlyCss;
-                document.head.append(style);
-            });
-        }, { token: scene.user ? fakeToken(scene.user) : null, user: scene.user ?? null, devOnlyCss: DEV_ONLY_CSS });
-        await context.route('**/*', (route) => answer(route, table, unanswered, origin));
-        await context.routeWebSocket(/\/ws(\/|$)/, (socket) => socket.close());
-        const page = await context.newPage();
-        await page.goto(origin + scene.path, { waitUntil: 'networkidle', timeout: GOTO_TIMEOUT_MS });
-        await page.evaluate(() => document.fonts.ready);
-        if (scene.setup) await scene.setup(page);
-        await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(SETTLE_MS);
-        const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-        const file = join(out, `${scene.name}@${width}x${height}.png`);
-        await page.screenshot({ path: file, fullPage: Boolean(scene.fullPage), animations: 'disabled', caret: 'hide' });
-        return { file, sideways: width <= NARROW ? sideways : 0, unanswered: [...unanswered] };
-    } finally {
-        await context.close();
-    }
+    if (!names || names.includes('all')) return checks;
+    for (const name of names) if (!checks.some((check) => check.name === name)) usage(`no check named ${name} (see --list-checks)`);
+    return checks.filter((check) => names.includes(check.name));
 }
 
 const opt = parseArgs(process.argv.slice(2));
@@ -255,6 +161,11 @@ if (opt.list) {
     }
     process.exit(0);
 }
+const checks = opt.listChecks || opt.check ? await loadChecks(opt.check) : [];
+if (opt.listChecks) {
+    for (const check of checks) console.log(`${check.name}  ${check.about ?? ''}`);
+    process.exit(0);
+}
 
 let chromium;
 try {
@@ -262,28 +173,86 @@ try {
 } catch {
     usage('playwright-core not found: set PLAYWRIGHT_CORE_DIR to playwright-core 1.62.1 installed outside this repo');
 }
-mkdirSync(opt.out, { recursive: true });
-const { server, origin } = await startDevServer(opt.port);
 const failures = [];
 let browser;
+let server;
+let summary = '';
 try {
     browser = await chromium.launch({ headless: true });
-    for (const scene of scenes) {
-        for (const viewport of scene.viewports) {
+    const key = platformKey(browser);
+    const baselines = join(BASELINE_DIR, key);
+    if (opt.compare && !existsSync(baselines)) {
+        const found = existsSync(BASELINE_DIR) ? readdirSync(BASELINE_DIR).filter((name) => !name.startsWith('.')) : [];
+        throw new Error(`re-record baselines: none for ${key} (e2e/visual/baseline/ has ${found.length ? found.join(', ') : 'nothing'}); run with --update and have the owner approve them`);
+    }
+    const out = opt.update ? baselines : opt.out;
+    mkdirSync(out, { recursive: true });
+    let origin;
+    ({ server, origin } = await startDevServer(opt.port));
+    const tool = await browser.newPage();
+    if (checks.length) {
+        const everyScene = await loadScenes(opt, true);
+        const ctx = {
+            browser, origin, scenes, out, tool,
+            scene: (name) => {
+                const found = everyScene.find((scene) => scene.name === name);
+                if (!found) throw new Error(`no scene named ${name}`);
+                return found;
+            },
+            open: (scene, viewport, options) => openScene(browser, origin, scene, viewport, options),
+            countColours: (png, colours, tolerance) => countColours(tool, png, colours, tolerance),
+            log: (line) => console.log(`      ${line}`),
+        };
+        for (const check of checks) {
+            let found;
             try {
-                const shot = await shoot(browser, origin, scene, viewport, opt.out);
-                console.log(`shot  ${shot.file}`);
-                if (shot.unanswered.length) console.log(`      unanswered: ${shot.unanswered.join(', ')}`);
-                if (shot.sideways > 0) failures.push(`${scene.name}@${viewport} scrolls sideways by ${shot.sideways} px`);
+                found = await check.run(ctx);
             } catch (error) {
-                failures.push(`${scene.name}@${viewport}: ${String(error.message ?? error).split('\n')[0]}`);
+                found = [`${String(error.message ?? error).split('\n')[0]}`];
+            }
+            console.log(`check ${check.name}: ${found.length ? `${found.length} failure(s)` : 'ok'}`);
+            for (const failure of found) failures.push(`${check.name}: ${failure}`);
+        }
+        summary = `visual: ${checks.length} check(s) run`;
+    } else {
+        let shots = 0;
+        for (const scene of scenes) {
+            for (const viewport of scene.viewports) {
+                try {
+                    const shot = await shoot(browser, origin, scene, viewport, join(out, `${scene.name}@${viewport}.png`));
+                    shots++;
+                    console.log(`shot  ${shot.file}`);
+                    if (shot.unanswered.length) console.log(`      unanswered: ${shot.unanswered.join(', ')}`);
+                    if (shot.sideways > 0) failures.push(`${scene.name}@${viewport} scrolls sideways by ${shot.sideways} px`);
+                    if (opt.compare) {
+                        const name = `${scene.name}@${viewport}.png`;
+                        const expected = join(baselines, name);
+                        if (!existsSync(expected)) {
+                            failures.push(`${name}: no baseline for ${key} (re-record baselines with --update)`);
+                            continue;
+                        }
+                        const result = await comparePngs(tool, readFileSync(expected), readFileSync(shot.file));
+                        if (result.sizeMismatch) failures.push(`${name}: ${result.sizeMismatch} against its baseline (re-record baselines?)`);
+                        else if (result.ratio > MAX_DIFF) {
+                            const diff = join(out, `${scene.name}@${viewport}.diff.png`);
+                            writeFileSync(diff, result.diff);
+                            failures.push(`${name} differs from its baseline in ${(result.ratio * 100).toFixed(2)} % of its pixels (limit ${MAX_DIFF * 100} %): ${diff}`);
+                        } else if (result.differing) console.log(`      ${(result.ratio * 100).toFixed(3)} % of pixels differ (within ${MAX_DIFF * 100} %)`);
+                    }
+                } catch (error) {
+                    failures.push(`${scene.name}@${viewport}: ${String(error.message ?? error).split('\n')[0]}`);
+                }
             }
         }
+        const what = opt.update ? `recorded into e2e/visual/baseline/${key}` : opt.compare ? `compared with e2e/visual/baseline/${key}` : 'shot';
+        summary = `visual: ${scenes.length} scene(s), ${shots} shot(s) ${what}, nothing scrolls sideways at ${NARROW} px`;
     }
+} catch (error) {
+    failures.push(String(error.message ?? error).split('\n')[0]);
 } finally {
     await browser?.close();
-    server.kill('SIGTERM');
+    server?.kill('SIGTERM');
 }
 for (const failure of failures) console.error(`FAIL  ${failure}`);
-console.log(failures.length ? `visual: ${failures.length} failure(s)` : `visual: ${scenes.length} scene(s) shot, nothing scrolls sideways at ${NARROW} px`);
+console.log(failures.length ? `visual: ${failures.length} failure(s)` : summary);
 process.exit(failures.length ? 1 : 0);
