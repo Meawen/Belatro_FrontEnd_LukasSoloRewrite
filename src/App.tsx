@@ -17,8 +17,16 @@ import { PrivacyPage } from './pages/PrivacyPage';
 import { TermsPage } from './pages/TermsPage';
 import { RulesPage } from './pages/RulesPage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
-import { GamePage } from './pages/GamePage';
 import { lazy, Suspense } from 'react';
+import { Loader } from './components/ui/Loader';
+// The game page and its board are their own chunk, fetched when a game opens (spec §3.8, O-5): no other page loads them
+const GamePage = lazy(() => import('./pages/GamePage').then((module) => ({ default: module.GamePage })));
+// While that chunk loads: the game page's own first frame (GamePageConnected before a socket is up)
+const gameFallback = (
+    <div className="felt flex min-h-dvh flex-col items-center justify-center gap-4 p-4 text-text">
+        <Loader layout="block" text="Connecting to game..." />
+    </div>
+);
 // The dev board playground (spec §4.17): only in dev or in a build with VITE_DEV_BOARD=1, never in production
 const DevBoardPage = import.meta.env.DEV || import.meta.env.VITE_DEV_BOARD === '1' ? lazy(() => import('./dev/DevBoardPage')) : null;
 import { HomePage } from './pages/HomePage';
@@ -69,9 +77,9 @@ function App() {
                     <Route path="/users" element={<LeaderboardPage />} />
 
                     {/* The game: signed in, outside the shell (no navigation, banners or footer: X-8, R-40) */}
-                    <Route path="/game/:gameId" element={<ProtectedRoute><GamePage /></ProtectedRoute>} />
+                    <Route path="/game/:gameId" element={<ProtectedRoute><Suspense fallback={gameFallback}><GamePage /></Suspense></ProtectedRoute>} />
                     {/* The dev board (spec §4.17): outside the shell, no sign-in, dev builds only */}
-                    {DevBoardPage && <Route path="/dev/board" element={<Suspense fallback={null}><DevBoardPage /></Suspense>} />}
+                    {DevBoardPage && <Route path="/dev/board" element={<Suspense fallback={<Loader layout="page" />}><DevBoardPage /></Suspense>} />}
 
                     <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
 

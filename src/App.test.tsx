@@ -102,7 +102,8 @@ describe('Home with a game in progress (spec §2.5 R-33)', () => {
         expect(screen.getAllByRole('region', { name: 'Game in progress' })).toEqual([card])
         expect(screen.getAllByRole('button', { name: 'Return to your game' })).toHaveLength(1)
         await userEvent.setup().click(within(card).getByRole('button', { name: 'Return to your game' }))
-        expect(screen.getByRole('heading', { name: 'The table' })).toBeInTheDocument()
+        // the game page is its own chunk (O-5): it arrives a tick later
+        expect(await screen.findByRole('heading', { name: 'The table' })).toBeInTheDocument()
     })
 })
 
@@ -201,7 +202,7 @@ describe('The shell (spec §4.1)', () => {
         vi.spyOn(userService, 'getMe').mockResolvedValue(unverified as never)
         renderAt('/game/g1')
         await act(async () => {})
-        expect(screen.getByRole('heading', { name: 'The table' })).toBeInTheDocument()
+        expect(await screen.findByRole('heading', { name: 'The table' })).toBeInTheDocument()
         expect(document.title).toBe('Game · Stiglja')
         expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument()
         expect(screen.queryByRole('region', { name: 'Game in progress' })).not.toBeInTheDocument()
