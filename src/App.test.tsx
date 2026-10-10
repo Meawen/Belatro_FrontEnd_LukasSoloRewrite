@@ -29,6 +29,8 @@ vi.mock('./components/match/MatchHistory', () => ({
         throw new Error('render failed')
     },
 }))
+// The game page's table opens the game socket; here a stand-in (GamePageConnected's own tests cover it).
+vi.mock('./components/game/GamePageConnected', () => ({ default: () => <h1>The table</h1> }))
 
 // Node 26's own localStorage global is unusable here; borrow jsdom's (see api.test.ts)
 const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }).window
@@ -109,7 +111,8 @@ describe('Privacy and Terms (R-40)', () => {
         expect(internal.length).toBeGreaterThan(0)
         for (const href of internal) {
             renderAt(href)
-            expect(screen.queryByText('Page Not Found'), href).not.toBeInTheDocument()
+            // the 404's title is "Page not found" (spec §4.16)
+            expect(screen.queryByText('Page not found'), href).not.toBeInTheDocument()
             cleanup()
         }
     })
@@ -152,5 +155,62 @@ describe('Rules (R-41)', () => {
         renderAt('/rules')
         expect(await screen.findByRole('button', { name: 'Return to your game' })).toBeInTheDocument()
         expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
+    })
+})
+
+describe('The shell (spec §4.1)', () => {
+    const unverified = { id: 'u1', username: 'ana', email: null, pendingEmail: 'ana@example.com', emailVerified: false, roles: ['ROLE_USER'], deletionRequested: false }
+
+    test('a signed-out visit to a page in the shell goes to sign-in, carrying the page (D-20)', () => {
+        auth.isAuthenticated = false
+        renderAt('/lobby/abc?seat=b')
+        expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/login')
+        expect((window.history.state as { usr?: { from?: string } } | null)?.usr?.from).toBe('/lobby/abc?seat=b')
+    })
+
+    test('Settings is in the nav and leads to Settings (AC 5, R-34 amended)', async () => {
+        renderAt('/dashboard')
+        const nav = screen.getByRole('navigation', { name: 'Main navigation' })
+        await userEvent.setup().click(within(nav).getByRole('link', { name: 'Settings' }))
+        expect(window.location.pathname).toBe('/settings')
+        expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument()
+        expect(document.title).toBe('Settings · Stiglja')
+    })
+
+    test('the game page has no shell: no navigation, banners or footer (X-8, R-40)', async () => {
+        vi.spyOn(userService, 'getActiveGame').mockResolvedValue('g1')
+        vi.spyOn(userService, 'getMe').mockResolvedValue(unverified as never)
+        renderAt('/game/g1')
+        await act(async () => {})
+        expect(screen.getByRole('heading', { name: 'The table' })).toBeInTheDocument()
+        expect(document.title).toBe('Game · Stiglja')
+        expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('region', { name: 'Game in progress' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('region', { name: 'Email confirmation' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
+    })
+
+    test('on any other page the same player sees both banners, and the footer', async () => {
+        vi.spyOn(userService, 'getActiveGame').mockResolvedValue('g1')
+        vi.spyOn(userService, 'getMe').mockResolvedValue(unverified as never)
+        renderAt('/settings')
+        expect(await screen.findByRole('region', { name: 'Game in progress' })).toBeInTheDocument()
+        expect(await screen.findByRole('region', { name: 'Email confirmation' })).toBeInTheDocument()
+        expect(screen.getByRole('contentinfo')).toBeInTheDocument()
+    })
+
+    test.each([true, false])('an unknown path shows Not found, in the shell only when signed in (signed in: %s)', (signedIn) => {
+        auth.isAuthenticated = signedIn
+        renderAt('/no/such/page')
+        expect(screen.getByRole('heading', { level: 1, name: 'Page not found' })).toBeInTheDocument()
+        expect(screen.queryAllByRole('navigation', { name: 'Main navigation' })).toHaveLength(signedIn ? 1 : 0)
+    })
+
+    test('signed out, /users shows its prompt in the public frame (M-13)', () => {
+        auth.isAuthenticated = false
+        renderAt('/users')
+        expect(screen.getByText('Please log in to view the user leaderboard.')).toBeInTheDocument()
+        expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument()
     })
 })
