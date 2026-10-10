@@ -8,7 +8,6 @@ vi.mock('../../hooks/useUser', () => ({ useMe: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', username: 'ana' } }) }))
 vi.mock('./AdminStats', () => ({ AdminStats: () => <div>stats panel</div> }))
 vi.mock('./UserManagement', () => ({ UserManagement: () => <div>user management</div> }))
-vi.mock('./SystemStatus', () => ({ SystemStatus: () => <div>system status</div> }))
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -16,8 +15,11 @@ describe('AdminDashboard gate (the live /admin gate)', () => {
     test('an admin per /user/me sees the dashboard', () => {
         vi.mocked(useMe).mockReturnValue({ data: { roles: ['ROLE_ADMIN'] }, error: null } as never)
         render(<AdminDashboard />)
-        expect(screen.getByText('Admin Dashboard')).toBeInTheDocument()
         expect(screen.getByText('stats panel')).toBeInTheDocument()
+        expect(screen.getByText('user management')).toBeInTheDocument()
+        // X-7: the fake System Status (always "Operational") is gone; the page's h1 is AdminPage's "Admin"
+        expect(screen.queryByText(/Operational|System Status/)).not.toBeInTheDocument()
+        expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
     })
 
     test('a non-admin is denied', () => {
