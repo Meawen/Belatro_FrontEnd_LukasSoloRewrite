@@ -21,10 +21,14 @@ export function useApi<T>(
     const isMountedRef = useRef(true);
     const lastFetchRef = useRef<number>(0);
     const cacheRef = useRef<T | null>(null);
+    // The dependencies the cached value was fetched with: other inputs (e.g. another page) are a miss
+    const cacheKeyRef = useRef<string | null>(null);
+    const dependenciesKeyRef = useRef('');
     const apiFunctionRef = useRef(apiFunction);
 
     // Update the API function ref when it changes
     apiFunctionRef.current = apiFunction;
+    dependenciesKeyRef.current = JSON.stringify(dependencies);
 
     const [state, setState] = useState<UseApiState<T>>({
         data: null,
@@ -37,9 +41,10 @@ export function useApi<T>(
 
         const now = Date.now();
         const isStale = now - lastFetchRef.current > staleTime;
+        const key = dependenciesKeyRef.current;
 
         // If we have cached data and it's not stale, use it unless forced
-        if (!force && cacheRef.current && !isStale) {
+        if (!force && cacheRef.current && !isStale && cacheKeyRef.current === key) {
             // Use functional update to avoid stale state issues
             setState(prev => {
                 if (prev.data !== cacheRef.current) {
@@ -61,6 +66,7 @@ export function useApi<T>(
             const result = await apiFunctionRef.current();
             if (isMountedRef.current) {
                 cacheRef.current = result;
+                cacheKeyRef.current = key;
                 lastFetchRef.current = now;
                 setState({ data: result, isLoading: false, error: null });
             }

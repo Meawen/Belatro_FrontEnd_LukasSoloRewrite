@@ -1,9 +1,6 @@
 import { gameSocket } from './gameSocket';
-
-// Use Vite proxy in development, direct URL in production
-const API_BASE_URL = import.meta.env.DEV
-    ? '/backend'  // Vite proxy prefix in development (vite.config.ts strips it); not /api, which the backend's own /api/auth routes use
-    : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080');
+// R-28: /backend through the dev proxy, the baked VITE_API_BASE_URL in production; never localhost
+import { API_BASE_URL } from '../config';
 
 // The body the backend sends with WWW-Authenticate: Bearer error="invalid_token".
 const SESSION_EXPIRED_ERROR = 'Session expired, please sign in again';

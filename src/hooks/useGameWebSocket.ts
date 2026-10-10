@@ -2,21 +2,22 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { gameSocket } from '../services/gameSocket';
 import type { MatchDTO } from '../types/match';
-import type { Boja, GameCard, PrivateGameView, PublicGameView, QueueStatusDTO } from '../types/game';
-
-/** Display card of the mock boards in src/MockComponents (UI names such as 'Herc'/'As'), not the wire card. */
-export interface Card {
-    suit: string;
-    rank: string;
-}
+import type { Boja, GameCard, PrivateGameView, PublicGameView, QueueStatusDTO, RematchFrame } from '../types/game';
 
 interface GameWebSocketOptions {
     onQueueStatusUpdate?: (status: QueueStatusDTO) => void;
     onMatchFound?: (match: MatchDTO) => void;
     onPublicGameUpdate?: (view: PublicGameView) => void;
     onPrivateGameUpdate?: (view: PrivateGameView) => void;
+    /**
+     * Snapshot tagging (UI redesign spec §5.3.1): when given, the /app/queue/games/{id} answer and the
+     * first private frame after subscribing or after a lost connection come here instead of
+     * onPrivateGameUpdate. Without it, they go to onPrivateGameUpdate as before.
+     */
+    onGameSnapshot?: (view: PrivateGameView) => void;
     onGameError?: (message: string) => void;
     onGameDisconnect?: () => void;
+    onRematchUpdate?: (frame: RematchFrame) => void;
 }
 
 /**
@@ -28,6 +29,12 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
     const optionsRef = useRef(options);
     optionsRef.current = options;
     const unsubscribersRef = useRef(new Map<string, () => void>());
+    // The next private frame is a snapshot: set on subscribing and whenever the connection is lost
+    const freshRef = useRef(false);
+
+    useEffect(() => gameSocket.onStateChange(() => {
+        if (!gameSocket.getState().isConnected) freshRef.current = true;
+    }), []);
 
     useEffect(() => {
         const release = gameSocket.acquire();
@@ -74,6 +81,7 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
 
     /* ---------- Game channels ---------- */
     const subscribeToGame = useCallback((gameId: string) => {
+        freshRef.current = true;
         track(`game-${gameId}-public`, `/topic/games/${gameId}`, (body) => {
             // On cancel the backend sends this bare string on the JSON topic.
             if (body === 'DISCONNECT') {
@@ -88,7 +96,14 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
         });
         track(`game-${gameId}-private`, `/user/queue/games/${gameId}`, (body) => {
             try {
-                optionsRef.current.onPrivateGameUpdate?.(JSON.parse(body));
+                const view: PrivateGameView = JSON.parse(body);
+                const { onGameSnapshot, onPrivateGameUpdate } = optionsRef.current;
+                if (freshRef.current && onGameSnapshot) {
+                    freshRef.current = false;
+                    onGameSnapshot(view);
+                } else {
+                    onPrivateGameUpdate?.(view);
+                }
             } catch (e) {
                 console.error('private game parse failed', e);
             }
@@ -97,26 +112,60 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
         track(`game-${gameId}-errors`, '/user/queue/errors', (body) => {
             optionsRef.current.onGameError?.(body.replace(/^"|"$/g, ''));
         });
+        // R-35: a SUBSCRIBE to this /app destination is answered once, on this subscription, with the
+        // caller's PrivateGameView (GameSocketController's @SubscribeMapping("/queue/games/{gameId}")),
+        // and with nothing for a game that is gone or not theirs. gameSocket re-sends it after every
+        // reconnect, so the table re-snapshots then too (R-30).
+        track(`game-${gameId}-snapshot`, `/app/queue/games/${gameId}`, (body) => {
+            try {
+                const view: PrivateGameView = JSON.parse(body);
+                const { onGameSnapshot, onPrivateGameUpdate } = optionsRef.current;
+                freshRef.current = false;
+                (onGameSnapshot ?? onPrivateGameUpdate)?.(view);
+            } catch (e) {
+                console.error('game snapshot parse failed', e);
+            }
+        });
     }, [track]);
 
     const unsubscribeFromGame = useCallback((gameId: string) => {
         untrack(`game-${gameId}-public`);
         untrack(`game-${gameId}-private`);
         untrack(`game-${gameId}-errors`);
+        untrack(`game-${gameId}-snapshot`);
     }, [untrack]);
 
+    /* ---------- Rematch (R-45): RematchSocketController ---------- */
+    const subscribeToRematch = useCallback((gameId: string) => {
+        track(`rematch-${gameId}`, `/topic/games/${gameId}/rematch`, (body) => {
+            try {
+                optionsRef.current.onRematchUpdate?.(JSON.parse(body));
+            } catch (e) {
+                console.warn('rematch parse failed', e);
+            }
+        });
+    }, [track]);
+
+    const unsubscribeFromRematch = useCallback((gameId: string) => {
+        untrack(`rematch-${gameId}`);
+    }, [untrack]);
+
+    const voteRematch = useCallback((gameId: string): boolean =>
+        gameSocket.publish(`/app/games/${gameId}/rematch/vote`, {}), []);
+
+    const declineRematch = useCallback((gameId: string): boolean =>
+        gameSocket.publish(`/app/games/${gameId}/rematch/decline`, {}), []);
+
     /* ---------- Actions: backend PlayCardMsg / BidMsg; the actor is the JWT principal ---------- */
-    const playCard = useCallback((gameId: string, card: GameCard, declareBela: boolean) => {
-        gameSocket.publish(`/app/games/${gameId}/play`, { card, declareBela });
-    }, []);
+    // Moves say whether they went out (R-30): false while the socket is down
+    const playCard = useCallback((gameId: string, card: GameCard, declareBela: boolean): boolean =>
+        gameSocket.publish(`/app/games/${gameId}/play`, { card, declareBela }), []);
 
-    const placeBid = useCallback((gameId: string, pass: boolean, trump?: Boja) => {
-        gameSocket.publish(`/app/games/${gameId}/bid`, { pass, trump: trump ?? null });
-    }, []);
+    const placeBid = useCallback((gameId: string, pass: boolean, trump?: Boja): boolean =>
+        gameSocket.publish(`/app/games/${gameId}/bid`, { pass, trump: trump ?? null }), []);
 
-    const challenge = useCallback((gameId: string) => {
-        gameSocket.publish(`/app/games/${gameId}/challenge`, {});
-    }, []);
+    const challenge = useCallback((gameId: string): boolean =>
+        gameSocket.publish(`/app/games/${gameId}/challenge`, {}), []);
 
     const refreshGameState = useCallback((gameId: string) => {
         gameSocket.publish(`/app/games/${gameId}/refresh`, {});
@@ -139,6 +188,12 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
         // game
         subscribeToGame,
         unsubscribeFromGame,
+
+        // rematch (R-45)
+        subscribeToRematch,
+        unsubscribeFromRematch,
+        voteRematch,
+        declineRematch,
 
         // actions
         playCard,

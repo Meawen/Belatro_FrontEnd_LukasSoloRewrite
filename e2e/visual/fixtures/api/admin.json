@@ -1,0 +1,5 @@
+{
+    "GET /user/me": { "json": { "id": "u9", "username": "mira_z", "email": "mira@example.test", "pendingEmail": null, "emailVerified": true, "roles": ["ROLE_USER", "ROLE_ADMIN"], "deletionRequested": false } },
+    "GET /user/u9": { "json": { "id": "u9", "username": "mira_z", "eloRating": 1410, "level": 7, "gamesPlayed": 118 } },
+    "GET /user/me/active-game": { "status": 204 }
+}

@@ -97,6 +97,14 @@ describe('userService hardened contract', () => {
         expect((userService as Record<string, unknown>).getAllUsers).toBeUndefined()
     })
 
+    // 200 {"gameId": "g1"} while seated in a running game; 204 (apiClient gives {}) otherwise
+    test('getActiveGame reads the seat from GET /user/me/active-game, null on a 204', async () => {
+        const get = vi.spyOn(apiClient, 'get').mockResolvedValueOnce({ gameId: 'g1' }).mockResolvedValueOnce({})
+        expect(await userService.getActiveGame()).toBe('g1')
+        expect(await userService.getActiveGame()).toBeNull()
+        expect(get).toHaveBeenCalledWith('/user/me/active-game')
+    })
+
     // The server answers 400 "Search text may not contain a NUL character" for a NUL in q.
     test('getUsersPage strips NUL characters from the search term before sending it', async () => {
         const get = vi.spyOn(apiClient, 'get').mockResolvedValue({ content: [] })
@@ -104,6 +112,15 @@ describe('userService hardened contract', () => {
         expect(get).toHaveBeenCalledWith('/user/findAll?page=0&size=20&q=ab')
         await userService.getUsersPage({ page: 0, size: 20, q: '\0' })
         expect(get).toHaveBeenLastCalledWith('/user/findAll?page=0&size=20')
+    })
+
+    // spec §6.2: the leaderboard's order is the server's (players with games first, by Elo)
+    test('getUsersPage asks for the Elo order when told to, after the search term', async () => {
+        const get = vi.spyOn(apiClient, 'get').mockResolvedValue({ content: [] })
+        await userService.getUsersPage({ page: 1, size: 20, q: 'ana', sort: 'elo' })
+        expect(get).toHaveBeenCalledWith('/user/findAll?page=1&size=20&q=ana&sort=elo')
+        await userService.getUsersPage({ page: 0, size: 20, q: '', sort: 'elo' })
+        expect(get).toHaveBeenLastCalledWith('/user/findAll?page=0&size=20&sort=elo')
     })
 })
 

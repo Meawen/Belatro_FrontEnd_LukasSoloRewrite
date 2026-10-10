@@ -6,7 +6,6 @@ import type {
     ChangePasswordRequest,
     ChangeEmailRequest,
     JwtResponseDTO,
-    PlayerMatchHistoryDTO,
     PlayerMatchSummaryDTO,
     PaginationParams,
     Page,
@@ -14,8 +13,6 @@ import type {
 
 export const userService = {
     async getUserById(id: string): Promise<User> {
-        console.log('userService.getUserById called with id:', id);
-        console.log('Current token:', localStorage.getItem('authToken') ? 'present' : 'missing');
         return apiClient.get<User>(`/user/${id}`);
     },
 
@@ -51,38 +48,35 @@ export const userService = {
 
     // The server pages, sorts by username and filters on q (case-insensitive substring).
     // It answers 400 for a NUL in q, so NUL characters are dropped before sending.
-    async getUsersPage(params: { page: number; size: number; q?: string }): Promise<Page<User>> {
+    // sort "elo" (spec §6.2): the players who have played first, by Elo, then the accounts without a game.
+    async getUsersPage(params: { page: number; size: number; q?: string; sort?: 'elo' }): Promise<Page<User>> {
         const query = new URLSearchParams({ page: String(params.page), size: String(params.size) });
         const q = params.q?.replace(/\0/g, '');
         if (q) query.set('q', q);
+        if (params.sort) query.set('sort', params.sort);
         return apiClient.get<Page<User>>(`/user/findAll?${query.toString()}`);
-    },
-
-    async getUserHistory(
-        playerId: string,
-        pagination?: PaginationParams
-    ): Promise<PlayerMatchHistoryDTO> {
-        const params = new URLSearchParams();
-        if (pagination?.page !== undefined) params.append('page', pagination.page.toString());
-        if (pagination?.size !== undefined) params.append('size', pagination.size.toString());
-
-        const query = params.toString() ? `?${params.toString()}` : '';
-        return apiClient.get<PlayerMatchHistoryDTO>(`/user/${playerId}/history${query}`);
     },
 
     async getUserHistorySummary(
         playerId: string,
         pagination?: PaginationParams
-    ): Promise<PlayerMatchSummaryDTO> {
+    ): Promise<Page<PlayerMatchSummaryDTO>> {
         const params = new URLSearchParams();
         if (pagination?.page !== undefined) params.append('page', pagination.page.toString());
         if (pagination?.size !== undefined) params.append('size', pagination.size.toString());
 
         const query = params.toString() ? `?${params.toString()}` : '';
-        return apiClient.get<PlayerMatchSummaryDTO>(`/user/${playerId}/history/summary${query}`);
+        return apiClient.get<Page<PlayerMatchSummaryDTO>>(`/user/${playerId}/history/summary${query}`);
     },
 
     async requestForget(): Promise<void> {
         await apiClient.post<void>('/user/me/request-forget');
+    },
+
+    // R-33: 200 {"gameId": "…"} while the caller is seated in a running game, else 204
+    // (apiClient turns a 204 into {}).
+    async getActiveGame(): Promise<string | null> {
+        const body = await apiClient.get<{ gameId?: string | null }>('/user/me/active-game');
+        return body?.gameId ?? null;
     }
 };

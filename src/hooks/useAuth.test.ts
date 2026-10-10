@@ -42,4 +42,20 @@ describe('useAuth logging', () => {
         await act(async () => { await result.current.signup({ username: 'ana', email: 'ana@example.com', password: PASSWORD }) })
         expect(logs.leaked(PASSWORD, TOKEN)).toEqual([])
     })
+
+    test('reading the session, signing in, signing up and logging out write nothing to console.log (X-14)', async () => {
+        jsdomStorage.setItem('authToken', 'tok-1')
+        jsdomStorage.setItem('user', JSON.stringify({ id: 'u1', username: 'ana' }))
+        vi.spyOn(authService, 'login').mockResolvedValue(issued)
+        vi.spyOn(authService, 'signup').mockResolvedValue(issued)
+        vi.spyOn(authService, 'logout').mockResolvedValue('Successfully logged out.')
+        // logout ends in a full load to /
+        vi.stubGlobal('location', { ...window.location, assign: vi.fn() })
+        captureConsole()
+        const { result } = renderHook(() => useAuth())
+        await act(async () => { await result.current.login({ username: 'ana', password: PASSWORD }) })
+        await act(async () => { await result.current.signup({ username: 'ana', email: 'ana@example.com', password: PASSWORD }) })
+        await act(async () => { await result.current.logout() })
+        expect(console.log).not.toHaveBeenCalled()
+    })
 })

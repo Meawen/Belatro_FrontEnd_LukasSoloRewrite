@@ -1,31 +1,37 @@
-import React, { useState } from 'react';
-import { Button, Input } from '../common';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
+import { Button, Input } from '../ui';
+import { ErrorAlert } from '../common/ErrorAlert';
 import { useAuth } from '../../hooks/useAuth';
 import { ApiError } from '../../services/api';
 import { isNetworkOrServerFailure, SOMETHING_WENT_WRONG } from '../../utils/errorMessage';
 import { EMAIL_PATTERN, passwordRuleError, usernameRuleError } from './credentialRules';
+import { AUTH_LINK } from './AuthFrame';
+import { useReturnState } from './returnState';
 
 export interface SignupFormProps {
     onSuccess?: () => void;
-    onSwitchToLogin?: () => void;
 }
 
-export const SignupForm: React.FC<SignupFormProps> = ({
-                                                          onSuccess,
-                                                          onSwitchToLogin,
-                                                      }) => {
+/** A link inside running text (the R-40 line): underlined, in the accent. */
+const TEXT_LINK = 'text-accent underline underline-offset-2 hover:text-text';
+
+/** Create an account (spec §4.2). "Sign in" is the other URL (X-2) and carries the return path (§4.1). */
+export function SignupForm({ onSuccess }: SignupFormProps) {
     const [formData, setFormData] = useState({
         username: '',
         email: '',
         password: '',
         confirmPassword: '',
+        inviteCode: '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [createdEmail, setCreatedEmail] = useState<string | null>(null);
 
     const { signup, isSignupLoading } = useAuth();
+    const returnState = useReturnState();
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
 
@@ -68,35 +74,37 @@ export const SignupForm: React.FC<SignupFormProps> = ({
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        console.log('Signup form submitted:', { username: formData.username });
 
         if (!validateForm()) {
-            console.log('Form validation failed:', errors);
             return;
         }
 
         try {
             setErrors({}); // Clear any previous errors
-            console.log('Attempting signup with:', {
-                username: formData.username
-            });
 
-            const result = await signup({
+            const inviteCode = formData.inviteCode.trim();
+            await signup({
                 // the backend validates the raw value, so stray spaces would be a 400
                 username: formData.username.trim(),
                 email: formData.email.trim(),
-                password: formData.password
+                password: formData.password,
+                // R-11: the server requires it only while SIGNUP_INVITE_CODE is set; sent when typed
+                ...(inviteCode ? { inviteCode } : {}),
             });
 
-            console.log('Signup successful:', { username: result.user?.username });
             // The account works now; the address still needs its confirmation link.
             setCreatedEmail(formData.email.trim());
         } catch (error) {
             console.error('Signup error:', error);
             // a 500 while the backend's session store is down, or no answer: not the raw text
             const status = error instanceof ApiError ? error.status : 0;
+            // R-11: signup's only 403 is a missing or wrong invite code ("Invalid invite code")
+            if (status === 403) {
+                setErrors({ inviteCode: (error as ApiError).message });
+                return;
+            }
             setErrors({
                 submit: isNetworkOrServerFailure(status) ? SOMETHING_WENT_WRONG : error instanceof Error ? error.message : 'Registration failed'
             });
@@ -105,15 +113,15 @@ export const SignupForm: React.FC<SignupFormProps> = ({
 
     if (createdEmail) {
         return (
-            <div className="card max-w-md mx-auto text-center space-y-4">
-                <h2 className="text-2xl font-bold text-white">Check your inbox</h2>
+            <div className="flex flex-col gap-4 text-center">
+                <h1 className="t-title">Check your inbox</h1>
                 {/* The same answer comes for an address another account holds, and that one gets no
                     link (spec section 1), so this must not promise a mail. */}
-                <p className="text-slate-300">
-                    If this address can be used, a confirmation link is on its way to <strong>{createdEmail}</strong>. Check your inbox (and spam).
+                <p className="t-body text-text-2">
+                    If this address can be used, a confirmation link is on its way to <strong className="text-text">{createdEmail}</strong>. Check your inbox (and spam).
                     Confirm it to play ranked; casual games work right away.
                 </p>
-                <Button type="button" variant="primary" fullWidth onClick={() => onSuccess?.()}>
+                <Button block onClick={() => onSuccess?.()}>
                     Continue
                 </Button>
             </div>
@@ -121,13 +129,13 @@ export const SignupForm: React.FC<SignupFormProps> = ({
     }
 
     return (
-        <div className="card max-w-md mx-auto">
-            <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">Create Account</h2>
-                <p className="text-slate-400">Join the game today</p>
+        <>
+            <div className="mb-6 text-center">
+                <h1 className="t-title">Create Account</h1>
+                <p className="t-callout mt-2 text-text-2">Join the game today</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <Input
                     label="Username"
                     name="username"
@@ -136,12 +144,6 @@ export const SignupForm: React.FC<SignupFormProps> = ({
                     onChange={handleChange}
                     error={errors.username}
                     placeholder="Choose a username"
-                    fullWidth
-                    leftIcon={
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                    }
                 />
 
                 <Input
@@ -152,12 +154,6 @@ export const SignupForm: React.FC<SignupFormProps> = ({
                     onChange={handleChange}
                     error={errors.email}
                     placeholder="Enter your email"
-                    fullWidth
-                    leftIcon={
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                        </svg>
-                    }
                 />
 
                 <Input
@@ -168,12 +164,6 @@ export const SignupForm: React.FC<SignupFormProps> = ({
                     onChange={handleChange}
                     error={errors.password}
                     placeholder="Create a password"
-                    fullWidth
-                    leftIcon={
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                    }
                 />
 
                 <Input
@@ -184,45 +174,42 @@ export const SignupForm: React.FC<SignupFormProps> = ({
                     onChange={handleChange}
                     error={errors.confirmPassword}
                     placeholder="Confirm your password"
-                    fullWidth
-                    leftIcon={
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    }
                 />
 
-                {errors.submit && (
-                    <div className="text-red-500 text-sm text-center bg-red-900/20 border border-red-500/30 rounded-lg p-3">
-                        {errors.submit}
-                    </div>
-                )}
+                <Input
+                    label="Invite code"
+                    name="inviteCode"
+                    type="text"
+                    value={formData.inviteCode}
+                    onChange={handleChange}
+                    error={errors.inviteCode}
+                    placeholder="From your invitation"
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                />
 
-                <Button
-                    type="submit"
-                    variant="primary"
-                    fullWidth
-                    isLoading={isSignupLoading}
-                    disabled={isSignupLoading}
-                >
+                <ErrorAlert message={errors.submit ?? null} />
+
+                <Button type="submit" block loading={isSignupLoading}>
                     {isSignupLoading ? 'Creating Account...' : 'Create Account'}
                 </Button>
 
-
+                {/* R-40: the pages open in a new tab, so the form keeps what was typed */}
+                <p className="t-footnote text-center text-text-2">
+                    By creating an account you accept the{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className={TEXT_LINK}>Terms</a>; see the{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className={TEXT_LINK}>Privacy notice</a>.
+                </p>
             </form>
 
-            {onSwitchToLogin && (
-                <div className="text-center mt-6">
-                    <span className="text-slate-400">Already have an account? </span>
-                    <button
-                        onClick={onSwitchToLogin}
-                        className="text-yellow-500 hover:text-yellow-400 font-medium transition-colors"
-                        type="button"
-                    >
-                        Sign in
-                    </button>
-                </div>
-            )}
-        </div>
+            <p className="t-callout mt-4 text-center text-text-2">
+                Already have an account?{' '}
+                <Link to="/login" state={returnState} className={`inline-flex min-h-11 items-center ${AUTH_LINK}`}>
+                    Sign in
+                </Link>
+            </p>
+        </>
     );
-};
+}

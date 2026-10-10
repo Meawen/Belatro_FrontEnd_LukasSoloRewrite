@@ -1,12 +1,22 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { apiBaseForBuild, cardArtBaseForBuild } from './src/apiBase'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command, mode }) => ({
   plugins: [react(), tailwindcss()],
   define: {
     global: 'globalThis',
+    // R-28: a production bundle carries the API origin, checked and without trailing slashes
+    // (src/apiBase.ts). Dev and preview keep the proxy below and need no variable.
+    ...(command === 'build'
+      ? { 'import.meta.env.VITE_API_BASE_URL': JSON.stringify(apiBaseForBuild(loadEnv(mode, '.', 'VITE_').VITE_API_BASE_URL)) }
+      : {}),
+    // P-4: the card art's origin, checked the same way. Dev uses the r2.dev bucket (src/config.ts).
+    ...(command === 'build'
+      ? { 'import.meta.env.VITE_CARD_ART_BASE_URL': JSON.stringify(cardArtBaseForBuild(loadEnv(mode, '.', 'VITE_').VITE_CARD_ART_BASE_URL)) }
+      : {}),
   },
   optimizeDeps: {
     include: ['sockjs-client']
@@ -30,4 +40,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))

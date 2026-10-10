@@ -38,11 +38,8 @@ export function useAuth() {
         let isMounted = true;
 
         const initializeAuth = () => {
-            console.log('Initializing auth state...');
             const isAuthenticated = authService.isAuthenticated();
             const token = authService.getToken();
-            console.log('Is authenticated:', isAuthenticated);
-            console.log('Has token:', !!token);
 
             if (isAuthenticated && token) {
                 try {
@@ -50,7 +47,6 @@ export function useAuth() {
                     const storedUser = localStorage.getItem('user');
                     if (storedUser && isMounted) {
                         const user = JSON.parse(storedUser);
-                        console.log('Found stored user:', user);
                         setAuthState({
                             user,
                             isAuthenticated: true,
@@ -59,7 +55,6 @@ export function useAuth() {
                         });
                     } else if (isMounted) {
                         // Token exists but no user data - this shouldn't happen normally
-                        console.log('Token exists but no user data found');
                         // Clear invalid state
                         authService.logout();
                         localStorage.removeItem('user');
@@ -87,7 +82,6 @@ export function useAuth() {
                     }
                 }
             } else if (isMounted) {
-                console.log('Not authenticated, setting initial state');
                 setAuthState({
                     user: null,
                     isAuthenticated: false,
@@ -106,17 +100,14 @@ export function useAuth() {
     }, []); // Empty dependency array - only run once
 
     const login = useCallback(async (credentials: LoginRequestDTO): Promise<JwtResponseDTO> => {
-        console.log('Login function called with:', { username: credentials.username });
         try {
             setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
             const response = await loginMutation.mutate(credentials);
-            console.log('Login response:', { user: response.user });
 
             // Store user data in localStorage
             if (response.user) {
                 localStorage.setItem('user', JSON.stringify(response.user));
-                console.log('User data stored in localStorage');
             }
 
             setAuthState({
@@ -126,7 +117,6 @@ export function useAuth() {
                 error: null,
             });
 
-            console.log('Login successful, auth state updated');
             return response;
         } catch (error) {
             console.error('Login failed:', error);
@@ -140,17 +130,14 @@ export function useAuth() {
     }, [loginMutation]);
 
     const signup = useCallback(async (userData: SignupRequestDTO): Promise<JwtResponseDTO> => {
-        console.log('Signup function called with:', { username: userData.username });
         try {
             setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
             const response = await signupMutation.mutate(userData);
-            console.log('Signup response:', { user: response.user });
 
             // Store user data in localStorage
             if (response.user) {
                 localStorage.setItem('user', JSON.stringify(response.user));
-                console.log('User data stored in localStorage');
             }
 
             setAuthState({
@@ -160,7 +147,6 @@ export function useAuth() {
                 error: null,
             });
 
-            console.log('Signup successful, auth state updated');
             return response;
         } catch (error) {
             console.error('Signup failed:', error);
@@ -174,7 +160,6 @@ export function useAuth() {
     }, [signupMutation]);
 
     const logout = useCallback(async () => {
-        console.log('Logout function called');
         try {
             await logoutMutation.mutate(undefined);
         } catch (error) {
@@ -192,10 +177,8 @@ export function useAuth() {
                 error: null,
             });
 
-            console.log('Logout completed, all local state cleared');
-
             // Force page refresh to ensure clean state
-            window.location.href = '/';
+            window.location.assign('/');
         }
     }, [logoutMutation]);
 

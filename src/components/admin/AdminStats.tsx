@@ -1,5 +1,5 @@
-import React from 'react';
-import { Loading } from '../common';
+import React, { useId } from 'react';
+import { Loader, Panel, PixelIcon, type IconName } from '../ui';
 import { useAllMatches } from '../../hooks/useMatch';
 import { useLobbies } from '../../hooks/useLobby';
 import { useAdmin } from '../../hooks/useAdmin';
@@ -8,71 +8,46 @@ import type { UserDto } from '../../types/user';
 export const AdminStats: React.FC = () => {
     const { matches, isLoading: matchesLoading } = useAllMatches();
     const { users: adminUsers, isLoading: adminUsersLoading } = useAdmin();
-    const { lobbies, isLoading: lobbiesLoading } = useLobbies();
+    // X-7: the open lobbies (GET /lobbies/open); the hook's `lobbies` is the all-lobbies query, which never runs here
+    const { openLobbies, isLoading: lobbiesLoading } = useLobbies();
+    const headingId = useId();
 
     if (matchesLoading || adminUsersLoading || lobbiesLoading) {
-        return <Loading size="medium" text="Loading statistics..." />;
+        return <Loader text="Loading statistics..." />;
     }
 
     // matches for game stats, adminUsers for admin-specific stats
     const totalUsers = adminUsers?.length || 0;
 
     const pendingDeletions = adminUsers?.filter((user: UserDto) => user.deletionRequested).length || 0;
-    const totalLobbies = Array.isArray(lobbies) ? lobbies.length : 0;
+    const activeLobbies = Array.isArray(openLobbies) ? openLobbies.length : 0;
     // Count the matches themselves: summing gamesPlayed over users counted each match four
     // times, and /user/findAll is paged now.
     const totalMatches = Array.isArray(matches) ? matches.length : 0;
 
-    const stats = [
-        {
-            label: 'Total Users',
-            value: totalUsers,
-            icon: '👥',
-            color: 'text-blue-400',
-            bgColor: 'bg-blue-500/20'
-        },
-        {
-            label: 'Total Matches',
-            value: totalMatches,
-            icon: '🎮',
-            color: 'text-purple-400',
-            bgColor: 'bg-purple-500/20'
-        },
-        {
-            label: 'Active Lobbies',
-            value: totalLobbies,
-            icon: '🏠',
-            color: 'text-yellow-400',
-            bgColor: 'bg-yellow-500/20'
-        },
-        {
-            label: 'Pending Deletions',
-            value: pendingDeletions,
-            icon: '🗑️',
-            color: 'text-red-400',
-            bgColor: 'bg-red-500/20'
-        }
+    const stats: { label: string; value: number; icon: IconName }[] = [
+        { label: 'Total Users', value: totalUsers, icon: 'people' },
+        { label: 'Total Matches', value: totalMatches, icon: 'cards' },
+        { label: 'Active Lobbies', value: activeLobbies, icon: 'list' },
+        { label: 'Pending Deletions', value: pendingDeletions, icon: 'trash' },
     ];
 
     return (
-        <div className="card">
-            <h2 className="text-xl font-semibold text-white mb-6">System Statistics</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {stats.map((stat, index) => (
-                    <div key={index} className={`${stat.bgColor} p-4 rounded-lg`}>
-                        <div className="flex items-center gap-3 mb-2">
-                            <span className="text-2xl">{stat.icon}</span>
-                            <div className="flex-1">
-                                <div className={`text-2xl font-bold ${stat.color}`}>
-                                    {stat.value.toLocaleString()}
-                                </div>
-                                <div className="text-sm text-slate-400">{stat.label}</div>
-                            </div>
+        <section aria-labelledby={headingId} className="flex flex-col gap-3">
+            <h2 id={headingId} className="t-title">
+                System Statistics
+            </h2>
+            <dl className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+                {stats.map((stat) => (
+                    <Panel key={stat.label} padding="none" className="flex items-center gap-3 px-4 py-3">
+                        <PixelIcon name={stat.icon} scale={3} className="shrink-0 text-text-3" />
+                        <div className="flex min-w-0 flex-col-reverse">
+                            <dt className="t-caption text-text-2">{stat.label}</dt>
+                            <dd className="t-score tabular-nums">{stat.value.toLocaleString()}</dd>
                         </div>
-                    </div>
+                    </Panel>
                 ))}
-            </div>
-        </div>
+            </dl>
+        </section>
     );
 };

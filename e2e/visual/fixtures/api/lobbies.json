@@ -1,0 +1,52 @@
+{
+    "GET /lobbies/open": {
+        "json": [
+            {
+                "id": "l1", "name": "Kod Mire", "gameMode": "CASUAL", "status": "WAITING", "createdAt": null,
+                "hostUser": { "id": "u9", "username": "mira_z" },
+                "teamAPlayers": [{ "id": "u9", "username": "mira_z" }, { "id": "u2", "username": "luka" }],
+                "teamBPlayers": [{ "id": "u3", "username": "ivo" }],
+                "unassignedPlayers": [], "privateLobby": true, "password": null
+            },
+            {
+                "id": "l2", "name": "Petak u pet", "gameMode": "CASUAL", "status": "WAITING", "createdAt": null,
+                "hostUser": { "id": "u5", "username": "dino" },
+                "teamAPlayers": [{ "id": "u5", "username": "dino" }, { "id": "u6", "username": "iva" }],
+                "teamBPlayers": [],
+                "unassignedPlayers": [{ "id": "u4", "username": "tea_r" }], "privateLobby": false, "password": null
+            },
+            {
+                "id": "l3", "name": "Subotnja", "gameMode": "CASUAL", "status": "WAITING", "createdAt": null,
+                "hostUser": { "id": "u7", "username": "marko" },
+                "teamAPlayers": [{ "id": "u7", "username": "marko" }, { "id": "u8", "username": "petra" }],
+                "teamBPlayers": [{ "id": "u10", "username": "tomo" }, { "id": "u11", "username": "lana" }],
+                "unassignedPlayers": [], "privateLobby": false, "password": null
+            },
+            {
+                "id": "l4", "name": "Bela kod Ane", "gameMode": "CASUAL", "status": "WAITING", "createdAt": null,
+                "hostUser": { "id": "u1", "username": "ana_k" },
+                "teamAPlayers": [{ "id": "u1", "username": "ana_k" }],
+                "teamBPlayers": [],
+                "unassignedPlayers": [], "privateLobby": false, "password": null
+            }
+        ]
+    },
+    "GET /lobbies/l1": {
+        "json": {
+            "id": "l1", "name": "Kod Mire", "gameMode": "CASUAL", "status": "WAITING", "createdAt": null,
+            "hostUser": { "id": "u9", "username": "mira_z" },
+            "teamAPlayers": [{ "id": "u9", "username": "mira_z" }, { "id": "u2", "username": "luka" }],
+            "teamBPlayers": [{ "id": "u3", "username": "ivo" }],
+            "unassignedPlayers": [], "privateLobby": true, "password": null
+        }
+    },
+    "GET /lobbies/l2": {
+        "json": {
+            "id": "l2", "name": "Petak u pet", "gameMode": "CASUAL", "status": "WAITING", "createdAt": null,
+            "hostUser": { "id": "u5", "username": "dino" },
+            "teamAPlayers": [{ "id": "u5", "username": "dino" }, { "id": "u6", "username": "iva" }],
+            "teamBPlayers": [],
+            "unassignedPlayers": [{ "id": "u4", "username": "tea_r" }], "privateLobby": false, "password": null
+        }
+    }
+}

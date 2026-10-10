@@ -1,17 +1,43 @@
-import React, { useState } from 'react';
-import { Button, Input, Loading, Modal } from '../common';
+import React, { useId, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Avatar, Button, EmptyState, ErrorState, Input, Loader, Panel, PixelIcon, Segmented, Sheet, Tag } from '../ui';
+import { ErrorAlert } from '../common/ErrorAlert';
+import { useMediaQuery } from '../layout/useMediaQuery';
 import { useAdmin } from '../../hooks/useAdmin';
 import { useAuth } from '../../hooks/useAuth';
 import type { UserDto } from '../../types/user';
+import { errorMessage } from '../../utils/errorMessage';
+
+/** Phones get one panel per user instead of the table (spec §4.14). */
+export const USER_ROWS_QUERY = '(max-width: 767.98px)';
+
+type SortBy = 'username' | 'email';
+
+const SORT_OPTIONS: { value: SortBy; label: string }[] = [
+    { value: 'username', label: 'Username' },
+    { value: 'email', label: 'Email' },
+];
+
+const getRoleDisplay = (roles: string[] | null) => {
+    if (!roles || roles.length === 0) return 'User';
+    return roles.map(role => role.replace('ROLE_', '')).join(', ');
+};
+
+const StatusTag = ({ user }: { user: UserDto }) =>
+    user.deletionRequested ? <Tag tone="bad">Deletion Requested</Tag> : <Tag>Active</Tag>;
 
 export const UserManagement: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedUser, setSelectedUser] = useState<UserDto | null>(null);
-    const [showConfirmModal, setShowConfirmModal] = useState(false);
-    const [sortBy, setSortBy] = useState<'username' | 'email'>('username');
+    const [confirming, setConfirming] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [sortBy, setSortBy] = useState<SortBy>('username');
+    const headingId = useId();
 
     const { users, isLoading, error, forgetUser, refetch, isForgettingUser } = useAdmin();
     const { user: currentUser } = useAuth();
+    const navigate = useNavigate();
+    const asPanels = useMediaQuery(USER_ROWS_QUERY);
 
     // Filter and sort users
     const filteredUsers = React.useMemo(() => {
@@ -41,226 +67,198 @@ export const UserManagement: React.FC = () => {
         return filtered;
     }, [users, searchTerm, sortBy]);
 
+    const askToDelete = (user: UserDto) => {
+        setDeleteError(null);
+        setSelectedUser(user);
+        setConfirming(true);
+    };
+
     const handleForgetUser = async () => {
         if (!selectedUser?.id) return;
-
+        setDeleteError(null);
         try {
             await forgetUser(selectedUser.id);
-            setShowConfirmModal(false);
-            setSelectedUser(null);
-        } catch (error) {
-            console.error('Failed to forget user:', error);
+            setConfirming(false);
+        } catch (failure) {
+            // X-7: a failed delete says so (it only reached the console), and the dialog stays open
+            setDeleteError(errorMessage(failure, 'Failed to delete the user'));
         }
     };
 
-    const getRoleDisplay = (roles: string[] | null) => {
-        if (!roles || roles.length === 0) return 'User';
-        return roles.map(role => role.replace('ROLE_', '')).join(', ');
-    };
-
-    const getStatusIndicator = (user: UserDto) => {
-        if (user.deletionRequested) {
-            return <span className="badge badge-red text-xs">Deletion Requested</span>;
-        }
-
-        return <span className="badge badge-gray text-xs">Active</span>;
-    };
-
-    if (isLoading) {
-        return <Loading size="large" text="Loading users..." />;
+    // the refetch after a delete keeps the list (and the dialog) on screen: the loader is for the first load only
+    if (isLoading && users.length === 0) {
+        return <Loader text="Loading users..." />;
     }
 
-    if (error) {
+    if (error && users.length === 0) {
         return (
-            <div className="card bg-red-900/20 border-red-500/30">
-                <div className="flex items-center gap-3">
-                    <div className="text-red-400 text-2xl">⚠️</div>
-                    <div>
-                        <h3 className="text-red-400 font-semibold">Error Loading Users</h3>
-                        <p className="text-red-300 text-sm">Failed to load user management</p>
-                    </div>
-                </div>
-                <Button
-                    onClick={refetch}
-                    variant="outline"
-                    size="small"
-                    className="mt-4"
-                >
-                    Try Again
+            <Panel>
+                <ErrorState
+                    title="Error Loading Users"
+                    body="Failed to load user management"
+                    action={
+                        <Button variant="secondary" onClick={() => refetch().catch(() => {})}>
+                            Try Again
+                        </Button>
+                    }
+                />
+            </Panel>
+        );
+    }
+
+    const actions = (user: UserDto) => (
+        <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" size="sm" onClick={() => navigate(`/profile/${user.id}`)}>
+                View
+            </Button>
+            {user.id !== currentUser?.id && (
+                <Button variant="danger" size="sm" disabled={isForgettingUser} onClick={() => askToDelete(user)}>
+                    Delete
                 </Button>
+            )}
+        </div>
+    );
+
+    const identity = (user: UserDto) => {
+        const isMe = user.id === currentUser?.id;
+        return (
+            <div className="flex min-w-0 items-center gap-3">
+                <Avatar size="sm" initial={user.username || '?'} tone={isMe ? 'accent' : 'neutral'} />
+                <div className="min-w-0">
+                    <div className="t-headline flex flex-wrap items-center gap-2 break-words">
+                        {user.username || 'Unknown'}
+                        {isMe && <Tag tone="you">You</Tag>}
+                    </div>
+                    <div className="t-footnote break-all text-text-3">ID: {user.id}</div>
+                </div>
             </div>
+        );
+    };
+
+    let list;
+    if (filteredUsers.length === 0) {
+        list = (
+            <Panel>
+                <EmptyState
+                    icon="people"
+                    title="No Users Found"
+                    body={searchTerm ? 'No users match your search criteria.' : 'No users available.'}
+                />
+            </Panel>
+        );
+    } else if (asPanels) {
+        list = (
+            <ul className="flex flex-col gap-2">
+                {filteredUsers.map((user: UserDto) => (
+                    <li key={user.id}>
+                        <Panel className="flex flex-col gap-3">
+                            {identity(user)}
+                            <p className="t-footnote break-all text-text-2">{user.email || 'N/A'}</p>
+                            <div className="flex flex-wrap gap-2">
+                                <Tag>{getRoleDisplay(user.roles)}</Tag>
+                                <StatusTag user={user} />
+                            </div>
+                            {actions(user)}
+                        </Panel>
+                    </li>
+                ))}
+            </ul>
+        );
+    } else {
+        list = (
+            <Panel padding="none" className="overflow-x-auto">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className="t-caption text-text-2">
+                            <th scope="col" className="px-4 py-3">User</th>
+                            <th scope="col" className="px-4 py-3">Email</th>
+                            <th scope="col" className="px-4 py-3">Role</th>
+                            <th scope="col" className="px-4 py-3">Status</th>
+                            <th scope="col" className="px-4 py-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredUsers.map((user: UserDto) => (
+                            <tr key={user.id} className="border-t-2 border-edge align-middle">
+                                <td className="px-4 py-3">{identity(user)}</td>
+                                <td className="t-callout break-all px-4 py-3 text-text-2">{user.email || 'N/A'}</td>
+                                <td className="px-4 py-3">
+                                    <Tag>{getRoleDisplay(user.roles)}</Tag>
+                                </td>
+                                <td className="px-4 py-3">
+                                    <StatusTag user={user} />
+                                </td>
+                                <td className="px-4 py-3">{actions(user)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </Panel>
         );
     }
 
     return (
-        <div className="card">
-            <div className="flex items-center justify-between mb-6">
+        <section aria-labelledby={headingId} className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h2 className="text-xl font-semibold text-white">User Management</h2>
-                    <p className="text-slate-400">
+                    <h2 id={headingId} className="t-title">
+                        User Management
+                    </h2>
+                    <p className="t-callout mt-1 text-text-2">
                         {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found
                     </p>
                 </div>
-                <Button
-                    onClick={refetch}
-                    variant="outline"
-                    size="small"
-                >
-                    🔄 Refresh
+                <Button variant="secondary" size="sm" leftIcon={<PixelIcon name="refresh" />} onClick={() => refetch().catch(() => {})}>
+                    Refresh
                 </Button>
             </div>
 
-            {/* Filters */}
-            <div className="flex flex-col md:flex-row gap-4 mb-6">
-                <div className="flex-1">
-                    <Input
-                        type="text"
-                        placeholder="Search by username, email, or ID..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => setSortBy('username')}
-                        className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                            sortBy === 'username'
-                                ? 'bg-purple-600 text-white'
-                                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                        }`}
-                    >
-                        Username
-                    </button>
-                    <button
-                        onClick={() => setSortBy('email')}
-                        className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                            sortBy === 'email'
-                                ? 'bg-purple-600 text-white'
-                                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                        }`}
-                    >
-                        Email
-                    </button>
-                </div>
+            <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                <Input
+                    className="flex-1"
+                    label="Search users"
+                    hideLabel
+                    type="text"
+                    placeholder="Search by username, email, or ID..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <Segmented label="Sort by" options={SORT_OPTIONS} value={sortBy} onChange={setSortBy} />
             </div>
 
-            {/* Users Table */}
-            {filteredUsers.length === 0 ? (
-                <div className="text-center py-12">
-                    <div className="text-slate-500 text-6xl mb-4">👥</div>
-                    <h3 className="text-xl font-semibold text-white mb-2">No Users Found</h3>
-                    <p className="text-slate-400">
-                        {searchTerm ? 'No users match your search criteria.' : 'No users available.'}
-                    </p>
-                </div>
-            ) : (
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                        <tr className="border-b border-slate-700">
-                            <th className="text-left p-3 text-slate-400 font-medium">User</th>
-                            <th className="text-left p-3 text-slate-400 font-medium">Email</th>
-                            <th className="text-left p-3 text-slate-400 font-medium">Role</th>
-                            <th className="text-left p-3 text-slate-400 font-medium">Status</th>
-                            <th className="text-left p-3 text-slate-400 font-medium">Actions</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {filteredUsers.map((user: UserDto) => (
-                            <tr key={user.id} className="border-b border-slate-800 hover:bg-slate-800/50">
-                                <td className="p-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center text-sm font-bold text-white">
-                                            {user.username?.charAt(0).toUpperCase() || '?'}
-                                        </div>
-                                        <div>
-                                            <div className="text-white font-medium">
-                                                {user.username || 'Unknown'}
-                                                {user.id === currentUser?.id && (
-                                                    <span className="ml-2 badge badge-blue text-xs">You</span>
-                                                )}
-                                            </div>
-                                            <div className="text-xs text-slate-500">ID: {user.id}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="p-3 text-slate-300">{user.email || 'N/A'}</td>
-                                <td className="p-3">
-                    <span className="badge badge-purple text-xs">
-                      {getRoleDisplay(user.roles)}
-                    </span>
-                                </td>
-                                <td className="p-3">{getStatusIndicator(user)}</td>
-                                <td className="p-3">
-                                    <div className="flex gap-2">
-                                        <Button
-                                            onClick={() => window.location.href = `/profile/${user.id}`}
-                                            variant="outline"
-                                            size="small"
-                                        >
-                                            View
-                                        </Button>
-                                        {user.id !== currentUser?.id && (
-                                            <Button
-                                                onClick={() => {
-                                                    setSelectedUser(user);
-                                                    setShowConfirmModal(true);
-                                                }}
-                                                variant="danger"
-                                                size="small"
-                                                disabled={isForgettingUser}
-                                            >
-                                                Delete
-                                            </Button>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+            {list}
 
-            {/* Confirm Delete Modal */}
-            <Modal
-                isOpen={showConfirmModal}
-                onClose={() => setShowConfirmModal(false)}
-                title="Confirm User Deletion"
-            >
+            <Sheet open={confirming} onClose={() => setConfirming(false)} title="Confirm User Deletion" dismissible={!isForgettingUser}>
                 {selectedUser && (
-                    <div className="space-y-4">
-                        <div className="bg-red-900/20 p-4 rounded border border-red-500/30">
-                            <h4 className="text-red-400 font-semibold mb-2">⚠️ Warning</h4>
-                            <p className="text-red-300 text-sm">
-                                This action will permanently delete the user account for{' '}
-                                <strong>{selectedUser.username}</strong> and cannot be undone.
-                                All associated data will be removed.
+                    <div className="flex flex-col gap-4">
+                        <div className="notch bg-surface-2 px-4 py-3 shadow-[inset_3px_0_0_var(--danger)]">
+                            <p className="t-headline flex items-center gap-2 text-danger-text">
+                                <PixelIcon name="warning" />
+                                Warning
+                            </p>
+                            <p className="t-callout mt-2">
+                                Delete the account of{' '}
+                                <strong>{selectedUser.username}</strong>? This cannot be undone.
+                            </p>
+                            {/* What AdminService.forgetUser removes (R-40); the rest is the owner's manual 30-day process */}
+                            <p className="t-callout mt-2">
+                                Deletes the user record; friendships, match history and rank history remain.
                             </p>
                         </div>
 
-                        <div className="flex gap-3">
-                            <Button
-                                onClick={() => setShowConfirmModal(false)}
-                                variant="outline"
-                                className="flex-1"
-                                disabled={isForgettingUser}
-                            >
+                        <ErrorAlert message={deleteError} />
+
+                        <div className="flex flex-wrap justify-end gap-2">
+                            <Button variant="secondary" onClick={() => setConfirming(false)} disabled={isForgettingUser}>
                                 Cancel
                             </Button>
-                            <Button
-                                onClick={handleForgetUser}
-                                variant="danger"
-                                className="flex-1"
-                                isLoading={isForgettingUser}
-                            >
+                            <Button variant="danger" onClick={handleForgetUser} loading={isForgettingUser}>
                                 Delete User
                             </Button>
                         </div>
                     </div>
                 )}
-            </Modal>
-        </div>
+            </Sheet>
+        </section>
     );
 };

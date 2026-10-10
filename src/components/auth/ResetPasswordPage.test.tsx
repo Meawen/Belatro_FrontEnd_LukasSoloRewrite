@@ -138,3 +138,12 @@ describe('ResetPasswordPage', () => {
         expect(screen.queryByRole('button', { name: 'Reset password' })).not.toBeInTheDocument()
     })
 })
+
+describe('ResetPasswordPage on the auth frame (spec §4.3)', () => {
+    test('sits in the auth frame with its title as the page heading and the footer links below', () => {
+        renderAt('/reset-password?token=tok-2')
+        expect(screen.getByText('Belot for four, online.')).toBeInTheDocument()
+        expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Choose a new password'])
+        expect(screen.getByRole('contentinfo')).toHaveTextContent('Contact: support@stiglja.com')
+    })
+})

@@ -32,9 +32,10 @@ export function useUser(userId?: string) {
 /** Page size of the players list; the backend clamps it to 1..100. */
 export const USERS_PAGE_SIZE = 20;
 
+/** One page of the leaderboard, ranked by Elo on the server (spec §4.12, §6.2). */
 export function useUsersPage(page: number, q: string) {
     const apiFunction = useMemo(
-        () => () => userService.getUsersPage({ page, size: USERS_PAGE_SIZE, q }),
+        () => () => userService.getUsersPage({ page, size: USERS_PAGE_SIZE, q, sort: 'elo' }),
         [page, q]
     );
 
@@ -45,24 +46,6 @@ export function useUsersPage(page: number, q: string) {
         dependencies: [page, q],
         staleTime: 0,
     });
-}
-
-export function useUserHistory(playerId: string, pagination?: PaginationParams) {
-    const apiFunction = useMemo(() => {
-        if (!playerId) {
-            return () => Promise.reject(new Error('No player ID provided'));
-        }
-        return () => userService.getUserHistory(playerId, pagination);
-    }, [playerId, pagination?.page, pagination?.size]);
-
-    return useApi(
-        apiFunction,
-        {
-            immediate: !!playerId,
-            dependencies: [playerId, pagination?.page, pagination?.size],
-            staleTime: 180000 // Cache for 3 minutes
-        }
-    );
 }
 
 export function useUserHistorySummary(playerId: string, pagination?: PaginationParams) {

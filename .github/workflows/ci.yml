@@ -1,0 +1,56 @@
+# SPA gate: the type check, the Vitest suite and a production build for every push to master and
+# every pull request into it. The build needs an API origin and a card art origin (vite.config.ts
+# refuses a production build without either); a placeholder API is enough, nothing is deployed from
+# here, and the card art stays on the r2.dev bucket until the custom domain exists (P-4). Lint is not a gate.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          # jsdom 30 needs Node 22.22.2 or later; the runner's cached 22.x may be older
+          check-latest: true
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Type check
+        run: npx tsc -b
+      - name: Unit tests
+        run: npx vitest run
+      - name: Production build
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: https://api.example.test
+          VITE_CARD_ART_BASE_URL: https://pub-35c6a55a85654bcaa462dcc5f31c7c71.r2.dev/v1
+      # spec §4.17, §7.5: the dev board playground is never in a production bundle
+      - name: No dev board in the production bundle
+        run: |
+          if grep -rq '/dev/board' dist/; then echo 'dist/ contains /dev/board'; exit 1; fi
+      # spec §3.8 (O-5), §7.5, gzip -9: every page loads the entry chunk and what index.html preloads with it, within
+      # the fca13bb baseline (194266 B) + 35 KB; the rest loads on demand (the game page and its board), within 45 KB,
+      # and there must be some; the pixel font within 30 KB
+      - name: Bundle size
+        run: |
+          first=$(grep -oE '(src|href)="/assets/[^"]+\.js"' dist/index.html | sed -E 's|.*/assets/([^"]+)"|\1|')
+          entry=0; ondemand=0; lazy=''
+          for f in dist/assets/*.js; do
+            size=$(gzip -9 -c "$f" | wc -c)
+            if printf '%s\n' $first | grep -qxF "$(basename "$f")"; then entry=$((entry + size)); else ondemand=$((ondemand + size)); lazy="$lazy $(basename "$f")"; fi
+          done
+          font=0; for f in dist/assets/*.woff2; do font=$((font + $(wc -c < "$f"))); done
+          echo "JS every page loads: $entry B (limit 230106); on demand:${lazy:- none} $ondemand B (limit 46080); font: $font B (limit 30720)"
+          test -n "$lazy" && test "$entry" -le 230106 && test "$ondemand" -le 46080 && test "$font" -le 30720

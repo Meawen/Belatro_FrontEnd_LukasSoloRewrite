@@ -1,12 +1,16 @@
-import React, { useRef, useState } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, ErrorAlert, Input } from '../common';
+import { Button, Input } from '../ui';
+import { ErrorAlert } from '../common/ErrorAlert';
 import { authService } from '../../services/authService';
 import { ApiError } from '../../services/api';
 import { errorMessage, isNetworkOrServerFailure, SOMETHING_WENT_WRONG, WAIT_AND_RETRY } from '../../utils/errorMessage';
 import { EMAIL_PATTERN } from './credentialRules';
+import { AuthFrame, AUTH_LINK } from './AuthFrame';
+import { useReturnState } from './returnState';
 
-export const ForgotPasswordPage: React.FC = () => {
+/** /forgot-password (spec §4.3) on the auth frame. "Back to sign in" carries the return path (§4.1). */
+export function ForgotPasswordPage() {
     const [email, setEmail] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [hint, setHint] = useState<string | null>(null);
@@ -14,8 +18,9 @@ export const ForgotPasswordPage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     // stops a second submit that lands before React re-renders the button as disabled
     const sending = useRef(false);
+    const returnState = useReturnState();
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         if (sending.current) return;
         const address = email.trim();
@@ -42,37 +47,36 @@ export const ForgotPasswordPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-emerald-950 flex items-center justify-center p-4">
-            <div className="card max-w-md w-full space-y-6">
-                <h1 className="text-2xl font-bold text-white text-center">Forgot your password?</h1>
+        <AuthFrame>
+            <h1 className="t-title text-center">Forgot your password?</h1>
 
-                {sent ? (
-                    // The same sentence whether or not the address has an account.
-                    <p className="text-emerald-200 text-center">
-                        If that address has an account, we sent a link to reset your password. The link works for 15 minutes.
-                    </p>
-                ) : (
-                    <form onSubmit={handleSubmit} noValidate className="space-y-4">
-                        <Input
-                            label="Email"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Enter your email"
-                            fullWidth
-                        />
-                        <ErrorAlert message={error} />
-                        {hint && <p className="text-sm text-slate-400">{hint}</p>}
-                        <Button type="submit" variant="primary" fullWidth isLoading={isSubmitting} disabled={isSubmitting}>
-                            Send reset link
-                        </Button>
-                    </form>
-                )}
-
-                <p className="text-center text-sm">
-                    <Link to="/login" className="text-yellow-500 hover:text-yellow-400">Back to sign in</Link>
+            {sent ? (
+                // The same sentence whether or not the address has an account.
+                <p className="t-body mt-6 text-center">
+                    If that address has an account, we sent a link to reset your password. The link works for 15 minutes.
                 </p>
-            </div>
-        </div>
+            ) : (
+                <form onSubmit={handleSubmit} noValidate className="mt-6 flex flex-col gap-4">
+                    <Input
+                        label="Email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter your email"
+                    />
+                    <ErrorAlert message={error} />
+                    {hint && <p className="t-footnote text-text-2">{hint}</p>}
+                    <Button type="submit" block loading={isSubmitting}>
+                        Send reset link
+                    </Button>
+                </form>
+            )}
+
+            <p className="t-callout mt-4 text-center">
+                <Link to="/login" state={returnState} className={`inline-flex min-h-11 items-center ${AUTH_LINK}`}>
+                    Back to sign in
+                </Link>
+            </p>
+        </AuthFrame>
     );
-};
+}

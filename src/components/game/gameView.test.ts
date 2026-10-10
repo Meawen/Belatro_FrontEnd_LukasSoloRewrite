@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
-import { cardLabel, seatsFromMe, trumpOf } from './gameView'
-import type { PublicGameView } from '../../types/game'
+import { cardLabel, isBelaCard, seatsFromMe, trumpOf, zvanjaOf } from './gameView'
+import type { GameCard, PublicGameView } from '../../types/game'
 
 const seats = ['alice', 'bob', 'carol', 'dave'].map((id) => ({ id, cardsLeft: 8 }))
 
@@ -66,5 +66,26 @@ describe('cardLabel', () => {
     test('uses the Croatian names the card art uses', () => {
         expect(cardLabel({ boja: 'KARA', rank: 'DESETKA' })).toBe('10 Karo')
         expect(cardLabel({ boja: 'HERC', rank: 'AS' })).toBe('As Herc')
+    })
+})
+
+describe('zvanjaOf', () => {
+    test("one player's scored zvanja, worded as the declaration lines word them", () => {
+        expect(zvanjaOf({ bela: false, sequencesBySuit: { KARA: 100 }, fourOfAKindPoints: 200, bestSequencePoints: 100 }))
+            .toEqual(['sequence 100 (Karo)', 'four of a kind 200'])
+        expect(zvanjaOf(undefined)).toEqual([])
+    })
+})
+
+describe('isBelaCard (R-32)', () => {
+    test('only the trump K or Q while the other is still in hand', () => {
+        const hand: GameCard[] = [{ boja: 'PIK', rank: 'KRALJ' }, { boja: 'PIK', rank: 'BABA' }, { boja: 'HERC', rank: 'BABA' }]
+        expect(isBelaCard({ boja: 'PIK', rank: 'KRALJ' }, hand, 'PIK')).toBe(true)
+        expect(isBelaCard({ boja: 'PIK', rank: 'BABA' }, hand, 'PIK')).toBe(true)
+        // not trump; trump without its partner in hand; not a K or Q; no trump called yet
+        expect(isBelaCard({ boja: 'HERC', rank: 'BABA' }, hand, 'PIK')).toBe(false)
+        expect(isBelaCard({ boja: 'HERC', rank: 'BABA' }, hand, 'HERC')).toBe(false)
+        expect(isBelaCard({ boja: 'PIK', rank: 'AS' }, hand, 'PIK')).toBe(false)
+        expect(isBelaCard({ boja: 'PIK', rank: 'KRALJ' }, hand, null)).toBe(false)
     })
 })

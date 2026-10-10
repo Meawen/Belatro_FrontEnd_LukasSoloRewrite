@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { LoginForm } from './LoginForm'
 import { ApiError } from '../../services/api'
 import { captureConsole } from '../../test/captureConsole'
@@ -12,6 +12,12 @@ vi.mock('../../hooks/useAuth', () => ({
 }))
 
 beforeEach(() => vi.clearAllMocks())
+
+/** Where the router is, and the state it carries. */
+function Where() {
+    const { pathname, state } = useLocation()
+    return <p data-testid="where">{`${pathname} ${JSON.stringify(state)}`}</p>
+}
 
 describe('LoginForm', () => {
     test('sends the trimmed username (the backend matches the raw value)', async () => {
@@ -53,6 +59,19 @@ describe('LoginForm', () => {
         render(<MemoryRouter><LoginForm onSuccess={vi.fn()} /></MemoryRouter>)
         expect(screen.getByRole('link', { name: 'Forgot password?' })).toHaveAttribute('href', '/forgot-password')
     })
+
+    test('"Forgot password?" carries the return path along (spec §4.1)', async () => {
+        render(
+            <MemoryRouter initialEntries={[{ pathname: '/login', state: { from: '/lobby/abc' } }]}>
+                <Routes>
+                    <Route path="/login" element={<LoginForm onSuccess={vi.fn()} />} />
+                    <Route path="/forgot-password" element={<Where />} />
+                </Routes>
+            </MemoryRouter>,
+        )
+        await userEvent.setup().click(screen.getByRole('link', { name: 'Forgot password?' }))
+        expect(screen.getByTestId('where')).toHaveTextContent('/forgot-password {"from":"/lobby/abc"}')
+    })
 })
 
 describe('LoginForm logging', () => {
@@ -83,5 +102,18 @@ describe('LoginForm logging', () => {
         expect(screen.getByText('Username is required')).toBeInTheDocument()
         expect(auth.login).not.toHaveBeenCalled()
         expect(logs.leaked(PASSWORD)).toEqual([])
+    })
+
+    test('a sign-in writes nothing to the console (X-14)', async () => {
+        const user = userEvent.setup()
+        const onSuccess = vi.fn()
+        auth.login.mockResolvedValue({ token: TOKEN, user: { id: 'u1', username: 'ana' }, message: null })
+        const logs = captureConsole()
+        render(<MemoryRouter><LoginForm onSuccess={onSuccess} /></MemoryRouter>)
+        await user.type(screen.getByLabelText('Username'), 'ana')
+        await user.type(screen.getByLabelText('Password'), PASSWORD)
+        await user.click(screen.getByRole('button', { name: /sign in/i }))
+        await waitFor(() => expect(onSuccess).toHaveBeenCalled())
+        expect(logs.text()).toBe('')
     })
 })
