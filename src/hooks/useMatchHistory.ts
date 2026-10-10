@@ -1,43 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { matchHistoryService } from '../services/matchHistoryService';
 import { useApi } from './useApi';
-import type { PlayerMatchHistoryDTO, PlayerMatchSummaryDTO } from '../types/user';
-
-export function useMatchHistory(
-    playerId?: string | null,
-    page: number = 0,
-    size: number = 20,
-    // false until the detailed view is shown: /matches opens in the summary view (R-9)
-    enabled: boolean = true
-) {
-    // Memoize API function to prevent unnecessary re-executions
-    const apiFunction = useMemo(() => {
-        if (!playerId) {
-            return () => Promise.reject(new Error('No player ID provided'));
-        }
-        return () => matchHistoryService.getMatchHistory(playerId, page, size);
-    }, [playerId, page, size]);
-
-    const matchHistoryQuery = useApi(
-        apiFunction,
-        {
-            immediate: !!playerId && enabled,
-            dependencies: [playerId, page, size, enabled],
-            staleTime: 90000 // Cache for 1.5 minutes
-        }
-    );
-
-    const refetch = useCallback(() => {
-        return matchHistoryQuery.refetch();
-    }, [matchHistoryQuery]);
-
-    return {
-        matchHistory: matchHistoryQuery.data as PlayerMatchHistoryDTO[] | undefined,
-        isLoading: matchHistoryQuery.isLoading,
-        error: matchHistoryQuery.error,
-        refetch,
-    };
-}
+import type { PlayerMatchSummaryDTO } from '../types/user';
 
 export function useMatchSummary(
     playerId?: string | null,
