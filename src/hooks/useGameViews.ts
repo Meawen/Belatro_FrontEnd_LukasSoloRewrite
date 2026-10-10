@@ -11,6 +11,9 @@ const MAX_REFRESHES = 3;
 /** Shown when a move could not be sent because the socket is down (R-30). */
 const NOT_SENT_MESSAGE = 'Not sent — reconnecting';
 
+/** How long a DISCONNECT waits for the CANCELLED frame it may have overtaken (spec §5.3.1 #6). */
+const DISCONNECT_WAIT_MS = 1000;
+
 export interface GameActions {
     /** Each returns whether the move went out: false while the socket is down ("Not sent — reconnecting"). */
     bidTrump: (trump: Boja) => boolean;
@@ -50,6 +53,9 @@ export function useGameViews(gameId: string, onDisconnect?: () => void): GameVie
     const [notAvailable, setNotAvailable] = useState(false);
     // A CANCELLED state has been seen (see onGameDisconnect). Sticky: a stale frame can't undo it
     const cancelledSeen = useRef(false);
+    const disconnectTimer = useRef<number | null>(null);
+    const onDisconnectRef = useRef(onDisconnect);
+    onDisconnectRef.current = onDisconnect;
 
     const take = (frame: Frame) => {
         const view = frame.kind === 'public' ? frame.view : frame.view.publicPart;
@@ -91,11 +97,20 @@ export function useGameViews(gameId: string, onDisconnect?: () => void): GameVie
         },
         // R-31: a cancelled game stays on its end screen, which says why. The backend sends DISCONNECT
         // right behind the CANCELLED view, often before React has rendered it, hence the ref.
-        // DISCONNECT still moves on when no CANCELLED view came first (an older backend).
+        // Frames have no ordering guarantee, so DISCONNECT can also overtake the CANCELLED frame: it
+        // waits up to 1 s for one (spec §5.3.1 #6), then moves on (an older backend sends none).
         onGameDisconnect: () => {
-            if (!cancelledSeen.current) onDisconnect?.();
+            if (cancelledSeen.current || disconnectTimer.current !== null) return;
+            disconnectTimer.current = window.setTimeout(() => {
+                disconnectTimer.current = null;
+                if (!cancelledSeen.current) onDisconnectRef.current?.();
+            }, DISCONNECT_WAIT_MS);
         },
     });
+
+    useEffect(() => () => {
+        if (disconnectTimer.current !== null) window.clearTimeout(disconnectTimer.current);
+    }, []);
 
     useEffect(() => {
         if (!gameId || notAvailable) return;

@@ -104,9 +104,12 @@ describe('useGameViews: today\'s useBelatroGame behaviours', () => {
     })
 
     test('a cancelled game (DISCONNECT) calls onDisconnect', () => {
+        vi.useFakeTimers()
         const onDisconnect = vi.fn()
         renderHook(() => useGameViews('g1', onDisconnect))
         act(() => ws.options.onGameDisconnect?.())
+        // spec §5.3.1 #6: it first waits up to 1 s for a CANCELLED frame it may have overtaken
+        act(() => { vi.advanceTimersByTime(1000) })
         expect(onDisconnect).toHaveBeenCalledTimes(1)
     })
 
@@ -274,6 +277,18 @@ describe('useGameViews: accepting frames (spec §5.3.1)', () => {
         act(() => ws.options.onGameSnapshot?.(table[at].private.carol))
         expect(result.current.privateView).toBe(table[at + 4].private.carol)
         expect(result.current.snapshot).toBe(false)
+    })
+
+    test('DISCONNECT before the CANCELLED frame waits up to 1 s for it, and stays when it comes', () => {
+        vi.useFakeTimers()
+        const onDisconnect = vi.fn()
+        renderHook(() => useGameViews('g1', onDisconnect))
+        act(() => ws.options.onGameDisconnect?.())
+        act(() => { vi.advanceTimersByTime(999) })
+        expect(onDisconnect).not.toHaveBeenCalled()
+        act(() => ws.options.onPrivateGameUpdate?.({ ...privateView, publicPart: { ...publicView, gameState: 'CANCELLED', endReason: 'CANCELLED' } }))
+        act(() => { vi.advanceTimersByTime(5000) })
+        expect(onDisconnect).not.toHaveBeenCalled()
     })
 
     test('moves say whether they went out', () => {
