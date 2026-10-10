@@ -1,10 +1,15 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { UserProfile } from './UserProfile'
-import { userService } from '../../services/userService'
+import { useUser, useMe, useUserHistorySummary } from '../../hooks/useUser'
+import { useFriends } from '../../hooks/useFriends'
 import { ApiError } from '../../services/api'
-import { useUser, useMe, ME_CHANGED } from '../../hooks/useUser'
+import type { PlayerMatchSummaryDTO } from '../../types/user'
+
+// Tailwind's own colour scale (from-amber-500, text-emerald-300, …): the design uses tokens only (spec §3.2)
+const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange|teal|lime|pink)-\d/
 
 vi.mock('../../hooks/useAuth', () => ({
     useAuth: () => ({ user: { id: 'u1', username: 'ana' }, isAuthenticated: true, isLoading: false }),
@@ -13,221 +18,159 @@ vi.mock('../../hooks/useUser', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../../hooks/useUser')>()),
     useUser: vi.fn(),
     useMe: vi.fn(),
+    useUserHistorySummary: vi.fn(),
 }))
-vi.mock('../../services/userService', () => ({
-    userService: { requestForget: vi.fn(), changePassword: vi.fn(), changeEmail: vi.fn(), resendEmailConfirmation: vi.fn() },
-}))
+vi.mock('../../hooks/useFriends', () => ({ useFriends: vi.fn() }))
 
-const player = { id: 'u1', username: 'ana', eloRating: 1450, level: 3, gamesPlayed: 42 }
-const meBase = { id: 'u1', username: 'ana', email: 'ana@example.com', pendingEmail: null, emailVerified: true, roles: null, deletionRequested: false }
-const refetchMe = vi.fn()
-const meChanged = vi.fn()
+const ana = { id: 'u1', username: 'ana', eloRating: 1450, level: 3, gamesPlayed: 42 }
+const bob = { id: 'u2', username: 'bob', eloRating: 1250, level: 1, gamesPlayed: 3 }
+const meBase = { id: 'u1', username: 'ana', email: 'ana@example.com', pendingEmail: null, emailVerified: true, roles: ['ROLE_USER', 'ROLE_ADMIN'], deletionRequested: false }
+const sendFriendRequest = vi.fn()
 
-beforeEach(() => {
-    window.removeEventListener(ME_CHANGED, meChanged)
-    window.addEventListener(ME_CHANGED, meChanged)
-    vi.clearAllMocks()
-    // useApi's refetch returns a promise (and rethrows a failed GET /user/me)
-    refetchMe.mockResolvedValue(undefined)
-    vi.mocked(useUser).mockReturnValue({ user: player, isLoading: false, error: null, refetch: vi.fn() } as never)
-    vi.mocked(useMe).mockReturnValue({ data: meBase, isLoading: false, error: null, refetch: refetchMe } as never)
-})
-
-// A failed GET /user/me after a write that succeeded must not become an unhandled rejection.
-// The refetch is a plain function, not vi.fn(): a vitest mock handles the promises it returns.
-async function withFailingRefresh(run: () => Promise<void>) {
-    let refreshes = 0
-    const refetch = () => {
-        refreshes += 1
-        return Promise.reject(new ApiError({ status: 503, message: 'Service temporarily unavailable' }))
-    }
-    vi.mocked(useMe).mockReturnValue({ data: meBase, isLoading: false, error: null, refetch } as never)
-    const unhandled = vi.fn()
-    process.on('unhandledRejection', unhandled)
-    try {
-        await run()
-        await waitFor(() => expect(refreshes).toBe(1))
-        await new Promise((resolve) => setTimeout(resolve, 0))
-        expect(unhandled).not.toHaveBeenCalled()
-    } finally {
-        process.off('unhandledRejection', unhandled)
-    }
+function summary(matchId: string, yourOutcome: string): PlayerMatchSummaryDTO {
+    return { matchId, endTime: null, result: 'Team A wins 1001–650', yourOutcome, gameMode: 'CASUAL' }
 }
 
-describe('UserProfile deletion request', () => {
-    test('request goes through a confirm step, calls the service, refreshes me', async () => {
-        const user = userEvent.setup()
-        vi.mocked(userService.requestForget).mockResolvedValue(undefined)
-        render(<UserProfile />)
-        await user.click(screen.getByRole('button', { name: /request account deletion/i }))
-        expect(userService.requestForget).not.toHaveBeenCalled()
-        await user.click(screen.getByRole('button', { name: /confirm request/i }))
-        expect(userService.requestForget).toHaveBeenCalledTimes(1)
-        await waitFor(() => expect(refetchMe).toHaveBeenCalled())
-    })
+function mockPlayer(user: unknown, extra: { isLoading?: boolean; error?: unknown } = {}) {
+    vi.mocked(useUser).mockReturnValue({ user, isLoading: false, error: null, refetch: vi.fn().mockResolvedValue(undefined), ...extra } as never)
+}
 
-    test('a failed refresh after the request is not an unhandled rejection', () => withFailingRefresh(async () => {
-        const user = userEvent.setup()
-        vi.mocked(userService.requestForget).mockResolvedValue(undefined)
-        render(<UserProfile />)
-        await user.click(screen.getByRole('button', { name: /request account deletion/i }))
-        await user.click(screen.getByRole('button', { name: /confirm request/i }))
-        expect(userService.requestForget).toHaveBeenCalledTimes(1)
-    }))
+function renderProfile(userId?: string) {
+    return render(<UserProfile userId={userId} />, { wrapper: MemoryRouter })
+}
 
-    test('an already-flagged account shows the requested state instead of the button', () => {
-        vi.mocked(useMe).mockReturnValue({ data: { ...meBase, deletionRequested: true }, isLoading: false, error: null, refetch: refetchMe } as never)
-        render(<UserProfile />)
-        expect(screen.getByText(/deletion requested/i)).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: /request account deletion/i })).not.toBeInTheDocument()
-    })
+beforeEach(() => {
+    vi.clearAllMocks()
+    mockPlayer(ana)
+    vi.mocked(useMe).mockImplementation((enabled = true) => ({ data: enabled ? meBase : null, isLoading: false, error: null, refetch: vi.fn() }) as never)
+    vi.mocked(useUserHistorySummary).mockReturnValue({ data: { content: [] }, isLoading: false, error: null } as never)
+    vi.mocked(useFriends).mockReturnValue({
+        friendships: [], sendFriendRequest, acceptFriendRequest: vi.fn(), rejectFriendRequest: vi.fn(),
+        cancelFriendRequest: vi.fn(), removeFriend: vi.fn(),
+    } as never)
+})
 
+describe('UserProfile (carried)', () => {
     test("someone else's profile has no deletion section", () => {
-        vi.mocked(useMe).mockReturnValue({ data: null, isLoading: false, error: null, refetch: refetchMe } as never)
-        render(<UserProfile userId="u2" />)
+        mockPlayer(bob)
+        renderProfile('u2')
         expect(useMe).toHaveBeenCalledWith(false)
         expect(screen.queryByRole('button', { name: /request account deletion/i })).not.toBeInTheDocument()
     })
 
-    test('a failed request shows the error and keeps the confirm step', async () => {
-        const user = userEvent.setup()
-        // what apiClient throws when fetch itself fails (Chrome: server unreachable)
-        vi.mocked(userService.requestForget).mockRejectedValue(new ApiError({ message: 'Failed to fetch', status: 0 }))
-        render(<UserProfile />)
-        await user.click(screen.getByRole('button', { name: /request account deletion/i }))
-        await user.click(screen.getByRole('button', { name: /confirm request/i }))
-        expect(await screen.findByRole('alert')).toHaveTextContent('Failed to fetch')
-        expect(screen.getByRole('button', { name: /confirm request/i })).toBeInTheDocument()
-        expect(refetchMe).not.toHaveBeenCalled()
-    })
-})
-
-describe('UserProfile change of password', () => {
-    test('a changed password refreshes me and tells the banner (it cancels a pending address)', async () => {
-        const user = userEvent.setup()
-        vi.mocked(userService.changePassword).mockResolvedValue(undefined)
-        render(<UserProfile />)
-        await user.click(screen.getByRole('button', { name: 'Change Password' }))
-        await user.type(screen.getByLabelText('Current Password'), 'long-enough-1')
-        await user.type(screen.getByLabelText('New Password'), 'long-enough-2')
-        await user.type(screen.getByLabelText('Confirm New Password'), 'long-enough-2')
-        const form = screen.getByLabelText('Current Password').closest('form') as HTMLFormElement
-        await user.click(within(form).getByRole('button', { name: 'Change Password' }))
-        expect(userService.changePassword).toHaveBeenCalledTimes(1)
-        await waitFor(() => expect(refetchMe).toHaveBeenCalled())
-        expect(meChanged).toHaveBeenCalledTimes(1)
-    })
-})
-
-describe('UserProfile change of password, refresh failing', () => {
-    test('a failed refresh after the change is not an unhandled rejection', () => withFailingRefresh(async () => {
-        const user = userEvent.setup()
-        vi.mocked(userService.changePassword).mockResolvedValue(undefined)
-        render(<UserProfile />)
-        await user.click(screen.getByRole('button', { name: 'Change Password' }))
-        await user.type(screen.getByLabelText('Current Password'), 'long-enough-1')
-        await user.type(screen.getByLabelText('New Password'), 'long-enough-2')
-        await user.type(screen.getByLabelText('Confirm New Password'), 'long-enough-2')
-        const form = screen.getByLabelText('Current Password').closest('form') as HTMLFormElement
-        await user.click(within(form).getByRole('button', { name: 'Change Password' }))
-        await waitFor(() => expect(meChanged).toHaveBeenCalledTimes(1))
-    }))
-})
-
-describe('UserProfile change of email', () => {
-    test('a sent change says where the link may go, without promising it, and refreshes me', async () => {
-        const user = userEvent.setup()
-        vi.mocked(userService.changeEmail).mockResolvedValue(undefined)
-        render(<UserProfile />)
-        await user.click(screen.getByRole('button', { name: 'Change Email' }))
-        await user.type(screen.getByLabelText('New email address'), 'new@example.com')
-        await user.type(screen.getByLabelText('Current password'), 'long-enough-1')
-        await user.click(screen.getByRole('button', { name: 'Send confirmation link' }))
-        expect(userService.changeEmail).toHaveBeenCalledWith({ newEmail: 'new@example.com', currentPassword: 'long-enough-1' })
-        expect(await screen.findByRole('status')).toHaveTextContent(
-            'If this address can be used, a confirmation link is on its way to new@example.com. Check your inbox (and spam).')
-        expect(screen.queryByLabelText('New email address')).not.toBeInTheDocument()
-        expect(refetchMe).toHaveBeenCalled()
-        // the banner above has its own copy of /user/me
-        expect(meChanged).toHaveBeenCalledTimes(1)
+    test("someone else's profile shows stats but no email or roles", () => {
+        mockPlayer(bob)
+        renderProfile('u2')
+        expect(screen.getByRole('heading', { level: 1, name: 'bob' })).toBeInTheDocument()
+        expect(screen.getByText('1250')).toBeInTheDocument()
+        expect(screen.queryByText(/Email/)).not.toBeInTheDocument()
+        expect(screen.queryByText('ADMIN')).not.toBeInTheDocument()
+        expect(screen.queryByText('USER')).not.toBeInTheDocument()
     })
 
-    test('a failed refresh after the change is not an unhandled rejection', () => withFailingRefresh(async () => {
-        const user = userEvent.setup()
-        vi.mocked(userService.changeEmail).mockResolvedValue(undefined)
-        render(<UserProfile />)
-        await user.click(screen.getByRole('button', { name: 'Change Email' }))
-        await user.type(screen.getByLabelText('New email address'), 'new@example.com')
-        await user.type(screen.getByLabelText('Current password'), 'long-enough-1')
-        await user.click(screen.getByRole('button', { name: 'Send confirmation link' }))
-        expect(await screen.findByRole('status')).toHaveTextContent('a confirmation link is on its way to new@example.com')
-        expect(meChanged).toHaveBeenCalledTimes(1)
-    }))
-
-    test('an account without any address is offered to add one', async () => {
-        const user = userEvent.setup()
-        vi.mocked(useMe).mockReturnValue({ data: { ...meBase, email: null, emailVerified: false }, isLoading: false, error: null, refetch: refetchMe } as never)
-        vi.mocked(userService.changeEmail).mockResolvedValue(undefined)
-        render(<UserProfile />)
-        expect(screen.queryByRole('button', { name: 'Change Email' })).not.toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Resend confirmation email' })).not.toBeInTheDocument()
-        await user.click(screen.getByRole('button', { name: 'Add an email address' }))
-        expect(screen.getByRole('heading', { name: 'Add an email address' })).toBeInTheDocument()
-        await user.type(screen.getByLabelText('New email address'), 'ana@example.com')
-        await user.type(screen.getByLabelText('Current password'), 'long-enough-1')
-        await user.click(screen.getByRole('button', { name: 'Send confirmation link' }))
-        expect(userService.changeEmail).toHaveBeenCalledWith({ newEmail: 'ana@example.com', currentPassword: 'long-enough-1' })
+    test('own profile shows its roles from /user/me', () => {
+        renderProfile()
+        expect(useMe).toHaveBeenCalledWith(true)
+        expect(screen.getByText('ADMIN')).toBeInTheDocument()
+        expect(screen.getByText('USER')).toBeInTheDocument()
+        // the address lives in Settings now (D-32)
+        expect(screen.queryByText('ana@example.com')).not.toBeInTheDocument()
     })
 
-    test('nothing to confirm opens the change form, and a new pending address brings the resend back', async () => {
-        const user = userEvent.setup()
-        vi.mocked(useMe).mockReturnValue({ data: { ...meBase, email: 'Ana@Example.com', emailVerified: false }, isLoading: false, error: null, refetch: refetchMe } as never)
-        vi.mocked(userService.resendEmailConfirmation).mockRejectedValue(new ApiError({ status: 409, message: 'Nothing to confirm' }))
-        vi.mocked(userService.changeEmail).mockResolvedValue(undefined)
-        render(<UserProfile />)
-        await user.click(screen.getByRole('button', { name: 'Resend confirmation email' }))
-        expect(await screen.findByText('Nothing to confirm')).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Resend confirmation email' })).not.toBeInTheDocument()
-
-        await user.click(screen.getByRole('button', { name: 'Add or change your email address' }))
-        await user.type(screen.getByLabelText('New email address'), 'ana@example.com')
-        await user.type(screen.getByLabelText('Current password'), 'long-enough-1')
-        // what the refreshed /user/me returns once the change is accepted
-        vi.mocked(useMe).mockReturnValue({ data: { ...meBase, email: 'Ana@Example.com', pendingEmail: 'ana@example.com', emailVerified: false }, isLoading: false, error: null, refetch: refetchMe } as never)
-        await user.click(screen.getByRole('button', { name: 'Send confirmation link' }))
-
-        expect(await screen.findByTestId('pending-email')).toHaveTextContent('Waiting for confirmation: ana@example.com')
-        expect(screen.queryByText('Nothing to confirm')).not.toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Resend confirmation email' })).toBeInTheDocument()
+    test('no experience-points tile: the API no longer serves expPoints', () => {
+        renderProfile()
+        expect(screen.queryByText('Experience Points')).not.toBeInTheDocument()
+        expect(screen.queryByText('Experience Progress')).not.toBeInTheDocument()
     })
-})
 
-describe('UserProfile numbers and debug text (R-34)', () => {
-    test('a level of 0 shows as 1 in the header and in the stats', () => {
-        vi.mocked(useUser).mockReturnValue({ user: { ...player, level: 0 }, isLoading: false, error: null, refetch: vi.fn() } as never)
-        render(<UserProfile />)
-        // header tile: <span>Level</span> labels the value in the next element of its row
-        expect(screen.getByText('Level', { selector: 'span' }).parentElement?.nextElementSibling).toHaveTextContent(/^1$/)
-        // ProfileStats tile: the value sits right before its <div>Level</div> label
-        expect(screen.getByText('Level', { selector: 'div' }).previousElementSibling).toHaveTextContent(/^1$/)
+    // R-34: a new player is level 0 in the database and Level 1 on every screen; the numbers show once
+    test('a level of 0 shows as 1 (R-34)', () => {
+        mockPlayer({ ...ana, level: 0 })
+        renderProfile()
+        expect(screen.getAllByText('Level', { selector: 'dt' })).toHaveLength(1)
+        expect(screen.getByText('Level', { selector: 'dt' }).nextElementSibling).toHaveTextContent(/^1$/)
     })
 
     test('no debug Target ID while loading or when the profile is missing', () => {
-        vi.mocked(useUser).mockReturnValue({ user: null, isLoading: true, error: null, refetch: vi.fn() } as never)
-        const { unmount } = render(<UserProfile />)
+        mockPlayer(null, { isLoading: true })
+        const { unmount } = renderProfile()
+        expect(screen.getByText('Loading profile...')).toBeInTheDocument()
         expect(screen.queryByText(/Target ID/)).not.toBeInTheDocument()
         unmount()
-        vi.mocked(useUser).mockReturnValue({ user: null, isLoading: false, error: null, refetch: vi.fn() } as never)
-        render(<UserProfile />)
-        expect(screen.getByText('Profile Not Found')).toBeInTheDocument()
+        mockPlayer(null, { error: new ApiError({ status: 404, message: 'User not found with id u9' }) })
+        renderProfile('u9')
+        expect(screen.getByText('Profile not found')).toBeInTheDocument()
         expect(screen.queryByText(/Target ID/)).not.toBeInTheDocument()
     })
 })
 
-describe('UserProfile deletion copy (R-40)', () => {
-    test('the confirmation says the account and its data go within 30 days', async () => {
-        render(<UserProfile />)
-        await userEvent.setup().click(screen.getByRole('button', { name: /request account deletion/i }))
-        expect(screen.getByText(/We delete your account/)).toHaveTextContent('We delete your account and its data within 30 days of your request.')
+describe('UserProfile (spec §4.10)', () => {
+    test('Elo, Games and Level once, "—" where the API gives nothing; no rank ladder, no one-tab bar', () => {
+        mockPlayer({ ...ana, eloRating: null, gamesPlayed: null })
+        const { container } = renderProfile()
+        expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['ana'])
+        expect(screen.getByText('Elo', { selector: 'dt' }).nextElementSibling).toHaveTextContent(/^—$/)
+        expect(screen.getByText('Games', { selector: 'dt' }).nextElementSibling).toHaveTextContent(/^—$/)
+        for (const gone of ['Ranking', 'Progress to Next Rank', 'Statistics', 'Game Statistics', '1200']) {
+            expect(screen.queryByText(gone)).not.toBeInTheDocument()
+        }
+        expect(container.innerHTML).not.toMatch(RAW_PALETTE)
+    })
+
+    test('my own avatar is in the accent, another player\'s is not (X-12)', () => {
+        const { container, unmount } = renderProfile()
+        expect(container.querySelector('.ui-avatar')).toHaveClass('bg-accent')
+        unmount()
+        mockPlayer(bob)
+        const { container: other } = renderProfile('u2')
+        expect(other.querySelector('.ui-avatar')).not.toHaveClass('bg-accent')
+    })
+
+    test("the newest five matches as match rows, another player's too", () => {
+        mockPlayer(bob)
+        vi.mocked(useUserHistorySummary).mockReturnValue({
+            data: { content: [summary('6ac9061df0a9f70ffc4dfa74', 'WIN'), summary('6ac8f3f6cf32dc27b44c2d88', 'LOSS')] },
+            isLoading: false, error: null,
+        } as never)
+        renderProfile('u2')
+        expect(useUserHistorySummary).toHaveBeenCalledWith('u2', { page: 0, size: 5 })
+        expect(screen.getByRole('heading', { level: 2, name: 'Recent matches' })).toBeInTheDocument()
+        const links = screen.getAllByRole('link')
+        expect(links.map((link) => link.getAttribute('href'))).toEqual(['/matches/6ac9061df0a9f70ffc4dfa74', '/matches/6ac8f3f6cf32dc27b44c2d88'])
+        expect(links[0]).toHaveTextContent('Victory')
+    })
+
+    test('no matches yet, or a quiet line when they cannot be loaded', () => {
+        const { unmount } = renderProfile()
+        expect(screen.getByText('No matches yet')).toBeInTheDocument()
+        unmount()
+        vi.mocked(useUserHistorySummary).mockReturnValue({ data: null, isLoading: false, error: new ApiError({ status: 503, message: 'Service Unavailable' }) } as never)
+        renderProfile()
+        expect(screen.getByText("Couldn't load the recent matches.")).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: 'ana' })).toBeInTheDocument()
+    })
+
+    test("another player's profile offers the friend actions, sending only the recipient; mine has none", async () => {
+        mockPlayer(bob)
+        const { unmount } = renderProfile('u2')
+        expect(useFriends).toHaveBeenCalledWith('u1')
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Add Friend' }))
+        expect(sendFriendRequest).toHaveBeenCalledWith({ toUserId: 'u2' })
+        unmount()
+        mockPlayer(ana)
+        renderProfile()
+        expect(useFriends).toHaveBeenLastCalledWith(undefined)
+        expect(screen.queryByRole('button', { name: 'Add Friend' })).not.toBeInTheDocument()
+    })
+
+    test('a profile that fails to load says so and offers Try Again, without the raw status', async () => {
+        const refetch = vi.fn().mockResolvedValue(undefined)
+        vi.mocked(useUser).mockReturnValue({ user: null, isLoading: false, error: new ApiError({ status: 500, message: 'Internal Server Error' }), refetch } as never)
+        renderProfile('u2')
+        expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load this profile")
+        expect(screen.queryByText(/Status:/)).not.toBeInTheDocument()
+        expect(screen.queryByText(/Internal Server Error/)).not.toBeInTheDocument()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Try Again' }))
+        expect(refetch).toHaveBeenCalledTimes(1)
     })
 })

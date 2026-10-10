@@ -75,13 +75,13 @@ export const userService = {
     async getUserHistorySummary(
         playerId: string,
         pagination?: PaginationParams
-    ): Promise<PlayerMatchSummaryDTO> {
+    ): Promise<Page<PlayerMatchSummaryDTO>> {
         const params = new URLSearchParams();
         if (pagination?.page !== undefined) params.append('page', pagination.page.toString());
         if (pagination?.size !== undefined) params.append('size', pagination.size.toString());
 
         const query = params.toString() ? `?${params.toString()}` : '';
-        return apiClient.get<PlayerMatchSummaryDTO>(`/user/${playerId}/history/summary${query}`);
+        return apiClient.get<Page<PlayerMatchSummaryDTO>>(`/user/${playerId}/history/summary${query}`);
     },
 
     async requestForget(): Promise<void> {

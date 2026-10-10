@@ -3,7 +3,7 @@ import { UserProfile } from '../components/profile';
 import { Page } from '../components/layout/Page';
 import { useAuth } from '../hooks/useAuth';
 
-/** /profile, your own (spec §4.10). The content still renders its own h1; Phase 9 owns this module. */
+/** /profile, your own (spec §4.10). UserProfile draws the h1: the name beside the avatar. */
 export function ProfilePage() {
     const { user } = useAuth();
     return (
@@ -13,7 +13,7 @@ export function ProfilePage() {
     );
 }
 
-/** /profile/:userId, another player's (spec §4.10): its own component, so a new id mounts afresh. */
+/** /profile/:userId, another player's (spec §4.10): its own component, so a new id mounts afresh; UserProfile draws the h1. */
 export function UserProfilePage() {
     const { userId } = useParams<{ userId: string }>();
     return (
