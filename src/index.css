@@ -609,6 +609,73 @@
         }
     }
 
+    /* Input and Select (§3.7): edged in --edge-strong (O-4); the focus ring is drawn on the box, inside its notch. */
+    .ui-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .ui-field__box {
+        --field-edge: var(--edge-strong);
+        position: relative;
+        isolation: isolate;
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+    }
+    .ui-field__box::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: var(--bg);
+        box-shadow: inset 0 0 0 2px var(--field-edge);
+        clip-path: var(--notch);
+    }
+    .ui-field__box--error {
+        --field-edge: var(--danger);
+    }
+    .ui-field__box:has(:focus-visible) {
+        outline: 2px solid var(--accent);
+        outline-offset: -5px;
+    }
+    .ui-field__control {
+        flex: 1 1 auto;
+        min-width: 0;
+        min-height: 44px;
+        padding: 0 12px;
+        border: 0;
+        background: transparent;
+        color: var(--text);
+        font-family: var(--font-sys);
+        font-size: 1rem;
+        line-height: 1.5;
+    }
+    .ui-field__control::placeholder {
+        color: var(--text-3);
+    }
+    .ui-field__control:focus-visible {
+        outline: none;
+    }
+    .ui-field__control:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+    .ui-field__control--select {
+        appearance: none;
+        padding-right: 36px;
+        cursor: pointer;
+    }
+    .ui-field__control--select option {
+        background: var(--surface);
+        color: var(--text);
+    }
+    @media (forced-colors: active) {
+        .ui-field__box {
+            border: 1px solid;
+        }
+    }
+
     /* end of the ui component styles */
 }
 
