@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -27,8 +26,10 @@ import { PlayPage } from './components/game/PlayPage'; // Add this import
 import { RankedQueueProvider } from './components/game/RankedQueueProvider';
 
 // Common Components
-import { Button, Loading } from './components/common';
+import { Button } from './components/common';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { ProtectedRoute } from './routing/ProtectedRoute';
+import { PublicRoute } from './routing/PublicRoute';
 
 // Hooks
 import { useAuth } from './hooks/useAuth';
@@ -44,44 +45,6 @@ const queryClient = new QueryClient({
         },
     },
 });
-
-// Protected Route wrapper
-interface ProtectedRouteProps {
-    children: React.ReactNode;
-}
-
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-    const { isAuthenticated, isLoading } = useAuth();
-
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-emerald-950 flex items-center justify-center">
-                <Loading size="large" text="Checking authentication..." />
-            </div>
-        );
-    }
-
-    return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
-};
-
-// Public Route wrapper (redirects to dashboard if already authenticated)
-interface PublicRouteProps {
-    children: React.ReactNode;
-}
-
-const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
-    const { isAuthenticated, isLoading } = useAuth();
-
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-emerald-950 flex items-center justify-center">
-                <Loading size="large" text="Loading..." />
-            </div>
-        );
-    }
-
-    return isAuthenticated ? <Navigate to="/dashboard" replace /> : <>{children}</>;
-};
 
 // Dashboard Component
 const DashboardContent = () => {

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoginForm } from './LoginForm';
 import { SignupForm } from './SignupForm';
 import { useAuth } from '../../hooks/useAuth';
 import { ErrorAlert } from '../common';
 import { SESSION_ENDED_MESSAGE } from '../../services/gameSocket';
 import { LegalLinks } from '../layout/LegalLinks';
+import { safeReturnPath } from '../../routing/returnPath';
 
 export type AuthMode = 'login' | 'signup';
 
@@ -23,6 +24,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     const [mode, setMode] = useState<AuthMode>(initialMode);
     const [isProcessing, setIsProcessing] = useState(false);
     const navigate = useNavigate();
+    // ProtectedRoute's { from }: the page a signed-out visitor asked for (D-20)
+    const from = (useLocation().state as { from?: unknown } | null)?.from;
     const { isAuthenticated } = useAuth();
     // services/gameSocket sends a tab here after the server closed its socket for good
     const [searchParams] = useSearchParams();
@@ -44,7 +47,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         if (onSuccess) {
             onSuccess();
         } else {
-            navigate(redirectTo);
+            navigate(from === undefined ? redirectTo : safeReturnPath(from));
         }
     };
 
