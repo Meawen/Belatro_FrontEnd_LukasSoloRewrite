@@ -1,0 +1,4 @@
+{
+    "GET /user/me": { "json": { "id": "u1", "username": "ana_k", "email": null, "pendingEmail": "ana@example.test", "emailVerified": false, "roles": ["ROLE_USER"], "deletionRequested": false } },
+    "GET /user/me/active-game": { "json": { "gameId": "6ac9061df0a9f70ffc4dfa74" } }
+}
