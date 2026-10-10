@@ -290,6 +290,16 @@ export function record(recording, frame, at) {
     recording.frames.push({ channel: frame.channel, at, body: frame.body });
 }
 
+// The recording's seat: the views name players by username (the backend's player id), so `me` must be one of
+// the first view's seat ids — never the Mongo id GET /user/me answers with.
+export function recordedSeat(frames, me) {
+    const first = frames[0]?.body;
+    const view = first?.publicPart ?? first;
+    const seats = [...(view?.teamA ?? []), ...(view?.teamB ?? [])].map((seat) => seat.id);
+    if (!seats.includes(me)) throw new Error(`the recording's player ${me} is not a seat of game ${view?.gameId} (${seats.join(', ')})`);
+    return me;
+}
+
 // The fixture file: one frame per line, so a diff of two recordings stays readable.
 export function recordingText({ gameId, me, frames }) {
     const lines = frames.map((frame) => JSON.stringify(frame)).join(',\n');
@@ -312,17 +322,14 @@ function recordViews(page) {
     return recording;
 }
 
-// Saves a finished recording for the dev board: the seat's own id comes from GET /user/me (the views
-// carry ids, not names).
-async function saveRecording(page, recording) {
+// Saves a finished recording for the dev board, for the seat of `username` (the views' player id).
+function saveRecording(recording, username) {
     if (!recording.done) {
         throw new Error(`the recorder never reached hand 2's play (${recording.frames.length} frames, at ${recording.stage})`);
     }
     const first = recording.frames[0].body;
     const gameId = (first.publicPart ?? first).gameId;
-    const response = await fetch(`${API}/user/me`, { headers: { Authorization: `Bearer ${await storedToken(page)}` } });
-    if (!response.ok) throw new Error(`GET /user/me answered ${response.status}`);
-    const { id: me } = await response.json();
+    const me = recordedSeat(recording.frames, username);
     const text = recordingText({ gameId, me, frames: recording.frames });
     if (/Bearer|eyJ/.test(text)) throw new Error('the recording holds "Bearer" or "eyJ": nothing was written');
     mkdirSync(FIXTURES, { recursive: true });
@@ -919,7 +926,7 @@ async function main() {
         // one trump call per hand: hand 1's in uiBids, every later one in trumpCalls
         const final = await checkTheEnd(pages, stats.trumpCalls + 1);
         const rematchReport = REMATCH ? await rematch(pages) : null;
-        const recorded = recording ? await saveRecording(pages[0], recording) : null;
+        const recorded = recording ? saveRecording(recording, PLAYERS[0]) : null;
         console.log(JSON.stringify({
             ok: true,
             players: PLAYERS,
