@@ -1,5 +1,6 @@
-import React from 'react';
-import { useCards } from '../../hooks/useCards';
+import React, { useState } from 'react';
+import { faceUrl } from '../../services/cardArt';
+import type { Boja, GameCard, Rank } from '../../types/game';
 
 interface PlayingCardProps {
     suit: string;
@@ -8,9 +9,13 @@ interface PlayingCardProps {
     style?: React.CSSProperties;
 }
 
-export const PlayingCard: React.FC<PlayingCardProps> = ({ suit, rank, className = '', style }) => {
-    const { getCardImage } = useCards();
+// The art's display names (after normalising below) → the wire card that services/cardArt names files by
+const BOJA_OF: Record<string, Boja> = { Herc: 'HERC', Karo: 'KARA', Pik: 'PIK', Tref: 'TREF' };
+const RANK_OF: Record<string, Rank> = {
+    '7': 'SEDMICA', '8': 'OSMICA', '9': 'DEVETKA', '10': 'DESETKA', Decko: 'DECKO', Baba: 'BABA', Kralj: 'KRALJ', As: 'AS',
+};
 
+export const PlayingCard: React.FC<PlayingCardProps> = ({ suit, rank, className = '', style }) => {
     // Normalize suit names from backend format to frontend format
     const normalizeSuit = (suit: string) => {
         switch (suit.toLowerCase()) {
@@ -41,10 +46,23 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({ suit, rank, className 
 
     const normalizedSuit = normalizeSuit(suit);
     const normalizedRank = normalizeRank(rank);
+    const boja = BOJA_OF[normalizedSuit];
+    const cardRank = RANK_OF[normalizedRank];
+    const card: GameCard | null = boja && cardRank ? { boja, rank: cardRank } : null;
+    const url = card ? faceUrl(card) : null;
+    const [failedUrl, setFailedUrl] = useState<string | null>(null);
+    const alt = `${normalizedRank} of ${normalizedSuit}`;
 
     return (
         <div className={className} style={style}>
-            {getCardImage(normalizedSuit, normalizedRank, 'w-full h-full rounded-lg shadow-lg')}
+            {url && failedUrl !== url ? (
+                <img src={url} alt={alt} className="w-full h-full pixelated" onError={() => setFailedUrl(url)} />
+            ) : (
+                // spec §3.6: a failed image shows the card's name, never a broken image
+                <div role="img" aria-label={alt} className="w-full h-full flex items-center justify-center text-center notch bg-text text-ink t-caption px-1">
+                    {normalizedRank} {normalizedSuit}
+                </div>
+            )}
         </div>
     );
 };
