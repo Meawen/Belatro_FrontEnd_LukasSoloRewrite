@@ -1,7 +1,8 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { AnimatePresence, m, useIsPresent } from 'motion/react';
 import { fade, spring } from '../../motion/tokens';
-import { Faces, boxStyle, cardMotion, useArc, type Anchor } from './Cards';
+import { Faces } from './Cards';
+import { boxStyle, cardMotion, useArc, type Anchor } from './cardMotion';
 import type { HandCardModel } from './model/boardModel';
 import type { Target, Targets } from './model/cardTargets';
 import type { Entrance } from './stage';

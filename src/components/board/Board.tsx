@@ -6,7 +6,7 @@ import { ErrorAlert } from '../common/ErrorAlert';
 import { cardLabel } from '../game/gameView';
 import { cx } from '../ui/cx';
 import { Sheet } from '../ui/Sheet';
-import { showToast } from '../ui/Toast';
+import { showToast } from '../ui/toastStore';
 import { Arena } from './Arena';
 import { BelaPrompt } from './BelaPrompt';
 import { BidPanel } from './BidPanel';

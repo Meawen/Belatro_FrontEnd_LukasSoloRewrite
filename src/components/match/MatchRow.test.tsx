@@ -2,7 +2,8 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation, useParams } from 'react-router-dom'
-import { MatchRow, matchOutcome, outcomeWord, relativeMatchDate } from './MatchRow'
+import { MatchRow } from './MatchRow'
+import { matchOutcome, outcomeWord, relativeMatchDate } from './matchOutcome'
 import type { PlayerMatchSummaryDTO } from '../../types/user'
 
 // Tailwind's own colour scale (bg-emerald-900, text-red-300, …): the design uses tokens only (spec §3.2)

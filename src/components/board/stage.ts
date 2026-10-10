@@ -104,7 +104,7 @@ export function stepStage(stage: Stage, state: BoardState, now: number): Stage {
 
     let { deal, calls, held, handDelta } = stage;
     let cleared = [...stage.cleared];
-    let leaving = [...stage.leaving];
+    const leaving = [...stage.leaving];
     const entrances: Record<string, Entrance> = {};
     const recovered = new Set(step.events.flatMap((e) => (e.type === 'CardPlayed' && e.recovered ? [e.id] : [])));
 

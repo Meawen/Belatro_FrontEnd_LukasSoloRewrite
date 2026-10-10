@@ -4,7 +4,7 @@ import { cx } from '../ui/cx';
 import './QueueStatus.css';
 
 /** The server's estimate; "Calculating..." while it has none (≤ 0; −1 past the 400-point gap, R-47). */
-export const formatWaitTime = (seconds?: number) => {
+const formatWaitTime = (seconds?: number) => {
     if (!seconds || seconds < 0) return 'Calculating...';
     if (seconds < 60) return `${seconds}s`;
     const minutes = Math.floor(seconds / 60);
@@ -13,7 +13,7 @@ export const formatWaitTime = (seconds?: number) => {
 };
 
 /** "m:ss" */
-export const formatTimeInQueue = (ms: number) => {
+const formatTimeInQueue = (ms: number) => {
     const seconds = Math.max(0, Math.floor(ms / 1000));
     return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 };

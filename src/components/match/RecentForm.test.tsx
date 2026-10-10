@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
-import { RecentForm, formLine, recentForm } from './RecentForm'
+import { RecentForm } from './RecentForm'
+import { formLine, recentForm } from './recentFormModel'
 import type { PlayerMatchSummaryDTO } from '../../types/user'
 
 // Tailwind's own colour scale (bg-emerald-900, text-red-300, …): the design uses tokens only (spec §3.2)

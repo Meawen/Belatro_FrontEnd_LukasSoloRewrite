@@ -3,7 +3,7 @@ import { MotionConfig, m } from 'motion/react';
 import { Sheet } from '../ui/Sheet';
 import { Tag } from '../ui/Chip';
 import { Challenge } from './Challenge';
-import { useNow } from './Seats';
+import { useNow } from './useNow';
 import { blokRows } from './model/hands';
 import { secondsLeft, type BoardModel, type Team } from './model/boardModel';
 import type { MatchHands } from '../../hooks/useMatchHands';

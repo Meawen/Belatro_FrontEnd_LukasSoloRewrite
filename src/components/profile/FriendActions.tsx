@@ -10,7 +10,7 @@ import { errorMessage } from '../../utils/errorMessage';
 export type FriendStatus = 'none' | 'incoming' | 'outgoing' | 'friends' | 'closed';
 
 /** Where `userId` stands with the signed-in player `meId` (today's UserCard rule, either direction). */
-export function friendshipWith(
+function friendshipWith(
     friendships: Friendship[],
     meId: string | null | undefined,
     userId: string | null | undefined,

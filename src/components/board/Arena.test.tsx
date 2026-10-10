@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, afterEach, beforeEach } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
-import { Arena, fieldMode } from './Arena'
+import { Arena } from './Arena'
+import { fieldMode } from './fieldMode'
 import { MotionProvider } from '../../motion/MotionProvider'
 import { writeTableEffects } from '../../settings/tableEffects'
 

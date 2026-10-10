@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { MotionConfig, m } from 'motion/react';
 import { fade, spring } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
@@ -6,22 +6,13 @@ import { Tag } from '../ui/Chip';
 import { SUIT_LABEL } from '../game/gameView';
 import { secondsLeft, type BoardModel, type SeatModel } from './model/boardModel';
 import type { Layout, Target, Targets } from './model/cardTargets';
+import { useNow } from './useNow';
 
 /** The turn timer's length (TurnTimerService, 30 s): where the countdown bar starts. */
 export const TURN_SECONDS = 30;
 
-/** Date.now(), refreshed every `every` ms while mounted (the countdown's seconds). */
-export function useNow(every = 1000): number {
-    const [now, setNow] = useState(() => Date.now());
-    useEffect(() => {
-        const timer = window.setInterval(() => setNow(Date.now()), every);
-        return () => window.clearInterval(timer);
-    }, [every]);
-    return now;
-}
-
 /** Where a seat's chips sit (spec §5.6): under the partner's fan, under the side fans, mine above my pile. */
-export function seatSpot(seat: SeatModel, targets: Targets, layout: Layout): CSSProperties {
+function seatSpot(seat: SeatModel, targets: Targets, layout: Layout): CSSProperties {
     const anchor = targets.anchors[seat.id] ?? { x: 0, y: 0, rotate: 0 };
     if (seat.isMe) {
         const pile = targets.piles[seat.team ?? 'A'];

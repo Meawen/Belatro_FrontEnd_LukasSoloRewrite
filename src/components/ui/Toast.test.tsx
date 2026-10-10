@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
-import { Toaster, TOAST_MS, showToast } from './Toast'
+import { Toaster } from './Toast'
+import { TOAST_MS, showToast } from './toastStore'
 import { rule, uiCss } from '../../test/css'
 
 beforeEach(() => {

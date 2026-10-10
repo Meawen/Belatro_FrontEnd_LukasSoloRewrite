@@ -18,7 +18,7 @@ const REFRESH_LOCK_MS = 3000;
 export const COMPACT_ROWS_QUERY = '(max-width: 767.98px)';
 
 /** A player with at least one game is ranked; accounts without one are listed after them as Unranked (O-3). */
-export const isRanked = (user: User): boolean => (user.gamesPlayed ?? 0) > 0;
+const isRanked = (user: User): boolean => (user.gamesPlayed ?? 0) > 0;
 
 interface PlayerRowProps {
     player: User;

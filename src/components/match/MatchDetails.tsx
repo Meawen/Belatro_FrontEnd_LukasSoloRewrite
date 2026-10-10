@@ -10,22 +10,11 @@ import { useAuth } from '../../hooks/useAuth';
 import type { HandDTO, MatchDTO, MoveDTO } from '../../types/match';
 import type { UserSimpleDTO } from '../../types/user';
 import { HandHistory } from './HandHistory';
-import { matchOutcome, type MatchOutcome } from './MatchRow';
+import { formatDuration } from './formatDuration';
+import { matchOutcome, type MatchOutcome } from './matchOutcome';
 import { parseMatchResult, yourResult } from './matchResult';
 import { matchesPath, pageFromState } from './matchesPath';
 import { useMatchDetails, type MatchDetailsData } from './useMatchDetails';
-
-/** "h:mm:ss" from an hour on, else "m:ss"; "Unknown" without both times (today's Match Details rule). */
-export function formatDuration(startTime: string | null, endTime: string | null): string {
-    if (!startTime || !endTime) return 'Unknown';
-    const durationMs = new Date(endTime).getTime() - new Date(startTime).getTime();
-    const hours = Math.floor(durationMs / 3_600_000);
-    const minutes = Math.floor((durationMs % 3_600_000) / 60_000);
-    const seconds = Math.floor((durationMs % 60_000) / 1000);
-    const mm = String(minutes).padStart(2, '0');
-    const ss = String(seconds).padStart(2, '0');
-    return hours > 0 ? `${hours}:${mm}:${ss}` : `${minutes}:${ss}`;
-}
 
 // The result colour on the hero's tile and title (spec §4.9), as on the list's rows; text pairs on --surface
 const TONE: Record<MatchOutcome, { tile: string; word: string; icon: IconName }> = {

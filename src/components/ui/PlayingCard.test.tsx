@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, afterEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { PlayingCard, crispCardWidth, intendedCardWidth } from './PlayingCard'
+import { PlayingCard } from './PlayingCard'
+import { crispCardWidth, intendedCardWidth } from './cardWidth'
 import { CARD_ART_BASE_URL } from '../../config'
 
 const realWidth = window.innerWidth

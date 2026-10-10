@@ -4,7 +4,8 @@ import { spring } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
 import { suitIconUrl } from '../../services/cardArt';
 import { useTableEffects } from '../../settings/tableEffects';
-import { ParticleField, type FieldMode } from './particles';
+import { ParticleField } from './particles';
+import { fieldMode } from './fieldMode';
 import type { Season } from './model/boardModel';
 import type { Boja } from '../../types/game';
 import './board.css';
@@ -20,12 +21,6 @@ export interface ArenaProps {
     instant: boolean;
     /** The game has ended: the last season stays, its particles at Calm at most (spec §5.3.3). */
     calm: boolean;
-}
-
-/** The particles' mode: the Table effects setting, Off under reduced motion, Calm at most once the game ended. */
-export function fieldMode(effects: FieldMode, reduced: boolean, calm: boolean): FieldMode {
-    if (reduced || effects === 'off') return 'off';
-    return calm ? 'calm' : effects;
 }
 
 /**
