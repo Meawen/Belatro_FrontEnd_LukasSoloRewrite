@@ -1,10 +1,12 @@
-import React, { useRef, useState } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button, ErrorAlert, Input } from '../common';
+import { Button, Input } from '../ui';
+import { ErrorAlert } from '../common/ErrorAlert';
 import { authService } from '../../services/authService';
 import { ApiError } from '../../services/api';
 import { errorMessage, INVALID_LINK, isNetworkOrServerFailure } from '../../utils/errorMessage';
 import { PASSWORD_RULE_MESSAGE, passwordRuleError } from './credentialRules';
+import { AuthFrame, AUTH_LINK } from './AuthFrame';
 
 type Outcome =
     | { kind: 'idle' }
@@ -15,7 +17,7 @@ type Outcome =
 const COULD_NOT_RESET = 'We could not reset your password.';
 
 /** /reset-password?token=... - the link from the reset mail (valid 15 minutes, single use). */
-export const ResetPasswordPage: React.FC = () => {
+export function ResetPasswordPage() {
     const [searchParams] = useSearchParams();
     const token = (searchParams.get('token') ?? '').trim();
     const [newPassword, setNewPassword] = useState('');
@@ -33,7 +35,7 @@ export const ResetPasswordPage: React.FC = () => {
     const rateLimited = failed?.status === 429;
     const linkDead = !token || (failed !== null && !rateLimited);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         if (posting.current) return;
         const newErrors: Record<string, string> = {};
@@ -71,23 +73,22 @@ export const ResetPasswordPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-emerald-950 flex items-center justify-center p-4">
-            <div className="card max-w-md w-full space-y-6">
-                <h1 className="text-2xl font-bold text-white text-center">Choose a new password</h1>
+        <AuthFrame>
+            <h1 className="t-title text-center">Choose a new password</h1>
 
+            <div className="mt-6">
                 {!token ? (
-                    <p role="alert" className="text-red-300 text-center">{INVALID_LINK}</p>
+                    <ErrorAlert message={INVALID_LINK} />
                 ) : outcome.kind === 'done' ? (
-                    <p className="text-emerald-200 text-center">Your password has been reset. Sign in with your new password.</p>
+                    <p className="t-body text-center text-success">Your password has been reset. Sign in with your new password.</p>
                 ) : (
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                         <Input
                             label="New password"
                             type="password"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             error={errors.newPassword}
-                            fullWidth
                         />
                         <Input
                             label="Confirm new password"
@@ -95,33 +96,31 @@ export const ResetPasswordPage: React.FC = () => {
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             error={errors.confirmPassword}
-                            fullWidth
                         />
                         <ErrorAlert message={failed?.message ?? null} />
-                        {rateLimited && <p className="text-sm text-slate-400">Wait a while, then reload this page to try again.</p>}
+                        {rateLimited && <p className="t-footnote text-text-2">Wait a while, then reload this page to try again.</p>}
                         <Button
                             type="submit"
-                            variant="primary"
-                            fullWidth
-                            isLoading={outcome.kind === 'pending'}
+                            block
+                            loading={outcome.kind === 'pending'}
                             disabled={outcome.kind !== 'idle'}
                         >
                             Reset password
                         </Button>
                     </form>
                 )}
-
-                {outcome.kind === 'done' ? (
-                    <p className="text-center text-sm">
-                        <Link to="/login" className="text-yellow-500 hover:text-yellow-400">Sign in</Link>
-                    </p>
-                ) : linkDead && (
-                    <p className="text-center text-sm text-slate-400">
-                        <Link to="/forgot-password" className="text-yellow-500 hover:text-yellow-400">Request a new link</Link>
-                        {serverFailure && ' if this keeps happening.'}
-                    </p>
-                )}
             </div>
-        </div>
+
+            {outcome.kind === 'done' ? (
+                <p className="t-callout mt-4 text-center">
+                    <Link to="/login" className={`inline-flex min-h-11 items-center ${AUTH_LINK}`}>Sign in</Link>
+                </p>
+            ) : linkDead && (
+                <p className="t-callout mt-4 text-center text-text-2">
+                    <Link to="/forgot-password" className={`inline-flex min-h-11 items-center ${AUTH_LINK}`}>Request a new link</Link>
+                    {serverFailure && ' if this keeps happening.'}
+                </p>
+            )}
+        </AuthFrame>
     );
-};
+}
