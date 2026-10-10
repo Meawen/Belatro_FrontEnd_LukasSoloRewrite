@@ -5,6 +5,7 @@ import type { PrivateGameView, PublicGameView } from '../types/game'
 type Options = {
     onPublicGameUpdate?: (view: PublicGameView) => void
     onPrivateGameUpdate?: (view: PrivateGameView) => void
+    onGameSnapshot?: (view: PrivateGameView) => void
     onGameError?: (message: string) => void
     onGameDisconnect?: () => void
 }
@@ -37,7 +38,9 @@ vi.mock('./useGameWebSocket', () => ({
     },
 }))
 
-import { useBelatroGame } from './useBelatroGame'
+import { useGameViews } from './useGameViews'
+import { cardId } from '../components/board/model/rules'
+import { indexOf, playTable } from '../test/fixtures/views/table'
 
 const publicView = { gameId: 'g1', gameState: 'BIDDING', bids: [], teamAScore: 0, teamBScore: 0 } as unknown as PublicGameView
 const privateView = {
@@ -51,9 +54,9 @@ beforeEach(() => {
 })
 afterEach(() => vi.useRealTimers())
 
-describe('useBelatroGame', () => {
+describe('useGameViews: today\'s useBelatroGame behaviours', () => {
     test('subscribes to its game on mount and unsubscribes on unmount', () => {
-        const { unmount } = renderHook(() => useBelatroGame('g1'))
+        const { unmount } = renderHook(() => useGameViews('g1'))
         expect(ws.subscribeToGame).toHaveBeenCalledWith('g1')
         unmount()
         expect(ws.unsubscribeFromGame).toHaveBeenCalledWith('g1')
@@ -61,7 +64,7 @@ describe('useBelatroGame', () => {
 
     test('the snapshot comes from the /app/queue subscription: no /refresh is sent (R-35)', () => {
         vi.useFakeTimers()
-        const { result, rerender } = renderHook(() => useBelatroGame('g1'))
+        const { result, rerender } = renderHook(() => useGameViews('g1'))
         ws.isConnected = true
         rerender()
         // what subscribeToGame's SUBSCRIBE to /app/queue/games/g1 answers
@@ -73,7 +76,7 @@ describe('useBelatroGame', () => {
     })
 
     test('a private view sets both views; a later public view replaces the public part', () => {
-        const { result } = renderHook(() => useBelatroGame('g1'))
+        const { result } = renderHook(() => useGameViews('g1'))
         act(() => ws.options.onPrivateGameUpdate?.(privateView))
         expect(result.current.privateView).toBe(privateView)
         expect(result.current.publicView).toBe(publicView)
@@ -83,7 +86,7 @@ describe('useBelatroGame', () => {
     })
 
     test('actions send this game\'s moves and clear the last error', () => {
-        const { result } = renderHook(() => useBelatroGame('g1'))
+        const { result } = renderHook(() => useGameViews('g1'))
         act(() => ws.options.onGameError?.('The dealer must call trump'))
         expect(result.current.error).toBe('The dealer must call trump')
         act(() => result.current.actions.bidTrump('HERC'))
@@ -102,7 +105,7 @@ describe('useBelatroGame', () => {
 
     test('a cancelled game (DISCONNECT) calls onDisconnect', () => {
         const onDisconnect = vi.fn()
-        renderHook(() => useBelatroGame('g1', onDisconnect))
+        renderHook(() => useGameViews('g1', onDisconnect))
         act(() => ws.options.onGameDisconnect?.())
         expect(onDisconnect).toHaveBeenCalledTimes(1)
     })
@@ -110,7 +113,7 @@ describe('useBelatroGame', () => {
     test('a move made while the socket is down says so instead of vanishing (R-30)', () => {
         ws.playCard.mockReturnValueOnce(false)
         ws.placeBid.mockReturnValueOnce(false)
-        const { result } = renderHook(() => useBelatroGame('g1'))
+        const { result } = renderHook(() => useGameViews('g1'))
         act(() => result.current.actions.play({ boja: 'KARA', rank: 'DESETKA' }))
         expect(result.current.error).toBe('Not sent — reconnecting')
         act(() => result.current.actions.passBid())
@@ -122,7 +125,7 @@ describe('useBelatroGame', () => {
 
     test('silence: one /refresh every 3 s, at most 3, then the page gives up and sends nothing more (R-35)', () => {
         vi.useFakeTimers()
-        const { result, rerender } = renderHook(() => useBelatroGame('g1'))
+        const { result, rerender } = renderHook(() => useGameViews('g1'))
         ws.isConnected = true
         rerender()
         act(() => { vi.advanceTimersByTime(2999) })
@@ -142,7 +145,7 @@ describe('useBelatroGame', () => {
 
     test("an error frame naming this game ends the page at once: it isn't this player's (R-35)", () => {
         vi.useFakeTimers()
-        const { result, rerender } = renderHook(() => useBelatroGame('g1'))
+        const { result, rerender } = renderHook(() => useGameViews('g1'))
         ws.isConnected = true
         rerender()
         act(() => { vi.advanceTimersByTime(3000) })
@@ -155,12 +158,12 @@ describe('useBelatroGame', () => {
     })
 
     test('"Game not found" ends only a page with no game yet: the error queue is per user, not per game', () => {
-        const first = renderHook(() => useBelatroGame('g1'))
+        const first = renderHook(() => useGameViews('g1'))
         act(() => ws.options.onGameError?.('Game not found'))
         expect(first.result.current.notAvailable).toBe(true)
         first.unmount()
         // a page showing its table: another tab's "Game not found" is only shown, never fatal
-        const second = renderHook(() => useBelatroGame('g1'))
+        const second = renderHook(() => useGameViews('g1'))
         act(() => ws.options.onPrivateGameUpdate?.(privateView))
         act(() => ws.options.onGameError?.('Game not found'))
         expect(second.result.current.notAvailable).toBe(false)
@@ -169,7 +172,7 @@ describe('useBelatroGame', () => {
 
     test('a reconnect asks again through the subscription, with a fresh allowance of 3 refreshes', () => {
         vi.useFakeTimers()
-        const { result, rerender } = renderHook(() => useBelatroGame('g1'))
+        const { result, rerender } = renderHook(() => useGameViews('g1'))
         ws.isConnected = true
         rerender()
         act(() => { vi.advanceTimersByTime(3000) })
@@ -192,7 +195,7 @@ describe('useBelatroGame', () => {
 
     test.each(['COMPLETED', 'CANCELLED'])('a %s table stays on screen through a late reconnect and silence', (gameState) => {
         vi.useFakeTimers()
-        const { result, rerender } = renderHook(() => useBelatroGame('g1'))
+        const { result, rerender } = renderHook(() => useGameViews('g1'))
         ws.isConnected = true
         rerender()
         const ended = { ...publicView, gameState } as PublicGameView
@@ -209,7 +212,7 @@ describe('useBelatroGame', () => {
 
     test('a cancelled game stays on its end screen: DISCONNECT right behind the CANCELLED view does not leave (R-31)', () => {
         const onDisconnect = vi.fn()
-        renderHook(() => useBelatroGame('g1', onDisconnect))
+        renderHook(() => useGameViews('g1', onDisconnect))
         act(() => {
             ws.options.onPublicGameUpdate?.({ ...publicView, gameState: 'CANCELLED', endReason: 'CANCELLED' } as PublicGameView)
             // the next frame, before React has rendered the view
@@ -219,9 +222,67 @@ describe('useBelatroGame', () => {
     })
 
     test("a rematch refusal is shown as the table's error, not as \"not your game\" (R-45)", () => {
-        const { result } = renderHook(() => useBelatroGame('g1'))
+        const { result } = renderHook(() => useGameViews('g1'))
         act(() => ws.options.onGameError?.('Rematch is not available for game g1'))
         expect(result.current.error).toBe('Rematch is not available for game g1')
         expect(result.current.notAvailable).toBe(false)
+    })
+})
+
+describe('useGameViews: accepting frames (spec §5.3.1)', () => {
+    const table = playTable()
+    const at = indexOf(table, 'play:carol:')
+    const playedId = table[at].label.split(':')[2]
+
+    test('after the first private frame, state comes from private frames: the public frame of a fan-out never shadows its private frame', () => {
+        const { result } = renderHook(() => useGameViews('g1'))
+        act(() => ws.options.onPrivateGameUpdate?.(table[at - 1].private.carol))
+        expect(result.current.privateView!.hand.map(cardId)).toContain(playedId)
+        expect(result.current.privateView!.yourTurn).toBe(true)
+        act(() => {
+            ws.options.onPublicGameUpdate?.(table[at].public)
+            ws.options.onPrivateGameUpdate?.(table[at].private.carol)
+        })
+        expect(result.current.privateView).toBe(table[at].private.carol)
+        expect(result.current.privateView!.hand.map(cardId)).not.toContain(playedId)
+        expect(result.current.privateView!.yourTurn).toBe(false)
+        // an older fan-out arriving late changes nothing
+        act(() => ws.options.onPrivateGameUpdate?.(table[at - 1].private.carol))
+        expect(result.current.privateView).toBe(table[at].private.carol)
+    })
+
+    test('the /app/queue answer is a snapshot; the next live frame is not; each state says when it came', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(5000)
+        const { result } = renderHook(() => useGameViews('g1'))
+        expect(result.current.view).toBeNull()
+        act(() => ws.options.onGameSnapshot?.(table[at].private.carol))
+        expect(result.current.snapshot).toBe(true)
+        expect(result.current.view).toEqual({
+            publicView: table[at].private.carol.publicPart, privateView: table[at].private.carol, receivedAt: 5000,
+            skew: table[at].at - 5000, source: 'snapshot',
+        })
+        vi.setSystemTime(6000)
+        act(() => ws.options.onPrivateGameUpdate?.(table[at + 2].private.carol))
+        expect(result.current.snapshot).toBe(false)
+        expect(result.current.view!.receivedAt).toBe(6000)
+    })
+
+    test('a snapshot older than a live frame that came first after the re-subscribe is dropped', () => {
+        const { result } = renderHook(() => useGameViews('g1'))
+        act(() => ws.options.onPrivateGameUpdate?.(table[at + 4].private.carol))
+        act(() => ws.options.onGameSnapshot?.(table[at].private.carol))
+        expect(result.current.privateView).toBe(table[at + 4].private.carol)
+        expect(result.current.snapshot).toBe(false)
+    })
+
+    test('moves say whether they went out', () => {
+        ws.playCard.mockReturnValueOnce(false)
+        const { result } = renderHook(() => useGameViews('g1'))
+        let sent = true
+        act(() => { sent = result.current.actions.play({ boja: 'KARA', rank: 'DESETKA' }) })
+        expect(sent).toBe(false)
+        act(() => { sent = result.current.actions.passBid() })
+        expect(sent).toBe(true)
     })
 })
