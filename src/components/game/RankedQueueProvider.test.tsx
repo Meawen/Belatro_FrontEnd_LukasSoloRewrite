@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { RankedQueueProvider } from './RankedQueueProvider'
 import { PlayButton } from './PlayButton'
+import { QueueStatus } from './QueueStatus'
 import { rankedService } from '../../services/rankedService'
 import { ApiError } from '../../services/api'
 import { captureConsole } from '../../test/captureConsole'
@@ -200,5 +201,21 @@ describe('Match Found Decline (R-25)', () => {
         await userEvent.setup().click(screen.getByRole('button', { name: 'Decline' }))
         expect(await screen.findByRole('alert')).toHaveTextContent('This match can no longer be declined')
         expect(screen.getByRole('heading', { name: 'Match Found!' })).toBeInTheDocument()
+    })
+})
+
+describe('Time in queue (spec §4.5)', () => {
+    test('counts from the first IN_QUEUE, and starts again for the next queue', () => {
+        vi.useFakeTimers()
+        renderApp('/play', <QueueStatus />)
+        act(() => socket.deliver(STATUS, inQueue))
+        act(() => {
+            vi.advanceTimersByTime(3000)
+        })
+        expect(screen.getByText('Time in queue').nextElementSibling).toHaveTextContent(/^0:03$/)
+        act(() => socket.deliver(STATUS, { ...inQueue, state: 'CANCELLED' }))
+        expect(screen.queryByText('Time in queue')).not.toBeInTheDocument()
+        act(() => socket.deliver(STATUS, inQueue))
+        expect(screen.getByText('Time in queue').nextElementSibling).toHaveTextContent(/^0:00$/)
     })
 })

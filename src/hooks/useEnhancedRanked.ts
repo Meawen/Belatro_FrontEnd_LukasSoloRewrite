@@ -111,6 +111,13 @@ export function useRankedQueueState() {
         resetLeave();
     }, [onPlay, resetJoin, resetLeave]);
 
+    // When this tab learned it is queued (its join, a 409 or the first IN_QUEUE): "Time in queue" counts
+    // from here, because the server's status frames carry no join time (spec §4.5)
+    const [queuedSince, setQueuedSince] = useState<number | null>(null);
+    useEffect(() => {
+        setQueuedSince((since) => (isInQueue ? (since ?? Date.now()) : null));
+    }, [isInQueue]);
+
     const holdSocket = pathname === '/play' || isInQueue || foundMatch !== null;
     useEffect(() => {
         if (!holdSocket) return;
@@ -192,6 +199,7 @@ export function useRankedQueueState() {
         isInQueue,
         queueStatus,
         foundMatch,
+        queuedSince,
 
         // Actions
         joinQueue,
