@@ -750,6 +750,94 @@
         }
     }
 
+    /* Sheet (§3.7). Layers (§3.4): non-modal 70, scrim 80, modal 90. Only the panel takes pointer input; a
+       closing sheet is inert and lets every tap through to the page. */
+    .ui-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: var(--z-scrim);
+        background: rgba(4, 10, 9, 0.6);
+    }
+    .ui-scrim[inert] {
+        pointer-events: none;
+    }
+    .ui-sheet-layer {
+        position: fixed;
+        inset: 0;
+        z-index: var(--z-modal);
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        pointer-events: none;
+    }
+    .ui-sheet-layer--region {
+        z-index: var(--z-sheet);
+    }
+    .ui-sheet-layer--center {
+        align-items: center;
+        padding: 16px;
+    }
+    .ui-sheet {
+        position: relative;
+        isolation: isolate;
+        display: flex;
+        flex-direction: column;
+        width: min(560px, 100%);
+        max-height: 90dvh;
+        color: var(--text);
+        pointer-events: auto;
+    }
+    .ui-sheet-layer[inert] .ui-sheet {
+        pointer-events: none;
+    }
+    .ui-sheet::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: var(--surface);
+        box-shadow: inset 0 0 0 3px var(--edge);
+        clip-path: var(--notch-6);
+    }
+    .ui-sheet:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: -5px;
+    }
+    .ui-sheet--center {
+        width: min(480px, 100%);
+        max-height: calc(100dvh - 32px);
+    }
+    .ui-sheet--full {
+        width: 100%;
+        height: 100dvh;
+        max-height: none;
+    }
+    .ui-sheet__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 20px 16px 8px;
+    }
+    .ui-sheet--full .ui-sheet__header {
+        padding-top: calc(20px + var(--safe-top));
+    }
+    .ui-sheet__body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+        overscroll-behavior: contain;
+        padding: 8px 16px calc(20px + var(--safe-bottom));
+    }
+    .ui-sheet--center .ui-sheet__body {
+        padding-bottom: 20px;
+    }
+    @media (forced-colors: active) {
+        .ui-sheet {
+            border: 1px solid;
+        }
+    }
+
     /* end of the ui component styles */
 }
 
