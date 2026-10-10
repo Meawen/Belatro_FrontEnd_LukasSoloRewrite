@@ -6,6 +6,8 @@ import { ErrorAlert } from '../common/ErrorAlert';
 import { cardLabel } from '../game/gameView';
 import { cx } from '../ui/cx';
 import { Arena } from './Arena';
+import { BelaPrompt } from './BelaPrompt';
+import { BidPanel } from './BidPanel';
 import { BackCard, SweepCard, TrickCard } from './Cards';
 import { Hand } from './Hand';
 import { Hud } from './Hud';
@@ -14,9 +16,11 @@ import { Seats } from './Seats';
 import { Summary } from './Summary';
 import { seatName } from './announce';
 import { cardTargets, layoutFor, type Layout, type Targets } from './model/cardTargets';
-import { dropLeaving, emptyStage, landTrick, shownPiles, stepStage, sweepHeld, tableTrick, type Stage } from './stage';
+import { answerBela, pendingUntil, pressBid, pressCard, unlock, type InputResult, type Move } from './model/input';
+import { dropLeaving, emptyStage, landTrick, settleStage, shownPiles, stepStage, sweepHeld, tableTrick, withInput, type Stage } from './stage';
 import { useBoardViewport } from './useBoardViewport';
 import type { BoardState } from './model/accept';
+import type { Boja } from '../../types/game';
 import type { BoardModel } from './model/boardModel';
 import type { GameActions } from '../../hooks/useGameViews';
 import type { MatchHands } from '../../hooks/useMatchHands';
@@ -186,7 +190,7 @@ export interface BoardProps {
  * waits for an animation: the timers only decide when finished tricks leave the table.
  */
 export function Board(props: BoardProps) {
-    const { state, me, error, viewport } = props;
+    const { state, me, actions, error, isConnected, viewport } = props;
     const [stage, setStage] = useState(() => emptyStage(me));
     let current = stage;
     if (stage.state !== state) {
@@ -195,6 +199,35 @@ export function Board(props: BoardProps) {
         setStage(current);
     }
     useStageTimers(current, setStage);
+    const latest = useRef(current);
+    latest.current = current;
+
+    // Input (spec §5.3.5): a press acts on the newest model at once; one move in flight. If it didn't go
+    // out ("Not sent — reconnecting") the lock clears, so the player can try again.
+    const send = (move: Move) => (move.kind === 'play' ? actions.play(move.card, move.declareBela) : move.trump ? actions.bidTrump(move.trump) : actions.passBid());
+    const apply = (result: InputResult) => {
+        const input = result.move && !send(result.move) ? unlock(result.input) : result.input;
+        setStage((s) => withInput(s, input));
+    };
+    const onCard = (id: string) => apply(pressCard(latest.current.model!, latest.current.local.input, id, Date.now()));
+    const onBela = (declareBela: boolean) => apply(answerBela(latest.current.model!, latest.current.local.input, declareBela, Date.now()));
+    const onBid = (call: Boja | 'PASS') => apply(pressBid(latest.current.model!, latest.current.local.input, call, Date.now()));
+    const closeBela = () => setStage((s) => withInput(s, { ...s.local.input, belaCardId: null }));
+
+    // the 2-s lift: the card drops back, the lock holds until the server answers (O-2)
+    const liftEnds = pendingUntil(current.local.input);
+    useEffect(() => {
+        if (liftEnds === null) return;
+        const timer = window.setTimeout(() => setStage((s) => settleStage(s, Date.now())), Math.max(0, liftEnds - Date.now()));
+        return () => window.clearTimeout(timer);
+    }, [liftEnds]);
+
+    // a reconnect: a move sent before the drop may be lost, so nothing stays locked
+    const wasConnected = useRef(isConnected);
+    useEffect(() => {
+        if (isConnected && !wasConnected.current) setStage((s) => withInput(s, unlock(s.local.input)));
+        wasConnected.current = isConnected;
+    }, [isConnected]);
     const reduced = useReducedMotion();
     const box = useBoardViewport(viewport);
     const layout = useMemo(() => layoutFor(box.viewport), [box.viewport]);
@@ -219,9 +252,13 @@ export function Board(props: BoardProps) {
                         <Backs stage={current} model={model} targets={targets} reduced={reduced} />
                         {piles && <Piles counts={piles} targets={targets} myTeam={model.myTeam ?? 'A'} />}
                         <TrickRegion stage={current} model={model} targets={targets} reduced={reduced} />
-                        <Hand cards={model.hand} targets={targets} deal={current.deal} entrances={current.entrances} instant={instant} reduced={reduced} />
+                        <Hand cards={model.hand} targets={targets} deal={current.deal} entrances={current.entrances} instant={instant} reduced={reduced} onPress={onCard} />
                         <Seats model={model} targets={targets} layout={layout} instant={instant} />
                         <YourTurn model={model} targets={targets} layout={layout} />
+                        <BidPanel model={model} onBid={onBid} />
+                        {model.belaPrompt && targets.cards[model.belaPrompt.id] && (
+                            <BelaPrompt card={model.belaPrompt} target={targets.cards[model.belaPrompt.id]} onAnswer={onBela} onDismiss={closeBela} />
+                        )}
                         <SweepLayer stage={current} model={model} layout={layout} targets={targets} reduced={reduced} />
                         <Hud model={model} instant={instant} calledBy={called?.type === 'TrumpCalled' ? called.playerId : null} calls={current.calls} />
                         {error && <div className="board-error"><ErrorAlert message={error} /></div>}

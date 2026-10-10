@@ -340,3 +340,57 @@
     width: min(420px, calc(100% - 32px));
     translate: -50% 0;
 }
+
+/* The bid panel and the bela prompt (§5.3.3): above the card regions (layer 50) */
+.board-bid,
+.board-bela {
+    position: absolute;
+    z-index: var(--z-bid);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    background: var(--material-ink);
+    color: var(--text);
+    clip-path: var(--notch-6);
+}
+.board-bid {
+    left: 50%;
+    top: 44%;
+    translate: -50% -50%;
+}
+.board[data-layout="landscape"] .board-bid {
+    top: 46%;
+}
+.board-bid__buttons,
+.board-bela__buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+}
+.board-bid__suit {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border: 0;
+    padding: 0;
+    clip-path: var(--notch);
+    cursor: pointer;
+}
+.board-bid__suit:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+.board-bela {
+    translate: -50% -100%;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+}
+/* the ring in ink on the light suit fills, where the accent would vanish (§3.4) */
+.board-bid__suit.bg-suit-karo:focus-visible,
+.board-bid__suit.bg-suit-tref:focus-visible {
+    outline-color: var(--ink);
+}
