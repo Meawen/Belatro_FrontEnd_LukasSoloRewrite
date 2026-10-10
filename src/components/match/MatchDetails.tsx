@@ -325,7 +325,7 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                             <h3 className="text-emerald-300 font-semibold text-lg">Match Summary</h3>
                         </div>
                         {(() => {
-                            const scores = parseMatchResult(match.result);
+                            const scores = parseMatchResult(match.result) ?? { teamAScore: 0, teamBScore: 0 };
                             // a forfeit result carries no points (R-36)
                             if (scores === 'forfeit') {
                                 return (
