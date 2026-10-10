@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { PixelIcon } from './PixelIcon'
 import { SuitIcon } from './SuitIcon'
 import { ICONS, type IconName } from './icons'
@@ -62,5 +62,20 @@ describe('SuitIcon (spec §3.5)', () => {
     test('carries a name when it stands for the suit on its own', () => {
         render(<SuitIcon boja="HERC" label="Herc" />)
         expect(screen.getByRole('img', { name: 'Herc' })).toHaveAttribute('src', `${CARD_ART_BASE_URL}/hercIcon.png`)
+    })
+
+    test('keeps the art\'s proportions; a PNG that fails leaves its slot with the suit letter, never a broken image (spec §3.5, §3.6)', () => {
+        const { container } = render(<><SuitIcon boja="TREF" /><SuitIcon boja="HERC" size={2} label="Herc" /></>)
+        // the bucket's icons are not all 17:16 (Pik is 61×61): the box keeps their proportions
+        for (const img of [...container.querySelectorAll('img')]) expect(img).toHaveClass('object-contain')
+        for (const img of [...container.querySelectorAll('img')]) fireEvent.error(img)
+        expect(container.querySelector('img')).toBeNull()
+        const [tref, herc] = [...container.querySelectorAll('span')]
+        expect(tref).toHaveTextContent('T')
+        expect(tref).toHaveAttribute('aria-hidden', 'true')
+        expect(tref).toHaveStyle({ width: '17px', height: '16px' })
+        expect(screen.getByRole('img', { name: 'Herc' })).toBe(herc)
+        expect(herc).toHaveTextContent('H')
+        expect(herc).toHaveStyle({ width: '34px', height: '32px' })
     })
 })
