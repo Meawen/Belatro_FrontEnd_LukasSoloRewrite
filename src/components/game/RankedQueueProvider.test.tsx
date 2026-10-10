@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ReactNode } from 'react'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { RankedQueueProvider } from './RankedQueueProvider'
@@ -105,7 +105,7 @@ describe('RankedQueueProvider (R-33, R-38)', () => {
         // still queued: the socket stays held away from /play
         expect(socket.holders).toBe(1)
         act(() => socket.deliver(MATCH_FOUND, match('m1')))
-        expect(screen.getByRole('heading', { name: 'Match Found!' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Match found' })).toBeInTheDocument()
     })
 
     test('the first IN_QUEUE after a reload sets the queued state: Leave is offered', () => {
@@ -188,7 +188,7 @@ describe('Match Found Decline (R-25)', () => {
         act(() => socket.deliver(MATCH_FOUND, match('m1')))
         await userEvent.setup().click(screen.getByRole('button', { name: 'Decline' }))
         expect(rankedService.declineMatch).toHaveBeenCalledWith('m1')
-        await waitFor(() => expect(screen.queryByRole('heading', { name: 'Match Found!' })).not.toBeInTheDocument())
+        await waitFor(() => expect(screen.queryByRole('heading', { name: 'Match found' })).not.toBeInTheDocument())
         // the decliner stays where they were
         expect(screen.getByRole('heading', { name: 'Profile page' })).toBeInTheDocument()
     })
@@ -200,7 +200,7 @@ describe('Match Found Decline (R-25)', () => {
         act(() => socket.deliver(MATCH_FOUND, match('m1')))
         await userEvent.setup().click(screen.getByRole('button', { name: 'Decline' }))
         expect(await screen.findByRole('alert')).toHaveTextContent('This match can no longer be declined')
-        expect(screen.getByRole('heading', { name: 'Match Found!' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Match found' })).toBeInTheDocument()
     })
 })
 
@@ -217,5 +217,55 @@ describe('Time in queue (spec §4.5)', () => {
         expect(screen.queryByText('Time in queue')).not.toBeInTheDocument()
         act(() => socket.deliver(STATUS, inQueue))
         expect(screen.getByText('Time in queue').nextElementSibling).toHaveTextContent(/^0:00$/)
+    })
+})
+
+describe('Match found sheet (spec §4.5; X-4; US-21)', () => {
+    test('a full-screen dialog over any page: both teams, you marked, focus on Accept Match, no close button', () => {
+        renderApp('/profile')
+        act(() => socket.deliver(MATCH_FOUND, match('m1')))
+        const dialog = screen.getByRole('dialog', { name: 'Match found' })
+        expect(dialog).toHaveAttribute('aria-modal', 'true')
+        expect(dialog).toHaveClass('ui-sheet--full')
+        const teamA = within(dialog).getByRole('region', { name: 'Team A' })
+        const teamB = within(dialog).getByRole('region', { name: 'Team B' })
+        expect(within(teamA).getByText('ana').closest('li')).toHaveTextContent('YOU')
+        expect(within(teamA).getByText('dan').closest('li')).not.toHaveTextContent('YOU')
+        expect(within(teamB).getByText('bob')).toBeInTheDocument()
+        expect(within(teamB).getByText('cy')).toBeInTheDocument()
+        expect(within(dialog).getAllByText('YOU')).toHaveLength(1)
+        expect(screen.getByRole('button', { name: 'Accept Match' })).toHaveFocus()
+        expect(within(dialog).queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
+    })
+
+    test('Escape and a tap outside leave it open', async () => {
+        renderApp('/profile')
+        act(() => socket.deliver(MATCH_FOUND, match('m1')))
+        const user = userEvent.setup()
+        await user.keyboard('{Escape}')
+        await user.click(document.querySelector('.ui-scrim') as HTMLElement)
+        expect(screen.getByRole('dialog', { name: 'Match found' })).toBeInTheDocument()
+    })
+
+    test('Accept Match opens the game at once', async () => {
+        renderApp('/profile')
+        act(() => socket.deliver(MATCH_FOUND, match('m1')))
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Accept Match' }))
+        expect(screen.getByRole('heading', { name: 'Game page' })).toBeInTheDocument()
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Match found' })).not.toBeInTheDocument())
+    })
+
+    test('the countdown bar shrinks linearly with the seconds left', () => {
+        vi.useFakeTimers()
+        renderApp('/profile')
+        act(() => socket.deliver(MATCH_FOUND, match('m1')))
+        const bar = screen.getByTestId('accept-countdown')
+        expect(bar).toHaveStyle({ transform: 'scaleX(1)' })
+        expect(bar).toHaveClass('origin-left', 'ease-linear')
+        act(() => {
+            vi.advanceTimersByTime(5000)
+        })
+        expect(screen.getByText('Auto-accepting in 10 seconds...')).toBeInTheDocument()
+        expect(bar).toHaveStyle({ transform: `scaleX(${10 / 15})` })
     })
 })
