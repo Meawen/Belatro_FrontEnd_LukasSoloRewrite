@@ -57,6 +57,23 @@ function Harness({ modal, dismissible, side, showClose, focusAccept, onOutside =
     )
 }
 
+/** Lobby options → "Close lobby" opens the confirmation in the same click (LobbyRoom, the game menu → Bela Blok). */
+function Chain() {
+    const [which, setWhich] = useState<'none' | 'a' | 'b'>('none')
+    return (
+        <MotionProvider>
+            <Button onClick={() => setWhich('a')}>Options</Button>
+            <Sheet open={which === 'a'} onClose={() => setWhich('none')} title="Lobby options">
+                <Button onClick={() => setWhich('b')}>Close lobby</Button>
+            </Sheet>
+            <Sheet open={which === 'b'} onClose={() => setWhich('none')} title="Close this lobby?">
+                <Button variant="secondary" onClick={() => setWhich('none')}>Stay</Button>
+                <Button variant="danger">Close it</Button>
+            </Sheet>
+        </MotionProvider>
+    )
+}
+
 const openSheet = () => userEvent.click(screen.getByRole('button', { name: 'Open' }))
 const gone = () => waitFor(() => expect(document.querySelector('.ui-sheet')).toBeNull())
 
@@ -92,6 +109,17 @@ describe('Sheet (spec §3.7)', () => {
         expect(close).toHaveFocus()
         await userEvent.click(cancel)
         await waitFor(() => expect(screen.getByRole('button', { name: 'Open' })).toHaveFocus())
+    })
+
+    test('a sheet that opens another leaves focus in the new one: the first gives focus back only from inside itself (spec §3.7)', async () => {
+        render(<Chain />)
+        await userEvent.click(screen.getByRole('button', { name: 'Options' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Close lobby' }))
+        const stay = await screen.findByRole('button', { name: 'Stay' })
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Lobby options' })).toBeNull())
+        expect(stay).toHaveFocus()
+        await userEvent.tab()
+        expect(screen.getByRole('button', { name: 'Close it' })).toHaveFocus()
     })
 
     test('initialFocus picks the control that gets focus (Match Found focuses Accept)', async () => {

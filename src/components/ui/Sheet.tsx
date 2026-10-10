@@ -89,20 +89,26 @@ function SheetLayer({
     const panelRef = useRef<HTMLDivElement>(null);
     const returnTo = useRef<HTMLElement | null>(null);
 
-    // Modal: focus moves in on open, and back to whatever had it when the sheet closes or unmounts.
+    // Modal: focus moves in on open, and back to whatever had it when the sheet closes or unmounts. It goes back
+    // only from inside this panel (or from nowhere): a sheet that opened another leaves focus in the new one.
+    const giveBack = (panel: HTMLElement | null) => {
+        const active = document.activeElement;
+        if (!active || active === document.body || panel?.contains(active)) returnTo.current?.focus();
+    };
     useLayoutEffect(() => {
         if (!modal) return;
         returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         const panel = panelRef.current;
         const target = initialFocus?.current ?? panel?.querySelector<HTMLElement>(FOCUSABLE) ?? panel;
         target?.focus();
-        return () => returnTo.current?.focus();
+        return () => giveBack(panel);
         // runs once per opening: the sheet mounts when it opens
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
-        if (modal && !present) returnTo.current?.focus();
+        if (modal && !present) giveBack(panelRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [modal, present]);
 
     // Modal: the page under the sheet does not scroll while it is open.
