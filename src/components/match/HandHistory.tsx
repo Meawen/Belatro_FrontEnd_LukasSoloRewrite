@@ -4,6 +4,7 @@ import { cx } from '../ui/cx';
 import { BOJE, SUIT_LABEL } from '../game/gameView';
 import type { ChallengeDTO, HandDTO, HandSummary, MatchDTO, TrumpCallDTO } from '../../types/match';
 import { PlayerChip } from './PlayerChip';
+import { TricksPlayed } from './TricksPlayed';
 import { teamOfPlayer } from './trickReplay';
 
 const counted = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -150,6 +151,7 @@ function HandRow({ hand, index, match, me }: { hand: HandDTO; index: number; mat
                     {summary && <HandSummaryBox hand={hand} summary={summary} />}
                     {calls.length > 0 && <Declarations calls={calls} match={match} me={me} />}
                     {(hand.challenges ?? []).length > 0 && <Challenges challenges={hand.challenges ?? []} match={match} me={me} />}
+                    {(hand.tricks ?? []).length > 0 && <TricksPlayed hand={hand} match={match} me={me} />}
                 </div>
             )}
         </li>
