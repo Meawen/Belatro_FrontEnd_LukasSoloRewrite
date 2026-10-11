@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { m } from 'motion/react';
-import { Button, Chip, EmptyState, ErrorState, IconButton, Loader, showToast } from '../ui';
+import { Button, Chip, EmptyState, ErrorState, IconButton, Loader, PixelIcon, showToast } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { Page } from '../layout/Page';
 import { useAuth } from '../../hooks/useAuth';
@@ -17,7 +17,7 @@ import { LobbyActionBar, type LobbyRole } from './LobbyActionBar';
 import { ConfirmSheet, OptionsSheet, PasswordSheet, SeatSheet } from './LobbySheets';
 import { LobbyTable, type SeatBusy } from './LobbyTable';
 import { isBot, isMember, lobbyName } from './lobbyModel';
-import { fillableSeats, hostHint, isHost, lobbyHint, memberStatus, seatAction, startReadiness, tableSeats, takesBots, teamOf, type SeatKey, type TableSeat } from './seats';
+import { fillableSeats, hostHint, isHost, lobbyHint, memberStatus, seatAction, startReadiness, tableSeats, takesBots, teamOf, type SeatPosition, type TableSeat } from './seats';
 
 export interface LobbyRoomProps {
     lobbyId: string;
@@ -31,6 +31,15 @@ const BOTS_UNAVAILABLE = "Bots aren't available right now. Try again later.";
 /** A bot request's failure: a refusal (403, 409) in the server's words; no answer or a 5xx as BOTS_UNAVAILABLE. */
 function botFailure(e: unknown, fallback: string): string {
     return e instanceof ApiError && isNetworkOrServerFailure(e.status) ? BOTS_UNAVAILABLE : errorMessage(e, fallback);
+}
+
+/** Where focus goes once a request at the table has finished (R38): a seat's button, found by its place, or Start. */
+type FocusAfter = SeatPosition | 'start';
+
+/** The host's "Start match" in the action bar, when it is enabled. */
+function enabledStart(): HTMLButtonElement | null {
+    const buttons = document.querySelectorAll<HTMLButtonElement>('[role="region"][aria-label="Lobby actions"] button');
+    return [...buttons].find((button) => button.textContent === 'Start match' && !button.disabled) ?? null;
 }
 
 /**
@@ -153,6 +162,18 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     const [actionError, setActionError] = useState<string | null>(null);
     const [starting, setStarting] = useState(false);
     const [joining, setJoining] = useState(false);
+    const fillButton = useRef<HTMLButtonElement>(null);
+    // A request remounts the seat it is about (a seat's key is its occupant), or takes Fill away, so focus falls to the
+    // page: once the table shows the result, it goes back there (R38), unless it had been and still is elsewhere.
+    const refocus = useRef<{ wasAtTable: boolean; to: FocusAfter } | null>(null);
+    useEffect(() => {
+        const pending = refocus.current;
+        if (busy !== null || pending === null) return;
+        refocus.current = null;
+        if (!pending.wasAtTable && document.activeElement !== document.body) return;
+        const target = pending.to === 'start' ? enabledStart() : document.querySelector<HTMLElement>(`[data-testid="lobby-table"] [data-position="${pending.to}"] > button`);
+        target?.focus();
+    });
 
     const host = isHost(lobby, me);
     const role: LobbyRole = host ? 'host' : isMember(lobby, me) ? 'member' : 'outsider';
@@ -177,33 +198,51 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     };
 
     // One request at the table at a time (a seat change, a bot, a fill): the seat it is about is aria-busy and says
-    // what is happening, and no seat or chip takes a tap meanwhile. `failure` words what went wrong.
-    const atTable = async (pending: SeatBusy, request: () => Promise<unknown>, failure: (e: unknown) => string) => {
+    // what is happening, and no seat or chip takes a tap meanwhile. `failure` words what went wrong; `focusAfter`
+    // says where focus goes once it has finished, whether it went through (`ok`) or not.
+    const atTable = async (pending: SeatBusy, request: () => Promise<unknown>, failure: (e: unknown) => string, focusAfter: (ok: boolean) => FocusAfter) => {
         if (busy) return;
+        const active = document.activeElement;
+        const wasAtTable = active !== null && (active === fillButton.current || active.closest('[data-testid="lobby-table"]') !== null);
         setActionError(null);
         setBusy(pending);
+        let ok = false;
         try {
             await request();
             await refresh();
+            ok = true;
         } catch (e) {
             setActionError(failure(e));
         } finally {
+            refocus.current = { wasAtTable, to: focusAfter(ok) };
             setBusy(null);
         }
     };
 
-    const changeSeat = (targetTeam: LobbyTeam, key: SeatKey) =>
+    // a seat change that went through leaves the viewer at the bottom: in their new seat, or (standing up) where theirs was
+    const changeSeat = (targetTeam: LobbyTeam, seat: TableSeat) =>
         atTable(
-            { key, label: teamOf(lobby, me) === 'U' && targetTeam !== 'U' ? 'Joining…' : 'Switching…' },
+            { key: seat.key, label: teamOf(lobby, me) === 'U' && targetTeam !== 'U' ? 'Joining…' : 'Switching…' },
             () => lobbyService.switchTeam(lobbyId, { lobbyId, targetTeam }),
             (e) => errorMessage(e, 'Failed to switch team'),
+            (ok) => (ok ? 'bottom' : seat.position),
         );
 
     const addBot = (seat: TableSeat) =>
-        atTable({ key: seat.key, label: 'Adding…' }, () => lobbyService.addBot(lobbyId, seat.team), (e) => botFailure(e, 'Failed to add a bot'));
+        atTable(
+            { key: seat.key, label: 'Adding…' },
+            () => lobbyService.addBot(lobbyId, seat.team),
+            (e) => botFailure(e, 'Failed to add a bot'),
+            () => seat.position,
+        );
 
     const fillWithBots = () =>
-        atTable({ key: null, label: 'Filling with bots…' }, () => lobbyService.fillBots(lobbyId), (e) => botFailure(e, 'Failed to fill with bots'));
+        atTable(
+            { key: null, label: 'Filling with bots…' },
+            () => lobbyService.fillBots(lobbyId),
+            (e) => botFailure(e, 'Failed to fill with bots'),
+            () => 'start',
+        );
 
     const askRemove = (member: UserSimpleDTO) => {
         setRemoving({ name: member.username ?? '', bot: isBot(member) });
@@ -212,14 +251,14 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
 
     const onSeat = (seat: TableSeat) => {
         const action = seatAction(seat, lobby, me);
-        if (action === 'sit') void changeSeat(seat.team, seat.key);
+        if (action === 'sit') void changeSeat(seat.team, seat);
         else if (action === 'own') setSheet('seat');
         else if (action === 'remove' && seat.player?.username) askRemove(seat.player);
     };
 
     const standUp = () => {
         closeSheet();
-        if (mySeat) void changeSeat('U', mySeat.key);
+        if (mySeat) void changeSeat('U', mySeat);
     };
 
     const leave = async () => {
@@ -285,6 +324,22 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
                 <LobbyTable lobby={lobby} viewerId={me} busy={busy} onSeat={onSeat} onAddBot={botControls ? (seat) => void addBot(seat) : undefined} launching={launching} />
                 {/* on Start the table grows and the rest fades (spec §4.7 Motion) */}
                 <m.div className="flex flex-col gap-3" animate={{ opacity: launching ? 0 : 1 }} transition={spring.felt}>
+                    {/* the host's, directly under the table, so the phone's action bar keeps one row; nothing to fill, no button (R26) */}
+                    {host && botControls && fillableSeats(lobby) > 0 && (
+                        <Button
+                            ref={fillButton}
+                            variant="secondary"
+                            size="sm"
+                            className="self-start"
+                            leftIcon={<PixelIcon name="robot" />}
+                            // any request at the table (a seat, a chip, a fill) disables it; the spinner is the fill's own
+                            disabled={busy !== null}
+                            loading={busy !== null && busy.key === null}
+                            onClick={() => void fillWithBots()}
+                        >
+                            Fill with bots
+                        </Button>
+                    )}
                     <NotSeated lobby={lobby} viewerId={me} hostView={host} onRemove={askRemove} />
                     {hint && <p className="t-callout text-text-2">{hint}</p>}
                 </m.div>
@@ -293,16 +348,11 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
                     line={host ? reason : memberStatus(lobby, me)}
                     canStart={ready}
                     starting={starting}
-                    // any request at the table (a seat, a chip, a fill) disables Fill; the spinner is the fill's own
-                    canFill={busy === null}
-                    filling={busy !== null && busy.key === null}
                     joining={joining}
                     privateLobby={lobby.privateLobby ?? false}
                     following={following}
                     onOptions={() => setSheet('options')}
                     onStart={() => void start()}
-                    // no seat to fill, no button (R26): a ready host's bar keeps one row on a phone
-                    onFill={botControls && fillableSeats(lobby) > 0 ? () => void fillWithBots() : undefined}
                     onLeave={() => setSheet('leave')}
                     onJoin={joinNow}
                 />

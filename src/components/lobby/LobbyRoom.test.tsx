@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { cleanup, render, screen, act, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, act, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useNavigationType, useParams } from 'react-router-dom'
 import { JSDOM } from 'jsdom'
@@ -602,6 +602,22 @@ describe('LobbyRoom: bots (casual bots spec §7)', () => {
         expect(screen.queryByRole('button', { name: 'Fill with bots' })).not.toBeInTheDocument()
     })
 
+    test('"Fill with bots" sits directly under the table, before Not seated and the hint; the host\'s bar keeps options and Start (R31)', async () => {
+        // the host, a bot and dan standing: Fill, "Not seated" and the host's hint all show
+        serve(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [], unassignedPlayers: [dan] }))
+        renderLobby()
+        const fill = await screen.findByRole('button', { name: 'Fill with bots' })
+        expect(fill).toHaveClass('ui-btn--secondary', 'ui-btn--sm')
+        expect(fill.querySelector('svg')).not.toBeNull()
+        const follows = (first: Element, second: Element) => (first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+        expect(follows(screen.getByTestId('lobby-table'), fill)).toBe(true)
+        expect(follows(fill, screen.getByText('Not seated'))).toBe(true)
+        expect(follows(fill, screen.getByText(HOST_HINT))).toBe(true)
+        const bar = screen.getByRole('region', { name: 'Lobby actions' })
+        expect(within(bar).getAllByRole('button').map((button) => button.textContent)).toEqual(['', 'Start match'])
+        expect(within(bar).getByRole('button', { name: 'Lobby options' })).toBeInTheDocument()
+    })
+
     test('while a fill runs, no seat and no chip takes a tap', async () => {
         const user = userEvent.setup()
         vi.mocked(lobbyService.fillBots).mockImplementation(() => new Promise<LobbyDTO>(() => {}))
@@ -609,6 +625,7 @@ describe('LobbyRoom: bots (casual bots spec §7)', () => {
         renderLobby()
         await user.click(await screen.findByRole('button', { name: 'Fill with bots' }))
         expect(screen.getByRole('button', { name: 'Fill with bots' })).toHaveAttribute('aria-busy', 'true')
+        expect(screen.getByRole('button', { name: 'Fill with bots' })).toBeDisabled()
         await user.click(screen.getByRole('button', { name: 'Add a bot to team A' }))
         await user.click(screen.getAllByRole('button', { name: 'Sit here, team B' })[0])
         expect(lobbyService.addBot).not.toHaveBeenCalled()
@@ -737,5 +754,75 @@ describe('LobbyRoom: bots (casual bots spec §7)', () => {
         expect(screen.getByRole('button', { name: 'Start match' })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Fill with bots' })).not.toBeInTheDocument()
+    })
+})
+
+describe('LobbyRoom: focus after a request at the table (R38)', () => {
+    const alone = () => lobby({ teamAPlayers: [ana], teamBPlayers: [], unassignedPlayers: [] })
+    const seatAt = (position: string) => document.querySelector(`[data-position="${position}"] > button`)
+    const settled = () => waitFor(() => expect(document.querySelector('[aria-busy="true"]')).toBeNull())
+
+    test('a "+ Bot" remounts its seat with the bot in it: focus goes back to that seat\'s button', async () => {
+        const user = userEvent.setup()
+        serve(alone())
+        renderLobby()
+        const chip = await screen.findByRole('button', { name: 'Add a bot to team A' })
+        serve(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [], unassignedPlayers: [] }))
+        await user.click(chip)
+        const seat = await screen.findByRole('button', { name: 'Bot-Ana, team A, bot' })
+        expect(seat).toBe(seatAt('top'))
+        await waitFor(() => expect(document.activeElement).toBe(seat))
+    })
+
+    test('a host who sits down has focus on their own seat, which the table turns to the bottom', async () => {
+        const user = userEvent.setup()
+        // ana standing, bob on B: A1 (bottom) and A2 (top) are free; she taps the top one and lands in A1
+        serve(lobby({ teamAPlayers: [], teamBPlayers: [bob], unassignedPlayers: [ana] }))
+        renderLobby()
+        await screen.findByRole('heading', { name: 'Friday' })
+        serve(lobby({ teamAPlayers: [ana], teamBPlayers: [bob], unassignedPlayers: [] }))
+        await user.click(seatAt('top') as HTMLElement)
+        const mine = await screen.findByRole('button', { name: 'ana (you), team A' })
+        expect(mine).toBe(seatAt('bottom'))
+        await waitFor(() => expect(document.activeElement).toBe(mine))
+    })
+
+    test('a fill that leaves Start enabled puts focus on Start match; one that does not leaves focus where it fell', async () => {
+        const user = userEvent.setup()
+        serve(alone())
+        renderLobby()
+        serve(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [botTin, botNika], unassignedPlayers: [] }))
+        await user.click(await screen.findByRole('button', { name: 'Fill with bots' }))
+        await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Start match' })))
+        cleanup()
+        // dan stands, so the table fills but Start stays off
+        serve(lobby({ teamAPlayers: [ana], teamBPlayers: [], unassignedPlayers: [dan] }))
+        renderLobby()
+        serve(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [botTin], unassignedPlayers: [dan] }))
+        await user.click(await screen.findByRole('button', { name: 'Fill with bots' }))
+        await screen.findByRole('button', { name: 'Bot-Tin, team B, bot' })
+        await settled()
+        expect(screen.getByRole('button', { name: 'Start match' })).toBeDisabled()
+        expect(document.activeElement).toBe(document.body)
+    })
+
+    test('focus that was elsewhere when the request started and is still there stays put; on the page, it goes to the seat', async () => {
+        serve(alone())
+        renderLobby()
+        const chip = await screen.findByRole('button', { name: 'Add a bot to team A' })
+        const copy = screen.getByRole('button', { name: 'Copy invite link' })
+        act(() => copy.focus())
+        serve(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [], unassignedPlayers: [] }))
+        // a tap that doesn't take focus (Safari doesn't focus a tapped button)
+        fireEvent.click(chip)
+        await screen.findByRole('button', { name: 'Bot-Ana, team A, bot' })
+        await settled()
+        expect(document.activeElement).toBe(copy)
+        // the same tap with focus on the page: the seat takes it
+        act(() => copy.blur())
+        serve(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [botTin], unassignedPlayers: [] }))
+        fireEvent.click(screen.getAllByRole('button', { name: 'Add a bot to team B' })[0])
+        const tin = await screen.findByRole('button', { name: 'Bot-Tin, team B, bot' })
+        await waitFor(() => expect(document.activeElement).toBe(tin))
     })
 })

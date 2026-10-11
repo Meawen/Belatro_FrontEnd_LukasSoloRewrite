@@ -1,16 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { LazyMotion, domMax, m } from 'motion/react';
 import type { LobbyDTO } from '../../types/lobby';
-import { Avatar, Chip, PixelIcon } from '../ui';
+import { Avatar, Button, PixelIcon } from '../ui';
 import { cx } from '../ui/cx';
 import { fade, spring } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
 import { countLine, isBot } from './lobbyModel';
-import { canAddBot, isHost, isReadyToStart, seatAction, seatLabel, seatedCount, tableSeats, type SeatKey, type SeatPosition, type TableSeat } from './seats';
+import { canAddBot, isHost, isReadyToStart, seatAction, seatLabel, seatedCount, tableSeats, takesBots, type SeatKey, type SeatPosition, type TableSeat } from './seats';
 
 /**
  * The request running at the table: a seat's join, switch or bot, and what that seat reads meanwhile ("Joining…",
- * "Switching…", "Adding…"); a null key is about no one seat ("Fill with bots"). Either way no seat takes a tap.
+ * "Switching…", "Adding…"); a null key is about no one seat ("Fill with bots"). Either way nothing at the table takes a
+ * tap, and everything but that seat shows disabled.
  */
 export interface SeatBusy {
     key: SeatKey | null;
@@ -32,22 +33,15 @@ export interface LobbyTableProps {
     launching?: boolean;
 }
 
+/**
+ * Where each seat's column is anchored: the top one at the top, the bottom one at the bottom (it grows upwards), the
+ * sides centred. The host's "+ Bot" is always the last line of its seat's column, centred under the name plate.
+ */
 const PLACE: Record<SeatPosition, string> = {
     top: 'left-1/2 top-5 -translate-x-1/2',
     bottom: 'bottom-5 left-1/2 -translate-x-1/2',
     left: 'left-3.5 top-1/2 -translate-y-1/2',
     right: 'right-3.5 top-1/2 -translate-y-1/2',
-};
-
-/**
- * Where a seat's "+ Bot" chip goes, clear of the centre's count: under a side seat, beside the top seat's tile, and
- * beside the bottom seat's name plate (so it stays clear of a side seat's chip on a phone).
- */
-const BOT_CHIP: Record<SeatPosition, string> = {
-    top: 'left-full top-1 ml-1',
-    bottom: 'bottom-0 left-full ml-1',
-    left: 'left-1/2 top-full -translate-x-1/2',
-    right: 'left-1/2 top-full -translate-x-1/2',
 };
 
 const PLACE_MINI: Record<SeatPosition, string> = {
@@ -72,12 +66,15 @@ export function LobbyTable({ lobby, viewerId, mini = false, busy = null, onSeat,
         known.current = new Set(names);
     });
     const arrived = (name: string) => known.current !== null && !known.current.has(name);
+    // a phone's felt is 330 px; the host's, in a lobby that takes bots, 348 for the "+ Bot" lines between the top and
+    // bottom seats and the count. Neither changes in a lobby's life, so the table never jumps.
+    const felt = mini ? 'h-[198px] md:h-[252px]' : isHost(lobby, viewerId) && takesBots(lobby) ? 'h-[348px] md:h-[420px]' : 'h-[330px] md:h-[420px]';
 
     return (
         <LazyMotion features={domMax}>
             <m.div
                 data-testid="lobby-table"
-                className={cx('felt notch-6 relative', mini ? 'h-[198px] md:h-[252px]' : 'h-[330px] md:h-[420px]')}
+                className={cx('felt notch-6 relative', felt)}
                 animate={{ scale: launching && !reduced ? 1.06 : 1 }}
                 transition={spring.felt}
             >
@@ -86,7 +83,11 @@ export function LobbyTable({ lobby, viewerId, mini = false, busy = null, onSeat,
                     className="notch-6 pointer-events-none absolute inset-0 shadow-[inset_0_0_0_6px_var(--rim),inset_0_0_0_9px_var(--rim-hi)]"
                 />
                 {seats.map((seat) => (
-                    <div key={seat.position} data-position={seat.position} className={cx('absolute', (mini ? PLACE_MINI : PLACE)[seat.position])}>
+                    <div
+                        key={seat.position}
+                        data-position={seat.position}
+                        className={cx('absolute', mini ? PLACE_MINI[seat.position] : `flex flex-col items-center gap-1 ${PLACE[seat.position]}`)}
+                    >
                         {mini ? (
                             <div className="flex w-24 flex-col items-center gap-1">
                                 <SeatFace seat={seat} lobby={lobby} viewerId={viewerId} canSit={false} pressable={false} mini />
@@ -138,6 +139,8 @@ interface SeatProps {
 function Seat({ seat, lobby, viewerId, busy, onSeat, arrived, reduced }: SeatProps) {
     const action = seatAction(seat, lobby, viewerId);
     const inFlight = busy !== null && busy.key === seat.key;
+    // while another request runs: the site's disabled look (0.45, no press); `!` because Motion holds the opacity inline
+    const dimmed = busy !== null && !inFlight;
     const name = seat.player?.username;
     // FLIP keyed by username: a player who moves seat glides there (spring.ui); reduced motion fades
     const motion = reduced
@@ -148,35 +151,42 @@ function Seat({ seat, lobby, viewerId, busy, onSeat, arrived, reduced }: SeatPro
             type="button"
             aria-label={inFlight ? busy.label : seatLabel(seat, lobby, viewerId)}
             aria-busy={inFlight || undefined}
-            aria-disabled={action === null || undefined}
+            aria-disabled={action === null || dimmed || undefined}
             onClick={() => {
                 if (action !== null && busy === null) onSeat?.(seat);
             }}
-            className={cx('group flex w-[92px] flex-col items-center gap-1.5 text-text', action === null && 'cursor-default')}
+            className={cx('group flex w-[92px] flex-col items-center gap-1.5 text-text', dimmed ? 'cursor-not-allowed opacity-45!' : action === null && 'cursor-default')}
             animate={{ opacity: 1, scale: 1 }}
             {...motion}
         >
-            <SeatFace seat={seat} lobby={lobby} viewerId={viewerId} canSit={action === 'sit'} pressable={action !== null} busyLabel={inFlight ? busy.label : undefined} />
+            <SeatFace seat={seat} lobby={lobby} viewerId={viewerId} canSit={action === 'sit'} pressable={action !== null && busy === null} busyLabel={inFlight ? busy.label : undefined} />
         </m.button>
     );
 }
 
-/** The host's "+ Bot" on an empty seat: its own button, named for the team it seats the bot on. */
+/**
+ * The host's "+ Bot" on an empty seat: its own button, named for the team it seats the bot on, led by that team's 6-px
+ * square as on the board's plates. It paints 26 px, the board plate's height, so the top and bottom seats' chips keep
+ * clear of the centre's count; its tap box reaches 44 px above and below without taking layout height.
+ */
 function BotChip({ seat, busy, onAddBot }: { seat: TableSeat; busy: boolean; onAddBot: (seat: TableSeat) => void }) {
     return (
-        <button
-            type="button"
+        <Button
+            variant="secondary"
+            size="sm"
             aria-label={`Add a bot to team ${seat.team}`}
-            aria-disabled={busy || undefined}
-            onClick={() => {
-                if (!busy) onAddBot(seat);
-            }}
-            className={cx('press absolute inline-flex min-h-11 items-center whitespace-nowrap', BOT_CHIP[seat.position], busy && 'cursor-default opacity-60')}
+            disabled={busy}
+            onClick={() => onAddBot(seat)}
+            className="h-6.5 min-h-0 whitespace-nowrap [--btn-inset:0] after:absolute after:inset-x-0 after:-inset-y-[9px]"
+            leftIcon={
+                <span className="inline-flex items-center gap-1.5">
+                    <span aria-hidden="true" className={cx('size-1.5', seat.team === 'A' ? 'bg-team-a' : 'bg-team-b')} />
+                    <PixelIcon name="robot" />
+                </span>
+            }
         >
-            <Chip tone="mode" icon="plus">
-                Bot
-            </Chip>
-        </button>
+            Bot
+        </Button>
     );
 }
 

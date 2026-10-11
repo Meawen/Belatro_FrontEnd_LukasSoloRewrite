@@ -18,7 +18,9 @@ function lobby(overrides: Partial<LobbyDTO> = {}): LobbyDTO {
     }
 }
 
-const seatAt = (position: string) => within(document.querySelector(`[data-position="${position}"]`) as HTMLElement).getByRole('button')
+// a seat's column holds its button, then the host's "+ Bot" when there is one
+const seatAt = (position: string) => document.querySelector(`[data-position="${position}"] > button`) as HTMLElement
+const POSITIONS = ['bottom', 'right', 'top', 'left']
 
 describe('LobbyTable (spec §4.7)', () => {
     test('a seated viewer sits at the bottom, the next in turn order on the right, the partner on top (AC 11)', () => {
@@ -148,9 +150,79 @@ describe('LobbyTable (spec §4.7)', () => {
         render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })} viewerId="u9" busy={{ key: 'A2', label: 'Adding…' }} onAddBot={onAddBot} />)
         expect(screen.getByRole('button', { name: 'Adding…' })).toHaveAttribute('aria-busy', 'true')
         const chip = screen.getAllByRole('button', { name: 'Add a bot to team B' })[0]
-        expect(chip).toHaveAttribute('aria-disabled', 'true')
+        expect(chip).toBeDisabled()
         await user.click(chip)
         expect(onAddBot).not.toHaveBeenCalled()
+    })
+
+    test('the host\'s "+ Bot" is a small secondary button: the team\'s 6-px square at its leading edge, the robot, "Bot" (R32)', () => {
+        render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })} viewerId="u9" onAddBot={vi.fn()} />)
+        const chip = screen.getByRole('button', { name: 'Add a bot to team A' })
+        expect(chip).toHaveClass('ui-btn', 'ui-btn--secondary', 'ui-btn--sm')
+        expect(chip).toHaveTextContent(/^Bot$/)
+        const square = chip.querySelector('.bg-team-a') as HTMLElement
+        expect(square).toHaveClass('size-1.5')
+        expect(square).toHaveAttribute('aria-hidden', 'true')
+        expect(square.compareDocumentPosition(chip.querySelector('svg') as SVGElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        for (const teamB of screen.getAllByRole('button', { name: 'Add a bot to team B' })) expect(teamB.querySelector('.bg-team-b')).not.toBeNull()
+        // it paints 26 px (the board plate's height) and its tap box reaches 44 without adding layout height
+        expect(chip).toHaveClass('h-6.5', 'min-h-0', 'after:-inset-y-[9px]')
+    })
+
+    test('one rule for all four seats: a seat\'s "+ Bot" is the last line of its column, under its name plate (R32)', () => {
+        render(<LobbyTable lobby={lobby({ teamAPlayers: [], teamBPlayers: [], unassignedPlayers: [mira] })} viewerId="u9" onSeat={vi.fn()} onAddBot={vi.fn()} />)
+        for (const position of POSITIONS) {
+            const column = document.querySelector(`[data-position="${position}"]`) as HTMLElement
+            expect(column).toHaveClass('flex', 'flex-col', 'items-center')
+            expect(column.children).toHaveLength(2)
+            expect(column.children[0]).toHaveAccessibleName(/^Sit here, team [AB]$/)
+            expect(column.children[1]).toHaveAccessibleName(/^Add a bot to team [AB]$/)
+            expect(column.children[1]).not.toHaveClass('absolute')
+        }
+    })
+
+    test('the host\'s view of a lobby that takes bots has a 348-px phone felt, for its chips, all the lobby\'s life; every other view keeps 330 (R32)', () => {
+        const felt = () => screen.getByTestId('lobby-table')
+        const { rerender } = render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })} viewerId="u9" onAddBot={vi.fn()} />)
+        expect(felt()).toHaveClass('h-[348px]', 'md:h-[420px]')
+        // the last chip gone, and the match starting: the same felt
+        rerender(<LobbyTable lobby={lobby({ teamBPlayers: [ivo, tea], unassignedPlayers: [] })} viewerId="u9" />)
+        expect(felt()).toHaveClass('h-[348px]')
+        rerender(<LobbyTable lobby={lobby({ teamBPlayers: [ivo, tea], unassignedPlayers: [] })} viewerId="u9" launching />)
+        expect(felt()).toHaveClass('h-[348px]')
+        // a member, an outsider, a ranked lobby's host, a host on a backend before bots
+        const older = { id: 'u9', username: 'mira_z' }
+        const others: [LobbyDTO, string][] = [
+            [lobby(), 'u2'],
+            [lobby(), 'u7'],
+            [lobby({ gameMode: 'RANKED' }), 'u9'],
+            [lobby({ hostUser: older, teamAPlayers: [older, luka] }), 'u9'],
+        ]
+        for (const [view, viewer] of others) {
+            rerender(<LobbyTable lobby={view} viewerId={viewer} onAddBot={vi.fn()} />)
+            expect(felt()).toHaveClass('h-[330px]', 'md:h-[420px]')
+        }
+    })
+
+    test('while a request runs, every seat but the busy one and every "+ Bot" show disabled at 0.45; the count and the felt don\'t dim (R33)', () => {
+        const alone = lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })
+        const dimmed = () => POSITIONS.filter((position) => seatAt(position).classList.contains('opacity-45!'))
+        const chips = () => screen.getAllByRole('button', { name: /^Add a bot/ })
+        const { rerender } = render(<LobbyTable lobby={alone} viewerId="u9" onSeat={vi.fn()} onAddBot={vi.fn()} />)
+        expect(dimmed()).toEqual([])
+        expect(chips().filter((chip) => chip.hasAttribute('disabled'))).toHaveLength(0)
+        // a bot on its way to A2, the top seat: it alone stays bright and reads what is happening
+        rerender(<LobbyTable lobby={alone} viewerId="u9" busy={{ key: 'A2', label: 'Adding…' }} onSeat={vi.fn()} onAddBot={vi.fn()} />)
+        expect(dimmed()).toEqual(['bottom', 'right', 'left'])
+        expect(seatAt('top')).toHaveAccessibleName('Adding…')
+        expect(seatAt('right')).toHaveAttribute('aria-disabled', 'true')
+        expect(chips()).toHaveLength(3)
+        for (const chip of chips()) expect(chip).toBeDisabled()
+        expect(screen.getByTestId('lobby-table').className).not.toMatch(/opacity/)
+        expect((screen.getByText('1/4').parentElement as HTMLElement).className).not.toMatch(/opacity/)
+        // a fill is about no one seat: they all dim
+        rerender(<LobbyTable lobby={alone} viewerId="u9" busy={{ key: null, label: 'Filling with bots…' }} onSeat={vi.fn()} onAddBot={vi.fn()} />)
+        expect(dimmed()).toEqual(POSITIONS)
     })
 
     test('a bot\'s seat: the robot in place of the initial, its name, "Bot", and ", bot" in its name', () => {

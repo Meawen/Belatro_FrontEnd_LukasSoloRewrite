@@ -12,17 +12,12 @@ export interface LobbyActionBarProps {
     /** 2 + 2 seated and nobody unassigned. */
     canStart?: boolean;
     starting?: boolean;
-    /** No request is running at the table; otherwise "Fill with bots" shows disabled. */
-    canFill?: boolean;
-    filling?: boolean;
     joining?: boolean;
     privateLobby?: boolean;
     /** A member is following the started match into the game. */
     following?: boolean;
     onOptions?: () => void;
     onStart?: () => void;
-    /** The host's "Fill with bots"; without it the button is not shown (a lobby that takes no bots, or no seat to fill). */
-    onFill?: () => void;
     onLeave?: () => void;
     onJoin?: () => void;
 }
@@ -38,7 +33,7 @@ export function LobbyActionBar(props: LobbyActionBarProps) {
             role="region"
             aria-label="Lobby actions"
             className={cx(
-                'material-bar sticky z-(--z-bar) -mx-4 flex min-h-[68px] flex-wrap items-center gap-3 px-4 py-3 md:mx-0',
+                'material-bar sticky z-(--z-bar) -mx-4 flex min-h-[68px] items-center gap-3 px-4 py-3 md:mx-0',
                 tabBar ? 'bottom-[calc(64px+var(--safe-bottom))]' : 'bottom-0 pb-[calc(12px+var(--safe-bottom))]',
             )}
         >
@@ -47,9 +42,7 @@ export function LobbyActionBar(props: LobbyActionBarProps) {
     );
 }
 
-function BarContent(props: LobbyActionBarProps) {
-    const { role, line, canStart = false, starting = false, canFill = false, filling = false, joining = false, privateLobby = false, following = false } = props;
-    const { onOptions, onStart, onFill, onLeave, onJoin } = props;
+function BarContent({ role, line, canStart = false, starting = false, joining = false, privateLobby = false, following = false, onOptions, onStart, onLeave, onJoin }: LobbyActionBarProps) {
     if (following) {
         return (
             <div role="status" className="flex-1">
@@ -58,26 +51,13 @@ function BarContent(props: LobbyActionBarProps) {
         );
     }
     if (role === 'host') {
-        const start = (
-            <Button className={cx(onFill && 'flex-1 md:flex-none')} leftIcon={<PixelIcon name="play" />} disabled={!canStart} loading={starting} onClick={onStart}>
-                Start match
-            </Button>
-        );
         return (
             <>
                 <IconButton icon="more" aria-label="Lobby options" variant="secondary" onClick={onOptions} />
                 <p className="t-footnote min-w-0 flex-1 text-text-2">{line}</p>
-                {onFill ? (
-                    // on a phone the two buttons share a row of their own
-                    <div className="flex w-full gap-2 md:w-auto">
-                        <Button variant="secondary" className="flex-1 md:flex-none" leftIcon={<PixelIcon name="robot" />} disabled={!canFill} loading={filling} onClick={onFill}>
-                            Fill with bots
-                        </Button>
-                        {start}
-                    </div>
-                ) : (
-                    start
-                )}
+                <Button leftIcon={<PixelIcon name="play" />} disabled={!canStart} loading={starting} onClick={onStart}>
+                    Start match
+                </Button>
             </>
         );
     }
