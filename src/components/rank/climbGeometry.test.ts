@@ -82,6 +82,8 @@ describe('climbGeometry', () => {
     test('x labels: the first game, the current one and +20, without overlaps', () => {
         const g = climbGeometry(history({ games: 57 }), 848, { bands: BANDS, nextMinRating: 1600 })
         expect(g.labelsX.map((label) => label.text)).toEqual(['Game 1', 'Game 57', '+20'])
+        // under the first game, not under the rating before it (refine)
+        expect(g.labelsX[0].x).toBeCloseTo(g.x(1))
         const one = climbGeometry(history({ games: 1, rating: 1256 }), 343, { bands: BANDS, nextMinRating: 1400 })
         expect(one.labelsX.map((label) => label.text)).not.toContain('Game 1 Game 1')
         expect(one.labelsX.filter((label) => label.text === 'Game 1')).toHaveLength(1)

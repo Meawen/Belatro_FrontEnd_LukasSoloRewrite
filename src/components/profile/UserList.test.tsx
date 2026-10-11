@@ -217,6 +217,18 @@ describe('UserList ranks', () => {
     const ranked = [{ ...cy, rank: rank('GOSPON'), rankedGamesPlayed: 30 }, { ...bob, rank: rank('CUCEK'), rankedGamesPlayed: 3 }, { ...dee, rank: rank('CUCEK'), rankedGamesPlayed: 0 }, ana]
     const page = () => ({ data: { content: ranked, totalElements: 4, totalPages: 1, number: 0, size: 20 }, isLoading: false, error: null, refetch: vi.fn() }) as never
 
+    test('on compact phone rows the tag sits under the Elo, in place of its caption, so the name keeps its room (refine)', () => {
+        viewport(375, 812)
+        vi.mocked(useUsersPage).mockImplementation(page)
+        renderList()
+        const [cyRow, , , anaRow] = rows()
+        const elo = within(cyRow).getByText('1400')
+        expect(elo.parentElement).toContainElement(within(cyRow).getByText('Gospon'))
+        expect(within(cyRow).queryByText('Elo')).not.toBeInTheDocument()
+        // no rank: the caption as before
+        expect(within(anaRow).getByText('Elo')).toBeInTheDocument()
+    })
+
     test.each([['desktop', 1440, 900], ['compact phone', 375, 812]])('on %s rows a ranked player shows the rank tag beside the Elo', (_, width, height) => {
         viewport(width, height)
         vi.mocked(useUsersPage).mockImplementation(page)

@@ -114,7 +114,7 @@ export function climbGeometry(history: RatingHistory, width: number, { bands, ne
     if (ticksY.length === 0) ticksY.push({ value: y0, y: y(y0) }, { value: y1, y: y(y1) });
 
     const labelsX: ClimbGeometry['labelsX'] = [];
-    if (g0 + 1 !== last && x(last) - x(g0) >= LABEL_GAP_PX) labelsX.push({ text: `Game ${g0 + 1}`, x: x(g0), anchor: 'start' });
+    if (g0 + 1 !== last && x(last) - x(g0 + 1) >= LABEL_GAP_PX) labelsX.push({ text: `Game ${g0 + 1}`, x: x(g0 + 1), anchor: 'start' });
     labelsX.push({ text: `Game ${last}`, x: x(last), anchor: pace === null ? 'end' : 'middle' });
     if (pace !== null && x(gN) - x(last) >= END_LABEL_GAP_PX) labelsX.push({ text: `+${FORECAST_GAMES}`, x: x(gN), anchor: 'end' });
 

@@ -34,6 +34,7 @@ interface PlayerRowProps {
 function PlayerRow({ player, rank, isMe, meId, friends, compact }: PlayerRowProps) {
     const name = player.username || 'Unknown User';
     const games = player.gamesPlayed ?? 0;
+    const rankTag = isRanked(player) && player.rank ? <RankChip rank={player.rank} /> : null;
     return (
         <ListRow
             highlight={isMe}
@@ -57,11 +58,12 @@ function PlayerRow({ player, rank, isMe, meId, friends, compact }: PlayerRowProp
             meta={compact ? undefined : `${games} ${games === 1 ? 'game' : 'games'} · Level ${player.level || 1}`}
             trailing={
                 <>
-                    {/* ranks spec §6.2: beside the Elo, only for a ranked row; an Unranked row keeps its tag alone */}
-                    {isRanked(player) && <RankChip rank={player.rank} />}
+                    {/* ranks spec §6.2: beside the Elo, only for a ranked row; an Unranked row keeps its tag alone.
+                        Compact rows put it under the number, in place of the caption, so the name keeps its room. */}
+                    {!compact && rankTag}
                     <span className="flex flex-col items-end">
                         <span className="t-score tabular-nums">{player.eloRating ?? '—'}</span>
-                        <span className="t-caption text-text-3">Elo</span>
+                        {compact && rankTag ? rankTag : <span className="t-caption text-text-3">Elo</span>}
                     </span>
                     {!isMe && <FriendActions user={player} meId={meId} friends={friends} compact={compact} className="items-end" />}
                 </>

@@ -69,7 +69,7 @@ function Step({ n, title, rule, text, onOpenRule, children }: StepProps) {
 /** Step 1: the table, partners opposite. */
 function Table() {
     return (
-        <div className="relative h-32 w-64 max-w-full self-center bg-felt-a shadow-[inset_0_0_0_3px_var(--rim)] notch-6">
+        <div className="relative h-32 w-64 max-w-full bg-felt-a shadow-[inset_0_0_0_3px_var(--rim)] notch-6">
             <span className="absolute top-2 left-1/2 -translate-x-1/2"><Tag tone="team-a">Partner</Tag></span>
             <span className="absolute bottom-2 left-1/2 -translate-x-1/2"><Tag tone="team-a">You</Tag></span>
             <span className="absolute top-1/2 left-2 -translate-y-1/2"><Tag tone="team-b">Opponent</Tag></span>
@@ -213,7 +213,7 @@ function Declarations() {
 function Foul() {
     const { ref, w } = useCardSize();
     return (
-        <div ref={ref} className="flex">
+        <div ref={ref} className="flex pb-2">
             <span className="relative">
                 <PlayingCard card={{ boja: 'KARA', rank: 'AS' }} width={w} />
                 <span className="absolute -bottom-2 left-1/2 -translate-x-1/2">

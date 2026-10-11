@@ -59,6 +59,17 @@ describe('ladderGeometry', () => {
         expect(narrow.bands.find((band) => band.key === 'DECEC')!.label).toBe(false)
     })
 
+    test('a band name the "You" line would cross is left out; the legend still names it (refine)', () => {
+        const narrow = ladderGeometry(LADDER, 311, { you: 1290 })
+        expect(narrow.bands.find((band) => band.key === 'PAJDAS')!.label).toBe(false)
+        const wide = ladderGeometry(LADDER, 848, { you: 1290 })
+        expect(wide.bands.find((band) => band.key === 'PAJDAS')!.label).toBe(true)
+    })
+
+    test('a name is measured at the real caption width: MAJSTER does not fit 62 px (refine)', () => {
+        expect(ladderGeometry(LADDER, 311, { you: null }).bands.find((band) => band.key === 'MAJSTER')!.label).toBe(false)
+    })
+
     test('x ticks at the rank starts inside the domain, dropped when closer than 36 px to the last one', () => {
         expect(ladderGeometry(LADDER, 848, { you: null }).ticks.map((tick) => tick.value)).toEqual([1000, 1200, 1400, 1600])
         const wide: Ladder = { ...LADDER, bins: Array.from({ length: 20 }, (_, i) => ({ from: 800 + i * 100, count: 5 })) }

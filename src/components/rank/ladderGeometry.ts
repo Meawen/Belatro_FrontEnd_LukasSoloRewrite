@@ -7,8 +7,8 @@ export const LADDER_PAD = { top: 26, bottom: 20, left: 28, right: 4 } as const;
 /** Plot heights: 150 px in a container at least this wide, else 120. */
 export const WIDE_CHART = 768;
 
-/** A caption character's width, for "does the name fit" (caption: 12 px, 600, upper case, +0.04em). */
-export const CAPTION_CHAR_PX = 7.5;
+/** A caption character's width, for "does the name fit" (caption: 12 px, 600, upper case, +0.04em; measured). */
+export const CAPTION_CHAR_PX = 8.5;
 
 /** Ticks closer than this to the previous one are dropped. */
 const TICK_GAP_PX = 36;
@@ -111,6 +111,7 @@ export function ladderGeometry(ladder: Ladder, width: number, { you }: { you: nu
         };
     });
 
+    const youX = you === null ? null : x(you);
     const placed = placedRanks(ladder);
     const bands = placed.flatMap((rank, i) => {
         const start = Math.max(lo, rank.minRating ?? lo);
@@ -119,7 +120,10 @@ export function ladderGeometry(ladder: Ladder, width: number, { you }: { you: nu
         if (end <= start) return [];
         const x0 = x(start);
         const x1 = x(end);
-        return [{ key: rank.key, name: rank.name, x0, x1, label: x1 - x0 >= rank.name.length * CAPTION_CHAR_PX + 8 }];
+        const labelW = rank.name.length * CAPTION_CHAR_PX + 8;
+        // the name sits at the band's top left; the "You" line would cut through it there
+        const crossed = youX !== null && youX >= x0 && youX <= x0 + labelW;
+        return [{ key: rank.key, name: rank.name, x0, x1, label: x1 - x0 >= labelW && !crossed }];
     });
 
     const ticks: { value: number; x: number }[] = [];
