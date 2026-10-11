@@ -85,6 +85,13 @@ describe('LobbyTable (spec §4.7)', () => {
         expect(screen.getByText('Ready to deal')).toBeInTheDocument()
     })
 
+    test('in the room the centre counts seats, bots included: the host with three bots is ready to deal', () => {
+        render(<LobbyTable lobby={lobby({ teamAPlayers: [mira, botAna], teamBPlayers: [{ ...ivo, id: 'b2', username: 'Bot-Tin', bot: true }, { ...tea, id: 'b3', username: 'Bot-Nika', bot: true }], unassignedPlayers: [] })} viewerId="u9" />)
+        expect(screen.getByText('4/4')).toBeInTheDocument()
+        expect(screen.getByText('Ready to deal')).toBeInTheDocument()
+        expect(screen.queryByText(/ of 4/)).not.toBeInTheDocument()
+    })
+
     test('the host wears the crown, you are marked You, the others by team', () => {
         render(<LobbyTable lobby={lobby()} viewerId="u3" />)
         expect(seatAt('left')).toHaveTextContent('mira_zHost')
@@ -164,5 +171,9 @@ describe('LobbyTable (spec §4.7)', () => {
         expect(document.querySelector('[data-position="bottom"]')).toHaveTextContent('mira_z')
         expect(document.querySelector('[data-position="left"]')).toHaveTextContent('Open seat')
         expect(screen.getByTestId('lobby-table')).toHaveClass('h-[198px]')
+        // its centre counts people, as the list does, not the room's seats (casual bots spec §7)
+        expect(screen.getByText('4 of 4')).toBeInTheDocument()
+        expect(screen.queryByText('3/4')).not.toBeInTheDocument()
+        expect(screen.queryByText('seated')).not.toBeInTheDocument()
     })
 })

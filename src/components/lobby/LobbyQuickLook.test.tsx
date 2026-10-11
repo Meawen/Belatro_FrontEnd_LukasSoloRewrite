@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { LobbyQuickLook } from './LobbyQuickLook'
@@ -114,6 +114,16 @@ describe('LobbyQuickLook (spec §4.6)', () => {
         expect(screen.getByRole('button', { name: 'Join lobby' })).toBeEnabled()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Join lobby' }))
         expect(lobbyService.joinLobby).toHaveBeenCalledWith('l1', { lobbyId: 'l1', password: null })
+    })
+
+    test('the mini table counts people, then bots, as the list does: "1 of 4 · 3 bots", not the room\'s "4/4 Ready to deal" (casual bots spec §7)', () => {
+        const bots = [1, 2, 3].map((n) => ({ id: `b${n}`, username: `Bot-${n}`, bot: true }))
+        renderQuickLook(lobby({ teamAPlayers: [bob, bots[0]], teamBPlayers: [bots[1], bots[2]] }))
+        const table = screen.getByTestId('lobby-table')
+        expect(within(table).getByText('1 of 4 · 3 bots')).toBeInTheDocument()
+        expect(within(table).queryByText('4/4')).not.toBeInTheDocument()
+        expect(within(table).queryByText('Ready to deal')).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Join lobby' })).toBeEnabled()
     })
 
     test('a lobby that left the open list says so and offers only Close', async () => {

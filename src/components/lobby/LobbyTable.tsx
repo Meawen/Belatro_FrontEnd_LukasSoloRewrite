@@ -5,7 +5,7 @@ import { Avatar, Chip, PixelIcon } from '../ui';
 import { cx } from '../ui/cx';
 import { fade, spring } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
-import { isBot } from './lobbyModel';
+import { countLine, isBot } from './lobbyModel';
 import { canAddBot, isHost, isReadyToStart, seatAction, seatLabel, seatedCount, tableSeats, type SeatKey, type SeatPosition, type TableSeat } from './seats';
 
 /**
@@ -21,7 +21,7 @@ export interface LobbyTableProps {
     lobby: LobbyDTO;
     /** The signed-in user's id; null before the session is read. */
     viewerId: string | null;
-    /** The quick-look's static copy at 60 %: no buttons and no motion. */
+    /** The quick-look's static copy at 60 %: no buttons and no motion; its centre counts people, then bots (`countLine`). */
     mini?: boolean;
     busy?: SeatBusy | null;
     /** A tap on a seat that has an action (seats.ts `seatAction`); the others are aria-disabled. */
@@ -109,8 +109,16 @@ export function LobbyTable({ lobby, viewerId, mini = false, busy = null, onSeat,
                     </div>
                 ))}
                 <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-                    <p className="t-score tabular-nums">{seatedCount(lobby)}/4</p>
-                    <p className="t-footnote">{isReadyToStart(lobby) ? 'Ready to deal' : 'seated'}</p>
+                    {mini ? (
+                        // the quick-look asks "is there room for me?": people of the cap, then bots, as the list says
+                        <p className="t-callout whitespace-nowrap font-semibold tabular-nums">{countLine(lobby)}</p>
+                    ) : (
+                        // the room counts seats, bots included: what the host needs to start
+                        <>
+                            <p className="t-score tabular-nums">{seatedCount(lobby)}/4</p>
+                            <p className="t-footnote">{isReadyToStart(lobby) ? 'Ready to deal' : 'seated'}</p>
+                        </>
+                    )}
                 </div>
             </m.div>
         </LazyMotion>
