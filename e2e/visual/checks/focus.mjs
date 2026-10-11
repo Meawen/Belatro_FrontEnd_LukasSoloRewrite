@@ -1,4 +1,5 @@
-// Focus (spec §7.3, §3.4, §3.9): Tab to a Button, an Input, a ListRow, a lobby seat and a hand card; the shot of
+// Focus (spec §7.3, §3.4, §3.9): Tab to a Button, an Input, a ListRow, a lobby seat, a hand card, the two rank
+// charts, a Rules guide card and the Full rules summary (ranks spec); the shot of
 // each, focused, holds the 2-px ring: the accent #fbf236, or the ink #222034 on the yellow primary button. A
 // control may hold those colours unfocused too (a yellow button, a seat's own accent), so the ring counts as
 // the extra pixels of either colour against a shot of the same box with focus taken away; it must add at
@@ -12,13 +13,18 @@ const TARGETS = [
     { what: 'a ListRow', scene: 'lobby-list', selector: '.ui-row' },
     { what: 'a lobby seat', scene: 'lobby-member', selector: '[data-testid="lobby-table"] button' },
     { what: 'a hand card', scene: 'board-mid-trick', selector: '[data-testid="hand-card"]' },
+    // ranks spec §7.5, §8.5, §9: the two charts (one tab stop each), a card to try in the Rules guide, the full rules
+    { what: 'the ladder', scene: 'leaderboard-ladder', selector: '[role="group"][aria-label="The ladder: players by rating"]' },
+    { what: 'your climb', scene: 'profile-climb', selector: '[role="group"][aria-label="Your climb: rating over your ranked games"]' },
+    { what: 'a guide card', scene: 'legal-rules', selector: 'ul[aria-label="Your cards"] button' },
+    { what: 'the Full rules summary', scene: 'legal-rules', selector: 'summary' },
 ];
 const VIEWPORT = '1440x900';
 const MAX_TABS = 80;
 
 export default {
     name: 'focus',
-    about: 'Tab reaches a Button, Input, ListRow, lobby seat and hand card, and each shows the accent (or ink) ring',
+    about: 'Tab reaches a Button, Input, ListRow, lobby seat, hand card, both rank charts, a guide card and Full rules, each with the accent (or ink) ring',
     async run(ctx) {
         const failures = [];
         for (const target of TARGETS) {

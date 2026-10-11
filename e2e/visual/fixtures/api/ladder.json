@@ -1,0 +1,90 @@
+{
+    "GET /user/ladder": {
+        "json": {
+            "players": 412,
+            "binSize": 100,
+            "bins": [
+                {
+                    "from": 900,
+                    "count": 31
+                },
+                {
+                    "from": 1000,
+                    "count": 64
+                },
+                {
+                    "from": 1100,
+                    "count": 85
+                },
+                {
+                    "from": 1200,
+                    "count": 40
+                },
+                {
+                    "from": 1300,
+                    "count": 66
+                },
+                {
+                    "from": 1400,
+                    "count": 55
+                },
+                {
+                    "from": 1500,
+                    "count": 35
+                },
+                {
+                    "from": 1600,
+                    "count": 21
+                },
+                {
+                    "from": 1700,
+                    "count": 15
+                }
+            ],
+            "ranks": [
+                {
+                    "key": "CUCEK",
+                    "name": "Cucek",
+                    "minRating": null,
+                    "count": 37
+                },
+                {
+                    "key": "DECEC",
+                    "name": "Dečec",
+                    "minRating": null,
+                    "count": 31
+                },
+                {
+                    "key": "FAKIN",
+                    "name": "Fakin",
+                    "minRating": 1000,
+                    "count": 149
+                },
+                {
+                    "key": "PAJDAS",
+                    "name": "Pajdaš",
+                    "minRating": 1200,
+                    "count": 106
+                },
+                {
+                    "key": "GOSPON",
+                    "name": "Gospon",
+                    "minRating": 1400,
+                    "count": 90
+                },
+                {
+                    "key": "MAJSTER",
+                    "name": "Majster",
+                    "minRating": 1600,
+                    "count": 36
+                },
+                {
+                    "key": "KAJKAVAC",
+                    "name": "Kajkavac",
+                    "minRating": 1800,
+                    "count": 0
+                }
+            ]
+        }
+    }
+}
