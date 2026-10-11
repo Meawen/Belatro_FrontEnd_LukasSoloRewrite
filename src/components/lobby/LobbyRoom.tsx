@@ -58,8 +58,8 @@ function botChip(position: SeatPosition): HTMLElement | null {
 }
 
 /**
- * Where focus goes after a "+ Bot" went through (R43): the next "+ Bot" round the table from the seat the bot took (a
- * team's list fills its first open place, not always the tapped one), else Start when it is enabled, else the bot's seat.
+ * Where focus goes after a "+ Bot" went through (R43): the next "+ Bot" round the table from the seat the bot took (the
+ * chip's own seat, R44, unless the lobby changed meanwhile), else Start when it is enabled, else the bot's seat.
  * `seated`: who sat at the table before the request.
  */
 function afterBot(lobby: LobbyDTO, viewerId: string | null, seated: Set<string>, tapped: SeatPosition): HTMLElement | null {

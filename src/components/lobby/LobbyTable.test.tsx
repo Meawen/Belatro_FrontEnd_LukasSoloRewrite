@@ -102,13 +102,13 @@ describe('LobbyTable (spec §4.7)', () => {
         expect(seatAt('left').querySelectorAll('svg').length).toBeGreaterThan(0)
     })
 
-    test('the host gets a "+ Bot" chip on each empty seat, a button of its own beside the seat\'s tap', async () => {
+    test('the host gets a "+ Bot" chip for each team with room, a button of its own beside the seat\'s tap', async () => {
         const user = userEvent.setup()
         const onSeat = vi.fn()
         const onAddBot = vi.fn()
         render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })} viewerId="u9" onSeat={onSeat} onAddBot={onAddBot} />)
-        expect(screen.getAllByRole('button', { name: /^Add a bot to team/ }).map((chip) => chip.textContent)).toEqual(['Bot', 'Bot', 'Bot'])
-        expect(screen.getAllByRole('button', { name: 'Add a bot to team B' })).toHaveLength(2)
+        expect(screen.getAllByRole('button', { name: /^Add a bot to team/ }).map((chip) => chip.textContent)).toEqual(['Bot', 'Bot'])
+        expect(screen.getAllByRole('button', { name: 'Add a bot to team B' })).toHaveLength(1)
         await user.click(screen.getByRole('button', { name: 'Add a bot to team A' }))
         expect(onAddBot).toHaveBeenCalledWith(expect.objectContaining({ key: 'A2', team: 'A', player: null }))
         expect(onSeat).not.toHaveBeenCalled()
@@ -188,15 +188,39 @@ describe('LobbyTable (spec §4.7)', () => {
     })
 
     test('one rule for all four seats: a seat\'s "+ Bot" is the last line of its column, under its name plate (R32)', () => {
-        render(<LobbyTable lobby={lobby({ teamAPlayers: [], teamBPlayers: [], unassignedPlayers: [mira] })} viewerId="u9" onSeat={vi.fn()} onAddBot={vi.fn()} />)
-        for (const position of POSITIONS) {
-            const column = document.querySelector(`[data-position="${position}"]`) as HTMLElement
-            expect(column).toHaveClass('flex', 'flex-col', 'items-center')
-            expect(column.children).toHaveLength(2)
-            expect(column.children[0]).toHaveAccessibleName(/^Sit here, team [AB]$/)
-            expect(column.children[1]).toHaveAccessibleName(/^Add a bot to team [AB]$/)
-            expect(column.children[1]).not.toHaveClass('absolute')
+        // mira standing: the chips are bottom (A1) and right (B1); mira seated with ivo on B: top (A2) and left (B2)
+        const views: [LobbyDTO, string[]][] = [
+            [lobby({ teamAPlayers: [], teamBPlayers: [], unassignedPlayers: [mira] }), ['bottom', 'right']],
+            [lobby({ teamAPlayers: [mira], teamBPlayers: [ivo], unassignedPlayers: [] }), ['top', 'left']],
+        ]
+        for (const [view, positions] of views) {
+            const { unmount } = render(<LobbyTable lobby={view} viewerId="u9" onSeat={vi.fn()} onAddBot={vi.fn()} />)
+            for (const position of positions) {
+                const column = document.querySelector(`[data-position="${position}"]`) as HTMLElement
+                expect(column).toHaveClass('flex', 'flex-col', 'items-center')
+                expect(column.children).toHaveLength(2)
+                expect(column.children[0]).toHaveAccessibleName(/^(Sit here|Open seat), team [AB]$/)
+                expect(column.children[1]).toHaveAccessibleName(/^Add a bot to team [AB]$/)
+                expect(column.children[1]).not.toHaveClass('absolute')
+            }
+            unmount()
         }
+    })
+
+    test('one "+ Bot" per team, under the seat the bot will take; once it is taken, the chip moves to the team\'s other seat (R44)', () => {
+        const chipsAt = () => POSITIONS.filter((position) => document.querySelector(`[data-position="${position}"] > button + button`) !== null)
+        const botTin = { id: 'b2', username: 'Bot-Tin', bot: true }
+        // mira at the bottom (A1), Team B empty: B1 (right) takes Team B's bot, B2 (left) shows nothing yet
+        const { rerender } = render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })} viewerId="u9" onAddBot={vi.fn()} />)
+        expect(chipsAt()).toEqual(['right', 'top'])
+        rerender(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [botTin], unassignedPlayers: [] })} viewerId="u9" onAddBot={vi.fn()} />)
+        expect(chipsAt()).toEqual(['top', 'left'])
+        // mira standing, both teams empty: A1 (bottom) and B1 (right); with a bot in A1, Team A's chip moves to A2 (top)
+        rerender(<LobbyTable lobby={lobby({ teamAPlayers: [], teamBPlayers: [], unassignedPlayers: [mira] })} viewerId="u9" onAddBot={vi.fn()} />)
+        expect(chipsAt()).toEqual(['bottom', 'right'])
+        rerender(<LobbyTable lobby={lobby({ teamAPlayers: [botAna], teamBPlayers: [], unassignedPlayers: [mira] })} viewerId="u9" onAddBot={vi.fn()} />)
+        expect(chipsAt()).toEqual(['right', 'top'])
+        expect(document.querySelector('[data-position="top"] > button + button')).toHaveAccessibleName('Add a bot to team A')
     })
 
     test('the host\'s view of a lobby that takes bots has a 348-px phone felt, for its chips, all the lobby\'s life; every other view keeps 330 (R32)', () => {
@@ -234,7 +258,7 @@ describe('LobbyTable (spec §4.7)', () => {
         expect(dimmed()).toEqual(['bottom', 'right', 'left'])
         expect(seatAt('top')).toHaveAccessibleName('Adding…')
         expect(seatAt('right')).toHaveAttribute('aria-disabled', 'true')
-        expect(chips()).toHaveLength(3)
+        expect(chips()).toHaveLength(2)
         for (const chip of chips()) expect(chip).toBeDisabled()
         expect(screen.getByTestId('lobby-table').className).not.toMatch(/opacity/)
         expect((screen.getByText('1/4').parentElement as HTMLElement).className).not.toMatch(/opacity/)

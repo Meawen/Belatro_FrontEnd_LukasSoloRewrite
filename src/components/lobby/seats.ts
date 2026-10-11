@@ -80,12 +80,15 @@ export function takesBots(lobby: LobbyDTO): boolean {
 }
 
 /**
- * Whether the host may put a bot on this seat: any empty one, on either team, while the lobby has fewer than four
- * members (the server refuses a bot at four, unassigned people included), in a lobby that takes bots. Separate from
- * the seat's own tap.
+ * Whether the host may put a bot on this seat: its team's first free slot, the one a bot added to that team lands in
+ * (the server fills the team's list in order), so a team shows one "+ Bot" and it seats the bot where it is (R44);
+ * while the lobby has fewer than four members (the server refuses a bot at four, unassigned people included), in a
+ * lobby that takes bots. Separate from the seat's own tap.
  */
 export function canAddBot(seat: TableSeat, lobby: LobbyDTO, viewerId: string | null): boolean {
-    return seat.player === null && isHost(lobby, viewerId) && memberCount(lobby) < LOBBY_CAP && takesBots(lobby);
+    const team = (seat.team === 'A' ? lobby.teamAPlayers : lobby.teamBPlayers) ?? [];
+    const firstFree = seat.key === `${seat.team}${team.length + 1}`;
+    return seat.player === null && firstFree && isHost(lobby, viewerId) && memberCount(lobby) < LOBBY_CAP && takesBots(lobby);
 }
 
 /**

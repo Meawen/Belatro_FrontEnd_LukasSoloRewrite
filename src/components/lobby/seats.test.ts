@@ -63,7 +63,7 @@ describe('seats (spec §4.7, §5.3.2)', () => {
         expect(seatAction(seat(null, 'B2'), l, null)).toBeNull()
     })
 
-    test('the host may add a bot on any empty seat, their own team\'s too; a tap on the seat still sits', () => {
+    test('the host may add a bot on an empty seat of either team, their own team\'s too; a tap on the seat still sits', () => {
         const l = lobby({ teamAPlayers: [mira], teamBPlayers: [ivo, ana] })
         const seat = (viewer: string | null, key: string) => tableSeats(l, viewer).find((s) => s.key === key)!
         expect(canAddBot(seat('u9', 'A2'), l, 'u9')).toBe(true)
@@ -73,6 +73,21 @@ describe('seats (spec §4.7, §5.3.2)', () => {
         const otherSeat = (viewer: string | null, key: string) => tableSeats(other, viewer).find((s) => s.key === key)!
         expect(canAddBot(otherSeat('u9', 'B2'), other, 'u9')).toBe(true)
         expect(seatAction(otherSeat('u9', 'B2'), other, 'u9')).toBe('sit')
+    })
+
+    test('one "+ Bot" per team, on the seat a new member of that team lands in: its first free slot (R44)', () => {
+        const can = (l: LobbyDTO, key: string) => canAddBot(tableSeats(l, 'u9').find((s) => s.key === key)!, l, 'u9')
+        // an empty Team B: the bot takes B1, so B1 has the chip and B2 none; with a bot in B1, B2 has it
+        expect(can(lobby({ teamAPlayers: [mira], teamBPlayers: [] }), 'B1')).toBe(true)
+        expect(can(lobby({ teamAPlayers: [mira], teamBPlayers: [] }), 'B2')).toBe(false)
+        expect(can(lobby({ teamAPlayers: [mira], teamBPlayers: [tin] }), 'B2')).toBe(true)
+        // the host standing, Team A empty: A1, then A2
+        expect(can(lobby({ teamAPlayers: [], teamBPlayers: [], unassignedPlayers: [mira] }), 'A1')).toBe(true)
+        expect(can(lobby({ teamAPlayers: [], teamBPlayers: [], unassignedPlayers: [mira] }), 'A2')).toBe(false)
+        expect(can(lobby({ teamAPlayers: [ana], teamBPlayers: [], unassignedPlayers: [mira] }), 'A2')).toBe(true)
+        // a team with one person: its free seat
+        expect(can(lobby({ teamAPlayers: [mira], teamBPlayers: [ivo] }), 'A2')).toBe(true)
+        expect(can(lobby({ teamAPlayers: [mira], teamBPlayers: [ivo] }), 'B2')).toBe(true)
     })
 
     test('nobody but the host adds a bot, and never on a taken seat', () => {

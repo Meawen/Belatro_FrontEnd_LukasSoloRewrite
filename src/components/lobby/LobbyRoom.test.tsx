@@ -499,12 +499,13 @@ describe('LobbyRoom: bots (casual bots spec §7)', () => {
     test('the host\'s "+ Bot" chip adds a bot on that seat\'s team, and the lobby refreshes', async () => {
         serve(alone())
         renderLobby()
-        expect(await screen.findAllByRole('button', { name: /^Add a bot to team/ })).toHaveLength(3)
+        // one chip per team with room (R44): Team A's partner seat, Team B's first seat
+        expect(await screen.findAllByRole('button', { name: /^Add a bot to team/ })).toHaveLength(2)
         serve(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [], unassignedPlayers: [] }))
         await userEvent.setup().click(screen.getByRole('button', { name: 'Add a bot to team A' }))
         expect(lobbyService.addBot).toHaveBeenCalledWith('l1', 'A')
         expect(await screen.findByRole('button', { name: 'Remove Bot-Ana, team A, bot' })).toBeInTheDocument()
-        expect(screen.getAllByRole('button', { name: /^Add a bot to team/ })).toHaveLength(2)
+        expect(screen.getAllByRole('button', { name: /^Add a bot to team/ })).toHaveLength(1)
         expect(lobbyService.switchTeam).not.toHaveBeenCalled()
     })
 
@@ -807,27 +808,36 @@ describe('LobbyRoom: focus after a request at the table (R38, R43)', () => {
 
     test('after a "+ Bot", focus goes to the next "+ Bot" round the table from the seat the bot took (R43)', async () => {
         const user = userEvent.setup()
-        // ana at the bottom; open: right (B), top (A), left (B). The top chip seats Bot-Ana there; next round: left
+        // ana at the bottom; chips under top (A2) and right (B1, Team B's first seat). The top chip seats Bot-Ana there;
+        // next round from the top: left (no chip), bottom (ana), right
         serve(alone())
         renderLobby()
         await screen.findByRole('button', { name: 'Add a bot to team A' })
         serve(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [], unassignedPlayers: [] }))
         await user.click(chipAt('top') as HTMLElement)
         await screen.findByRole('button', { name: 'Remove Bot-Ana, team A, bot' })
-        await waitFor(() => expect(document.activeElement).toBe(chipAt('left')))
+        await waitFor(() => expect(document.activeElement).toBe(chipAt('right')))
         expect(document.activeElement).toHaveAccessibleName('Add a bot to team B')
     })
 
-    test('"round the table" starts at the seat the bot took, not the chip tapped: a standing host\'s top chip fills the bottom seat (R43)', async () => {
+    test('a team\'s chip moves on to its other seat once a bot takes the first, and focus goes round from there (R43, R44)', async () => {
         const user = userEvent.setup()
-        // ana standing: A1 bottom, B1 right, A2 top, B2 left, all open; Team A's list puts the bot in A1, at the bottom
+        // ana standing: chips under A1 (bottom) and B1 (right)
         serve(lobby({ teamAPlayers: [], teamBPlayers: [], unassignedPlayers: [ana] }))
         renderLobby()
-        await screen.findAllByRole('button', { name: 'Add a bot to team A' })
+        await screen.findByRole('button', { name: 'Add a bot to team A' })
+        expect(chipAt('top')).toBeNull()
         serve(lobby({ teamAPlayers: [botAna], teamBPlayers: [], unassignedPlayers: [ana] }))
-        await user.click(chipAt('top') as HTMLElement)
+        await user.click(chipAt('bottom') as HTMLElement)
         await waitFor(() => expect(seatAt('bottom')).toHaveAccessibleName('Remove Bot-Ana, team A, bot'))
+        // Team A's chip is now under A2 (top); the next round from the bottom is Team B's, on the right
+        expect(chipAt('top')).toHaveAccessibleName('Add a bot to team A')
         await waitFor(() => expect(document.activeElement).toBe(chipAt('right')))
+        serve(lobby({ teamAPlayers: [botAna], teamBPlayers: [botTin], unassignedPlayers: [ana] }))
+        await user.click(chipAt('right') as HTMLElement)
+        await waitFor(() => expect(seatAt('right')).toHaveAccessibleName('Remove Bot-Tin, team B, bot'))
+        await waitFor(() => expect(document.activeElement).toBe(chipAt('top')))
+        expect(chipAt('left')).toHaveAccessibleName('Add a bot to team B')
     })
 
     test('after a "+ Bot" that leaves no chip, focus goes to Start when it is enabled, otherwise to the new bot\'s seat (R43)', async () => {
@@ -872,6 +882,26 @@ describe('LobbyRoom: focus after a request at the table (R38, R43)', () => {
         expect(await screen.findByRole('alert')).toHaveTextContent('Team A is full')
         await settled()
         expect(document.activeElement).toBe(seatAt('top'))
+    })
+
+    test('focus that started on the page and was moved onto a seat during the request stays on that seat (R45)', async () => {
+        let land: (value: LobbyDTO) => void = () => {}
+        vi.mocked(lobbyService.addBot).mockImplementation(() => new Promise<LobbyDTO>((resolve) => { land = resolve }))
+        serve(alone())
+        renderLobby()
+        await screen.findByRole('button', { name: 'Add a bot to team A' })
+        expect(document.activeElement).toBe(document.body)
+        // a tap that doesn't take focus (Safari): the request starts with focus on the page
+        fireEvent.click(chipAt('top') as HTMLElement)
+        expect(screen.getByRole('button', { name: 'Adding…' })).toBeInTheDocument()
+        // meanwhile the user tabs onto her own seat, which no request remounts
+        const mine = seatAt('bottom') as HTMLElement
+        act(() => mine.focus())
+        serve(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [], unassignedPlayers: [] }))
+        await act(async () => land(alone()))
+        await screen.findByRole('button', { name: 'Remove Bot-Ana, team A, bot' })
+        await settled()
+        expect(document.activeElement).toBe(mine)
     })
 
     test('a sheet opened while a request runs keeps focus when it ends (I2)', async () => {

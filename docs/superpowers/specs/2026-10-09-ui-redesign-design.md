@@ -534,7 +534,7 @@ Each screen gives its purpose, entry points, states, layout (375 and desktop), t
     - the lobby name (`display`, the only `h1`);
     - chips for Casual, Private (lock) and the host (crown);
     - a "Copy invite link" icon button.
-  - **The table:** a dithered felt with a wooden rim (notch-6), 330 px tall on phones (348 px in the host's view of a lobby that takes bots, for the "+ Bot" under each empty seat), 420 px on desktop.
+  - **The table:** a dithered felt with a wooden rim (notch-6), 330 px tall on phones (348 px in the host's view of a lobby that takes bots, for the "+ Bot" under each team's first open seat), 420 px on desktop.
     - **The seat geometry matches the board:** turn order is A1 → B1 → A2 → B2, running counter-clockwise.
       - If you're seated, you're at the **bottom**, the next seat in turn order is on your **right**, your partner is at the **top**, and the remaining seat is on the **left**.
       - If you're not seated, A1 is at the bottom.
