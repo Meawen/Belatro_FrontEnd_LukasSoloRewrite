@@ -40,6 +40,9 @@ describe('lobbyModel (spec §4.6)', () => {
         expect(isBot(mira)).toBe(false)
         expect(isBot(null)).toBe(false)
         expect(isBot(undefined)).toBe(false)
+        // the board's seats (a game's PlayerPublicInfo) go by the same rule (R13)
+        expect(isBot({ id: 'Bot-Ana', cardsLeft: 6, bot: true })).toBe(true)
+        expect(isBot({ id: 'Bot-Mara', cardsLeft: 6 })).toBe(false)
     })
 
     test('people and bots are counted apart; full means four people, so a host with three bots is not full', () => {

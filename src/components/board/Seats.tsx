@@ -3,6 +3,7 @@ import { MotionConfig, m } from 'motion/react';
 import { fade, spring } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
 import { Tag } from '../ui/Chip';
+import { PixelIcon } from '../ui/PixelIcon';
 import { SUIT_LABEL } from '../game/gameView';
 import { secondsLeft, type BoardModel, type SeatModel } from './model/boardModel';
 import type { Layout, Target, Targets } from './model/cardTargets';
@@ -96,7 +97,10 @@ export function Seats({ model, targets, layout, instant }: SeatsProps) {
                     <div key={seat.id} data-testid={`seat-${seat.id}`} data-current={seat.current ? 'true' : undefined} className="board-seat" style={seatSpot(seat, targets, layout)}>
                         <span className="board-seat__name notch t-footnote font-semibold" data-turn={seat.current || undefined}>
                             <span className={seat.team === 'B' ? 'board-seat__team bg-team-b' : 'board-seat__team bg-team-a'} aria-hidden="true" />
-                            <span className="board-seat__label" title={seat.isMe ? undefined : seat.id}>{seat.isMe ? 'You' : seat.id}</span>
+                            {/* a bot: the lobby's robot beside its name, and "(bot)" in its name (casual bots spec §7) */}
+                            {seat.bot && <PixelIcon name="robot" className="board-seat__bot" />}
+                            <span className="board-seat__label" title={seat.isMe ? undefined : seat.bot ? `${seat.id} (bot)` : seat.id}>{seat.isMe ? 'You' : seat.id}</span>
+                            {seat.bot && <span className="sr-only"> (bot)</span>}
                             {seat.dealer && (
                                 <span data-testid="dealer-chip" className="board-seat__dealer font-pix">
                                     <span aria-hidden="true">D</span>

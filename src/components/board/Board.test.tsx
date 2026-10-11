@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, afterEach, beforeEach } from 'vitest'
 import { act, cleanup, screen, within } from '@testing-library/react'
-import { privateFor, renderBoard, stateOf, tableState, view } from './testing'
+import { privateFor, renderBoard, seating, stateOf, tableState, view } from './testing'
 import { find, indexOf, playTable } from '../../test/fixtures/views/table'
 import type { GamePhase } from '../../types/game'
 
@@ -114,6 +114,24 @@ describe('Board: seats, phase, team and trick (GameTable cases, R-31)', () => {
     test('who declared bela is shown', () => {
         board(view({ gameState: 'PLAYING', belaDeclaredByPlayer: { alice: false, bob: true, carol: false, dave: false } }))
         expect(screen.getAllByTestId('declaration').map((el) => el.textContent)).toEqual(['bob: bela 20'])
+    })
+
+    test('a bot\'s seat has a robot mark beside its name, and its name and title say "(bot)"; a person\'s seat has neither (casual bots spec §7)', () => {
+        // dave's place is Bot-Ana's: the server's flag marks her, never her name
+        const [alice, bob, carol] = seating
+        const botAna = { id: 'Bot-Ana', cardsLeft: 6, bot: true }
+        board(view({ teamA: [alice, carol], teamB: [bob, botAna], seatingOrder: [alice, bob, carol, botAna] }))
+
+        const bot = screen.getByTestId('seat-Bot-Ana')
+        expect(bot.querySelector('svg.board-seat__bot')).toHaveAttribute('aria-hidden', 'true')
+        expect(within(bot).getByTitle('Bot-Ana (bot)').textContent).toBe('Bot-Ana')
+        expect(bot).toHaveTextContent(/^Bot-Ana \(bot\)/)
+
+        for (const person of ['seat-bob', 'seat-alice', 'seat-carol']) {
+            expect(screen.getByTestId(person).querySelector('.board-seat__bot')).toBeNull()
+            expect(screen.getByTestId(person)).not.toHaveTextContent('(bot)')
+        }
+        expect(within(screen.getByTestId('seat-bob')).getByTitle('bob').textContent).toBe('bob')
     })
 })
 

@@ -17,8 +17,11 @@ export function memberCount(lobby: LobbyDTO): number {
     return membersOf(lobby).length;
 }
 
-/** A bot, by the server's flag; never tell one by its name. */
-export function isBot(member: UserSimpleDTO | null | undefined): boolean {
+/**
+ * A bot, by the server's flag; never tell one by its name. Any member with the flag: a lobby's `UserSimpleDTO` or a
+ * game's `PlayerPublicInfo` (the board's seats), so the flag-only rule lives here once.
+ */
+export function isBot(member: { bot?: boolean } | null | undefined): boolean {
     return member?.bot === true;
 }
 

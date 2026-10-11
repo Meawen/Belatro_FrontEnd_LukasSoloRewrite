@@ -107,6 +107,15 @@ describe('LobbyQuickLook (spec §4.6)', () => {
         expect(screen.queryByRole('button', { name: 'Join lobby' })).not.toBeInTheDocument()
     })
 
+    test('a lobby whose other seats are bots is not full: an outsider can join (casual bots spec §7)', async () => {
+        const bots = [1, 2, 3].map((n) => ({ id: `b${n}`, username: `Bot-${n}`, bot: true }))
+        renderQuickLook(lobby({ teamAPlayers: [bob, bots[0]], teamBPlayers: [bots[1], bots[2]] }))
+        expect(screen.queryByRole('button', { name: 'Lobby full' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Join lobby' })).toBeEnabled()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Join lobby' }))
+        expect(lobbyService.joinLobby).toHaveBeenCalledWith('l1', { lobbyId: 'l1', password: null })
+    })
+
     test('a lobby that left the open list says so and offers only Close', async () => {
         renderQuickLook(lobby(), true)
         expect(screen.getByText('This lobby is no longer open')).toBeInTheDocument()

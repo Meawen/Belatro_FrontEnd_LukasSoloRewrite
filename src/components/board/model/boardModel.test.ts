@@ -45,6 +45,12 @@ describe('boardModel: seats (spec §5.3.2, §5.3.3)', () => {
     test('someone not seated is not seated', () => {
         expect(model(state(view()), 'zoe')).toMatchObject({ seated: false, myTeam: null })
     })
+
+    test('a bot is told by the server\'s flag on its seat; a false or missing flag is a person (casual bots spec §7)', () => {
+        const flagged = seating.map((seat) => (seat.id === 'dave' ? { ...seat, bot: true } : seat.id === 'bob' ? { ...seat, bot: false } : seat))
+        const m = model(state(view({ seatingOrder: flagged })))
+        expect(m.seats.map((s) => [s.id, s.bot])).toEqual([['carol', false], ['dave', true], ['alice', false], ['bob', false]])
+    })
 })
 
 describe('boardModel: HUD', () => {
