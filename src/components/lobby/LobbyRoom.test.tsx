@@ -14,10 +14,10 @@ import type { MatchDTO } from '../../types/match'
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', username: 'ana' } }) }))
 vi.mock('../../services/matchService', () => ({ matchService: { getMatchByLobbyId: vi.fn() } }))
 
-const ana = { id: 'u1', username: 'ana' }
-const bob = { id: 'u2', username: 'bob' }
-const cy = { id: 'u3', username: 'cy' }
-const dan = { id: 'u4', username: 'dan' }
+const ana = { id: 'u1', username: 'ana', bot: false }
+const bob = { id: 'u2', username: 'bob', bot: false }
+const cy = { id: 'u3', username: 'cy', bot: false }
+const dan = { id: 'u4', username: 'dan', bot: false }
 const botAna = { id: 'b1', username: 'Bot-Ana', bot: true }
 const botTin = { id: 'b2', username: 'Bot-Tin', bot: true }
 const botNika = { id: 'b3', username: 'Bot-Nika', bot: true }
@@ -372,7 +372,7 @@ describe('LobbyRoom: joining, leaving and the host (spec §4.7 Actions)', () => 
     test('a non-member sees "Join lobby"; after joining they appear Not seated (AC 1)', async () => {
         serve(lobby({ hostUser: bob, teamAPlayers: [bob], teamBPlayers: [], unassignedPlayers: [] }))
         renderLobby()
-        expect(await screen.findByText('You are looking at this lobby. Join to pick a seat.')).toBeInTheDocument()
+        expect(await screen.findByText('You are looking at this lobby. Join to play.')).toBeInTheDocument()
         expect(screen.getAllByRole('button', { name: /^Open seat, team/ })).toHaveLength(3)
         serve(lobby({ hostUser: bob, teamAPlayers: [bob], teamBPlayers: [], unassignedPlayers: [ana] }))
         await userEvent.setup().click(screen.getByRole('button', { name: 'Join lobby' }))
@@ -493,7 +493,7 @@ describe('LobbyRoom: joining, leaving and the host (spec §4.7 Actions)', () => 
 })
 
 describe('LobbyRoom: bots (casual bots spec §7)', () => {
-    const HOST_HINT = "Anyone who joins takes a bot's seat. To play alone, make the lobby private."
+    const HOST_HINT = "Anyone who joins takes a bot's seat. To play alone, create a private lobby."
     const alone = () => lobby({ teamAPlayers: [ana], teamBPlayers: [], unassignedPlayers: [] })
 
     test('the host\'s "+ Bot" chip adds a bot on that seat\'s team, and the lobby refreshes', async () => {
@@ -547,7 +547,36 @@ describe('LobbyRoom: bots (casual bots spec §7)', () => {
         expect(screen.getByRole('heading', { name: 'Friday' })).toBeInTheDocument()
     })
 
-    test('"Fill with bots" fills the free seats; then there is nothing left to fill', async () => {
+    // R25: the backend's 503 reaches the wire as Spring's default body; its text means nothing to a player
+    test('a chip or a fill answered 5xx says bots aren\'t available, not the server\'s text', async () => {
+        const user = userEvent.setup()
+        vi.mocked(lobbyService.addBot).mockRejectedValue(unavailable())
+        vi.mocked(lobbyService.fillBots).mockRejectedValue(new ApiError({ status: 500, message: 'Internal Server Error' }))
+        serve(alone())
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Add a bot to team A' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent("Bots aren't available right now. Try again later.")
+        expect(screen.queryByText(/Service Unavailable/)).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Fill with bots' }))
+        expect(lobbyService.fillBots).toHaveBeenCalledWith('l1')
+        expect(await screen.findByRole('alert')).toHaveTextContent("Bots aren't available right now. Try again later.")
+        expect(screen.queryByText(/Internal Server Error/)).not.toBeInTheDocument()
+    })
+
+    test('a bot request the server refuses (403, 409) shows the server\'s message as it is', async () => {
+        const user = userEvent.setup()
+        vi.mocked(lobbyService.addBot).mockRejectedValue(new ApiError({ status: 403, message: 'Only the host can add bots' }))
+        vi.mocked(lobbyService.fillBots).mockRejectedValue(new ApiError({ status: 409, message: 'No seat to fill' }))
+        serve(alone())
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Add a bot to team A' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent('Only the host can add bots')
+        await user.click(screen.getByRole('button', { name: 'Fill with bots' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent('No seat to fill')
+        expect(screen.queryByText(/Bots aren't available/)).not.toBeInTheDocument()
+    })
+
+    test('"Fill with bots" fills the free seats; then there is nothing left to fill, and it goes (R26)', async () => {
         serve(alone())
         renderLobby()
         const fill = await screen.findByRole('button', { name: 'Fill with bots' })
@@ -556,9 +585,21 @@ describe('LobbyRoom: bots (casual bots spec §7)', () => {
         await userEvent.setup().click(fill)
         expect(lobbyService.fillBots).toHaveBeenCalledWith('l1')
         expect(await screen.findByRole('button', { name: 'Bot-Nika, team B, bot' })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Fill with bots' })).toBeDisabled()
+        expect(screen.queryByRole('button', { name: 'Fill with bots' })).not.toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Start match' })).toBeEnabled()
         expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
+    })
+
+    test('no seat to fill, no "Fill with bots": a ready table, and a full one with someone standing (R26)', async () => {
+        serve(lobby())
+        renderLobby()
+        expect(await screen.findByRole('button', { name: 'Start match' })).toBeEnabled()
+        expect(screen.queryByRole('button', { name: 'Fill with bots' })).not.toBeInTheDocument()
+        cleanup()
+        serve(lobby({ teamAPlayers: [ana, bob], teamBPlayers: [cy], unassignedPlayers: [dan] }))
+        renderLobby()
+        expect(await screen.findByText("dan hasn't taken a seat yet.")).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Fill with bots' })).not.toBeInTheDocument()
     })
 
     test('while a fill runs, no seat and no chip takes a tap', async () => {
@@ -651,6 +692,42 @@ describe('LobbyRoom: bots (casual bots spec §7)', () => {
         renderLobby()
         expect(await screen.findByText('The host starts the match when all four seats are taken.')).toBeInTheDocument()
         expect(screen.queryByText(HOST_HINT)).not.toBeInTheDocument()
+    })
+
+    test('while Start is in flight, no "+ Bot" chip and no "Fill with bots", though a poll shows a seat free (R27)', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+        vi.mocked(lobbyService.startMatch).mockImplementation(() => new Promise<MatchDTO>(() => {}))
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Start match' }))
+        // dan leaves on the server while the start runs
+        serve(lobby({ teamBPlayers: [cy] }))
+        await wait(2000)
+        expect(screen.getByRole('button', { name: 'Sit here, team B' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Fill with bots' })).not.toBeInTheDocument()
+        expect(lobbyService.addBot).not.toHaveBeenCalled()
+    })
+
+    test('an outsider at a table of three bots is told to join to play; the join seats them in a bot\'s place', async () => {
+        serve(lobby({ hostUser: bob, teamAPlayers: [bob, botAna], teamBPlayers: [botTin, botNika], unassignedPlayers: [] }))
+        renderLobby()
+        expect(await screen.findByText('You are looking at this lobby. Join to play.')).toBeInTheDocument()
+        serve(lobby({ hostUser: bob, teamAPlayers: [bob, botAna], teamBPlayers: [botTin, ana], unassignedPlayers: [] }))
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Join lobby' }))
+        expect(await screen.findByRole('button', { name: 'ana (you), team B' })).toBeInTheDocument()
+        expect(screen.getByText('The host starts the match when all four seats are taken.')).toBeInTheDocument()
+        expect(screen.queryByText('Not seated')).not.toBeInTheDocument()
+    })
+
+    test('a lobby from a backend before bots (no flag on its host) shows no chips and no "Fill with bots" (R27)', async () => {
+        const host = { id: 'u1', username: 'ana' }
+        serve(lobby({ hostUser: host, teamAPlayers: [host], teamBPlayers: [], unassignedPlayers: [] }))
+        renderLobby()
+        expect(await screen.findByRole('button', { name: 'Start match' })).toBeInTheDocument()
+        expect(screen.getAllByRole('button', { name: 'Sit here, team B' })).toHaveLength(2)
+        expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Fill with bots' })).not.toBeInTheDocument()
     })
 
     test('a ranked lobby takes no bots: no chips and no "Fill with bots" (R12)', async () => {

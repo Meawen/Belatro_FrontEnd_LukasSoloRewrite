@@ -2,11 +2,12 @@ import { describe, test, expect } from 'vitest'
 import { canAddBot, fillableSeats, hostHint, isReadyToStart, lobbyHint, memberStatus, seatAction, seatLabel, seatedCount, startReadiness, tableSeats, takesBots, teamOf } from './seats'
 import type { LobbyDTO } from '../../types/lobby'
 
-const mira = { id: 'u9', username: 'mira_z' }
-const luka = { id: 'u2', username: 'luka' }
-const ivo = { id: 'u3', username: 'ivo' }
-const tea = { id: 'u4', username: 'tea_r' }
-const dino = { id: 'u5', username: 'dino' }
+// people as a backend with bots sends them: the flag is always there, false for a person
+const mira = { id: 'u9', username: 'mira_z', bot: false }
+const luka = { id: 'u2', username: 'luka', bot: false }
+const ivo = { id: 'u3', username: 'ivo', bot: false }
+const tea = { id: 'u4', username: 'tea_r', bot: false }
+const dino = { id: 'u5', username: 'dino', bot: false }
 const ana = { id: 'b1', username: 'Bot-Ana', bot: true }
 const tin = { id: 'b2', username: 'Bot-Tin', bot: true }
 
@@ -110,6 +111,18 @@ describe('seats (spec §4.7, §5.3.2)', () => {
         expect(takesBots(lobby({ gameMode: 'RANKED' }))).toBe(false)
     })
 
+    test('a backend before bots sends no flag: its lobby takes no bots, so no chip and no fill ask it for one (R27)', () => {
+        const older = lobby({ hostUser: { id: 'u9', username: 'mira_z' }, teamAPlayers: [{ id: 'u9', username: 'mira_z' }], teamBPlayers: [] })
+        const empty = tableSeats(older, 'u9').find((s) => s.key === 'B1')!
+        expect(empty.player).toBeNull()
+        expect(takesBots(older)).toBe(false)
+        expect(canAddBot(empty, older, 'u9')).toBe(false)
+        expect(takesBots(lobby({ hostUser: null }))).toBe(false)
+        const current = lobby({ teamAPlayers: [mira], teamBPlayers: [] })
+        expect(takesBots(current)).toBe(true)
+        expect(canAddBot(tableSeats(current, 'u9').find((s) => s.key === 'B1')!, current, 'u9')).toBe(true)
+    })
+
     test('seats to fill: the free team places, but never past four members, so an unassigned person keeps a seat', () => {
         expect(fillableSeats(lobby({ teamAPlayers: [mira], teamBPlayers: [] }))).toBe(3)
         expect(fillableSeats(lobby())).toBe(1)
@@ -123,7 +136,7 @@ describe('seats (spec §4.7, §5.3.2)', () => {
 
     test('the host\'s hint: in a public lobby with a bot, a joiner takes the bot\'s seat', () => {
         const withBot = lobby({ teamBPlayers: [ana] })
-        expect(hostHint(withBot, 'u9')).toBe("Anyone who joins takes a bot's seat. To play alone, make the lobby private.")
+        expect(hostHint(withBot, 'u9')).toBe("Anyone who joins takes a bot's seat. To play alone, create a private lobby.")
         expect(hostHint(lobby({ teamBPlayers: [ana], privateLobby: true }), 'u9')).toBeNull()
         expect(hostHint(lobby(), 'u9')).toBeNull()
         expect(hostHint(withBot, 'u2')).toBeNull()
@@ -166,7 +179,7 @@ describe('seats (spec §4.7, §5.3.2)', () => {
     test('hints under the table and the member\'s status line', () => {
         const l = lobby({ unassignedPlayers: [tea] })
         expect(lobbyHint(l, 'u9')).toBeNull()
-        expect(lobbyHint(l, 'u7')).toBe('You are looking at this lobby. Join to pick a seat.')
+        expect(lobbyHint(l, 'u7')).toBe('You are looking at this lobby. Join to play.')
         expect(lobbyHint(l, 'u4')).toBe('Pick a seat. Partners sit opposite each other.')
         expect(lobbyHint(l, 'u3')).toBe('The host starts the match when all four seats are taken.')
         expect(memberStatus(l, 'u4')).toBe('Tap an open seat.')

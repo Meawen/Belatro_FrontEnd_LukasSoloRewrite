@@ -12,7 +12,7 @@ import { ApiError } from '../../services/api';
 import { spring } from '../../motion/tokens';
 import type { LobbyDTO, LobbyTeam } from '../../types/lobby';
 import type { UserSimpleDTO } from '../../types/user';
-import { errorMessage } from '../../utils/errorMessage';
+import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
 import { LobbyActionBar, type LobbyRole } from './LobbyActionBar';
 import { ConfirmSheet, OptionsSheet, PasswordSheet, SeatSheet } from './LobbySheets';
 import { LobbyTable, type SeatBusy } from './LobbyTable';
@@ -24,6 +24,14 @@ export interface LobbyRoomProps {
 }
 
 const BACK = { to: '/lobbies', label: 'Lobbies' };
+
+/** A bot request with no usable answer: the backend's 503 (no bot free) reaches the wire as Spring's default body (R25). */
+const BOTS_UNAVAILABLE = "Bots aren't available right now. Try again later.";
+
+/** A bot request's failure: a refusal (403, 409) in the server's words; no answer or a 5xx as BOTS_UNAVAILABLE. */
+function botFailure(e: unknown, fallback: string): string {
+    return e instanceof ApiError && isNetworkOrServerFailure(e.status) ? BOTS_UNAVAILABLE : errorMessage(e, fallback);
+}
 
 /**
  * /lobby/:lobbyId (spec §4.7, D-18): take a seat at the table; the host starts the match. The lobby comes
@@ -152,6 +160,8 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     const hint = lobbyHint(lobby, me) ?? hostHint(lobby, me);
     const mySeat = tableSeats(lobby, me).find((seat) => seat.player !== null && seat.player.id === me);
     const launching = starting || following;
+    // the host's "+ Bot" chips and "Fill with bots": in a lobby that takes bots, and never while the match starts (R27)
+    const botControls = takesBots(lobby) && !launching;
     const closeSheet = () => setSheet(null);
 
     const copyInvite = () => {
@@ -167,8 +177,8 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     };
 
     // One request at the table at a time (a seat change, a bot, a fill): the seat it is about is aria-busy and says
-    // what is happening, and no seat or chip takes a tap meanwhile. A refusal shows the server's message.
-    const atTable = async (pending: SeatBusy, request: () => Promise<unknown>, fallback: string) => {
+    // what is happening, and no seat or chip takes a tap meanwhile. `failure` words what went wrong.
+    const atTable = async (pending: SeatBusy, request: () => Promise<unknown>, failure: (e: unknown) => string) => {
         if (busy) return;
         setActionError(null);
         setBusy(pending);
@@ -176,7 +186,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
             await request();
             await refresh();
         } catch (e) {
-            setActionError(errorMessage(e, fallback));
+            setActionError(failure(e));
         } finally {
             setBusy(null);
         }
@@ -186,13 +196,14 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
         atTable(
             { key, label: teamOf(lobby, me) === 'U' && targetTeam !== 'U' ? 'Joining…' : 'Switching…' },
             () => lobbyService.switchTeam(lobbyId, { lobbyId, targetTeam }),
-            'Failed to switch team',
+            (e) => errorMessage(e, 'Failed to switch team'),
         );
 
     const addBot = (seat: TableSeat) =>
-        atTable({ key: seat.key, label: 'Adding…' }, () => lobbyService.addBot(lobbyId, seat.team), 'Failed to add a bot');
+        atTable({ key: seat.key, label: 'Adding…' }, () => lobbyService.addBot(lobbyId, seat.team), (e) => botFailure(e, 'Failed to add a bot'));
 
-    const fillWithBots = () => atTable({ key: null, label: 'Filling with bots…' }, () => lobbyService.fillBots(lobbyId), 'Failed to fill with bots');
+    const fillWithBots = () =>
+        atTable({ key: null, label: 'Filling with bots…' }, () => lobbyService.fillBots(lobbyId), (e) => botFailure(e, 'Failed to fill with bots'));
 
     const askRemove = (member: UserSimpleDTO) => {
         setRemoving({ name: member.username ?? '', bot: isBot(member) });
@@ -227,7 +238,8 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
         navigate('/lobbies');
     };
 
-    // POST /lobbies/join puts the caller in Unassigned; the next fetch shows the member view (Not seated).
+    // POST /lobbies/join puts the caller in Unassigned, or, in a lobby of four with a bot, in that bot's seat; the next
+    // fetch shows the member view (Not seated, or seated).
     const join = async (password: string | null) => {
         await lobbyService.joinLobby(lobbyId, { lobbyId, password });
         closeSheet();
@@ -270,7 +282,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
             <div className="flex flex-col gap-4">
                 <ErrorAlert message={actionError} />
                 <ErrorAlert message={notice} />
-                <LobbyTable lobby={lobby} viewerId={me} busy={busy} onSeat={onSeat} onAddBot={(seat) => void addBot(seat)} launching={launching} />
+                <LobbyTable lobby={lobby} viewerId={me} busy={busy} onSeat={onSeat} onAddBot={botControls ? (seat) => void addBot(seat) : undefined} launching={launching} />
                 {/* on Start the table grows and the rest fades (spec §4.7 Motion) */}
                 <m.div className="flex flex-col gap-3" animate={{ opacity: launching ? 0 : 1 }} transition={spring.felt}>
                     <NotSeated lobby={lobby} viewerId={me} hostView={host} onRemove={askRemove} />
@@ -282,14 +294,15 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
                     canStart={ready}
                     starting={starting}
                     // any request at the table (a seat, a chip, a fill) disables Fill; the spinner is the fill's own
-                    canFill={busy === null && fillableSeats(lobby) > 0}
+                    canFill={busy === null}
                     filling={busy !== null && busy.key === null}
                     joining={joining}
                     privateLobby={lobby.privateLobby ?? false}
                     following={following}
                     onOptions={() => setSheet('options')}
                     onStart={() => void start()}
-                    onFill={takesBots(lobby) ? () => void fillWithBots() : undefined}
+                    // no seat to fill, no button (R26): a ready host's bar keeps one row on a phone
+                    onFill={botControls && fillableSeats(lobby) > 0 ? () => void fillWithBots() : undefined}
                     onLeave={() => setSheet('leave')}
                     onJoin={joinNow}
                 />

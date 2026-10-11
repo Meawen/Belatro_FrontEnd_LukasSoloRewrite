@@ -12,7 +12,7 @@ export interface LobbyActionBarProps {
     /** 2 + 2 seated and nobody unassigned. */
     canStart?: boolean;
     starting?: boolean;
-    /** A seat can take a bot (seats.ts `fillableSeats` > 0) and no request is running at the table. */
+    /** No request is running at the table; otherwise "Fill with bots" shows disabled. */
     canFill?: boolean;
     filling?: boolean;
     joining?: boolean;
@@ -21,7 +21,7 @@ export interface LobbyActionBarProps {
     following?: boolean;
     onOptions?: () => void;
     onStart?: () => void;
-    /** The host's "Fill with bots"; without it the button is not shown (a ranked lobby takes no bots). */
+    /** The host's "Fill with bots"; without it the button is not shown (a lobby that takes no bots, or no seat to fill). */
     onFill?: () => void;
     onLeave?: () => void;
     onJoin?: () => void;

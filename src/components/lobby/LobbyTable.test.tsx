@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event'
 import { LobbyTable } from './LobbyTable'
 import type { LobbyDTO } from '../../types/lobby'
 
-const mira = { id: 'u9', username: 'mira_z' }
-const luka = { id: 'u2', username: 'luka' }
-const ivo = { id: 'u3', username: 'ivo' }
-const tea = { id: 'u4', username: 'tea_r' }
+const mira = { id: 'u9', username: 'mira_z', bot: false }
+const luka = { id: 'u2', username: 'luka', bot: false }
+const ivo = { id: 'u3', username: 'ivo', bot: false }
+const tea = { id: 'u4', username: 'tea_r', bot: false }
 const botAna = { id: 'b1', username: 'Bot-Ana', bot: true }
 
 function lobby(overrides: Partial<LobbyDTO> = {}): LobbyDTO {

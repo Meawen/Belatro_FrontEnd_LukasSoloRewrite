@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { botCount, countLine, createdAgo, filterLobbies, isBot, isFull, isMember, lobbyName, lobbyRowLabel, memberCount, membersOf, peopleCount, sortLobbies } from './lobbyModel'
+import { botCount, countLabel, countLine, createdAgo, filterLobbies, isBot, isFull, isMember, lobbyName, lobbyRowLabel, memberCount, membersOf, peopleCount, sortLobbies } from './lobbyModel'
 import type { LobbyDTO } from '../../types/lobby'
 
 const mira = { id: 'u9', username: 'mira_z' }
@@ -70,6 +70,12 @@ describe('lobbyModel (spec §4.6)', () => {
         expect(countLine(lobby({ teamAPlayers: [mira, ana], teamBPlayers: [tin, nika] }))).toBe('1 of 4 · 3 bots')
     })
 
+    test('the count\'s spoken form says the same with a comma, not the middle dot (R27)', () => {
+        expect(countLabel(lobby())).toBe('1 of 4')
+        expect(countLabel(lobby({ teamAPlayers: [mira, ana] }))).toBe('1 of 4, 1 bot')
+        expect(countLabel(lobby({ teamAPlayers: [mira, ana], teamBPlayers: [tin, nika] }))).toBe('1 of 4, 3 bots')
+    })
+
     // X-6: today's "Most Players" added the other lobby's Team B (LobbyList.tsx:57)
     test('"Most players" orders by each lobby\'s own members, descending (AC 2, X-6)', () => {
         const three = lobby({ id: 'three', teamAPlayers: [mira], teamBPlayers: [ivo, tea] })
@@ -109,7 +115,7 @@ describe('lobbyModel (spec §4.6)', () => {
         expect(lobbyRowLabel(l, 'u2')).toBe("Kod Mire, host mira_z, 3 of 4, private, you're in")
         expect(lobbyRowLabel(lobby(), null)).toBe('Kod Mire, host mira_z, 1 of 4')
         const withBots = lobby({ teamAPlayers: [mira, ana], teamBPlayers: [luka, tin] })
-        expect(lobbyRowLabel(withBots, 'u2')).toBe("Kod Mire, host mira_z, 2 of 4 · 2 bots, you're in")
+        expect(lobbyRowLabel(withBots, 'u2')).toBe("Kod Mire, host mira_z, 2 of 4, 2 bots, you're in")
     })
 
     test('"Created …" in words: just now, minutes, hours, days; nothing without a date', () => {

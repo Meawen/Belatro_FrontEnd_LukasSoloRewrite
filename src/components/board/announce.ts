@@ -7,6 +7,9 @@ export function seatName(model: BoardModel, playerId: string): string {
     return playerId === model.me ? 'You' : playerId;
 }
 
+/** A bot's seat (the server's flag, SeatModel.bot). */
+const isBotSeat = (model: BoardModel, playerId: string) => model.seats.some((seat) => seat.id === playerId && seat.bot);
+
 const upheld = (team: Team | null) => (team ? `Challenge upheld: Team ${team} takes the hand` : 'Challenge upheld');
 
 /**
@@ -29,7 +32,8 @@ export function announce(events: readonly BoardEvent[], model: BoardModel, handN
     for (const event of events) {
         switch (event.type) {
             case 'Turn':
-                if (event.playerId) messages.push(event.playerId === model.me ? 'Your turn' : `${event.playerId}'s turn`);
+                // a bot's turn is not announced: its card comes a second or two later, and that is announced (R27)
+                if (event.playerId && !isBotSeat(model, event.playerId)) messages.push(event.playerId === model.me ? 'Your turn' : `${event.playerId}'s turn`);
                 break;
             case 'Bid':
                 if (event.call === 'PASS') messages.push(`${seatName(model, event.playerId)}: Pass`);

@@ -72,10 +72,11 @@ export function seatAction(seat: TableSeat, lobby: LobbyDTO, viewerId: string | 
 
 /**
  * Whether a lobby takes bots at all: never a ranked one (the room can show a legacy one, and the server refuses bots
- * there). The one rule behind the "+ Bot" chips (`canAddBot`) and "Fill with bots".
+ * there), and only from a backend with bots, which always sends its members' `bot` flag; one before bots sends none
+ * and has no bot routes (R27). The one rule behind the "+ Bot" chips (`canAddBot`) and "Fill with bots".
  */
 export function takesBots(lobby: LobbyDTO): boolean {
-    return lobby.gameMode !== 'RANKED';
+    return lobby.gameMode !== 'RANKED' && typeof lobby.hostUser?.bot === 'boolean';
 }
 
 /**
@@ -119,7 +120,8 @@ export function startReadiness(lobby: LobbyDTO): { ready: boolean; reason: strin
 export function lobbyHint(lobby: LobbyDTO, viewerId: string | null): string | null {
     if (isHost(lobby, viewerId)) return null;
     const team = teamOf(lobby, viewerId);
-    if (team === null) return 'You are looking at this lobby. Join to pick a seat.';
+    // true either way: a join lands in Unassigned, or in a bot's seat when four are there with a bot
+    if (team === null) return 'You are looking at this lobby. Join to play.';
     if (team === 'U') return 'Pick a seat. Partners sit opposite each other.';
     return 'The host starts the match when all four seats are taken.';
 }
@@ -127,7 +129,7 @@ export function lobbyHint(lobby: LobbyDTO, viewerId: string | null): string | nu
 /** The hint under the table for the host: a public lobby with a bot gives that bot's seat to whoever joins. */
 export function hostHint(lobby: LobbyDTO, viewerId: string | null): string | null {
     if (!isHost(lobby, viewerId) || lobby.privateLobby || botCount(lobby) === 0) return null;
-    return "Anyone who joins takes a bot's seat. To play alone, make the lobby private.";
+    return "Anyone who joins takes a bot's seat. To play alone, create a private lobby.";
 }
 
 /** A member's status line in the action bar. */

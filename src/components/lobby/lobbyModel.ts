@@ -42,12 +42,21 @@ export function isFull(lobby: LobbyDTO): boolean {
     return peopleCount(lobby) >= LOBBY_CAP;
 }
 
-/** "2 of 4", or with bots "2 of 4 · 2 bots": people of the cap, then the bots. */
-export function countLine(lobby: LobbyDTO): string {
+function counted(lobby: LobbyDTO, separator: string): string {
     const people = `${peopleCount(lobby)} of ${LOBBY_CAP}`;
     const bots = botCount(lobby);
     if (bots === 0) return people;
-    return `${people} · ${bots} ${bots === 1 ? 'bot' : 'bots'}`;
+    return `${people}${separator}${bots} ${bots === 1 ? 'bot' : 'bots'}`;
+}
+
+/** "2 of 4", or with bots "2 of 4 · 2 bots": people of the cap, then the bots. */
+export function countLine(lobby: LobbyDTO): string {
+    return counted(lobby, ' · ');
+}
+
+/** The count as an accessible name reads it: "2 of 4, 2 bots" (R27). */
+export function countLabel(lobby: LobbyDTO): string {
+    return counted(lobby, ', ');
 }
 
 export function lobbyName(lobby: LobbyDTO): string {
@@ -85,7 +94,7 @@ export function filterLobbies(lobbies: LobbyDTO[], term: string): LobbyDTO[] {
 
 /** A row's accessible name (spec §4.6 AC 6): "Kod Mire, host mira_z, 3 of 4, private". */
 export function lobbyRowLabel(lobby: LobbyDTO, userId: string | null | undefined): string {
-    const parts = [lobbyName(lobby), `host ${lobby.hostUser?.username ?? 'unknown'}`, countLine(lobby)];
+    const parts = [lobbyName(lobby), `host ${lobby.hostUser?.username ?? 'unknown'}`, countLabel(lobby)];
     if (lobby.privateLobby) parts.push('private');
     if (isMember(lobby, userId)) parts.push("you're in");
     return parts.join(', ');

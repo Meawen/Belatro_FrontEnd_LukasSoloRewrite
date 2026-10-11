@@ -52,7 +52,8 @@ function QuickLookBody({ lobby, gone, onClose }: { lobby: LobbyDTO; gone: boolea
     const member = isMember(lobby, me);
     const created = createdAgo(lobby.createdAt);
 
-    // Join, then straight into the lobby (D-19). The server adds the caller to Unassigned (idempotent for members).
+    // Join, then straight into the lobby (D-19). The server adds the caller to Unassigned, or to a bot's seat in a lobby
+    // of four with a bot (idempotent for members).
     const join = async (event: FormEvent) => {
         event.preventDefault();
         if (!lobby.id) return;

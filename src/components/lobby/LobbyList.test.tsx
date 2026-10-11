@@ -61,7 +61,8 @@ describe('LobbyList (spec §4.6)', () => {
     test('a row counts people, then bots: a host with three bots is "1 of 4 · 3 bots", not full, and its quick-look joins (casual bots spec §7)', async () => {
         const user = userEvent.setup()
         renderList([lobby({ privateLobby: false, teamAPlayers: [mira, botAna], teamBPlayers: [botTin, botNika] })])
-        const row = screen.getByRole('button', { name: 'Kod Mire, host mira_z, 1 of 4 · 3 bots' })
+        // the row reads "1 of 4 · 3 bots"; its name says it with a comma (R27)
+        const row = screen.getByRole('button', { name: 'Kod Mire, host mira_z, 1 of 4, 3 bots' })
         expect(row).toHaveTextContent('1 of 4 · 3 bots')
         expect(row).not.toHaveTextContent('Full')
         await user.click(row)

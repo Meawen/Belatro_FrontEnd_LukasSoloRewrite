@@ -26,6 +26,17 @@ describe('announce (spec §5.8)', () => {
             .toEqual(['alice: Pass', 'dave called Herc'])
     })
 
+    test('a bot\'s turn is not announced; what it plays still is, and a person\'s turn too (casual bots, R27)', () => {
+        const base = modelAt('play:bob:PIK-BABA')
+        const model: BoardModel = { ...base, seats: base.seats.map((seat) => (seat.id === 'dave' ? { ...seat, bot: true } : seat)) }
+        expect(announce([
+            { type: 'Turn', playerId: 'dave' },
+            { type: 'CardPlayed', playerId: 'dave', card: { boja: 'PIK', rank: 'BABA' }, id: 'PIK-BABA', mine: false, recovered: false },
+            { type: 'Turn', playerId: 'alice' },
+        ], model, null)).toEqual(['dave played Baba Pik', "alice's turn"])
+        expect(announce([{ type: 'Turn', playerId: 'carol' }], model, null)).toEqual(['Your turn'])
+    })
+
     test('the hand result in Mi and Vi from my side, with its number once known', () => {
         const model = modelAt('hand-complete')
         expect(announce([{ type: 'HandCompleted', delta: { a: 11, b: 171 } }], model, 1)).toEqual(['Hand 1: Mi 11, Vi 171'])
