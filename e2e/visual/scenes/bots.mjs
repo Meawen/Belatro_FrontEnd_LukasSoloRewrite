@@ -3,15 +3,16 @@
 // scene format is documented at the top of e2e/visual.mjs. The fixtures leave `createdAt` null, so no shot depends on
 // the clock.
 
-const MIRA = { id: 'u9', username: 'mira_z' };
-const IVO = { id: 'u3', username: 'ivo' };
+// people as a backend with bots sends them: the flag is always there, false for a person (without it, no bot controls)
+const MIRA = { id: 'u9', username: 'mira_z', bot: false };
+const IVO = { id: 'u3', username: 'ivo', bot: false };
 const BOT_ANA = { id: 'b1', username: 'Bot-Ana', bot: true };
 const BOT_TIN = { id: 'b2', username: 'Bot-Tin', bot: true };
 const BOT_NIKA = { id: 'b3', username: 'Bot-Nika', bot: true };
 const BOT_LUKA = { id: 'b4', username: 'Bot-Luka', bot: true };
 const BOT_MARA = { id: 'b5', username: 'Bot-Mara', bot: true };
-const BOT_TOMO = { id: 'b6', username: 'Bot-Tomo', bot: true };
-const TEA = { id: 'u4', username: 'tea_r' };
+const BOT_IVO = { id: 'b6', username: 'Bot-Ivo', bot: true };
+const TEA = { id: 'u4', username: 'tea_r', bot: false };
 const BOTH = ['1440x900', '375x812'];
 
 /** The shell's own questions for a verified player who is in no game. */
@@ -68,14 +69,14 @@ const openLobbies = {
     'GET /lobbies/open': {
         json: [
             listed('b1', 'Kod Mire', MIRA, { teamAPlayers: [MIRA, BOT_ANA], teamBPlayers: [BOT_TIN, BOT_NIKA] }),
-            listed('b2', 'Petak u pet', { id: 'u5', username: 'dino' }, {
-                teamAPlayers: [{ id: 'u5', username: 'dino' }, { id: 'u6', username: 'iva' }], teamBPlayers: [BOT_LUKA], privateLobby: true,
+            listed('b2', 'Petak u pet', { id: 'u5', username: 'dino', bot: false }, {
+                teamAPlayers: [{ id: 'u5', username: 'dino', bot: false }, { id: 'u6', username: 'iva', bot: false }], teamBPlayers: [BOT_LUKA], privateLobby: true,
             }),
-            listed('b3', 'Subotnja', { id: 'u7', username: 'marko' }, {
-                teamAPlayers: [{ id: 'u7', username: 'marko' }, { id: 'u8', username: 'petra' }],
-                teamBPlayers: [{ id: 'u10', username: 'tomo' }], unassignedPlayers: [{ id: 'u11', username: 'lana' }],
+            listed('b3', 'Subotnja', { id: 'u7', username: 'marko', bot: false }, {
+                teamAPlayers: [{ id: 'u7', username: 'marko', bot: false }, { id: 'u8', username: 'petra', bot: false }],
+                teamBPlayers: [{ id: 'u10', username: 'tomo', bot: false }], unassignedPlayers: [{ id: 'u11', username: 'lana', bot: false }],
             }),
-            listed('b4', 'Bela kod Tee', TEA, { teamAPlayers: [TEA, BOT_MARA], teamBPlayers: [BOT_TOMO] }),
+            listed('b4', 'Bela kod Tee', TEA, { teamAPlayers: [TEA, BOT_MARA], teamBPlayers: [BOT_IVO] }),
         ],
     },
 };
