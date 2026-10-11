@@ -83,6 +83,7 @@ describe('AppShell on a wider screen (spec §4.1, X-9)', () => {
         const footer = screen.getByRole('contentinfo')
         expect(banner.compareDocumentPosition(page) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         expect(page.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(footer).toHaveTextContent('Card art by Maks Markovic')
         expect(screen.getByRole('main')).toContainElement(banner)
     })
 })

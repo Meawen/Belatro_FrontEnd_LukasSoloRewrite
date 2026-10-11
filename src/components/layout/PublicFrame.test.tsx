@@ -33,6 +33,7 @@ describe('PublicFrame (spec §4.15)', () => {
         expect(screen.getByText('Belot for four players.')).toBeInTheDocument()
         const footer = screen.getByRole('contentinfo')
         expect(footer).toHaveTextContent(`© ${new Date().getFullYear()} Stiglja`)
+        expect(footer).toHaveTextContent('Card art by Maks Markovic')
         expect(within(footer).getByRole('link', { name: 'Privacy' })).toHaveAttribute('href', '/privacy')
         expect(document.title).toBe('Rules · Stiglja')
         // signed out: no banner and no request
