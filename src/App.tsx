@@ -69,7 +69,7 @@ function App() {
                     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                     <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-                    {/* Public information pages: readable signed in or out (R-40), in the public frame */}
+                    {/* Public information pages: readable signed in or out (R-40), in the public frame; Rules sits in the shell signed in (owner 2026-10-11) */}
                     <Route path="/privacy" element={<PrivacyPage />} />
                     <Route path="/terms" element={<TermsPage />} />
                     <Route path="/rules" element={<RulesPage />} />

@@ -4,7 +4,7 @@ import { placedRanks } from './rankNames';
 /** The ladder's frame around the plot, in CSS px (ranks spec §7.3): the "You" tag above, the ticks below. */
 export const LADDER_PAD = { top: 26, bottom: 20, left: 28, right: 4 } as const;
 
-/** Plot heights: 150 px in a container at least this wide, else 120. */
+/** Plot heights: 110 px in a container at least this wide, else 96 (owner 2026-10-11: a tighter ladder). */
 export const WIDE_CHART = 768;
 
 /** A caption character's width, for "does the name fit" (caption: 12 px, 600, upper case, +0.04em; measured). */
@@ -84,7 +84,7 @@ export function ladderGeometry(ladder: Ladder, width: number, { you }: { you: nu
         left: LADDER_PAD.left,
         top: LADDER_PAD.top,
         width: Math.max(1, width - LADDER_PAD.left - LADDER_PAD.right),
-        height: width >= WIDE_CHART ? 150 : 120,
+        height: width >= WIDE_CHART ? 110 : 96,
     };
     const yourBin = you === null ? null : Math.floor(you / binSize) * binSize;
     const starts = [...ladder.bins.map((bin) => bin.from), ...(yourBin === null ? [] : [yourBin])];
@@ -94,7 +94,8 @@ export function ladderGeometry(ladder: Ladder, width: number, { you }: { you: nu
     const x = (rating: number) => plot.left + ((rating - lo) / binSize) * slot;
     const yMax = niceCeil(Math.max(0, ...ladder.bins.map((bin) => bin.count)));
     const baseline = plot.top + plot.height;
-    const barW = Math.max(1, Math.min(24, slot - 2));
+    // each bar fills its slot, 2 px from the next (owner 2026-10-11)
+    const barW = Math.max(1, slot - 2);
 
     const bars = ladder.bins.map((bin) => {
         const h = (bin.count / yMax) * plot.height;

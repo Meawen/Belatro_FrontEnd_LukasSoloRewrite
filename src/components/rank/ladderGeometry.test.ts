@@ -11,22 +11,24 @@ describe('niceCeil', () => {
 })
 
 describe('ladderGeometry', () => {
-    test('one slot per 100 points from the lowest bin to the end of the highest; bars at most 24 px, centred', () => {
+    // owner 2026-10-11: a tighter ladder, bars that touch and a shorter plot
+    test('one slot per 100 points from the lowest bin to the end of the highest; each bar fills its slot, 2 px from the next', () => {
         const g = ladderGeometry(LADDER, 848, { you: null })
-        expect(g.plot).toEqual({ left: LADDER_PAD.left, top: LADDER_PAD.top, width: 848 - LADDER_PAD.left - LADDER_PAD.right, height: 150 })
+        expect(g.plot).toEqual({ left: LADDER_PAD.left, top: LADDER_PAD.top, width: 848 - LADDER_PAD.left - LADDER_PAD.right, height: 110 })
         expect([g.lo, g.hi]).toEqual([900, 1800])
         expect(g.slot).toBeCloseTo(816 / 9)
         expect(g.bars).toHaveLength(9)
-        for (const bar of g.bars) expect(bar.w).toBe(24)
-        const first = g.bars[0]
-        expect(first.x).toBeCloseTo(LADDER_PAD.left + (g.slot - 24) / 2)
-        expect(g.height).toBe(LADDER_PAD.top + 150 + LADDER_PAD.bottom)
+        for (const bar of g.bars) expect(bar.w).toBeCloseTo(g.slot - 2)
+        const [first, second] = g.bars
+        expect(first.x).toBeCloseTo(LADDER_PAD.left + 1)
+        expect(second.x - (first.x + first.w)).toBeCloseTo(2)
+        expect(g.height).toBe(LADDER_PAD.top + 110 + LADDER_PAD.bottom)
     })
 
-    test('a narrow container: a 120-px plot and thinner bars once the slot is small, with a 2-px gap', () => {
+    test('a narrow container: a 96-px plot, the bars still 2 px apart', () => {
         const wide: Ladder = { ...LADDER, bins: Array.from({ length: 20 }, (_, i) => ({ from: 800 + i * 100, count: 3 + i })) }
         const g = ladderGeometry(wide, 311, { you: null })
-        expect(g.plot.height).toBe(120)
+        expect(g.plot.height).toBe(96)
         expect(g.slot).toBeCloseTo((311 - LADDER_PAD.left - LADDER_PAD.right) / 20)
         expect(g.bars[0].w).toBeCloseTo(g.slot - 2)
     })
@@ -36,8 +38,8 @@ describe('ladderGeometry', () => {
         expect(g.yMax).toBe(100)
         expect(g.grid.map((line) => line.value)).toEqual([50, 100])
         const tallest = g.bars.find((bar) => bar.count === 85)!
-        expect(tallest.h).toBeCloseTo(0.85 * 150)
-        expect(tallest.y + tallest.h).toBeCloseTo(LADDER_PAD.top + 150)
+        expect(tallest.h).toBeCloseTo(0.85 * 110)
+        expect(tallest.y + tallest.h).toBeCloseTo(LADDER_PAD.top + 110)
     })
 
     test('each bar takes the rank its bin belongs to, from the ladder (no breakpoint in the code)', () => {

@@ -6,7 +6,7 @@ import { Button, Loader, Panel, Tag } from '../ui';
 import { cx } from '../ui/cx';
 import { aheadPercent } from './ladderGeometry';
 import { LadderChart } from './LadderChart';
-import { PLACEMENT_GAMES, placedRanks } from './rankNames';
+import { PLACEMENT_GAMES, placedRanks, rankTagline } from './rankNames';
 
 /** Under this many placed players the ladder says it is filling in instead of drawing (ranks spec §7.2). */
 export const LADDER_MIN_PLAYERS = 5;
@@ -54,15 +54,22 @@ export function LadderPanel() {
                     <LadderChart ladder={ladder} you={placed ? me!.eloRating! : null} />
                 </div>
                 {yourLine && <p className="t-callout">{yourLine}</p>}
-                <ul aria-label="Players per rank" className="flex flex-wrap gap-x-4 gap-y-2">
-                    {placedRanks(ladder).map((r) => (
-                        <li key={r.key} className="flex items-center gap-1.5">
-                            <Tag tone="rank" rank={r.key}>
-                                {r.name}
-                            </Tag>
-                            <span className="t-footnote tabular-nums text-text-2">{r.count}</span>
-                        </li>
-                    ))}
+                {/* each rank with its tagline under it (owner 2026-10-11): two, three or six to a row, by the panel's width */}
+                <ul aria-label="Players per rank" className="grid grid-cols-2 gap-x-4 gap-y-3 @md:grid-cols-3 @2xl:grid-cols-6">
+                    {placedRanks(ladder).map((r) => {
+                        const tagline = rankTagline(r.key);
+                        return (
+                            <li key={r.key} className="flex min-w-0 flex-col items-start gap-1">
+                                <span className="flex items-center gap-1.5">
+                                    <Tag tone="rank" rank={r.key}>
+                                        {r.name}
+                                    </Tag>
+                                    <span className="t-footnote tabular-nums text-text-2">{r.count}</span>
+                                </span>
+                                {tagline && <span className="t-footnote text-text-2">{tagline}</span>}
+                            </li>
+                        );
+                    })}
                 </ul>
                 {placing > 0 && <p className="t-footnote text-text-2">{plural(placing, 'player still placing', 'players still placing')}</p>}
             </>
@@ -70,7 +77,7 @@ export function LadderPanel() {
     }
 
     return (
-        <Panel as="section" aria-labelledby={titleId} className="flex flex-col gap-4">
+        <Panel as="section" aria-labelledby={titleId} className="@container flex flex-col gap-4">
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <h2 id={titleId} className="t-title">
                     The ladder

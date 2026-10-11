@@ -5,9 +5,13 @@ import { MemoryRouter } from 'react-router-dom'
 import { RulesPage } from './RulesPage'
 
 // signed out: the frame's active-game banner asks nothing
-vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAuthenticated: false, token: null }) }))
+const auth = vi.hoisted(() => ({ isLoading: false }))
+vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAuthenticated: false, token: null, isLoading: auth.isLoading }) }))
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+    vi.unstubAllGlobals()
+    auth.isLoading = false
+})
 
 function renderRules(path = '/rules') {
     return render(<MemoryRouter initialEntries={[path]}><RulesPage /></MemoryRouter>)
@@ -110,6 +114,22 @@ describe('the full rules (ranks spec §9.2)', () => {
     test('a page opened at one of its sections opens the disclosure (F-4)', () => {
         renderRules('/rules#rules-ranks')
         expect((document.getElementById('full-rules') as HTMLDetailsElement).open).toBe(true)
+    })
+
+    // owner 2026-10-11: the page waits for the session (it picks the shell or the public frame); a link still lands
+    test('a link to a section still scrolls there when the page first waits for the session', () => {
+        const scroll = vi.fn()
+        Element.prototype.scrollIntoView = scroll
+        try {
+            auth.isLoading = true
+            const { rerender } = renderRules('/rules#rules-ranks')
+            auth.isLoading = false
+            rerender(<MemoryRouter initialEntries={['/rules#rules-ranks']}><RulesPage /></MemoryRouter>)
+            expect(scroll).toHaveBeenCalledTimes(1)
+            expect(scroll.mock.contexts[0]).toBe(document.getElementById('rules-ranks'))
+        } finally {
+            delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView
+        }
     })
 })
 

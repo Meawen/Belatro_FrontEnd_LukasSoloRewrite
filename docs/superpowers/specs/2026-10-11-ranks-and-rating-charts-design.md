@@ -262,17 +262,20 @@ The chart measures its container (`ResizeObserver`; 640 px when unavailable, as 
 
 | | ≥ 768 px wide container | < 768 px |
 | --- | --- | --- |
-| Plot height | 150 | 120 |
+| Plot height | 110 | 96 |
 | Top band (the "You" tag) | 26 | 26 |
 | Bottom band (x ticks) | 20 | 20 |
 | Left gutter (count ticks) | 28 | 28 |
 | Right gutter | 4 | 4 |
 
 At 1440 × 900 the panel is 880 px wide (848 inner); at 375 × 812 it is 343 (311 inner). No horizontal scroll.
+Owner, 2026-10-11 (after the rig look): a tighter ladder, so the plot is 110 / 96 px (was 150 / 120) and the bars
+touch (below).
 
 - **x:** shown rating. Domain `[lo, hi)`: `lo` = the lowest bin's `from` (or your bin's, if lower), `hi` = the highest
   bin's `from + binSize` (or your bin's end, if higher). One slot per `binSize` from `lo`; empty slots stay empty.
-- **Bars:** one per non-empty bin, width `min(24, slot − 2)` centred in its slot, square ends (R-6), height
+- **Bars:** one per non-empty bin, width `slot − 2` (each bar fills its slot, 2 px from the next; owner 2026-10-11,
+  was `min(24, slot − 2)`), centred in its slot, square ends (R-6), height
   `count / yMax × plotHeight` from one baseline, fill = the bin's rank token. The bin's rank is the last of the six
   placed ranks whose `minRating` is null or ≤ `from`.
 - **y:** `yMax` = the largest count rounded up to a clean number (1, 2, 5 × 10ⁿ). Two hairline gridlines (`--edge`,
@@ -292,8 +295,11 @@ At 1440 × 900 the panel is 880 px wide (848 inner); at 375 × 812 it is 343 (31
 ### 7.4 Legend
 
 Under the "you" line: the six placed ranks as `RankChip` tags in rank order, each followed by its count
-(`t-footnote tabular-nums`), wrapping; then "{n} players still placing" (`t-footnote text-text-2`; "1 player still
-placing"; omitted when 0).
+(`t-footnote tabular-nums`) and, on a second line, its Croatian tagline (`t-footnote text-text-2`; owner 2026-10-11,
+option A of the tagline mock-ups). Two to a row, three from a 28 rem panel, six from 42 rem (container queries on the
+panel). `LadderDto` sends no taglines, so they come from the Rules data (`rulesData.ts`, `rankTagline`); a rank the
+SPA does not know shows its tag and count only (§11.3 F-4). Then "{n} players still placing" (`t-footnote text-text-2`;
+"1 player still placing"; omitted when 0).
 
 ### 7.5 Hover, tap and keyboard
 
@@ -420,7 +426,11 @@ real text. The SVG is `aria-hidden`.
 
 ### 9.1 The visual guide
 
-`src/components/info/RulesPage.tsx` keeps the `PublicPage` frame (680 px, the `h1` "Rules"). Under the `h1`, the
+`src/components/info/RulesPage.tsx`: signed in, the page sits in the shell with the sidebar (`AppShell` + `Page`
+width "read", 680 px), like every other signed-in page; signed out, or with an expired stored token (whose requests
+would 401 and sign the reader out of a page anyone may read, R-41), the `PublicPage` frame (680 px). Nothing renders
+while the session is read (owner 2026-10-11; was the public frame for everyone). Either way the `h1` is "Rules". Under
+the `h1`, the
 existing first paragraph stays as the lead. Then `h2` "How to play" (`t-headline`) and eight steps, each a `Panel`
 with an `h3` (`t-headline`), a visual, at most two short lines, and a "Full rule ›" link that opens the disclosure
 (§9.2) and scrolls to that section (`#rules-<id>`). Cards are `PlayingCard` with an explicit `width`: 71 px (gap 8)
@@ -538,6 +548,7 @@ Dečec, a player without `rank`, a ladder (412 players), an empty ladder (4), a 
 
 - F-1 `RankDto` could carry `nextName` (the next rank's name), so "{gap} to {next}" needs no ladder (R-3).
 - F-2 `GET /user/{id}/rating-history` could carry the rank breakpoints, so the climb needs no ladder (R-8).
+- F-4 `LadderDto.ranks[]` could carry each rank's `tagline`, so the legend needs no SPA copy of them (§7.4).
 
 ### 11.4 Not verifiable here
 

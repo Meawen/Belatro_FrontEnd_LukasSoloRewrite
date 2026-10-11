@@ -145,6 +145,22 @@ describe('Rules (R-41)', () => {
         expect(screen.getByText('Each player has one challenge per hand; a wrong challenge uses it up for that hand.')).toBeInTheDocument()
     })
 
+    // owner 2026-10-11: Rules sits in the shell, with the sidebar, like every other signed-in page
+    test('signed in: /rules is in the shell, with the navigation', () => {
+        renderAt('/rules')
+        expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
+        expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 2, name: 'How to play' })).toBeInTheDocument()
+        expect(document.title).toBe('Rules · Stiglja')
+    })
+
+    test('signed out: /rules stays in the public frame, without the navigation', () => {
+        auth.isAuthenticated = false
+        renderAt('/rules')
+        expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
+        expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument()
+    })
+
     test('"Read Guide" on the dashboard opens the rules', async () => {
         renderAt('/dashboard')
         await userEvent.setup().click(screen.getByRole('button', { name: 'Read Guide' }))

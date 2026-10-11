@@ -1,18 +1,27 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import { useReducedMotion } from '../../motion/useReducedMotion';
+import { isExpired } from '../../services/tokenRenewal';
+import { AppShell } from '../layout/AppShell';
+import { Page } from '../layout/Page';
 import { PixelIcon } from '../ui';
 import { PublicPage, Section } from './PublicPage';
 import { RulesGuide } from './RulesGuide';
 import { RULE_RANKS, RULE_SECTIONS, type RuleSection } from './rulesData';
 
+const TITLE = 'Rules';
+
 const isRuleSection = (id: string): id is RuleSection => (RULE_SECTIONS as readonly string[]).includes(id);
 
 /**
  * How Belot is played on Stiglja, as the server enforces it (R-41); text approved by the owner. The page opens with a
- * short visual guide; the full rules wait one tap away, every word kept (ranks spec §9, owner 2026-10-11).
+ * short visual guide; the full rules wait one tap away, every word kept (ranks spec §9, owner 2026-10-11). Signed in it
+ * sits in the shell, with the sidebar, like every other page; signed out, in the public frame (owner 2026-10-11).
+ * Nothing for the moment the session is read.
  */
 export const RulesPage: React.FC = () => {
+    const { isAuthenticated, isLoading, token } = useAuth();
     const { hash } = useLocation();
     const reduced = useReducedMotion();
     const [open, setOpen] = useState(false);
@@ -29,15 +38,17 @@ export const RulesPage: React.FC = () => {
         if (isRuleSection(id)) openRule(id);
     }, [hash, openRule]);
 
-    // once the disclosure is open, bring the section into view
+    // once the disclosure is open, bring the section into view (after the session is read: until then nothing renders)
     useEffect(() => {
-        if (!open || !target) return;
+        if (!open || !target || isLoading) return;
         document.getElementById(target)?.scrollIntoView?.({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
         setTarget(null);
-    }, [open, target, reduced]);
+    }, [open, target, reduced, isLoading]);
 
-    return (
-        <PublicPage title="Rules">
+    if (isLoading) return null;
+
+    const rules = (
+        <>
             <p>
                 Stiglja is Belot for four players in two teams of two, Team A and Team B; partners sit
                 opposite each other. The first team to reach 1001 points wins.
@@ -256,6 +267,17 @@ export const RulesPage: React.FC = () => {
                     </p>
                 </Section>
             </details>
-        </PublicPage>
+        </>
+    );
+
+    // an expired stored token reads as signed out here: the shell's requests would 401 and sign the reader out of
+    // a page anyone may read (R-41)
+    if (!isAuthenticated || (token && isExpired(token))) return <PublicPage title={TITLE}>{rules}</PublicPage>;
+    return (
+        <AppShell>
+            <Page title={TITLE} width="read">
+                <div className="t-body space-y-8">{rules}</div>
+            </Page>
+        </AppShell>
     );
 };

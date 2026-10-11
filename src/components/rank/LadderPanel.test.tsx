@@ -46,9 +46,29 @@ describe('LadderPanel', () => {
         expect(screen.getByText('Ahead of 49% of ranked players')).toBeInTheDocument()
         const legend = screen.getByRole('list', { name: 'Players per rank' })
         const items = within(legend).getAllByRole('listitem')
-        expect(items.map((item) => item.textContent)).toEqual(['Dečec31', 'Fakin149', 'Pajdaš106', 'Gospon90', 'Majster36', 'Kajkavac0'])
+        expect(items.map((item) => item.textContent)).toEqual([
+            'Dečec31Bu se navčil.', "Fakin149Fakin, al' zna nekaj.", 'Pajdaš106Dober pajdaš.',
+            'Gospon90Gospon se ne žuri.', 'Majster36Ne zgubi ni štiha.', 'Kajkavac0Zna kaj je kaj.',
+        ])
         expect(within(items[3]).getByText('Gospon').closest('.ui-tag')).toHaveClass('bg-rank-gospon')
         expect(screen.getByText('37 players still placing')).toBeInTheDocument()
+    })
+
+    // owner 2026-10-11, option A: each rank in the legend carries its Croatian tagline, under its tag and count
+    test('each rank in the legend has its tagline under it', () => {
+        render(<LadderPanel />)
+        const items = within(screen.getByRole('list', { name: 'Players per rank' })).getAllByRole('listitem')
+        const pajdas = items[2]
+        expect(within(pajdas).getByText('Pajdaš')).toBeInTheDocument()
+        expect(within(pajdas).getByText('106')).toBeInTheDocument()
+        expect(within(pajdas).getByText('Dober pajdaš.')).toBeInTheDocument()
+    })
+
+    test('a rank the SPA does not know shows its tag and count, with no tagline', () => {
+        ladder({ data: { ...LADDER, ranks: [...LADDER.ranks, { key: 'NOVI' as never, name: 'Novi', minRating: 2000, count: 2 }] } })
+        render(<LadderPanel />)
+        const items = within(screen.getByRole('list', { name: 'Players per rank' })).getAllByRole('listitem')
+        expect(items.at(-1)!.textContent).toBe('Novi2')
     })
 
     test.each([[3, 'Play 7 more ranked games to join the ladder.'], [9, 'Play 1 more ranked game to join the ladder.']])('in placement with %i ranked games: no marker, "%s"', (games, line) => {

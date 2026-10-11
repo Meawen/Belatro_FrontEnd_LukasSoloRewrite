@@ -97,7 +97,9 @@ function CardOrder() {
                 className="self-start"
             />
             <div ref={ref} className="w-full">
-                <ol aria-label={trump ? 'Herc as trump, highest first' : 'Herc as another suit, highest first'} className="relative" style={{ height: h + 22 }}>
+                {/* keyed on the card size: once the row is measured (or a phone turns) the cards are placed afresh, not slid
+                    from where the fallback width put them; only a switch of order slides them */}
+                <ol key={w} aria-label={trump ? 'Herc as trump, highest first' : 'Herc as another suit, highest first'} className="relative" style={{ height: h + 22 }}>
                     {order.map((rank, i) => (
                         <m.li
                             key={rank}
