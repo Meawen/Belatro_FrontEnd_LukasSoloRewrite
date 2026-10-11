@@ -432,7 +432,7 @@ row in the 311-px inner width at 375 × 812. Both are whole art-pixel multiples 
 | 1 | Two teams | A small felt square with four seat tags: "You" and "Partner" (`team-a`) opposite each other, two "Opponent" (`team-b`) | "Partners sit opposite. The first team to 1001 points wins." |
 | 2 | 32 cards, two orders | **Interactive:** a `Segmented` "Other suits" / "Trump" ("Other suits" selected first) and the eight Herc cards in that order, highest first, each with its points under it. Switching flies every card to its new place (`m.div` animating `x`, `spring.ui`; a jump under reduced motion) | "In trump the Decko and the 9 jump to the top. The last trick is worth 10 more: 162 points a hand." |
 | 3 | Name trump or pass | Six faces and two backs; two quiet chips "Call Herc" (trump) and "Pass" | "Six cards each. Name a trump or pass; if all pass, the dealer must name one. Then two more cards." |
-| 4 | Follow suit | **Interactive:** "Herc is trump. Karo 9 was led." The led card, then your four cards (Karo Kralj, Karo 7, Herc Decko, Pik As) as buttons; tapping one lifts it and shows its verdict in a polite live region | "Follow suit and beat the best card if you can. No card of that suit? Play a trump, higher if you can. Neither? Play anything." |
+| 4 | Follow suit | **Interactive:** "Herc is trump. Karo 9 was led." The led card, then your four cards (Kralj Karo, 7 Karo, Decko Herc, As Pik) as buttons; tapping one lifts it and shows its verdict in a polite live region | "Follow suit and beat the best card if you can. No card of that suit? Play a trump, higher if you can. Neither? Play anything." |
 | 5 | Declarations and bela | Pik 7, 8, 9 with "20"; the four Deckos with "200"; Herc Kralj and Baba with "Bela 20" | "Counted for you when trump is named: 3 in a row 20, 4 in a row 50, 5 or more 100. Bela you declare with Play + Bela." |
 | 6 | Win the hand | Tags "PADANJE" (warn) and "CAPOT +90" (win) | "The team that named trump must score more, or it falls and the other team takes the whole hand. All eight tricks: 90 more." |
 | 7 | Challenge a foul | A Karo As with an "ILLEGAL" tag (bad) | "Illegal cards aren't blocked. Press Challenge during the hand or in the 10 seconds after: if the other team fouled, your team wins the hand." |
@@ -442,13 +442,13 @@ Step 4's verdicts (fixed text; the example is documentation):
 
 | Card | Verdict |
 | --- | --- |
-| Karo Kralj | "Yes: it follows suit and beats the 9." |
-| Karo 7 | "Not this one: you can beat the 9 with your Kralj, so you must." |
-| Herc Decko | "Not this one: you have Karo, so you must follow suit before you trump." |
-| Pik As | "Not this one: you have Karo, so you must follow suit." |
+| Kralj Karo | "Yes: it follows suit and beats the 9." |
+| 7 Karo | "Not this one: you can beat the 9 with your Kralj, so you must." |
+| Decko Herc | "Not this one: you have Karo, so you must follow suit before you trump." |
+| As Pik | "Not this one: you have Karo, so you must follow suit." |
 
 Before a tap the region reads "Tap a card to see if you may play it." Each card is a `button` (44-px hit area or
-more), `aria-pressed` on the chosen one, its name as its accessible name ("Karo Kralj").
+more), `aria-pressed` on the chosen one, its name as its accessible name, as the app names cards ("Kralj Karo").
 
 The ranks of step 8 come from a documentation constant in `RulesPage.tsx` (the primer's one exception to "never
 hard-code a breakpoint"), the same data as §9.2's table.
@@ -457,7 +457,7 @@ hard-code a breakpoint"), the same data as §9.2's table.
 - G-1 The guide's `h2` "How to play" and its eight `h3`s render, signed out, with no API request.
 - G-2 Switching "Other suits" → "Trump" changes the visible order to Decko, 9, As, 10, Kralj, Baba, 8, 7 with points
   20, 14, 11, 10, 4, 3, 0, 0; back to "Other suits": As, 10, Kralj, Baba, Decko, 9, 8, 7 with 11, 10, 4, 3, 2, 0, 0, 0.
-- G-3 Tapping Karo Kralj shows "Yes: it follows suit and beats the 9."; tapping Herc Decko then shows its verdict and
+- G-3 Tapping Kralj Karo shows "Yes: it follows suit and beats the 9."; tapping Decko Herc then shows its verdict and
   moves `aria-pressed`.
 - G-4 Every step's "Full rule ›" opens the disclosure and its target section exists.
 - G-5 No horizontal scroll at 375; the guide's cards show their text faces when the art fails (redesign §3.6).
