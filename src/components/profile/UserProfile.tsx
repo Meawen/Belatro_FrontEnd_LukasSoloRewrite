@@ -6,6 +6,7 @@ import { useUser, useMe, useUserHistorySummary } from '../../hooks/useUser';
 import { useAuth } from '../../hooks/useAuth';
 import { useFriends } from '../../hooks/useFriends';
 import { useLadder } from '../../hooks/useRatings';
+import { ClimbPanel } from '../rank/ClimbPanel';
 import { RankBlock } from '../rank/RankBlock';
 import { nextRankName } from '../rank/rankNames';
 
@@ -136,6 +137,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                     <Stat label="Level" value={player.level || 1} />
                 </dl>
             </div>
+
+            {/* ranks spec §8.1: your climb, on your own profile only, between the header and Recent matches */}
+            {isOwnProfile && <ClimbPanel userId={targetUserId} rank={player.rank} ladder={ladder.data} />}
 
             <section aria-labelledby={recentId} className="flex flex-col gap-3">
                 <h2 id={recentId} className="t-title">

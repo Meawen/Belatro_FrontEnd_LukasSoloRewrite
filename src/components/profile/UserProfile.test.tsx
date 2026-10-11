@@ -6,7 +6,7 @@ import { UserProfile } from './UserProfile'
 import { useUser, useMe, useUserHistorySummary } from '../../hooks/useUser'
 import { useFriends } from '../../hooks/useFriends'
 import { useLadder, useRatingHistory } from '../../hooks/useRatings'
-import { LADDER, rankedUser } from '../../test/fixtures/ranks'
+import { LADDER, history, rankedUser } from '../../test/fixtures/ranks'
 import { ApiError } from '../../services/api'
 import type { PlayerMatchSummaryDTO } from '../../types/user'
 
@@ -208,5 +208,28 @@ describe('UserProfile rank', () => {
         renderProfile()
         expect(document.querySelector('[data-rank]')).toBeNull()
         expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    })
+})
+
+// ranks spec §8.1: your climb between the header and Recent matches, on your own profile only
+describe('UserProfile climb', () => {
+    test('your own profile: "Your climb" sits between the header and Recent matches', () => {
+        mockPlayer(rankedUser({ key: 'GOSPON', eloRating: 1452 }))
+        vi.mocked(useLadder).mockReturnValue({ data: LADDER, isLoading: false, error: null, refetch: vi.fn() } as never)
+        vi.mocked(useRatingHistory).mockReturnValue({ data: history(), isLoading: false, error: null, refetch: vi.fn() } as never)
+        renderProfile()
+        const name = screen.getByRole('heading', { level: 1 })
+        const climb = screen.getByRole('heading', { level: 2, name: 'Your climb' })
+        const recent = screen.getByRole('heading', { level: 2, name: 'Recent matches' })
+        expect(name.compareDocumentPosition(climb) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(climb.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(useRatingHistory).toHaveBeenCalledWith('u1')
+    })
+
+    test("another player's profile asks for no rating history and shows no climb (C-8)", () => {
+        mockPlayer(rankedUser({ id: 'u2', username: 'bob', key: 'GOSPON', eloRating: 1452 }))
+        renderProfile('u2')
+        expect(useRatingHistory).not.toHaveBeenCalled()
+        expect(screen.queryByRole('heading', { name: 'Your climb' })).not.toBeInTheDocument()
     })
 })
