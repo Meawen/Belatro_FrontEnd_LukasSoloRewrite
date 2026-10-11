@@ -33,13 +33,44 @@ function botFailure(e: unknown, fallback: string): string {
     return e instanceof ApiError && isNetworkOrServerFailure(e.status) ? BOTS_UNAVAILABLE : errorMessage(e, fallback);
 }
 
-/** Where focus goes once a request at the table has finished (R38): a seat's button, found by its place, or Start. */
-type FocusAfter = SeatPosition | 'start';
+/**
+ * Where focus goes once a request at the table has finished (R38, R43), read off the table as it now is: whether the
+ * request went through, and the lobby it left.
+ */
+type FocusAfter = (ok: boolean, lobby: LobbyDTO) => HTMLElement | null;
+
+const TABLE = '[data-testid="lobby-table"]';
 
 /** The host's "Start match" in the action bar, when it is enabled. */
 function enabledStart(): HTMLButtonElement | null {
     const buttons = document.querySelectorAll<HTMLButtonElement>('[role="region"][aria-label="Lobby actions"] button');
     return [...buttons].find((button) => button.textContent === 'Start match' && !button.disabled) ?? null;
+}
+
+/** A seat's button, found by its place: a request may have remounted it. */
+function seatButton(position: SeatPosition): HTMLElement | null {
+    return document.querySelector<HTMLElement>(`${TABLE} [data-position="${position}"] > button`);
+}
+
+/** The "+ Bot" under the seat at this place, when it shows: the second button of the seat's column. */
+function botChip(position: SeatPosition): HTMLElement | null {
+    return document.querySelector<HTMLElement>(`${TABLE} [data-position="${position}"] > button + button`);
+}
+
+/**
+ * Where focus goes after a "+ Bot" went through (R43): the next "+ Bot" round the table from the seat the bot took (a
+ * team's list fills its first open place, not always the tapped one), else Start when it is enabled, else the bot's seat.
+ * `seated`: who sat at the table before the request.
+ */
+function afterBot(lobby: LobbyDTO, viewerId: string | null, seated: Set<string>, tapped: SeatPosition): HTMLElement | null {
+    const seats = tableSeats(lobby, viewerId);
+    const taken = seats.findIndex((seat) => isBot(seat.player) && !seated.has(seat.player?.username ?? ''));
+    const from = taken >= 0 ? taken : seats.findIndex((seat) => seat.position === tapped);
+    for (let step = 1; step < seats.length; step++) {
+        const chip = botChip(seats[(from + step) % seats.length].position);
+        if (chip) return chip;
+    }
+    return enabledStart() ?? seatButton(seats[from].position);
 }
 
 /**
@@ -163,16 +194,18 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     const [starting, setStarting] = useState(false);
     const [joining, setJoining] = useState(false);
     const fillButton = useRef<HTMLButtonElement>(null);
-    // A request remounts the seat it is about (a seat's key is its occupant), or takes Fill away, so focus falls to the
-    // page: once the table shows the result, it goes back there (R38), unless it had been and still is elsewhere.
-    const refocus = useRef<{ wasAtTable: boolean; to: FocusAfter } | null>(null);
+    const inTable = (element: Element | null) => element !== null && (element === fillButton.current || element.closest(TABLE) !== null);
+    // A request remounts the seat it is about (a seat's key is its occupant), or takes a chip or Fill away, so focus
+    // falls to the page: once the table shows the result, it goes where `FocusAfter` says (R38, R43). Only from the page,
+    // or from the table where it was when the request started: never out of a sheet opened meanwhile (I2).
+    const refocus = useRef<{ wasAtTable: boolean; target: (lobby: LobbyDTO) => HTMLElement | null } | null>(null);
     useEffect(() => {
         const pending = refocus.current;
         if (busy !== null || pending === null) return;
         refocus.current = null;
-        if (!pending.wasAtTable && document.activeElement !== document.body) return;
-        const target = pending.to === 'start' ? enabledStart() : document.querySelector<HTMLElement>(`[data-testid="lobby-table"] [data-position="${pending.to}"] > button`);
-        target?.focus();
+        const now = document.activeElement;
+        if (now !== null && now !== document.body && !(pending.wasAtTable && inTable(now))) return;
+        pending.target(lobby)?.focus();
     });
 
     const host = isHost(lobby, me);
@@ -198,12 +231,11 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     };
 
     // One request at the table at a time (a seat change, a bot, a fill): the seat it is about is aria-busy and says
-    // what is happening, and no seat or chip takes a tap meanwhile. `failure` words what went wrong; `focusAfter`
-    // says where focus goes once it has finished, whether it went through (`ok`) or not.
-    const atTable = async (pending: SeatBusy, request: () => Promise<unknown>, failure: (e: unknown) => string, focusAfter: (ok: boolean) => FocusAfter) => {
+    // what is happening, and no seat or chip takes a tap meanwhile. `failure` words what went wrong; `focusAfter` says
+    // where focus goes once it has finished.
+    const atTable = async (pending: SeatBusy, request: () => Promise<unknown>, failure: (e: unknown) => string, focusAfter: FocusAfter) => {
         if (busy) return;
-        const active = document.activeElement;
-        const wasAtTable = active !== null && (active === fillButton.current || active.closest('[data-testid="lobby-table"]') !== null);
+        const wasAtTable = inTable(document.activeElement);
         setActionError(null);
         setBusy(pending);
         let ok = false;
@@ -214,34 +246,38 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
         } catch (e) {
             setActionError(failure(e));
         } finally {
-            refocus.current = { wasAtTable, to: focusAfter(ok) };
+            refocus.current = { wasAtTable, target: (fresh) => focusAfter(ok, fresh) };
             setBusy(null);
         }
     };
 
-    // a seat change that went through leaves the viewer at the bottom: in their new seat, or (standing up) where theirs was
+    // a seat change that went through leaves the viewer at the bottom: in their new seat, or (standing up) where theirs
+    // was; one that failed leaves focus on the seat tapped
     const changeSeat = (targetTeam: LobbyTeam, seat: TableSeat) =>
         atTable(
             { key: seat.key, label: teamOf(lobby, me) === 'U' && targetTeam !== 'U' ? 'Joining…' : 'Switching…' },
             () => lobbyService.switchTeam(lobbyId, { lobbyId, targetTeam }),
             (e) => errorMessage(e, 'Failed to switch team'),
-            (ok) => (ok ? 'bottom' : seat.position),
+            (ok) => seatButton(ok ? 'bottom' : seat.position),
         );
 
-    const addBot = (seat: TableSeat) =>
-        atTable(
+    // a "+ Bot" that failed leaves focus on its chip, for another try
+    const addBot = (seat: TableSeat) => {
+        const seated = new Set(tableSeats(lobby, me).flatMap((each) => (each.player?.username ? [each.player.username] : [])));
+        return atTable(
             { key: seat.key, label: 'Adding…' },
             () => lobbyService.addBot(lobbyId, seat.team),
             (e) => botFailure(e, 'Failed to add a bot'),
-            () => seat.position,
+            (ok, fresh) => (ok ? afterBot(fresh, me, seated, seat.position) : (botChip(seat.position) ?? seatButton(seat.position))),
         );
+    };
 
     const fillWithBots = () =>
         atTable(
             { key: null, label: 'Filling with bots…' },
             () => lobbyService.fillBots(lobbyId),
             (e) => botFailure(e, 'Failed to fill with bots'),
-            () => 'start',
+            () => enabledStart(),
         );
 
     // a bot goes at once, with no sheet: re-adding one is one tap too, and nothing is lost (R37)
@@ -250,7 +286,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
             { key: seat.key, label: 'Removing…' },
             () => lobbyService.kickPlayer(lobbyId, { usernameToKick: username }),
             (e) => errorMessage(e, 'Failed to remove the bot'),
-            () => seat.position,
+            () => seatButton(seat.position),
         );
 
     const askRemove = (member: UserSimpleDTO) => {
@@ -263,8 +299,10 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
         if (action === 'sit') void changeSeat(seat.team, seat);
         else if (action === 'own') setSheet('seat');
         else if (action === 'remove' && seat.player?.username) {
-            if (isBot(seat.player)) void removeBot(seat, seat.player.username);
-            else askRemove(seat.player);
+            // a bot goes with one tap, but not while the match starts: bot controls are off then (R27, R42)
+            if (isBot(seat.player)) {
+                if (botControls) void removeBot(seat, seat.player.username);
+            } else askRemove(seat.player);
         }
     };
 
