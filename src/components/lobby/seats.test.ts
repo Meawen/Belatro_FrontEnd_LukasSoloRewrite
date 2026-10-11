@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { isReadyToStart, lobbyHint, memberStatus, seatAction, seatLabel, seatedCount, startReadiness, tableSeats, teamOf } from './seats'
+import { canAddBot, fillableSeats, hostHint, isReadyToStart, lobbyHint, memberStatus, seatAction, seatLabel, seatedCount, startReadiness, tableSeats, teamOf } from './seats'
 import type { LobbyDTO } from '../../types/lobby'
 
 const mira = { id: 'u9', username: 'mira_z' }
@@ -7,6 +7,8 @@ const luka = { id: 'u2', username: 'luka' }
 const ivo = { id: 'u3', username: 'ivo' }
 const tea = { id: 'u4', username: 'tea_r' }
 const dino = { id: 'u5', username: 'dino' }
+const ana = { id: 'b1', username: 'Bot-Ana', bot: true }
+const tin = { id: 'b2', username: 'Bot-Tin', bot: true }
 
 function lobby(overrides: Partial<LobbyDTO> = {}): LobbyDTO {
     return {
@@ -60,6 +62,51 @@ describe('seats (spec §4.7, §5.3.2)', () => {
         expect(seatAction(seat(null, 'B2'), l, null)).toBeNull()
     })
 
+    test('the host may add a bot on any empty seat, their own team\'s too; a tap on the seat still sits', () => {
+        const l = lobby({ teamAPlayers: [mira], teamBPlayers: [ivo, ana], unassignedPlayers: [tea] })
+        const seat = (viewer: string | null, key: string) => tableSeats(l, viewer).find((s) => s.key === key)!
+        expect(canAddBot(seat('u9', 'A2'), l, 'u9')).toBe(true)
+        expect(seatAction(seat('u9', 'A2'), l, 'u9')).toBeNull()
+
+        const other = lobby()
+        const otherSeat = (viewer: string | null, key: string) => tableSeats(other, viewer).find((s) => s.key === key)!
+        expect(canAddBot(otherSeat('u9', 'B2'), other, 'u9')).toBe(true)
+        expect(seatAction(otherSeat('u9', 'B2'), other, 'u9')).toBe('sit')
+    })
+
+    test('nobody but the host adds a bot, and never on a taken seat', () => {
+        const l = lobby({ teamAPlayers: [mira], teamBPlayers: [ivo, ana], unassignedPlayers: [tea] })
+        const seat = (viewer: string | null, key: string) => tableSeats(l, viewer).find((s) => s.key === key)!
+        expect(canAddBot(seat('u4', 'A2'), l, 'u4')).toBe(false)
+        expect(canAddBot(seat('u3', 'A2'), l, 'u3')).toBe(false)
+        expect(canAddBot(seat('u7', 'A2'), l, 'u7')).toBe(false)
+        expect(canAddBot(seat(null, 'A2'), l, null)).toBe(false)
+        expect(canAddBot(seat('u9', 'A1'), l, 'u9')).toBe(false)
+        expect(canAddBot(seat('u9', 'B1'), l, 'u9')).toBe(false)
+        expect(canAddBot(seat('u9', 'B2'), l, 'u9')).toBe(false)
+    })
+
+    test('seats to fill: the free team places, but never past four members, so an unassigned person keeps a seat', () => {
+        expect(fillableSeats(lobby({ teamAPlayers: [mira], teamBPlayers: [] }))).toBe(3)
+        expect(fillableSeats(lobby())).toBe(1)
+        expect(fillableSeats(lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [tea] }))).toBe(2)
+        expect(fillableSeats(lobby({ unassignedPlayers: [tea] }))).toBe(0)
+        expect(fillableSeats(lobby({ teamBPlayers: [ivo, tea] }))).toBe(0)
+        expect(fillableSeats(lobby({ teamAPlayers: [mira, ana], teamBPlayers: [tin] }))).toBe(1)
+        expect(fillableSeats(lobby({ teamAPlayers: [mira, ana], teamBPlayers: [tin], unassignedPlayers: [tea] }))).toBe(0)
+        expect(fillableSeats(lobby({ teamBPlayers: [ivo, tea], unassignedPlayers: [dino] }))).toBe(0)
+    })
+
+    test('the host\'s hint: in a public lobby with a bot, a joiner takes the bot\'s seat', () => {
+        const withBot = lobby({ teamBPlayers: [ana] })
+        expect(hostHint(withBot, 'u9')).toBe("Anyone who joins takes a bot's seat. To play alone, make the lobby private.")
+        expect(hostHint(lobby({ teamBPlayers: [ana], privateLobby: true }), 'u9')).toBeNull()
+        expect(hostHint(lobby(), 'u9')).toBeNull()
+        expect(hostHint(withBot, 'u2')).toBeNull()
+        expect(hostHint(withBot, 'u7')).toBeNull()
+        expect(hostHint(withBot, null)).toBeNull()
+    })
+
     test('seat names (AC 10)', () => {
         const l = lobby({ unassignedPlayers: [tea] })
         const label = (viewer: string | null, key: string) => seatLabel(tableSeats(l, viewer).find((s) => s.key === key)!, l, viewer)
@@ -77,6 +124,11 @@ describe('seats (spec §4.7, §5.3.2)', () => {
         expect(startReadiness(lobby())).toEqual({ ready: false, reason: 'Waiting for 1 more player.' })
         expect(startReadiness(lobby({ unassignedPlayers: [tea, dino], teamBPlayers: [] }))).toEqual({ ready: false, reason: "tea_r hasn't taken a seat yet." })
         expect(startReadiness(lobby({ teamBPlayers: [ivo, tea] }))).toEqual({ ready: true, reason: 'Everyone is seated.' })
+    })
+
+    test('bots count as seated players for the start rule', () => {
+        expect(startReadiness(lobby({ teamAPlayers: [mira, ana], teamBPlayers: [] }))).toEqual({ ready: false, reason: 'Waiting for 2 more players.' })
+        expect(startReadiness(lobby({ teamAPlayers: [mira, ana], teamBPlayers: [tin, ivo] }))).toEqual({ ready: true, reason: 'Everyone is seated.' })
     })
 
     test('hints under the table and the member\'s status line', () => {

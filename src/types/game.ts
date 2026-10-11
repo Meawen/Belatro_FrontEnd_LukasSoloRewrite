@@ -29,6 +29,8 @@ export interface GameCard {
 export interface PlayerPublicInfo {
     id: string;
     cardsLeft: number;
+    /** A server-side bot (casual bots spec §7); optional: a backend before bots doesn't send it. */
+    bot?: boolean;
 }
 
 export interface GameBid {

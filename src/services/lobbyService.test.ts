@@ -25,6 +25,14 @@ describe('lobbyService routes match LobbyController', () => {
         expect(patch.mock.calls[1]).toEqual(['/lobbies/l1/leave'])
     })
 
+    test('a bot is added to a team by POST /lobbies/{id}/bots; fill is POST /lobbies/{id}/bots/fill with no body', async () => {
+        const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ id: 'l1' })
+        await expect(lobbyService.addBot('l1', 'B')).resolves.toEqual({ id: 'l1' })
+        expect(post).toHaveBeenCalledWith('/lobbies/l1/bots', { team: 'B' })
+        await expect(lobbyService.fillBots('l1')).resolves.toEqual({ id: 'l1' })
+        expect(post.mock.calls[1]).toEqual(['/lobbies/l1/bots/fill'])
+    })
+
     test('update is PUT /lobbies with the id in the body', async () => {
         const put = vi.spyOn(apiClient, 'put').mockResolvedValue({})
         await lobbyService.updateLobby('l1', { name: 'Friday' })
