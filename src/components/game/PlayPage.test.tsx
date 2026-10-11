@@ -5,6 +5,8 @@ import { MemoryRouter } from 'react-router-dom'
 import { JSDOM } from 'jsdom'
 import { PlayPage } from './PlayPage'
 import { RankedQueueProvider } from './RankedQueueProvider'
+import { useUser } from '../../hooks/useUser'
+import { rankedUser } from '../../test/fixtures/ranks'
 
 const stomp = vi.hoisted(() => ({ clients: [] as unknown[] }))
 vi.mock('@stomp/stompjs', () => ({
@@ -20,7 +22,7 @@ vi.mock('sockjs-client', () => ({ default: class FakeSockJS {} }))
 // The Elo comes from GET /user/{id} through useUser
 vi.mock('../../hooks/useUser', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../../hooks/useUser')>()),
-    useUser: () => ({ user: { id: 'u1', username: 'ana', eloRating: 1450, level: 3, gamesPlayed: 42 }, isLoading: false, error: null, refetch: () => {} }),
+    useUser: vi.fn(() => ({ user: { id: 'u1', username: 'ana', eloRating: 1450, level: 3, gamesPlayed: 42 }, isLoading: false, error: null, refetch: () => {} })),
 }))
 vi.mock('../../hooks/useAuth', () => ({
     useAuth: () => ({ user: { id: 'u1', username: 'ana' }, isAuthenticated: true, isLoading: false, token: 'tok-1' }),
@@ -70,5 +72,20 @@ describe('/play page (B7)', () => {
             expect(screen.queryByText(gone)).not.toBeInTheDocument()
         }
         expect(screen.queryByText(/MMR/)).not.toBeInTheDocument()
+    })
+})
+
+// ranks spec §6.4: the rank beside your Elo on the Ranked page
+describe('PlayPage rank', () => {
+    test('the rank tag sits beside "Elo {n}"', () => {
+        vi.mocked(useUser).mockReturnValueOnce({ user: rankedUser({ key: 'GOSPON', eloRating: 1452 }), isLoading: false, error: null, refetch: () => {} } as never)
+        render(<MemoryRouter initialEntries={['/play']}><RankedQueueProvider><PlayPage /></RankedQueueProvider></MemoryRouter>)
+        const line = screen.getByText('1452').closest('p')!
+        expect(within(line).getByText('Gospon').closest('.ui-tag')).toHaveClass('bg-rank-gospon')
+    })
+
+    test('no rank: the Elo line as before', () => {
+        render(<MemoryRouter initialEntries={['/play']}><RankedQueueProvider><PlayPage /></RankedQueueProvider></MemoryRouter>)
+        expect(screen.getByText('1450').closest('p')!.querySelector('[data-rank]')).toBeNull()
     })
 })

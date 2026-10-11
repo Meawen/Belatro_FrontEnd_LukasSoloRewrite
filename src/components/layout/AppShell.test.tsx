@@ -8,7 +8,7 @@ import { viewport } from '../../test/viewport'
 vi.mock('../../hooks/useAuth', () => ({
     useAuth: () => ({ user: { id: 'u1', username: 'ana' }, logout: vi.fn(), isAuthenticated: true }),
 }))
-vi.mock('../../hooks/useUser', () => ({ useMe: () => ({ data: { roles: ['ROLE_USER'] } }) }))
+vi.mock('../../hooks/useUser', () => ({ useMe: () => ({ data: { roles: ['ROLE_USER'] } }), useUser: () => ({ user: null }) }))
 vi.mock('./ActiveGameBanner', () => ({
     ActiveGameBanner: () => <div role="region" aria-label="Game in progress">You have a game in progress.</div>,
 }))

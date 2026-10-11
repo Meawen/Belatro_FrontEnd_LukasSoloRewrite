@@ -3,14 +3,15 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
-import { useMe } from '../../hooks/useUser'
+import { useMe, useUser } from '../../hooks/useUser'
+import { rankedUser } from '../../test/fixtures/ranks'
 import { viewport } from '../../test/viewport'
 
 const auth = vi.hoisted(() => ({ logout: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({
     useAuth: () => ({ user: { id: 'u1', username: 'ana' }, logout: auth.logout, isAuthenticated: true }),
 }))
-vi.mock('../../hooks/useUser', () => ({ useMe: vi.fn() }))
+vi.mock('../../hooks/useUser', () => ({ useMe: vi.fn(), useUser: vi.fn(() => ({ user: null })) }))
 
 const EVERYONE = ['Play', 'Ranked', 'Lobbies', 'Matches', 'Friends', 'Leaderboard', 'Profile', 'Settings', 'Rules']
 
@@ -77,5 +78,31 @@ describe('Sidebar (spec §4.1, X-9)', () => {
         expect(screen.getByText('ana')).toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Log out' }))
         expect(auth.logout).toHaveBeenCalledTimes(1)
+    })
+})
+
+// ranks spec §6.5: the rank under your name in the labelled sidebar, nothing in the 72-px one
+describe('Sidebar rank', () => {
+    test('the labelled sidebar shows your rank tag under your name, read from GET /user/{id}', () => {
+        viewport(1440, 900)
+        vi.mocked(useUser).mockReturnValue({ user: rankedUser({ key: 'MAJSTER', eloRating: 1650 }) } as never)
+        renderSidebar()
+        expect(useUser).toHaveBeenCalledWith('u1')
+        expect(screen.getByText('Majster').closest('.ui-tag')).toHaveClass('bg-rank-majster')
+    })
+
+    test('the icon-only sidebar shows no rank', () => {
+        viewport(800, 1000)
+        vi.mocked(useUser).mockReturnValue({ user: rankedUser({ key: 'MAJSTER', eloRating: 1650 }) } as never)
+        renderSidebar()
+        expect(screen.queryByText('Majster')).not.toBeInTheDocument()
+    })
+
+    test('no rank (a backend before team Elo): the block as before', () => {
+        viewport(1440, 900)
+        vi.mocked(useUser).mockReturnValue({ user: { id: 'u1', username: 'ana', eloRating: 1650, level: 3, gamesPlayed: 9 } } as never)
+        renderSidebar()
+        expect(document.querySelector('[data-rank]')).toBeNull()
+        expect(screen.getByText('ana')).toBeInTheDocument()
     })
 })

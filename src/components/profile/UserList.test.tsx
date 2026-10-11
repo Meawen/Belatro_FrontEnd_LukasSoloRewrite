@@ -7,6 +7,7 @@ import { useUsersPage } from '../../hooks/useUser'
 import { useFriends } from '../../hooks/useFriends'
 import { ApiError } from '../../services/api'
 import { viewport } from '../../test/viewport'
+import { rank } from '../../test/fixtures/ranks'
 
 // Tailwind's own colour scale (bg-purple-600, text-slate-400, …): the design uses tokens only (spec §3.2)
 const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange|teal|lime|pink)-\d/
@@ -208,5 +209,25 @@ describe('UserList is a leaderboard (spec §4.12; D-28, O-3)', () => {
         expect(bobs).toHaveTextContent('1250')
         expect(bobs).not.toHaveTextContent('3 games')
         expect(within(bobs).getByRole('button', { name: 'Add Friend' })).toHaveAttribute('aria-label', 'Add Friend')
+    })
+})
+
+// ranks spec §6.2: a rank tag beside every ranked player's Elo; Unranked stays for accounts with no game
+describe('UserList ranks', () => {
+    const ranked = [{ ...cy, rank: rank('GOSPON'), rankedGamesPlayed: 30 }, { ...bob, rank: rank('CUCEK'), rankedGamesPlayed: 3 }, { ...dee, rank: rank('CUCEK'), rankedGamesPlayed: 0 }, ana]
+    const page = () => ({ data: { content: ranked, totalElements: 4, totalPages: 1, number: 0, size: 20 }, isLoading: false, error: null, refetch: vi.fn() }) as never
+
+    test.each([['desktop', 1440, 900], ['compact phone', 375, 812]])('on %s rows a ranked player shows the rank tag beside the Elo', (_, width, height) => {
+        viewport(width, height)
+        vi.mocked(useUsersPage).mockImplementation(page)
+        renderList()
+        const [cyRow, bobRow, deeRow, anaRow] = rows()
+        expect(within(cyRow).getByText('Gospon').closest('.ui-tag')).toHaveClass('bg-rank-gospon')
+        expect(within(bobRow).getByText('Cucek')).toBeInTheDocument()
+        // an account with no game keeps "Unranked" and gets no rank tag
+        expect(within(deeRow).getByText('Unranked')).toBeInTheDocument()
+        expect(within(deeRow).queryByText('Cucek')).not.toBeInTheDocument()
+        // a backend before team Elo: no rank, today's row
+        expect(anaRow.querySelector('[data-rank]')).toBeNull()
     })
 })

@@ -1,4 +1,12 @@
-import type { Ladder, PlayerRank } from '../../types/user';
+import type { Ladder, PlayerRank, RankKey } from '../../types/user';
+
+/** How many ranked games placement takes (team-Elo spec "Ranks": Cucek until 10 are played). */
+export const PLACEMENT_GAMES = 10;
+
+/** The colour token of a rank, for a mark (a colour, not a name: names come from the server). */
+export function rankColour(key: RankKey): string {
+    return `var(--rank-${key.toLowerCase()})`;
+}
 
 /** The six ranks past placement, in rank order, as the ladder sends them (Cucek is the placement state). */
 export function placedRanks(ladder: Ladder): Ladder['ranks'] {

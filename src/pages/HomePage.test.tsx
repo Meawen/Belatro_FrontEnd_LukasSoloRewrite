@@ -8,6 +8,7 @@ import { userService } from '../services/userService'
 import { matchHistoryService } from '../services/matchHistoryService'
 import { ACTIVE_GAME_POLL_MS } from '../components/layout/ActiveGameBanner'
 import type { PlayerMatchSummaryDTO } from '../types/user'
+import { rankedUser } from '../test/fixtures/ranks'
 
 // Tailwind's own colour scale (bg-amber-600, text-emerald-950, …): the design uses tokens only (spec §3.2)
 const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange|teal|lime|pink)-\d/
@@ -171,5 +172,24 @@ describe('Home: Return to your game (spec §4.4 item 2; §2.5 R-33)', () => {
         })
         expect(userService.getActiveGame).toHaveBeenCalledTimes(3)
         expect(screen.queryByRole('region', { name: 'Game in progress' })).not.toBeInTheDocument()
+    })
+})
+
+// ranks spec §6.4: the rank beside your Elo in the stats strip
+describe('Home rank', () => {
+    test('the Elo tile carries your rank tag under the number; dashboard-elo still reads the number', async () => {
+        vi.mocked(useUser).mockReturnValue({ user: rankedUser({ key: 'MAJSTER', eloRating: 1650 }), isLoading: false, error: null, refetch: vi.fn() } as never)
+        renderHome()
+        await settle()
+        expect(screen.getByTestId('dashboard-elo')).toHaveTextContent(/^1650$/)
+        const tile = screen.getByTestId('dashboard-elo').closest('.ui-panel') as HTMLElement
+        expect(within(tile).getByText('Majster').closest('.ui-tag')).toHaveClass('bg-rank-majster')
+    })
+
+    test('no rank (a backend before team Elo): the tile as before', async () => {
+        renderHome()
+        await settle()
+        expect(document.querySelector('[data-rank]')).toBeNull()
+        expect(screen.getByTestId('dashboard-elo')).toHaveTextContent(/^1450$/)
     })
 })

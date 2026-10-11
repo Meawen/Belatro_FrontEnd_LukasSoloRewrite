@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Avatar, Button, EmptyState, ErrorState, Input, ListRow, Loader, Pager, PixelIcon, Tag } from '../ui';
 import { FriendActions } from './FriendActions';
+import { RankChip } from '../rank/RankChip';
 import { useMediaQuery } from '../layout/useMediaQuery';
 import { useUsersPage, USERS_PAGE_SIZE } from '../../hooks/useUser';
 import { useFriends, type FriendsState } from '../../hooks/useFriends';
@@ -56,6 +57,8 @@ function PlayerRow({ player, rank, isMe, meId, friends, compact }: PlayerRowProp
             meta={compact ? undefined : `${games} ${games === 1 ? 'game' : 'games'} · Level ${player.level || 1}`}
             trailing={
                 <>
+                    {/* ranks spec §6.2: beside the Elo, only for a ranked row; an Unranked row keeps its tag alone */}
+                    {isRanked(player) && <RankChip rank={player.rank} />}
                     <span className="flex flex-col items-end">
                         <span className="t-score tabular-nums">{player.eloRating ?? '—'}</span>
                         <span className="t-caption text-text-3">Elo</span>

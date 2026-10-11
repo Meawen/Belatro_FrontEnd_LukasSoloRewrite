@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ACTIVE_GAME_POLL_MS } from '../components/layout/ActiveGameBanner';
 import { Page } from '../components/layout/Page';
@@ -7,6 +7,7 @@ import { Button, Loader, Panel, PixelIcon } from '../components/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useMatchSummary } from '../hooks/useMatchHistory';
 import { useUser } from '../hooks/useUser';
+import { RankChip } from '../components/rank/RankChip';
 import { userService } from '../services/userService';
 
 /** How many of the newest matches Home lists (spec §4.4: `size=3`). */
@@ -40,13 +41,14 @@ function useActiveGame(): string | null {
     return gameId;
 }
 
-function Stat({ label, value, testId }: { label: string; value: number | string; testId: string }) {
+function Stat({ label, value, testId, extra }: { label: string; value: number | string; testId: string; extra?: ReactNode }) {
     return (
         <Panel padding="none" className="px-4 py-3">
             <dt className="t-caption text-text-2">{label}</dt>
             <dd data-testid={testId} className="t-score mt-1 tabular-nums">
                 {value}
             </dd>
+            {extra && <dd className="mt-1.5">{extra}</dd>}
         </Panel>
     );
 }
@@ -120,7 +122,7 @@ export function HomePage() {
 
                 <div className="grid items-start gap-4 lg:grid-cols-2">
                     <dl className="grid grid-cols-3 gap-2">
-                        <Stat label="Elo" value={elo} testId="dashboard-elo" />
+                        <Stat label="Elo" value={elo} testId="dashboard-elo" extra={profile?.rank && <RankChip rank={profile.rank} />} />
                         <Stat label="Games" value={profile?.gamesPlayed ?? '—'} testId="dashboard-games" />
                         <Stat label="Level" value={level} testId="dashboard-level" />
                     </dl>

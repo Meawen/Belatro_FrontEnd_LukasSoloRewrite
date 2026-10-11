@@ -1,5 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useUser } from '../../hooks/useUser';
+import { RankChip } from '../rank/RankChip';
 import { Avatar, Button, IconButton, PixelIcon } from '../ui';
 import { cx } from '../ui/cx';
 import { NAV_ITEMS, SIDEBAR_ICONS_QUERY, isCurrent, useIsAdmin, visibleItems } from './nav';
@@ -17,6 +19,8 @@ export function Sidebar() {
     const { user, logout } = useAuth();
     const isAdmin = useIsAdmin();
     const compact = useMediaQuery(SIDEBAR_ICONS_QUERY);
+    // the rank comes with GET /user/{id}, not /user/me (ranks spec §6.5)
+    const { user: profile } = useUser(user?.id ?? undefined);
 
     return (
         <aside
@@ -56,7 +60,12 @@ export function Sidebar() {
                 <div className={cx('flex shrink-0 flex-col gap-2 p-3 shadow-[inset_0_3px_0_var(--edge)]', compact && 'items-center')}>
                     <div className={cx('flex min-w-0 items-center gap-3', !compact && 'px-1')}>
                         <Avatar initial={user.username ?? '?'} tone="accent" />
-                        {!compact && <span className="t-callout min-w-0 truncate font-semibold">{user.username}</span>}
+                        {!compact && (
+                            <span className="flex min-w-0 flex-col items-start gap-1">
+                                <span className="t-callout min-w-0 max-w-full truncate font-semibold">{user.username}</span>
+                                <RankChip rank={profile?.rank} />
+                            </span>
+                        )}
                     </div>
                     {compact ? (
                         <IconButton icon="logout" aria-label="Log out" onClick={() => void logout()} />
