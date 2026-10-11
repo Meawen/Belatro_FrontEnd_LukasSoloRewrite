@@ -92,7 +92,8 @@ async function openQuickLook(page) {
 const botBoard = (at) => `/dev/board?controls=0&skip=1&effects=off&seat=carol&bots=bob,dave&at=${at}`;
 
 export default [
-    // the host alone: a "+ Bot" under each of the three empty seats, "Fill with bots" under the table, a one-row bar
+    // the host alone: a "+ Bot" under each team's first open seat (top, right), "Fill with bots" under the table, a
+    // one-row bar
     { name: 'bots-host-alone', path: '/lobby/b1', viewports: BOTH, user: MIRA, api: [signedIn(MIRA), lobby({ teamAPlayers: [MIRA] })] },
     // a bot on its way: the tapped seat is busy and says so; the other seats, the chips and Fill show disabled
     { name: 'bots-adding', path: '/lobby/b1', viewports: BOTH, user: MIRA, api: [signedIn(MIRA), lobby({ teamAPlayers: [MIRA] })], setup: addingABot },
@@ -100,8 +101,8 @@ export default [
     { name: 'bots-host-two-bots', path: '/lobby/b1', viewports: BOTH, user: MIRA, api: [signedIn(MIRA), twoBots] },
     // the host's one tap on a bot: its seat reads "Removing…", the rest of the table dims
     { name: 'bots-removing', path: '/lobby/b1', viewports: BOTH, user: MIRA, api: [signedIn(MIRA), twoBots], setup: removingABot },
-    // the host standing, every seat empty: four chips, each the last line of its seat; the phone's landscape first view
-    // and a tablet's width too
+    // the host standing, every seat empty: a chip under each team's first seat (bottom, right), each the last line of its
+    // seat; the phone's landscape first view and a tablet's width too
     {
         name: 'bots-host-standing', path: '/lobby/b1', viewports: [...BOTH, '812x375', '800x1000'], user: MIRA,
         api: [signedIn(MIRA), lobby({ unassignedPlayers: [MIRA] })],
