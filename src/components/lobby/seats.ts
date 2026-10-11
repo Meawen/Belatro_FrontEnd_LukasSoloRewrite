@@ -97,13 +97,13 @@ export function fillableSeats(lobby: LobbyDTO): number {
     return Math.max(0, Math.min(freePlaces, LOBBY_CAP - memberCount(lobby)));
 }
 
-/** A seat's accessible name (spec §4.7); a bot's ends ", bot". */
+/** A seat's accessible name (spec §4.7); a bot's ends ", bot", and the host's, whose tap removes it, starts "Remove" (R37). */
 export function seatLabel(seat: TableSeat, lobby: LobbyDTO, viewerId: string | null): string {
     const team = `team ${seat.team}`;
     if (seat.player === null) return `${seatAction(seat, lobby, viewerId) === 'sit' ? 'Sit here' : 'Open seat'}, ${team}`;
     const name = seat.player.username ?? 'Unknown';
     if (viewerId != null && seat.player.id === viewerId) return `${name} (you), ${team}`;
-    if (isBot(seat.player)) return `${name}, ${team}, bot`;
+    if (isBot(seat.player)) return `${isHost(lobby, viewerId) ? 'Remove ' : ''}${name}, ${team}, bot`;
     return isHost(lobby, seat.player.id) ? `${name}, ${team}, host` : `${name}, ${team}`;
 }
 

@@ -156,8 +156,8 @@ interface LobbyViewProps {
 function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyViewProps) {
     const navigate = useNavigate();
     const [sheet, setSheet] = useState<OpenSheet>(null);
-    // who "Remove {name}?" is about; a bot's sheet says what removing a bot means (R17)
-    const [removing, setRemoving] = useState({ name: '', bot: false });
+    // who "Remove {name}?" is about: a person; a bot goes with one tap (R37)
+    const [removing, setRemoving] = useState('');
     const [busy, setBusy] = useState<SeatBusy | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
     const [starting, setStarting] = useState(false);
@@ -244,8 +244,17 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
             () => 'start',
         );
 
+    // a bot goes at once, with no sheet: re-adding one is one tap too, and nothing is lost (R37)
+    const removeBot = (seat: TableSeat, username: string) =>
+        atTable(
+            { key: seat.key, label: 'Removing…' },
+            () => lobbyService.kickPlayer(lobbyId, { usernameToKick: username }),
+            (e) => errorMessage(e, 'Failed to remove the bot'),
+            () => seat.position,
+        );
+
     const askRemove = (member: UserSimpleDTO) => {
-        setRemoving({ name: member.username ?? '', bot: isBot(member) });
+        setRemoving(member.username ?? '');
         setSheet('remove');
     };
 
@@ -253,7 +262,10 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
         const action = seatAction(seat, lobby, me);
         if (action === 'sit') void changeSeat(seat.team, seat);
         else if (action === 'own') setSheet('seat');
-        else if (action === 'remove' && seat.player?.username) askRemove(seat.player);
+        else if (action === 'remove' && seat.player?.username) {
+            if (isBot(seat.player)) void removeBot(seat, seat.player.username);
+            else askRemove(seat.player);
+        }
     };
 
     const standUp = () => {
@@ -267,7 +279,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     };
 
     const kick = async () => {
-        await lobbyService.kickPlayer(lobbyId, { usernameToKick: removing.name });
+        await lobbyService.kickPlayer(lobbyId, { usernameToKick: removing });
         closeSheet();
         await refresh();
     };
@@ -373,9 +385,9 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
             <ConfirmSheet
                 open={sheet === 'remove'}
                 onClose={closeSheet}
-                title={`Remove ${removing.name}?`}
-                body={removing.bot ? 'The bot leaves the lobby. You can add one again from an empty seat.' : 'They leave the lobby at once and can join again from the list.'}
-                confirmLabel={`Remove ${removing.name}`}
+                title={`Remove ${removing}?`}
+                body="They leave the lobby at once and can join again from the list."
+                confirmLabel={`Remove ${removing}`}
                 confirmIcon="x"
                 onConfirm={kick}
                 fallbackError="Failed to kick player"

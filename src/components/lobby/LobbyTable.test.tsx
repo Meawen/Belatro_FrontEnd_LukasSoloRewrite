@@ -225,10 +225,10 @@ describe('LobbyTable (spec §4.7)', () => {
         expect(dimmed()).toEqual(POSITIONS)
     })
 
-    test('a bot\'s seat: the robot in place of the initial, its name, "Bot", and ", bot" in its name', () => {
+    test('a bot\'s seat: the robot in place of the initial, its name, "Bot", and ", bot" in its name, which the host\'s starts "Remove"', () => {
         render(<LobbyTable lobby={lobby({ teamBPlayers: [ivo, botAna], unassignedPlayers: [] })} viewerId="u9" />)
         const bot = seatAt('left')
-        expect(bot).toHaveAccessibleName('Bot-Ana, team B, bot')
+        expect(bot).toHaveAccessibleName('Remove Bot-Ana, team B, bot')
         expect(bot).toHaveTextContent(/^Bot-AnaBot$/)
         const avatar = bot.querySelector('.ui-avatar') as HTMLElement
         expect(avatar).toHaveTextContent(/^$/)

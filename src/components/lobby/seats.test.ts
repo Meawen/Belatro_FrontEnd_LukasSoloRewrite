@@ -156,11 +156,13 @@ describe('seats (spec §4.7, §5.3.2)', () => {
         expect(label('u9', 'A1')).toBe('mira_z (you), team A')
     })
 
-    test('a bot\'s seat is named as a bot', () => {
+    test('a bot\'s seat is named as a bot; for the host, whose tap removes it, by that action (R37)', () => {
         const l = lobby({ teamBPlayers: [ivo, ana] })
         const label = (viewer: string | null, key: string) => seatLabel(tableSeats(l, viewer).find((s) => s.key === key)!, l, viewer)
-        expect(label('u9', 'B2')).toBe('Bot-Ana, team B, bot')
+        expect(label('u9', 'B2')).toBe('Remove Bot-Ana, team B, bot')
+        expect(label('u3', 'B2')).toBe('Bot-Ana, team B, bot')
         expect(label('u7', 'B2')).toBe('Bot-Ana, team B, bot')
+        expect(label(null, 'B2')).toBe('Bot-Ana, team B, bot')
         expect(label('u9', 'B1')).toBe('ivo, team B')
     })
 
