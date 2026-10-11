@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameWebSocket } from './useGameWebSocket';
 import type { RematchFrame } from '../types/game';
@@ -10,11 +10,13 @@ const REMATCH_WINDOW_MS = 2 * 60 * 1000;
 export interface RematchState {
     /** How many of the four want a rematch, from the latest VOTE frame. */
     votes: number;
+    /** My vote went out: Play again is off until the outcome (a START, a CANCEL, or the two minutes) (R29). */
+    voted: boolean;
     /** Who declined: there will be no rematch. */
     cancelledBy: string | null;
     /** Two minutes passed without a START. */
     expired: boolean;
-    /** Vote for a rematch (Play again). */
+    /** Vote for a rematch (Play again), once: a second vote started a second rematch with bots at the table (R29). */
     playAgain: () => void;
     /** Decline the rematch for everyone, then go back to the lobbies (Leave). */
     leave: () => void;
@@ -28,6 +30,9 @@ export interface RematchState {
 export function useRematch(gameId: string, offered: boolean): RematchState {
     const navigate = useNavigate();
     const [votes, setVotes] = useState(0);
+    // a ref as well as state: two taps before a render must still send one vote
+    const sent = useRef(false);
+    const [voted, setVoted] = useState(false);
     const [cancelledBy, setCancelledBy] = useState<string | null>(null);
     const [expired, setExpired] = useState(false);
 
@@ -52,8 +57,11 @@ export function useRematch(gameId: string, offered: boolean): RematchState {
         return () => window.clearTimeout(timer);
     }, [offered]);
 
+    // a vote the socket could not send (it is down) may be tried again
     const playAgain = useCallback(() => {
-        voteRematch(gameId);
+        if (sent.current || !voteRematch(gameId)) return;
+        sent.current = true;
+        setVoted(true);
     }, [gameId, voteRematch]);
 
     const leave = useCallback(() => {
@@ -61,5 +69,5 @@ export function useRematch(gameId: string, offered: boolean): RematchState {
         navigate('/lobbies');
     }, [gameId, declineRematch, navigate]);
 
-    return { votes, cancelledBy, expired, playAgain, leave };
+    return { votes, voted, cancelledBy, expired, playAgain, leave };
 }

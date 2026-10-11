@@ -22,7 +22,7 @@ const SPEEDS = [0.5, 1, 2, 4];
 
 /** Moves go nowhere: the table is a script. Each "goes out", so a played card lifts and waits. */
 const ACTIONS: GameActions = { bidTrump: () => true, passBid: () => true, play: () => true, challenge: () => true };
-const REMATCH: RematchState = { votes: 1, cancelledBy: null, expired: false, playAgain: () => {}, leave: () => {} };
+const REMATCH: RematchState = { votes: 1, voted: false, cancelledBy: null, expired: false, playAgain: () => {}, leave: () => {} };
 
 /** The accepted state after a snapshot of fan-out `index` (the jump), and where the stream goes on from. */
 function jumpTo(options: DevOptions, index: number, now: number) {

@@ -49,6 +49,35 @@ describe('useRematch (R-45)', () => {
         expect(ws.unsubscribeFromRematch).toHaveBeenCalledWith('g1')
     })
 
+    // R29: with bots at the table a second vote started a second rematch
+    test('one vote per game: a second Play again sends no second vote', () => {
+        const { result } = renderHook(() => useRematch('g1', true))
+        expect(result.current.voted).toBe(false)
+        act(() => result.current.playAgain())
+        expect(result.current.voted).toBe(true)
+        act(() => result.current.playAgain())
+        expect(ws.voteRematch).toHaveBeenCalledTimes(1)
+    })
+
+    test('two taps before a render still send one vote (R29)', () => {
+        const { result } = renderHook(() => useRematch('g1', true))
+        act(() => {
+            result.current.playAgain()
+            result.current.playAgain()
+        })
+        expect(ws.voteRematch).toHaveBeenCalledTimes(1)
+    })
+
+    test('a vote the socket could not send leaves Play again open for another try (R29)', () => {
+        ws.voteRematch.mockReturnValueOnce(false)
+        const { result } = renderHook(() => useRematch('g1', true))
+        act(() => result.current.playAgain())
+        expect(result.current.voted).toBe(false)
+        act(() => result.current.playAgain())
+        expect(ws.voteRematch).toHaveBeenCalledTimes(2)
+        expect(result.current.voted).toBe(true)
+    })
+
     test('VOTE frames give the count', () => {
         const { result } = renderHook(() => useRematch('g1', true))
         expect(result.current.votes).toBe(0)
