@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { canAddBot, fillableSeats, hostHint, isReadyToStart, lobbyHint, memberStatus, seatAction, seatLabel, seatedCount, startReadiness, tableSeats, teamOf } from './seats'
+import { canAddBot, fillableSeats, hostHint, isReadyToStart, lobbyHint, memberStatus, seatAction, seatLabel, seatedCount, startReadiness, tableSeats, takesBots, teamOf } from './seats'
 import type { LobbyDTO } from '../../types/lobby'
 
 const mira = { id: 'u9', username: 'mira_z' }
@@ -103,6 +103,11 @@ describe('seats (spec §4.7, §5.3.2)', () => {
         expect(canAddBot(empty, ranked, 'u9')).toBe(false)
         const casual = { ...ranked, gameMode: 'CASUAL' }
         expect(canAddBot(empty, casual, 'u9')).toBe(true)
+    })
+
+    test('a lobby takes bots unless it is ranked: one rule for the chips and "Fill with bots" (R18)', () => {
+        expect(takesBots(lobby({ gameMode: 'CASUAL' }))).toBe(true)
+        expect(takesBots(lobby({ gameMode: 'RANKED' }))).toBe(false)
     })
 
     test('seats to fill: the free team places, but never past four members, so an unassigned person keeps a seat', () => {

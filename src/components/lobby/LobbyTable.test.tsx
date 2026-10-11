@@ -129,6 +129,12 @@ describe('LobbyTable (spec §4.7)', () => {
         expect(screen.queryByText('Bot')).not.toBeInTheDocument()
     })
 
+    test('no chip without a handler: a "+ Bot" that does nothing is never drawn (R18)', () => {
+        render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })} viewerId="u9" onSeat={vi.fn()} />)
+        expect(screen.getAllByRole('button', { name: /^Sit here|^Open seat/ }).length).toBeGreaterThan(0)
+        expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
+    })
+
     test('while a request runs the chips take no tap', async () => {
         const user = userEvent.setup()
         const onAddBot = vi.fn()

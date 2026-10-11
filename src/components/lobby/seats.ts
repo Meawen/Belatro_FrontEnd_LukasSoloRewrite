@@ -71,12 +71,20 @@ export function seatAction(seat: TableSeat, lobby: LobbyDTO, viewerId: string | 
 }
 
 /**
+ * Whether a lobby takes bots at all: never a ranked one (the room can show a legacy one, and the server refuses bots
+ * there). The one rule behind the "+ Bot" chips (`canAddBot`) and "Fill with bots".
+ */
+export function takesBots(lobby: LobbyDTO): boolean {
+    return lobby.gameMode !== 'RANKED';
+}
+
+/**
  * Whether the host may put a bot on this seat: any empty one, on either team, while the lobby has fewer than four
- * members (the server refuses a bot at four, unassigned people included). Separate from the seat's own tap. Never in
- * a ranked lobby: the room can show a legacy one, and the server refuses bots there.
+ * members (the server refuses a bot at four, unassigned people included), in a lobby that takes bots. Separate from
+ * the seat's own tap.
  */
 export function canAddBot(seat: TableSeat, lobby: LobbyDTO, viewerId: string | null): boolean {
-    return seat.player === null && isHost(lobby, viewerId) && memberCount(lobby) < LOBBY_CAP && lobby.gameMode !== 'RANKED';
+    return seat.player === null && isHost(lobby, viewerId) && memberCount(lobby) < LOBBY_CAP && takesBots(lobby);
 }
 
 /**

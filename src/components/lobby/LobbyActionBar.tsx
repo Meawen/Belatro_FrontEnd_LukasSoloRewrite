@@ -12,7 +12,7 @@ export interface LobbyActionBarProps {
     /** 2 + 2 seated and nobody unassigned. */
     canStart?: boolean;
     starting?: boolean;
-    /** A seat can take a bot (seats.ts `fillableSeats` > 0). */
+    /** A seat can take a bot (seats.ts `fillableSeats` > 0) and no request is running at the table. */
     canFill?: boolean;
     filling?: boolean;
     joining?: boolean;

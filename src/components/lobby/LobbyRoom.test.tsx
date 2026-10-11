@@ -517,9 +517,24 @@ describe('LobbyRoom: bots (casual bots spec §7)', () => {
         expect(screen.getByRole('button', { name: 'Adding…' })).toHaveAttribute('aria-busy', 'true')
         expect(screen.getByRole('button', { name: 'Adding…' })).toHaveTextContent('Adding…')
         await user.click(screen.getAllByRole('button', { name: 'Add a bot to team B' })[0])
-        await user.click(screen.getByRole('button', { name: 'Fill with bots' }))
+        // Fill looks and announces disabled meanwhile, not only ignores a tap (R18)
+        expect(screen.getByRole('button', { name: 'Fill with bots' })).toBeDisabled()
         expect(lobbyService.addBot).toHaveBeenCalledTimes(1)
         expect(lobbyService.fillBots).not.toHaveBeenCalled()
+    })
+
+    test('while the host changes seat, "Fill with bots" is disabled too, and enabled again once it lands (R18)', async () => {
+        const user = userEvent.setup()
+        let land: (value: LobbyDTO) => void = () => {}
+        vi.mocked(lobbyService.switchTeam).mockImplementation(() => new Promise<LobbyDTO>((resolve) => { land = resolve }))
+        serve(alone())
+        renderLobby()
+        expect(await screen.findByRole('button', { name: 'Fill with bots' })).toBeEnabled()
+        await user.click(screen.getAllByRole('button', { name: 'Sit here, team B' })[0])
+        expect(screen.getByRole('button', { name: 'Switching…' })).toHaveAttribute('aria-busy', 'true')
+        expect(screen.getByRole('button', { name: 'Fill with bots' })).toBeDisabled()
+        await act(async () => land(alone()))
+        expect(await screen.findByRole('button', { name: 'Fill with bots' })).toBeEnabled()
     })
 
     test('a chip on a Team B seat asks for Team B; a refusal shows the server message', async () => {

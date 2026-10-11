@@ -17,7 +17,7 @@ import { LobbyActionBar, type LobbyRole } from './LobbyActionBar';
 import { ConfirmSheet, OptionsSheet, PasswordSheet, SeatSheet } from './LobbySheets';
 import { LobbyTable, type SeatBusy } from './LobbyTable';
 import { isBot, isMember, lobbyName } from './lobbyModel';
-import { fillableSeats, hostHint, isHost, lobbyHint, memberStatus, seatAction, startReadiness, tableSeats, teamOf, type SeatKey, type TableSeat } from './seats';
+import { fillableSeats, hostHint, isHost, lobbyHint, memberStatus, seatAction, startReadiness, tableSeats, takesBots, teamOf, type SeatKey, type TableSeat } from './seats';
 
 export interface LobbyRoomProps {
     lobbyId: string;
@@ -281,15 +281,15 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
                     line={host ? reason : memberStatus(lobby, me)}
                     canStart={ready}
                     starting={starting}
-                    canFill={fillableSeats(lobby) > 0}
+                    // any request at the table (a seat, a chip, a fill) disables Fill; the spinner is the fill's own
+                    canFill={busy === null && fillableSeats(lobby) > 0}
                     filling={busy !== null && busy.key === null}
                     joining={joining}
                     privateLobby={lobby.privateLobby ?? false}
                     following={following}
                     onOptions={() => setSheet('options')}
                     onStart={() => void start()}
-                    // a ranked lobby (a legacy one can be shown) takes no bots: the server refuses them
-                    onFill={lobby.gameMode === 'RANKED' ? undefined : () => void fillWithBots()}
+                    onFill={takesBots(lobby) ? () => void fillWithBots() : undefined}
                     onLeave={() => setSheet('leave')}
                     onJoin={joinNow}
                 />

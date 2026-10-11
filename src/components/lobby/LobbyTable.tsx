@@ -26,7 +26,7 @@ export interface LobbyTableProps {
     busy?: SeatBusy | null;
     /** A tap on a seat that has an action (seats.ts `seatAction`); the others are aria-disabled. */
     onSeat?: (seat: TableSeat) => void;
-    /** The host's "+ Bot" chip on an empty seat (seats.ts `canAddBot`), a button apart from the seat's own tap. */
+    /** The host's "+ Bot" chip on an empty seat (seats.ts `canAddBot`), a button apart from the seat's own tap; without it, no chip. */
     onAddBot?: (seat: TableSeat) => void;
     /** The match is starting: the table grows while the page goes to the game (spec §4.7 Motion). */
     launching?: boolean;
@@ -103,7 +103,7 @@ export function LobbyTable({ lobby, viewerId, mini = false, busy = null, onSeat,
                                     arrived={seat.player?.username ? arrived(seat.player.username) : false}
                                     reduced={reduced}
                                 />
-                                {canAddBot(seat, lobby, viewerId) && <BotChip seat={seat} busy={busy !== null} onAddBot={onAddBot} />}
+                                {onAddBot && canAddBot(seat, lobby, viewerId) && <BotChip seat={seat} busy={busy !== null} onAddBot={onAddBot} />}
                             </>
                         )}
                     </div>
@@ -154,14 +154,14 @@ function Seat({ seat, lobby, viewerId, busy, onSeat, arrived, reduced }: SeatPro
 }
 
 /** The host's "+ Bot" on an empty seat: its own button, named for the team it seats the bot on. */
-function BotChip({ seat, busy, onAddBot }: { seat: TableSeat; busy: boolean; onAddBot?: (seat: TableSeat) => void }) {
+function BotChip({ seat, busy, onAddBot }: { seat: TableSeat; busy: boolean; onAddBot: (seat: TableSeat) => void }) {
     return (
         <button
             type="button"
             aria-label={`Add a bot to team ${seat.team}`}
             aria-disabled={busy || undefined}
             onClick={() => {
-                if (!busy) onAddBot?.(seat);
+                if (!busy) onAddBot(seat);
             }}
             className={cx('press absolute inline-flex min-h-11 items-center whitespace-nowrap', BOT_CHIP[seat.position], busy && 'cursor-default opacity-60')}
         >
