@@ -3,29 +3,29 @@
         "json": [
             {
                 "id": "l1", "name": "Kod Mire", "gameMode": "CASUAL", "status": "WAITING", "createdAt": null,
-                "hostUser": { "id": "u9", "username": "mira_z" },
-                "teamAPlayers": [{ "id": "u9", "username": "mira_z" }, { "id": "u2", "username": "luka" }],
-                "teamBPlayers": [{ "id": "u3", "username": "ivo" }],
+                "hostUser": { "id": "u9", "username": "mira_z", "bot": false },
+                "teamAPlayers": [{ "id": "u9", "username": "mira_z", "bot": false }, { "id": "u2", "username": "luka", "bot": false }],
+                "teamBPlayers": [{ "id": "u3", "username": "ivo", "bot": false }],
                 "unassignedPlayers": [], "privateLobby": true, "password": null
             },
             {
                 "id": "l2", "name": "Petak u pet", "gameMode": "CASUAL", "status": "WAITING", "createdAt": null,
-                "hostUser": { "id": "u5", "username": "dino" },
-                "teamAPlayers": [{ "id": "u5", "username": "dino" }, { "id": "u6", "username": "iva" }],
+                "hostUser": { "id": "u5", "username": "dino", "bot": false },
+                "teamAPlayers": [{ "id": "u5", "username": "dino", "bot": false }, { "id": "u6", "username": "iva", "bot": false }],
                 "teamBPlayers": [],
-                "unassignedPlayers": [{ "id": "u4", "username": "tea_r" }], "privateLobby": false, "password": null
+                "unassignedPlayers": [{ "id": "u4", "username": "tea_r", "bot": false }], "privateLobby": false, "password": null
             },
             {
                 "id": "l3", "name": "Subotnja", "gameMode": "CASUAL", "status": "WAITING", "createdAt": null,
-                "hostUser": { "id": "u7", "username": "marko" },
-                "teamAPlayers": [{ "id": "u7", "username": "marko" }, { "id": "u8", "username": "petra" }],
-                "teamBPlayers": [{ "id": "u10", "username": "tomo" }, { "id": "u11", "username": "lana" }],
+                "hostUser": { "id": "u7", "username": "marko", "bot": false },
+                "teamAPlayers": [{ "id": "u7", "username": "marko", "bot": false }, { "id": "u8", "username": "petra", "bot": false }],
+                "teamBPlayers": [{ "id": "u10", "username": "tomo", "bot": false }, { "id": "u11", "username": "lana", "bot": false }],
                 "unassignedPlayers": [], "privateLobby": false, "password": null
             },
             {
                 "id": "l4", "name": "Bela kod Ane", "gameMode": "CASUAL", "status": "WAITING", "createdAt": null,
-                "hostUser": { "id": "u1", "username": "ana_k" },
-                "teamAPlayers": [{ "id": "u1", "username": "ana_k" }],
+                "hostUser": { "id": "u1", "username": "ana_k", "bot": false },
+                "teamAPlayers": [{ "id": "u1", "username": "ana_k", "bot": false }],
                 "teamBPlayers": [],
                 "unassignedPlayers": [], "privateLobby": false, "password": null
             }
@@ -34,19 +34,19 @@
     "GET /lobbies/l1": {
         "json": {
             "id": "l1", "name": "Kod Mire", "gameMode": "CASUAL", "status": "WAITING", "createdAt": null,
-            "hostUser": { "id": "u9", "username": "mira_z" },
-            "teamAPlayers": [{ "id": "u9", "username": "mira_z" }, { "id": "u2", "username": "luka" }],
-            "teamBPlayers": [{ "id": "u3", "username": "ivo" }],
+            "hostUser": { "id": "u9", "username": "mira_z", "bot": false },
+            "teamAPlayers": [{ "id": "u9", "username": "mira_z", "bot": false }, { "id": "u2", "username": "luka", "bot": false }],
+            "teamBPlayers": [{ "id": "u3", "username": "ivo", "bot": false }],
             "unassignedPlayers": [], "privateLobby": true, "password": null
         }
     },
     "GET /lobbies/l2": {
         "json": {
             "id": "l2", "name": "Petak u pet", "gameMode": "CASUAL", "status": "WAITING", "createdAt": null,
-            "hostUser": { "id": "u5", "username": "dino" },
-            "teamAPlayers": [{ "id": "u5", "username": "dino" }, { "id": "u6", "username": "iva" }],
+            "hostUser": { "id": "u5", "username": "dino", "bot": false },
+            "teamAPlayers": [{ "id": "u5", "username": "dino", "bot": false }, { "id": "u6", "username": "iva", "bot": false }],
             "teamBPlayers": [],
-            "unassignedPlayers": [{ "id": "u4", "username": "tea_r" }], "privateLobby": false, "password": null
+            "unassignedPlayers": [{ "id": "u4", "username": "tea_r", "bot": false }], "privateLobby": false, "password": null
         }
     }
 }

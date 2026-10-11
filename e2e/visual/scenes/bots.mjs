@@ -1,7 +1,7 @@
 // Bots in a casual lobby (casual bots spec §7): the host's "+ Bot" chips and "Fill with bots", a bot's seat, the host's
-// hint, and the remove sheet for a bot; the lobby list's count of people and bots, and the board's robot mark. The
-// scene format is documented at the top of e2e/visual.mjs. The fixtures leave `createdAt` null, so no shot depends on
-// the clock.
+// hint, a bot's one-tap removal and the host's ready table; the lobby list's count of people and bots, and the board's
+// robot mark. The scene format is documented at the top of e2e/visual.mjs. The fixtures leave `createdAt` null, so no
+// shot depends on the clock.
 
 // people as a backend with bots sends them: the flag is always there, false for a person (without it, no bot controls)
 const MIRA = { id: 'u9', username: 'mira_z', bot: false };
@@ -41,10 +41,11 @@ function lobby(teams) {
     };
 }
 
-/** Taps Bot-Ana's seat and waits for the remove sheet. */
-async function openRemove(page) {
-    await page.getByRole('button', { name: 'Bot-Ana, team A, bot' }).click();
-    await page.getByRole('dialog', { name: 'Remove Bot-Ana?' }).waitFor();
+/** Taps Bot-Ana's seat with the kick held open: the seat reads "Removing…" and the rest of the table dims. */
+async function removingABot(page) {
+    await page.route('**/backend/lobbies/b1/kick', () => {});
+    await page.getByRole('button', { name: 'Remove Bot-Ana, team A, bot' }).click();
+    await page.getByRole('button', { name: 'Removing…' }).waitFor();
 }
 
 /** Taps Team A's "+ Bot" with the request held open: the seat reads what is happening. */
@@ -91,17 +92,26 @@ async function openQuickLook(page) {
 const botBoard = (at) => `/dev/board?controls=0&skip=1&effects=off&seat=carol&bots=bob,dave&at=${at}`;
 
 export default [
-    // the host alone: a "+ Bot" chip on each of the three empty seats, and "Fill with bots" beside Start match
+    // the host alone: a "+ Bot" under each of the three empty seats, "Fill with bots" under the table, a one-row bar
     { name: 'bots-host-alone', path: '/lobby/b1', viewports: BOTH, user: MIRA, api: [signedIn(MIRA), lobby({ teamAPlayers: [MIRA] })] },
-    // a bot on its way: the tapped seat is busy and says so, the other chips are dimmed
+    // a bot on its way: the tapped seat is busy and says so; the other seats, the chips and Fill show disabled
     { name: 'bots-adding', path: '/lobby/b1', viewports: BOTH, user: MIRA, api: [signedIn(MIRA), lobby({ teamAPlayers: [MIRA] })], setup: addingABot },
     // the host with two bots: robots on their seats, one chip left, the host's hint under the table
     { name: 'bots-host-two-bots', path: '/lobby/b1', viewports: BOTH, user: MIRA, api: [signedIn(MIRA), twoBots] },
-    // the host's tap on a bot: "Remove Bot-Ana?"
-    { name: 'bots-remove', path: '/lobby/b1', viewports: BOTH, user: MIRA, api: [signedIn(MIRA), twoBots], setup: openRemove },
-    // the host standing, every seat empty: four chips, the bottom seat's beside its name plate
-    { name: 'bots-host-standing', path: '/lobby/b1', viewports: BOTH, user: MIRA, api: [signedIn(MIRA), lobby({ unassignedPlayers: [MIRA] })] },
-    // a member's view of a bot: the robot and "Bot", no chips, no Fill
+    // the host's one tap on a bot: its seat reads "Removing…", the rest of the table dims
+    { name: 'bots-removing', path: '/lobby/b1', viewports: BOTH, user: MIRA, api: [signedIn(MIRA), twoBots], setup: removingABot },
+    // the host standing, every seat empty: four chips, each the last line of its seat; the phone's landscape first view
+    // and a tablet's width too
+    {
+        name: 'bots-host-standing', path: '/lobby/b1', viewports: [...BOTH, '812x375', '800x1000'], user: MIRA,
+        api: [signedIn(MIRA), lobby({ unassignedPlayers: [MIRA] })],
+    },
+    // the host with three bots: Start enabled, no Fill (nothing to fill), the host's hint
+    {
+        name: 'bots-host-ready', path: '/lobby/b1', viewports: BOTH, user: MIRA,
+        api: [signedIn(MIRA), lobby({ teamAPlayers: [MIRA, BOT_ANA], teamBPlayers: [BOT_TIN, BOT_NIKA] })],
+    },
+    // a member's view of a bot: the robot and "Bot · Team A", no chips, no Fill
     {
         name: 'bots-member', path: '/lobby/b1', viewports: BOTH, user: IVO,
         api: [signedIn(IVO), lobby({ teamAPlayers: [MIRA, BOT_ANA], teamBPlayers: [IVO] })],
