@@ -604,6 +604,19 @@ describe('LobbyRoom: bots (casual bots spec §7)', () => {
         expect(lobbyService.kickPlayer).toHaveBeenCalledWith('l1', { usernameToKick: 'Bot-Ana' })
     })
 
+    test('the remove sheet says what removing a bot means; a person\'s keeps today\'s text (R17)', async () => {
+        const user = userEvent.setup()
+        serve(lobby({ teamAPlayers: [ana, bob], teamBPlayers: [botAna], unassignedPlayers: [] }))
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Bot-Ana, team B, bot' }))
+        expect(within(sheet('Remove Bot-Ana?')).getByText('The bot leaves the lobby. You can add one again from an empty seat.')).toBeInTheDocument()
+        expect(within(sheet('Remove Bot-Ana?')).queryByText('They leave the lobby at once and can join again from the list.')).not.toBeInTheDocument()
+        await user.click(within(sheet('Remove Bot-Ana?')).getByRole('button', { name: 'Cancel' }))
+        await user.click(screen.getByRole('button', { name: 'bob, team A' }))
+        expect(within(sheet('Remove bob?')).getByText('They leave the lobby at once and can join again from the list.')).toBeInTheDocument()
+        expect(within(sheet('Remove bob?')).queryByText('The bot leaves the lobby. You can add one again from an empty seat.')).not.toBeInTheDocument()
+    })
+
     test('the host\'s hint shows only for a public lobby with a bot', async () => {
         serve(lobby({ teamAPlayers: [ana], teamBPlayers: [botAna], unassignedPlayers: [] }))
         renderLobby()

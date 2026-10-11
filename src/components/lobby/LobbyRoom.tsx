@@ -11,11 +11,12 @@ import { matchService } from '../../services/matchService';
 import { ApiError } from '../../services/api';
 import { spring } from '../../motion/tokens';
 import type { LobbyDTO, LobbyTeam } from '../../types/lobby';
+import type { UserSimpleDTO } from '../../types/user';
 import { errorMessage } from '../../utils/errorMessage';
 import { LobbyActionBar, type LobbyRole } from './LobbyActionBar';
 import { ConfirmSheet, OptionsSheet, PasswordSheet, SeatSheet } from './LobbySheets';
 import { LobbyTable, type SeatBusy } from './LobbyTable';
-import { isMember, lobbyName } from './lobbyModel';
+import { isBot, isMember, lobbyName } from './lobbyModel';
 import { fillableSeats, hostHint, isHost, lobbyHint, memberStatus, seatAction, startReadiness, tableSeats, teamOf, type SeatKey, type TableSeat } from './seats';
 
 export interface LobbyRoomProps {
@@ -138,7 +139,8 @@ interface LobbyViewProps {
 function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyViewProps) {
     const navigate = useNavigate();
     const [sheet, setSheet] = useState<OpenSheet>(null);
-    const [removeName, setRemoveName] = useState('');
+    // who "Remove {name}?" is about; a bot's sheet says what removing a bot means (R17)
+    const [removing, setRemoving] = useState({ name: '', bot: false });
     const [busy, setBusy] = useState<SeatBusy | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
     const [starting, setStarting] = useState(false);
@@ -192,8 +194,8 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
 
     const fillWithBots = () => atTable({ key: null, label: 'Filling with bots…' }, () => lobbyService.fillBots(lobbyId), 'Failed to fill with bots');
 
-    const askRemove = (name: string) => {
-        setRemoveName(name);
+    const askRemove = (member: UserSimpleDTO) => {
+        setRemoving({ name: member.username ?? '', bot: isBot(member) });
         setSheet('remove');
     };
 
@@ -201,7 +203,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
         const action = seatAction(seat, lobby, me);
         if (action === 'sit') void changeSeat(seat.team, seat.key);
         else if (action === 'own') setSheet('seat');
-        else if (action === 'remove' && seat.player?.username) askRemove(seat.player.username);
+        else if (action === 'remove' && seat.player?.username) askRemove(seat.player);
     };
 
     const standUp = () => {
@@ -215,7 +217,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     };
 
     const kick = async () => {
-        await lobbyService.kickPlayer(lobbyId, { usernameToKick: removeName });
+        await lobbyService.kickPlayer(lobbyId, { usernameToKick: removing.name });
         closeSheet();
         await refresh();
     };
@@ -308,9 +310,9 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
             <ConfirmSheet
                 open={sheet === 'remove'}
                 onClose={closeSheet}
-                title={`Remove ${removeName}?`}
-                body="They leave the lobby at once and can join again from the list."
-                confirmLabel={`Remove ${removeName}`}
+                title={`Remove ${removing.name}?`}
+                body={removing.bot ? 'The bot leaves the lobby. You can add one again from an empty seat.' : 'They leave the lobby at once and can join again from the list.'}
+                confirmLabel={`Remove ${removing.name}`}
                 confirmIcon="x"
                 onConfirm={kick}
                 fallbackError="Failed to kick player"
@@ -350,7 +352,7 @@ function LobbyChips({ lobby }: { lobby: LobbyDTO }) {
 }
 
 /** Members who have not taken a seat. For the host each other member's chip opens "Remove {name}?". */
-function NotSeated({ lobby, viewerId, hostView, onRemove }: { lobby: LobbyDTO; viewerId: string | null; hostView: boolean; onRemove: (name: string) => void }) {
+function NotSeated({ lobby, viewerId, hostView, onRemove }: { lobby: LobbyDTO; viewerId: string | null; hostView: boolean; onRemove: (member: UserSimpleDTO) => void }) {
     const players = lobby.unassignedPlayers ?? [];
     if (players.length === 0) return null;
     return (
@@ -370,7 +372,7 @@ function NotSeated({ lobby, viewerId, hostView, onRemove }: { lobby: LobbyDTO; v
                         type="button"
                         aria-haspopup="dialog"
                         className="press inline-flex min-h-11 items-center"
-                        onClick={() => onRemove(player.username ?? '')}
+                        onClick={() => onRemove(player)}
                     >
                         {chip}
                     </button>
