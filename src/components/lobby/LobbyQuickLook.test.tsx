@@ -116,11 +116,12 @@ describe('LobbyQuickLook (spec §4.6)', () => {
         expect(lobbyService.joinLobby).toHaveBeenCalledWith('l1', { lobbyId: 'l1', password: null })
     })
 
-    test('the mini table counts people, then bots, as the list does: "1 of 4 · 3 bots", not the room\'s "4/4 Ready to deal" (casual bots spec §7)', () => {
+    test('the mini table counts people, then bots, as the list does: "1/4", "players · 3 bots", not the room\'s "4/4 Ready to deal" (casual bots spec §7, R34)', () => {
         const bots = [1, 2, 3].map((n) => ({ id: `b${n}`, username: `Bot-${n}`, bot: true }))
         renderQuickLook(lobby({ teamAPlayers: [bob, bots[0]], teamBPlayers: [bots[1], bots[2]] }))
         const table = screen.getByTestId('lobby-table')
-        expect(within(table).getByText('1 of 4 · 3 bots')).toBeInTheDocument()
+        expect(within(table).getByText('1/4')).toBeInTheDocument()
+        expect(within(table).getByText('players · 3 bots')).toBeInTheDocument()
         expect(within(table).queryByText('4/4')).not.toBeInTheDocument()
         expect(within(table).queryByText('Ready to deal')).not.toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Join lobby' })).toBeEnabled()

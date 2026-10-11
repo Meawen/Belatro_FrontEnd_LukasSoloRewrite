@@ -5,7 +5,7 @@ import { Avatar, Button, PixelIcon } from '../ui';
 import { cx } from '../ui/cx';
 import { fade, spring } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
-import { countLine, isBot } from './lobbyModel';
+import { botCount, isBot, peopleCount } from './lobbyModel';
 import { canAddBot, isHost, isReadyToStart, seatAction, seatLabel, seatedCount, tableSeats, takesBots, type SeatKey, type SeatPosition, type TableSeat } from './seats';
 
 /**
@@ -22,7 +22,7 @@ export interface LobbyTableProps {
     lobby: LobbyDTO;
     /** The signed-in user's id; null before the session is read. */
     viewerId: string | null;
-    /** The quick-look's static copy at 60 %: no buttons and no motion; its centre counts people, then bots (`countLine`). */
+    /** The quick-look's static copy at 60 %: no buttons and no motion; its centre counts people, then bots (`playersLine`). */
     mini?: boolean;
     busy?: SeatBusy | null;
     /** A tap on a seat that has an action (seats.ts `seatAction`); the others are aria-disabled. */
@@ -43,6 +43,12 @@ const PLACE: Record<SeatPosition, string> = {
     left: 'left-3.5 top-1/2 -translate-y-1/2',
     right: 'right-3.5 top-1/2 -translate-y-1/2',
 };
+
+/** The quick-look's line under its count of people: "players", or with bots "players · 3 bots". */
+function playersLine(lobby: LobbyDTO): string {
+    const bots = botCount(lobby);
+    return bots === 0 ? 'players' : `players · ${bots} ${bots === 1 ? 'bot' : 'bots'}`;
+}
 
 const PLACE_MINI: Record<SeatPosition, string> = {
     top: 'left-1/2 top-2 -translate-x-1/2',
@@ -111,8 +117,12 @@ export function LobbyTable({ lobby, viewerId, mini = false, busy = null, onSeat,
                 ))}
                 <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
                     {mini ? (
-                        // the quick-look asks "is there room for me?": people of the cap, then bots, as the list says
-                        <p className="t-callout whitespace-nowrap font-semibold tabular-nums">{countLine(lobby)}</p>
+                        // the quick-look asks "is there room for me?": people of the cap, then bots, as the list says,
+                        // in the room's two lines
+                        <>
+                            <p className="t-score tabular-nums">{peopleCount(lobby)}/4</p>
+                            <p className="t-footnote whitespace-nowrap">{playersLine(lobby)}</p>
+                        </>
                     ) : (
                         // the room counts seats, bots included: what the host needs to start
                         <>
@@ -210,7 +220,9 @@ function SeatFace({ seat, lobby, viewerId, canSit, pressable, busyLabel, mini = 
     const host = player !== null && isHost(lobby, player.id);
     const bot = isBot(player);
     const title = busyLabel ?? (player ? (player.username ?? 'Unknown') : canSit ? 'Sit here' : 'Open seat');
-    const tag = own ? 'You' : host ? 'Host' : bot ? 'Bot' : `Team ${seat.team}`;
+    // a bot's tag names its team too, so the team shows by more than colour (spec §3.9); kept on one line, it runs into
+    // the plate's side padding but stays inside the 92-px seat
+    const tag = own ? 'You' : host ? 'Host' : bot ? `Bot · Team ${seat.team}` : `Team ${seat.team}`;
     return (
         <>
             <span className={cx('relative inline-flex', pressable && 'transition-transform duration-[90ms] ease-out group-active:translate-y-0.5')}>
@@ -237,7 +249,7 @@ function SeatFace({ seat, lobby, viewerId, canSit, pressable, busyLabel, mini = 
             </span>
             <span className="ink-chip notch flex max-w-full flex-col items-center px-2 py-0.5">
                 <span className={cx('t-footnote max-w-full truncate font-semibold', canSit && 'text-accent')}>{title}</span>
-                {!mini && <span className={cx('t-caption', own ? 'text-accent' : 'text-text-2')}>{tag}</span>}
+                {!mini && <span className={cx('t-caption whitespace-nowrap', own ? 'text-accent' : 'text-text-2')}>{tag}</span>}
             </span>
         </>
     );

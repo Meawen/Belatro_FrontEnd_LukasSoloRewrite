@@ -189,12 +189,12 @@ type SquareState = 'taken' | 'bot' | 'free';
 const SQUARE: Record<'A' | 'B', Record<SquareState, string>> = {
     A: {
         taken: 'bg-team-a',
-        bot: 'shadow-[inset_0_0_0_2px_var(--team-a)] bg-[linear-gradient(var(--team-a),var(--team-a))] bg-[length:2px_2px] bg-center bg-no-repeat',
+        bot: 'shadow-[inset_0_0_0_2px_var(--team-a)] bg-[linear-gradient(var(--team-a),var(--team-a))] bg-[length:4px_4px] bg-center bg-no-repeat',
         free: 'shadow-[inset_0_0_0_2px_var(--team-a)]',
     },
     B: {
         taken: 'bg-team-b',
-        bot: 'shadow-[inset_0_0_0_2px_var(--team-b)] bg-[linear-gradient(var(--team-b),var(--team-b))] bg-[length:2px_2px] bg-center bg-no-repeat',
+        bot: 'shadow-[inset_0_0_0_2px_var(--team-b)] bg-[linear-gradient(var(--team-b),var(--team-b))] bg-[length:4px_4px] bg-center bg-no-repeat',
         free: 'shadow-[inset_0_0_0_2px_var(--team-b)]',
     },
 };

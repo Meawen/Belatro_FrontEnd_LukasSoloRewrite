@@ -225,11 +225,13 @@ describe('LobbyTable (spec §4.7)', () => {
         expect(dimmed()).toEqual(POSITIONS)
     })
 
-    test('a bot\'s seat: the robot in place of the initial, its name, "Bot", and ", bot" in its name, which the host\'s starts "Remove"', () => {
+    test('a bot\'s seat: the robot in place of the initial, its name, "Bot · Team B", and ", bot" in its name, which the host\'s starts "Remove"', () => {
         render(<LobbyTable lobby={lobby({ teamBPlayers: [ivo, botAna], unassignedPlayers: [] })} viewerId="u9" />)
         const bot = seatAt('left')
         expect(bot).toHaveAccessibleName('Remove Bot-Ana, team B, bot')
-        expect(bot).toHaveTextContent(/^Bot-AnaBot$/)
+        // the tag names the team too, so it shows by more than colour (spec §3.9, R35); one line, never wrapped
+        expect(bot).toHaveTextContent(/^Bot-AnaBot · Team B$/)
+        expect(within(bot).getByText('Bot · Team B')).toHaveClass('t-caption', 'whitespace-nowrap')
         const avatar = bot.querySelector('.ui-avatar') as HTMLElement
         expect(avatar).toHaveTextContent(/^$/)
         expect(avatar.querySelector('svg')).not.toBeNull()
@@ -243,9 +245,23 @@ describe('LobbyTable (spec §4.7)', () => {
         expect(document.querySelector('[data-position="bottom"]')).toHaveTextContent('mira_z')
         expect(document.querySelector('[data-position="left"]')).toHaveTextContent('Open seat')
         expect(screen.getByTestId('lobby-table')).toHaveClass('h-[198px]')
-        // its centre counts people, as the list does, not the room's seats (casual bots spec §7)
-        expect(screen.getByText('4 of 4')).toBeInTheDocument()
+        // its centre counts people, as the list does, not the room's seats (casual bots spec §7), in the room's two
+        // lines: the count in the score face, then "players" (R34)
+        expect(screen.getByText('4/4')).toHaveClass('t-score', 'tabular-nums')
+        expect(screen.getByText('players')).toHaveClass('t-footnote')
         expect(screen.queryByText('3/4')).not.toBeInTheDocument()
         expect(screen.queryByText('seated')).not.toBeInTheDocument()
+    })
+
+    test('the mini table\'s count is people of four, then its bots: "players · 1 bot", "players · 3 bots" (R34)', () => {
+        const botTin = { id: 'b2', username: 'Bot-Tin', bot: true }
+        const botNika = { id: 'b3', username: 'Bot-Nika', bot: true }
+        const { rerender } = render(<LobbyTable lobby={lobby({ teamBPlayers: [ivo, botAna], unassignedPlayers: [] })} viewerId="u4" mini />)
+        expect(screen.getByText('3/4')).toHaveClass('t-score')
+        expect(screen.getByText('players · 1 bot')).toHaveClass('t-footnote')
+        rerender(<LobbyTable lobby={lobby({ teamAPlayers: [mira, botAna], teamBPlayers: [botTin, botNika], unassignedPlayers: [] })} viewerId="u4" mini />)
+        expect(screen.getByText('1/4')).toBeInTheDocument()
+        expect(screen.getByText('players · 3 bots')).toBeInTheDocument()
+        expect(screen.queryByText(/ of 4/)).not.toBeInTheDocument()
     })
 })

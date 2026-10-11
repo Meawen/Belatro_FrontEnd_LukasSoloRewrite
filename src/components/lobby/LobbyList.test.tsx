@@ -84,6 +84,8 @@ describe('LobbyList (spec §4.6)', () => {
         renderList([lobby({ teamAPlayers: [botAna, mira], teamBPlayers: [botTin] })])
         const row = screen.getByRole('button', { name: /^Kod Mire/ })
         expect([...row.querySelectorAll('[data-seat]')].map((square) => square.getAttribute('data-seat'))).toEqual(['A bot', 'A taken', 'B bot', 'B free'])
+        // a bot's dot is 4 px, so it reads apart from a free seat at 1× (R36)
+        for (const square of row.querySelectorAll('[data-seat$="bot"]')) expect(square).toHaveClass('bg-[length:4px_4px]')
     })
 
     test('search finds a lobby by name or host; "Most players" orders by members, descending (AC 2)', async () => {
