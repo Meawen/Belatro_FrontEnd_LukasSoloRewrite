@@ -6,7 +6,7 @@ import {
 } from '../test/fixtures/views/table';
 import type { Frame } from '../components/board/model/accept';
 import type { TableEffects } from '../settings/tableEffects';
-import type { Boja, GameCard, PublicGameView } from '../types/game';
+import type { Boja, GameCard, PlayerPublicInfo, PublicGameView } from '../types/game';
 import type { HandDTO, TrickDTO } from '../types/match';
 
 export const SEATS = ['alice', 'bob', 'carol', 'dave'] as const;
@@ -49,12 +49,14 @@ export interface DevOptions {
     names: boolean;
     /** A recording to replay instead of the table (`recorded-…`, a file under src/test/fixtures/views/); null: the table. */
     fixture: string | null;
+    /** These seats are server-side bots (`bot: true` on their seats in every frame): the board's robot mark. */
+    bots: string[];
 }
 
 const one = <T extends string>(value: string | null, allowed: readonly T[], fallback: T): T =>
     allowed.includes(value as T) ? (value as T) : fallback;
 
-/** `/dev/board?seat=carol&at=window-open&layout=375x812&effects=off&motion=reduce&chaos=1&controls=0&skip=1&play=1&speed=2&seed=7&trump=KARA&hands=2&scores=990,900&names=long` */
+/** `/dev/board?seat=carol&at=window-open&layout=375x812&effects=off&motion=reduce&chaos=1&controls=0&skip=1&play=1&speed=2&seed=7&trump=KARA&hands=2&scores=990,900&names=long&bots=bob,dave` */
 export function parseDevOptions(search: string): DevOptions {
     const q = new URLSearchParams(search);
     const scores = (q.get('scores') ?? '').split(',').map(Number);
@@ -75,6 +77,7 @@ export function parseDevOptions(search: string): DevOptions {
         speed: Math.min(8, Math.max(0.25, Number(q.get('speed')) || 1)),
         fixture: q.get('fixture'),
         names: q.get('names') === 'long',
+        bots: (q.get('bots') ?? '').split(',').filter((id) => (SEATS as readonly string[]).includes(id)),
     };
 }
 
@@ -91,12 +94,30 @@ function withLongNames(fanOuts: FanOut[]): FanOut[] {
     return (JSON.parse(text) as FanOut[]).map((f, i) => ({ ...f, label: labels[i] }));
 }
 
+/** The `bots` seats flagged as the server flags a bot (PlayerPublicInfo.bot) in every view, public and private. */
+function withBots(fanOuts: FanOut[], bots: readonly string[]): FanOut[] {
+    if (bots.length === 0) return fanOuts;
+    const flag = (seat: PlayerPublicInfo): PlayerPublicInfo => (bots.includes(seat.id) ? { ...seat, bot: true } : seat);
+    const flagged = (view: PublicGameView): PublicGameView => ({
+        ...view, teamA: view.teamA.map(flag), teamB: view.teamB.map(flag), seatingOrder: view.seatingOrder.map(flag),
+    });
+    return fanOuts.map((f) => ({
+        ...f,
+        public: flagged(f.public),
+        private: Object.fromEntries(Object.entries(f.private).map(([id, view]) => [id, { ...view, publicPart: flagged(view.publicPart) }])),
+    }));
+}
+
 /** The table for these options, its clock set so that fan-out `atIndex` happens now (live countdowns). */
-export function devTable(options: Pick<DevOptions, 'seed' | 'trump' | 'hands' | 'scores'> & { names?: boolean }, now: number, atIndex = 0): FanOut[] {
+export function devTable(
+    options: Pick<DevOptions, 'seed' | 'trump' | 'hands' | 'scores'> & { names?: boolean; bots?: readonly string[] },
+    now: number,
+    atIndex = 0,
+): FanOut[] {
     const base = { seed: options.seed, trump: options.trump, hands: options.hands, ...(options.scores ? { scores: options.scores } : {}) };
     const probe = playTable(base);
     const offset = probe[Math.min(Math.max(0, atIndex), probe.length - 1)].at - probe[0].at;
-    const table = playTable({ ...base, start: now - offset });
+    const table = withBots(playTable({ ...base, start: now - offset }), options.bots ?? []);
     return options.names ? withLongNames(table) : table;
 }
 
