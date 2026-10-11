@@ -23,6 +23,27 @@ describe('LobbyActionBar (spec §4.7)', () => {
         expect(screen.queryByRole('button', { name: 'Leave' })).not.toBeInTheDocument()
     })
 
+    test('host: "Fill with bots" while a seat can take a bot; none without onFill (a ranked lobby) or for anyone else', async () => {
+        const user = userEvent.setup()
+        const onFill = vi.fn()
+        const { rerender } = render(<LobbyActionBar role="host" line="Waiting for 3 more players." canFill onFill={onFill} />)
+        await user.click(screen.getByRole('button', { name: 'Fill with bots' }))
+        expect(onFill).toHaveBeenCalledTimes(1)
+        rerender(<LobbyActionBar role="host" line="Waiting for 3 more players." canFill filling onFill={onFill} />)
+        expect(screen.getByRole('button', { name: 'Fill with bots' })).toHaveAttribute('aria-busy', 'true')
+        expect(screen.getByRole('button', { name: 'Fill with bots' })).toBeDisabled()
+        rerender(<LobbyActionBar role="host" line="Everyone is seated." canStart canFill={false} onFill={onFill} />)
+        expect(screen.getByRole('button', { name: 'Fill with bots' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Start match' })).toBeEnabled()
+        rerender(<LobbyActionBar role="host" line="Waiting for 3 more players." canFill />)
+        expect(screen.queryByRole('button', { name: 'Fill with bots' })).not.toBeInTheDocument()
+        rerender(<LobbyActionBar role="member" line="Tap an open seat." canFill onFill={onFill} />)
+        expect(screen.queryByRole('button', { name: 'Fill with bots' })).not.toBeInTheDocument()
+        rerender(<LobbyActionBar role="outsider" line="" canFill onFill={onFill} />)
+        expect(screen.queryByRole('button', { name: 'Fill with bots' })).not.toBeInTheDocument()
+        expect(onFill).toHaveBeenCalledTimes(1)
+    })
+
     test('member: the status line and Leave; outsider: Join lobby', async () => {
         const user = userEvent.setup()
         const onLeave = vi.fn()

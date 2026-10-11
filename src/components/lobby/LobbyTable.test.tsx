@@ -8,6 +8,7 @@ const mira = { id: 'u9', username: 'mira_z' }
 const luka = { id: 'u2', username: 'luka' }
 const ivo = { id: 'u3', username: 'ivo' }
 const tea = { id: 'u4', username: 'tea_r' }
+const botAna = { id: 'b1', username: 'Bot-Ana', bot: true }
 
 function lobby(overrides: Partial<LobbyDTO> = {}): LobbyDTO {
     return {
@@ -90,6 +91,65 @@ describe('LobbyTable (spec §4.7)', () => {
         expect(seatAt('bottom')).toHaveTextContent('ivoYou')
         expect(seatAt('right')).toHaveTextContent('lukaTeam A')
         expect(seatAt('left').querySelectorAll('svg').length).toBeGreaterThan(0)
+    })
+
+    test('the host gets a "+ Bot" chip on each empty seat, a button of its own beside the seat\'s tap', async () => {
+        const user = userEvent.setup()
+        const onSeat = vi.fn()
+        const onAddBot = vi.fn()
+        render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })} viewerId="u9" onSeat={onSeat} onAddBot={onAddBot} />)
+        expect(screen.getAllByRole('button', { name: /^Add a bot to team/ }).map((chip) => chip.textContent)).toEqual(['Bot', 'Bot', 'Bot'])
+        expect(screen.getAllByRole('button', { name: 'Add a bot to team B' })).toHaveLength(2)
+        await user.click(screen.getByRole('button', { name: 'Add a bot to team A' }))
+        expect(onAddBot).toHaveBeenCalledWith(expect.objectContaining({ key: 'A2', team: 'A', player: null }))
+        expect(onSeat).not.toHaveBeenCalled()
+        // the seat itself still sits (R9): the host's tap on a Team B seat moves them there
+        await user.click(within(document.querySelector('[data-position="right"]') as HTMLElement).getByRole('button', { name: 'Sit here, team B' }))
+        expect(onSeat).toHaveBeenCalledWith(expect.objectContaining({ key: 'B1', team: 'B' }))
+        expect(onAddBot).toHaveBeenCalledTimes(1)
+    })
+
+    test('nobody but the host sees the chip, nor the mini table, nor a taken seat', () => {
+        const { unmount } = render(<LobbyTable lobby={lobby({ unassignedPlayers: [] })} viewerId="u9" onAddBot={vi.fn()} />)
+        expect(screen.getAllByRole('button', { name: /^Add a bot/ })).toHaveLength(1)
+        unmount()
+        // three members and an empty seat: a seated member, an outsider, nobody signed in, an unassigned member
+        const views: [LobbyDTO, string | null][] = [
+            [lobby({ unassignedPlayers: [] }), 'u2'],
+            [lobby({ unassignedPlayers: [] }), 'u7'],
+            [lobby({ unassignedPlayers: [] }), null],
+            [lobby({ teamBPlayers: [], unassignedPlayers: [tea] }), 'u4'],
+        ]
+        for (const [view, viewer] of views) {
+            const { unmount: next } = render(<LobbyTable lobby={view} viewerId={viewer} onAddBot={vi.fn()} />)
+            expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
+            next()
+        }
+        render(<LobbyTable lobby={lobby({ unassignedPlayers: [] })} viewerId="u9" mini />)
+        expect(screen.queryByText('Bot')).not.toBeInTheDocument()
+    })
+
+    test('while a request runs the chips take no tap', async () => {
+        const user = userEvent.setup()
+        const onAddBot = vi.fn()
+        render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })} viewerId="u9" busy={{ key: 'A2', label: 'Adding…' }} onAddBot={onAddBot} />)
+        expect(screen.getByRole('button', { name: 'Adding…' })).toHaveAttribute('aria-busy', 'true')
+        const chip = screen.getAllByRole('button', { name: 'Add a bot to team B' })[0]
+        expect(chip).toHaveAttribute('aria-disabled', 'true')
+        await user.click(chip)
+        expect(onAddBot).not.toHaveBeenCalled()
+    })
+
+    test('a bot\'s seat: the robot in place of the initial, its name, "Bot", and ", bot" in its name', () => {
+        render(<LobbyTable lobby={lobby({ teamBPlayers: [ivo, botAna], unassignedPlayers: [] })} viewerId="u9" />)
+        const bot = seatAt('left')
+        expect(bot).toHaveAccessibleName('Bot-Ana, team B, bot')
+        expect(bot).toHaveTextContent(/^Bot-AnaBot$/)
+        const avatar = bot.querySelector('.ui-avatar') as HTMLElement
+        expect(avatar).toHaveTextContent(/^$/)
+        expect(avatar.querySelector('svg')).not.toBeNull()
+        expect(seatAt('right').querySelector('.ui-avatar')).toHaveTextContent(/^I$/)
+        expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
     })
 
     test('the mini table (the quick-look) draws the same seats without buttons', () => {

@@ -96,6 +96,15 @@ describe('seats (spec §4.7, §5.3.2)', () => {
         expect(canAddBot(empty, l, 'u9')).toBe(false)
     })
 
+    test('no bot in a ranked lobby: the room can show a legacy one, and the server refuses bots there (R12)', () => {
+        const ranked = lobby({ gameMode: 'RANKED', teamAPlayers: [mira], teamBPlayers: [ivo] })
+        const empty = tableSeats(ranked, 'u9').find((s) => s.key === 'A2')!
+        expect(empty.player).toBeNull()
+        expect(canAddBot(empty, ranked, 'u9')).toBe(false)
+        const casual = { ...ranked, gameMode: 'CASUAL' }
+        expect(canAddBot(empty, casual, 'u9')).toBe(true)
+    })
+
     test('seats to fill: the free team places, but never past four members, so an unassigned person keeps a seat', () => {
         expect(fillableSeats(lobby({ teamAPlayers: [mira], teamBPlayers: [] }))).toBe(3)
         expect(fillableSeats(lobby())).toBe(1)
@@ -127,6 +136,14 @@ describe('seats (spec §4.7, §5.3.2)', () => {
         expect(label('u4', 'A1')).toBe('mira_z, team A, host')
         expect(label('u3', 'B1')).toBe('ivo (you), team B')
         expect(label('u9', 'A1')).toBe('mira_z (you), team A')
+    })
+
+    test('a bot\'s seat is named as a bot', () => {
+        const l = lobby({ teamBPlayers: [ivo, ana] })
+        const label = (viewer: string | null, key: string) => seatLabel(tableSeats(l, viewer).find((s) => s.key === key)!, l, viewer)
+        expect(label('u9', 'B2')).toBe('Bot-Ana, team B, bot')
+        expect(label('u7', 'B2')).toBe('Bot-Ana, team B, bot')
+        expect(label('u9', 'B1')).toBe('ivo, team B')
     })
 
     test('the host\'s reason line says what is missing (AC 4)', () => {

@@ -16,7 +16,7 @@ import { LobbyActionBar, type LobbyRole } from './LobbyActionBar';
 import { ConfirmSheet, OptionsSheet, PasswordSheet, SeatSheet } from './LobbySheets';
 import { LobbyTable, type SeatBusy } from './LobbyTable';
 import { isMember, lobbyName } from './lobbyModel';
-import { isHost, lobbyHint, memberStatus, seatAction, startReadiness, tableSeats, teamOf, type SeatKey, type TableSeat } from './seats';
+import { fillableSeats, hostHint, isHost, lobbyHint, memberStatus, seatAction, startReadiness, tableSeats, teamOf, type SeatKey, type TableSeat } from './seats';
 
 export interface LobbyRoomProps {
     lobbyId: string;
@@ -147,7 +147,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     const host = isHost(lobby, me);
     const role: LobbyRole = host ? 'host' : isMember(lobby, me) ? 'member' : 'outsider';
     const { ready, reason } = startReadiness(lobby);
-    const hint = lobbyHint(lobby, me);
+    const hint = lobbyHint(lobby, me) ?? hostHint(lobby, me);
     const mySeat = tableSeats(lobby, me).find((seat) => seat.player !== null && seat.player.id === me);
     const launching = starting || following;
     const closeSheet = () => setSheet(null);
@@ -164,20 +164,33 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
         );
     };
 
-    // One seat change in flight: the tapped seat is aria-busy and says what is happening.
-    const changeSeat = async (targetTeam: LobbyTeam, key: SeatKey) => {
+    // One request at the table at a time (a seat change, a bot, a fill): the seat it is about is aria-busy and says
+    // what is happening, and no seat or chip takes a tap meanwhile. A refusal shows the server's message.
+    const atTable = async (pending: SeatBusy, request: () => Promise<unknown>, fallback: string) => {
         if (busy) return;
         setActionError(null);
-        setBusy({ key, label: teamOf(lobby, me) === 'U' && targetTeam !== 'U' ? 'Joining…' : 'Switching…' });
+        setBusy(pending);
         try {
-            await lobbyService.switchTeam(lobbyId, { lobbyId, targetTeam });
+            await request();
             await refresh();
         } catch (e) {
-            setActionError(errorMessage(e, 'Failed to switch team'));
+            setActionError(errorMessage(e, fallback));
         } finally {
             setBusy(null);
         }
     };
+
+    const changeSeat = (targetTeam: LobbyTeam, key: SeatKey) =>
+        atTable(
+            { key, label: teamOf(lobby, me) === 'U' && targetTeam !== 'U' ? 'Joining…' : 'Switching…' },
+            () => lobbyService.switchTeam(lobbyId, { lobbyId, targetTeam }),
+            'Failed to switch team',
+        );
+
+    const addBot = (seat: TableSeat) =>
+        atTable({ key: seat.key, label: 'Adding…' }, () => lobbyService.addBot(lobbyId, seat.team), 'Failed to add a bot');
+
+    const fillWithBots = () => atTable({ key: null, label: 'Filling with bots…' }, () => lobbyService.fillBots(lobbyId), 'Failed to fill with bots');
 
     const askRemove = (name: string) => {
         setRemoveName(name);
@@ -255,7 +268,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
             <div className="flex flex-col gap-4">
                 <ErrorAlert message={actionError} />
                 <ErrorAlert message={notice} />
-                <LobbyTable lobby={lobby} viewerId={me} busy={busy} onSeat={onSeat} launching={launching} />
+                <LobbyTable lobby={lobby} viewerId={me} busy={busy} onSeat={onSeat} onAddBot={(seat) => void addBot(seat)} launching={launching} />
                 {/* on Start the table grows and the rest fades (spec §4.7 Motion) */}
                 <m.div className="flex flex-col gap-3" animate={{ opacity: launching ? 0 : 1 }} transition={spring.felt}>
                     <NotSeated lobby={lobby} viewerId={me} hostView={host} onRemove={askRemove} />
@@ -266,11 +279,15 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
                     line={host ? reason : memberStatus(lobby, me)}
                     canStart={ready}
                     starting={starting}
+                    canFill={fillableSeats(lobby) > 0}
+                    filling={busy !== null && busy.key === null}
                     joining={joining}
                     privateLobby={lobby.privateLobby ?? false}
                     following={following}
                     onOptions={() => setSheet('options')}
                     onStart={() => void start()}
+                    // a ranked lobby (a legacy one can be shown) takes no bots: the server refuses them
+                    onFill={lobby.gameMode === 'RANKED' ? undefined : () => void fillWithBots()}
                     onLeave={() => setSheet('leave')}
                     onJoin={joinNow}
                 />

@@ -1,6 +1,6 @@
 import type { LobbyDTO, LobbyTeam } from '../../types/lobby';
 import type { UserSimpleDTO } from '../../types/user';
-import { botCount, LOBBY_CAP, memberCount } from './lobbyModel';
+import { botCount, isBot, LOBBY_CAP, memberCount } from './lobbyModel';
 
 /** A table seat: A1 is Team A's first player in the server's list, B2 Team B's second. */
 export type SeatKey = 'A1' | 'B1' | 'A2' | 'B2';
@@ -72,10 +72,11 @@ export function seatAction(seat: TableSeat, lobby: LobbyDTO, viewerId: string | 
 
 /**
  * Whether the host may put a bot on this seat: any empty one, on either team, while the lobby has fewer than four
- * members (the server refuses a bot at four, unassigned people included). Separate from the seat's own tap.
+ * members (the server refuses a bot at four, unassigned people included). Separate from the seat's own tap. Never in
+ * a ranked lobby: the room can show a legacy one, and the server refuses bots there.
  */
 export function canAddBot(seat: TableSeat, lobby: LobbyDTO, viewerId: string | null): boolean {
-    return seat.player === null && isHost(lobby, viewerId) && memberCount(lobby) < LOBBY_CAP;
+    return seat.player === null && isHost(lobby, viewerId) && memberCount(lobby) < LOBBY_CAP && lobby.gameMode !== 'RANKED';
 }
 
 /**
@@ -87,12 +88,13 @@ export function fillableSeats(lobby: LobbyDTO): number {
     return Math.max(0, Math.min(freePlaces, LOBBY_CAP - memberCount(lobby)));
 }
 
-/** A seat's accessible name (spec §4.7). */
+/** A seat's accessible name (spec §4.7); a bot's ends ", bot". */
 export function seatLabel(seat: TableSeat, lobby: LobbyDTO, viewerId: string | null): string {
     const team = `team ${seat.team}`;
     if (seat.player === null) return `${seatAction(seat, lobby, viewerId) === 'sit' ? 'Sit here' : 'Open seat'}, ${team}`;
     const name = seat.player.username ?? 'Unknown';
     if (viewerId != null && seat.player.id === viewerId) return `${name} (you), ${team}`;
+    if (isBot(seat.player)) return `${name}, ${team}, bot`;
     return isHost(lobby, seat.player.id) ? `${name}, ${team}, host` : `${name}, ${team}`;
 }
 

@@ -100,7 +100,7 @@ describe('lobbyModel (spec §4.6)', () => {
         expect(lobbyName(lobby({ name: null }))).toBe('Unnamed Lobby')
     })
 
-    test('a row is named by its lobby, host, members and privacy, and says when you are in (AC 6)', () => {
+    test('a row is named by its lobby, host, people and bots and privacy, and says when you are in (AC 6)', () => {
         const l = lobby({ teamAPlayers: [mira, luka], teamBPlayers: [ivo], privateLobby: true })
         expect(lobbyRowLabel(l, 'u7')).toBe('Kod Mire, host mira_z, 3 of 4, private')
         expect(lobbyRowLabel(l, 'u2')).toBe("Kod Mire, host mira_z, 3 of 4, private, you're in")

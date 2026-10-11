@@ -1,15 +1,19 @@
 import { useEffect, useRef } from 'react';
 import { LazyMotion, domMax, m } from 'motion/react';
 import type { LobbyDTO } from '../../types/lobby';
-import { Avatar, PixelIcon } from '../ui';
+import { Avatar, Chip, PixelIcon } from '../ui';
 import { cx } from '../ui/cx';
 import { fade, spring } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
-import { isHost, isReadyToStart, seatAction, seatLabel, seatedCount, tableSeats, type SeatKey, type SeatPosition, type TableSeat } from './seats';
+import { isBot } from './lobbyModel';
+import { canAddBot, isHost, isReadyToStart, seatAction, seatLabel, seatedCount, tableSeats, type SeatKey, type SeatPosition, type TableSeat } from './seats';
 
-/** The seat whose join or switch request is running, and what it reads meanwhile ("Joining…", "Switching…"). */
+/**
+ * The request running at the table: a seat's join, switch or bot, and what that seat reads meanwhile ("Joining…",
+ * "Switching…", "Adding…"); a null key is about no one seat ("Fill with bots"). Either way no seat takes a tap.
+ */
 export interface SeatBusy {
-    key: SeatKey;
+    key: SeatKey | null;
     label: string;
 }
 
@@ -22,6 +26,8 @@ export interface LobbyTableProps {
     busy?: SeatBusy | null;
     /** A tap on a seat that has an action (seats.ts `seatAction`); the others are aria-disabled. */
     onSeat?: (seat: TableSeat) => void;
+    /** The host's "+ Bot" chip on an empty seat (seats.ts `canAddBot`), a button apart from the seat's own tap. */
+    onAddBot?: (seat: TableSeat) => void;
     /** The match is starting: the table grows while the page goes to the game (spec §4.7 Motion). */
     launching?: boolean;
 }
@@ -31,6 +37,17 @@ const PLACE: Record<SeatPosition, string> = {
     bottom: 'bottom-5 left-1/2 -translate-x-1/2',
     left: 'left-3.5 top-1/2 -translate-y-1/2',
     right: 'right-3.5 top-1/2 -translate-y-1/2',
+};
+
+/**
+ * Where a seat's "+ Bot" chip goes, clear of the centre's count: under a side seat, beside the top seat's tile, and
+ * beside the bottom seat's name plate (so it stays clear of a side seat's chip on a phone).
+ */
+const BOT_CHIP: Record<SeatPosition, string> = {
+    top: 'left-full top-1 ml-1',
+    bottom: 'bottom-0 left-full ml-1',
+    left: 'left-1/2 top-full -translate-x-1/2',
+    right: 'left-1/2 top-full -translate-x-1/2',
 };
 
 const PLACE_MINI: Record<SeatPosition, string> = {
@@ -45,7 +62,7 @@ const PLACE_MINI: Record<SeatPosition, string> = {
  * glide to their new place when a poll moves someone (a Motion layoutId per username), a newcomer scales
  * in; under reduced motion they fade instead.
  */
-export function LobbyTable({ lobby, viewerId, mini = false, busy = null, onSeat, launching = false }: LobbyTableProps) {
+export function LobbyTable({ lobby, viewerId, mini = false, busy = null, onSeat, onAddBot, launching = false }: LobbyTableProps) {
     const reduced = useReducedMotion();
     const seats = tableSeats(lobby, viewerId);
     // who was seated at the last render: someone new scales in; nobody does on the first render
@@ -75,16 +92,19 @@ export function LobbyTable({ lobby, viewerId, mini = false, busy = null, onSeat,
                                 <SeatFace seat={seat} lobby={lobby} viewerId={viewerId} canSit={false} pressable={false} mini />
                             </div>
                         ) : (
-                            <Seat
-                                key={seat.player?.username ?? `open-${seat.key}`}
-                                seat={seat}
-                                lobby={lobby}
-                                viewerId={viewerId}
-                                busy={busy}
-                                onSeat={onSeat}
-                                arrived={seat.player?.username ? arrived(seat.player.username) : false}
-                                reduced={reduced}
-                            />
+                            <>
+                                <Seat
+                                    key={seat.player?.username ?? `open-${seat.key}`}
+                                    seat={seat}
+                                    lobby={lobby}
+                                    viewerId={viewerId}
+                                    busy={busy}
+                                    onSeat={onSeat}
+                                    arrived={seat.player?.username ? arrived(seat.player.username) : false}
+                                    reduced={reduced}
+                                />
+                                {canAddBot(seat, lobby, viewerId) && <BotChip seat={seat} busy={busy !== null} onAddBot={onAddBot} />}
+                            </>
                         )}
                     </div>
                 ))}
@@ -133,6 +153,25 @@ function Seat({ seat, lobby, viewerId, busy, onSeat, arrived, reduced }: SeatPro
     );
 }
 
+/** The host's "+ Bot" on an empty seat: its own button, named for the team it seats the bot on. */
+function BotChip({ seat, busy, onAddBot }: { seat: TableSeat; busy: boolean; onAddBot?: (seat: TableSeat) => void }) {
+    return (
+        <button
+            type="button"
+            aria-label={`Add a bot to team ${seat.team}`}
+            aria-disabled={busy || undefined}
+            onClick={() => {
+                if (!busy) onAddBot?.(seat);
+            }}
+            className={cx('press absolute inline-flex min-h-11 items-center whitespace-nowrap', BOT_CHIP[seat.position], busy && 'cursor-default opacity-60')}
+        >
+            <Chip tone="mode" icon="plus">
+                Bot
+            </Chip>
+        </button>
+    );
+}
+
 interface SeatFaceProps {
     seat: TableSeat;
     lobby: LobbyDTO;
@@ -143,19 +182,28 @@ interface SeatFaceProps {
     mini?: boolean;
 }
 
-/** A 52-px tile in the team colour (the host's crown above) or a notched outline with a plus, then the name plate. */
+/**
+ * A 52-px tile in the team colour (the host's crown above; a bot's robot in place of the initial) or a notched outline
+ * with a plus, then the name plate.
+ */
 function SeatFace({ seat, lobby, viewerId, canSit, pressable, busyLabel, mini = false }: SeatFaceProps) {
     const player = seat.player;
     const own = player !== null && viewerId !== null && player.id === viewerId;
     const host = player !== null && isHost(lobby, player.id);
+    const bot = isBot(player);
     const title = busyLabel ?? (player ? (player.username ?? 'Unknown') : canSit ? 'Sit here' : 'Open seat');
-    const tag = own ? 'You' : host ? 'Host' : `Team ${seat.team}`;
+    const tag = own ? 'You' : host ? 'Host' : bot ? 'Bot' : `Team ${seat.team}`;
     return (
         <>
             <span className={cx('relative inline-flex', pressable && 'transition-transform duration-[90ms] ease-out group-active:translate-y-0.5')}>
                 {host && <PixelIcon name="crown" className="absolute -top-3 left-1/2 z-[1] -translate-x-1/2 text-accent" />}
                 {player ? (
-                    <Avatar initial={player.username ?? '?'} tone={seat.team === 'A' ? 'team-a' : 'team-b'} size={mini ? 'sm' : 'lg'} />
+                    <Avatar
+                        initial={player.username ?? '?'}
+                        icon={bot ? 'robot' : undefined}
+                        tone={seat.team === 'A' ? 'team-a' : 'team-b'}
+                        size={mini ? 'sm' : 'lg'}
+                    />
                 ) : (
                     <span
                         aria-hidden="true"

@@ -18,6 +18,9 @@ const ana = { id: 'u1', username: 'ana' }
 const bob = { id: 'u2', username: 'bob' }
 const cy = { id: 'u3', username: 'cy' }
 const dan = { id: 'u4', username: 'dan' }
+const botAna = { id: 'b1', username: 'Bot-Ana', bot: true }
+const botTin = { id: 'b2', username: 'Bot-Tin', bot: true }
+const botNika = { id: 'b3', username: 'Bot-Nika', bot: true }
 
 function lobby(overrides: Partial<LobbyDTO> = {}): LobbyDTO {
     return {
@@ -72,6 +75,8 @@ beforeEach(() => {
     vi.spyOn(lobbyService, 'kickPlayer').mockResolvedValue(lobby())
     vi.spyOn(lobbyService, 'deleteLobby').mockResolvedValue({})
     vi.spyOn(lobbyService, 'startMatch').mockResolvedValue({ id: 'm2' } as MatchDTO)
+    vi.spyOn(lobbyService, 'addBot').mockResolvedValue(lobby())
+    vi.spyOn(lobbyService, 'fillBots').mockResolvedValue(lobby())
 })
 afterEach(() => vi.useRealTimers())
 afterEach(() => vi.restoreAllMocks())
@@ -484,5 +489,148 @@ describe('LobbyRoom: joining, leaving and the host (spec §4.7 Actions)', () => 
         await user.click(screen.getByRole('button', { name: 'Copy invite link' }))
         expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/lobby/l1`)
         expect(screen.getByRole('status')).toHaveTextContent('Invite link copied')
+    })
+})
+
+describe('LobbyRoom: bots (casual bots spec §7)', () => {
+    const HOST_HINT = "Anyone who joins takes a bot's seat. To play alone, make the lobby private."
+    const alone = () => lobby({ teamAPlayers: [ana], teamBPlayers: [], unassignedPlayers: [] })
+
+    test('the host\'s "+ Bot" chip adds a bot on that seat\'s team, and the lobby refreshes', async () => {
+        serve(alone())
+        renderLobby()
+        expect(await screen.findAllByRole('button', { name: /^Add a bot to team/ })).toHaveLength(3)
+        serve(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [], unassignedPlayers: [] }))
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Add a bot to team A' }))
+        expect(lobbyService.addBot).toHaveBeenCalledWith('l1', 'A')
+        expect(await screen.findByRole('button', { name: 'Bot-Ana, team A, bot' })).toBeInTheDocument()
+        expect(screen.getAllByRole('button', { name: /^Add a bot to team/ })).toHaveLength(2)
+        expect(lobbyService.switchTeam).not.toHaveBeenCalled()
+    })
+
+    test('while a bot is on its way, its seat is aria-busy and reads "Adding…", and nothing else is sent', async () => {
+        const user = userEvent.setup()
+        vi.mocked(lobbyService.addBot).mockImplementation(() => new Promise<LobbyDTO>(() => {}))
+        serve(alone())
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Add a bot to team A' }))
+        expect(screen.getByRole('button', { name: 'Adding…' })).toHaveAttribute('aria-busy', 'true')
+        expect(screen.getByRole('button', { name: 'Adding…' })).toHaveTextContent('Adding…')
+        await user.click(screen.getAllByRole('button', { name: 'Add a bot to team B' })[0])
+        await user.click(screen.getByRole('button', { name: 'Fill with bots' }))
+        expect(lobbyService.addBot).toHaveBeenCalledTimes(1)
+        expect(lobbyService.fillBots).not.toHaveBeenCalled()
+    })
+
+    test('a chip on a Team B seat asks for Team B; a refusal shows the server message', async () => {
+        vi.mocked(lobbyService.addBot).mockRejectedValue(new ApiError({ status: 409, message: 'Lobby is full' }))
+        serve(alone())
+        renderLobby()
+        await userEvent.setup().click((await screen.findAllByRole('button', { name: 'Add a bot to team B' }))[0])
+        expect(lobbyService.addBot).toHaveBeenCalledWith('l1', 'B')
+        expect(await screen.findByRole('alert')).toHaveTextContent('Lobby is full')
+        expect(screen.getByRole('heading', { name: 'Friday' })).toBeInTheDocument()
+    })
+
+    test('"Fill with bots" fills the free seats; then there is nothing left to fill', async () => {
+        serve(alone())
+        renderLobby()
+        const fill = await screen.findByRole('button', { name: 'Fill with bots' })
+        expect(fill).toBeEnabled()
+        serve(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [botTin, botNika], unassignedPlayers: [] }))
+        await userEvent.setup().click(fill)
+        expect(lobbyService.fillBots).toHaveBeenCalledWith('l1')
+        expect(await screen.findByRole('button', { name: 'Bot-Nika, team B, bot' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Fill with bots' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Start match' })).toBeEnabled()
+        expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
+    })
+
+    test('while a fill runs, no seat and no chip takes a tap', async () => {
+        const user = userEvent.setup()
+        vi.mocked(lobbyService.fillBots).mockImplementation(() => new Promise<LobbyDTO>(() => {}))
+        serve(alone())
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Fill with bots' }))
+        expect(screen.getByRole('button', { name: 'Fill with bots' })).toHaveAttribute('aria-busy', 'true')
+        await user.click(screen.getByRole('button', { name: 'Add a bot to team A' }))
+        await user.click(screen.getAllByRole('button', { name: 'Sit here, team B' })[0])
+        expect(lobbyService.addBot).not.toHaveBeenCalled()
+        expect(lobbyService.switchTeam).not.toHaveBeenCalled()
+    })
+
+    // review focus 5: the first fill took the seats on the server while this page still showed them free
+    test('a second fill answered 409 "No seat to fill" says so and keeps the lobby on screen', async () => {
+        const user = userEvent.setup()
+        vi.mocked(lobbyService.fillBots)
+            .mockResolvedValueOnce(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [botTin, botNika], unassignedPlayers: [] }))
+            .mockRejectedValueOnce(new ApiError({ status: 409, message: 'No seat to fill' }))
+        serve(alone())
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Fill with bots' }))
+        await user.click(await screen.findByRole('button', { name: 'Fill with bots' }))
+        expect(lobbyService.fillBots).toHaveBeenCalledTimes(2)
+        expect(await screen.findByRole('alert')).toHaveTextContent('No seat to fill')
+        expect(screen.getByRole('heading', { name: 'Friday' })).toBeInTheDocument()
+        expect(screen.getByTestId('lobby-table')).toBeInTheDocument()
+        expect(screen.queryByText('the lobby list')).not.toBeInTheDocument()
+        expect(screen.queryByText(/game page/)).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Fill with bots' })).toBeEnabled()
+    })
+
+    test('a member and an outsider see neither the chips nor "Fill with bots"', async () => {
+        serve(lobby({ hostUser: bob, teamAPlayers: [bob], teamBPlayers: [], unassignedPlayers: [ana] }))
+        renderLobby()
+        expect(await screen.findByText('· you')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Fill with bots' })).not.toBeInTheDocument()
+        cleanup()
+        serve(lobby({ hostUser: bob, teamAPlayers: [bob], teamBPlayers: [], unassignedPlayers: [] }))
+        renderLobby()
+        expect(await screen.findByRole('button', { name: 'Join lobby' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Fill with bots' })).not.toBeInTheDocument()
+    })
+
+    test('a bot\'s seat shows the robot and "Bot"; the host\'s tap asks "Remove Bot-Ana?" and kicks by username', async () => {
+        const user = userEvent.setup()
+        serve(lobby({ teamAPlayers: [ana], teamBPlayers: [botAna], unassignedPlayers: [] }))
+        renderLobby()
+        const seat = await screen.findByRole('button', { name: 'Bot-Ana, team B, bot' })
+        expect(seat).toHaveTextContent(/^Bot-AnaBot$/)
+        expect(seat.querySelector('.ui-avatar svg')).not.toBeNull()
+        await user.click(seat)
+        await user.click(within(sheet('Remove Bot-Ana?')).getByRole('button', { name: 'Remove Bot-Ana' }))
+        expect(lobbyService.kickPlayer).toHaveBeenCalledWith('l1', { usernameToKick: 'Bot-Ana' })
+    })
+
+    test('the host\'s hint shows only for a public lobby with a bot', async () => {
+        serve(lobby({ teamAPlayers: [ana], teamBPlayers: [botAna], unassignedPlayers: [] }))
+        renderLobby()
+        expect(await screen.findByText(HOST_HINT)).toBeInTheDocument()
+        cleanup()
+        serve(lobby({ teamAPlayers: [ana], teamBPlayers: [botAna], unassignedPlayers: [], privateLobby: true }))
+        renderLobby()
+        expect(await screen.findByRole('button', { name: 'Bot-Ana, team B, bot' })).toBeInTheDocument()
+        expect(screen.queryByText(HOST_HINT)).not.toBeInTheDocument()
+        cleanup()
+        serve(alone())
+        renderLobby()
+        expect(await screen.findByRole('button', { name: 'Fill with bots' })).toBeInTheDocument()
+        expect(screen.queryByText(HOST_HINT)).not.toBeInTheDocument()
+        cleanup()
+        serve(lobby({ hostUser: bob, teamAPlayers: [bob, ana], teamBPlayers: [botAna], unassignedPlayers: [] }))
+        renderLobby()
+        expect(await screen.findByText('The host starts the match when all four seats are taken.')).toBeInTheDocument()
+        expect(screen.queryByText(HOST_HINT)).not.toBeInTheDocument()
+    })
+
+    test('a ranked lobby takes no bots: no chips and no "Fill with bots" (R12)', async () => {
+        serve(lobby({ gameMode: 'RANKED', teamAPlayers: [ana], teamBPlayers: [], unassignedPlayers: [] }))
+        renderLobby()
+        expect(await screen.findByText('Ranked')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Start match' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Fill with bots' })).not.toBeInTheDocument()
     })
 })
