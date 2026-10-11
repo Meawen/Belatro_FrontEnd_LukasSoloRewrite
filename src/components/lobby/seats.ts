@@ -70,9 +70,12 @@ export function seatAction(seat: TableSeat, lobby: LobbyDTO, viewerId: string | 
     return isHost(lobby, viewerId) ? 'remove' : null;
 }
 
-/** Whether the host may put a bot on this seat: any empty one, on either team. Separate from the seat's own tap. */
+/**
+ * Whether the host may put a bot on this seat: any empty one, on either team, while the lobby has fewer than four
+ * members (the server refuses a bot at four, unassigned people included). Separate from the seat's own tap.
+ */
 export function canAddBot(seat: TableSeat, lobby: LobbyDTO, viewerId: string | null): boolean {
-    return seat.player === null && isHost(lobby, viewerId);
+    return seat.player === null && isHost(lobby, viewerId) && memberCount(lobby) < LOBBY_CAP;
 }
 
 /**

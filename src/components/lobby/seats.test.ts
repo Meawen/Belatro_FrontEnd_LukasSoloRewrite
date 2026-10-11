@@ -63,7 +63,7 @@ describe('seats (spec §4.7, §5.3.2)', () => {
     })
 
     test('the host may add a bot on any empty seat, their own team\'s too; a tap on the seat still sits', () => {
-        const l = lobby({ teamAPlayers: [mira], teamBPlayers: [ivo, ana], unassignedPlayers: [tea] })
+        const l = lobby({ teamAPlayers: [mira], teamBPlayers: [ivo, ana] })
         const seat = (viewer: string | null, key: string) => tableSeats(l, viewer).find((s) => s.key === key)!
         expect(canAddBot(seat('u9', 'A2'), l, 'u9')).toBe(true)
         expect(seatAction(seat('u9', 'A2'), l, 'u9')).toBeNull()
@@ -75,15 +75,25 @@ describe('seats (spec §4.7, §5.3.2)', () => {
     })
 
     test('nobody but the host adds a bot, and never on a taken seat', () => {
-        const l = lobby({ teamAPlayers: [mira], teamBPlayers: [ivo, ana], unassignedPlayers: [tea] })
+        const l = lobby({ teamAPlayers: [mira, ana], teamBPlayers: [ivo] })
         const seat = (viewer: string | null, key: string) => tableSeats(l, viewer).find((s) => s.key === key)!
-        expect(canAddBot(seat('u4', 'A2'), l, 'u4')).toBe(false)
-        expect(canAddBot(seat('u3', 'A2'), l, 'u3')).toBe(false)
-        expect(canAddBot(seat('u7', 'A2'), l, 'u7')).toBe(false)
-        expect(canAddBot(seat(null, 'A2'), l, null)).toBe(false)
+        expect(canAddBot(seat('u9', 'B2'), l, 'u9')).toBe(true)
+        expect(canAddBot(seat('u3', 'B2'), l, 'u3')).toBe(false)
+        expect(canAddBot(seat('u7', 'B2'), l, 'u7')).toBe(false)
+        expect(canAddBot(seat(null, 'B2'), l, null)).toBe(false)
         expect(canAddBot(seat('u9', 'A1'), l, 'u9')).toBe(false)
+        expect(canAddBot(seat('u9', 'A2'), l, 'u9')).toBe(false)
         expect(canAddBot(seat('u9', 'B1'), l, 'u9')).toBe(false)
-        expect(canAddBot(seat('u9', 'B2'), l, 'u9')).toBe(false)
+
+        const standing = lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [tea] })
+        expect(canAddBot(tableSeats(standing, 'u4').find((s) => s.key === 'B1')!, standing, 'u4')).toBe(false)
+    })
+
+    test('no bot once the lobby has four members, though a seat is empty for someone unassigned (the server answers 409)', () => {
+        const l = lobby({ teamAPlayers: [mira], teamBPlayers: [ivo, ana], unassignedPlayers: [tea] })
+        const empty = tableSeats(l, 'u9').find((s) => s.key === 'A2')!
+        expect(empty.player).toBeNull()
+        expect(canAddBot(empty, l, 'u9')).toBe(false)
     })
 
     test('seats to fill: the free team places, but never past four members, so an unassigned person keeps a seat', () => {
