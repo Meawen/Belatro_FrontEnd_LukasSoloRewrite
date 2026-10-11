@@ -72,3 +72,21 @@ describe('useRatingHistory', () => {
         expect(isNotFound(null)).toBe(false)
     })
 })
+
+// Final review, Important 1: a 404 means a backend before team Elo; the panel must stay away, not flash back on every
+// return to the tab (ranks spec §4.2, US-15)
+describe('a 404 is final for the life of the screen', () => {
+    test.each([
+        ['useLadder', () => useLadder(), 'getLadder'],
+        ['useRatingHistory', () => useRatingHistory('u1'), 'getRatingHistory'],
+    ] as const)('%s: the tab coming back into view asks nothing and keeps the 404', async (_, hook, method) => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        const call = vi.spyOn(userService, method).mockRejectedValue(new ApiError({ message: 'Not Found', status: 404 }))
+        const { result } = renderHook(hook)
+        await waitFor(() => expect(isNotFound(result.current.error)).toBe(true))
+        vi.setSystemTime(Date.now() + RATINGS_STALE_MS * 10)
+        await act(async () => becomeVisible())
+        expect(call).toHaveBeenCalledTimes(1)
+        expect(isNotFound(result.current.error)).toBe(true)
+    })
+})

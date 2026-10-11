@@ -1,6 +1,6 @@
 import type { Ladder, PlayerRank, RankKey, RatingHistory } from '../../types/user';
 import { FORECAST_GAMES } from './forecastText';
-import { WIDE_CHART } from './ladderGeometry';
+import { CAPTION_CHAR_PX, WIDE_CHART } from './ladderGeometry';
 import { placedRanks } from './rankNames';
 
 export { FORECAST_GAMES };
@@ -14,9 +14,8 @@ const ROUND_TO = 50;
 /** A band is named only this tall; y ticks closer than TICK_GAP_PX are dropped. */
 const LABEL_PX = 16;
 const TICK_GAP_PX = 14;
-/** x labels need this much room between them. */
-const LABEL_GAP_PX = 64;
-const END_LABEL_GAP_PX = 40;
+/** x labels keep at least this much air between them, measured at the caption's width. */
+const LABEL_GAP_PX = 6;
 
 /** A rank's rating span for the bands behind the climb: [min, max), either end open. */
 export interface ClimbBand {
@@ -54,7 +53,8 @@ export interface ClimbGeometry {
     bands: { key: RankKey; name: string; y0: number; y1: number; label: boolean }[];
     next: { y: number } | null;
     ticksY: { value: number; y: number }[];
-    labelsX: { text: string; x: number; anchor: 'start' | 'middle' | 'end' }[];
+    /** With their extents (left, right), so none is drawn over another. */
+    labelsX: { text: string; x: number; anchor: 'start' | 'middle' | 'end'; left: number; right: number }[];
 }
 
 /** Your climb's geometry at a container width (ranks spec §8.3). `history.points` must not be empty. */
@@ -113,10 +113,19 @@ export function climbGeometry(history: RatingHistory, width: number, { bands, ne
     }
     if (ticksY.length === 0) ticksY.push({ value: y0, y: y(y0) }, { value: y1, y: y(y1) });
 
+    // the current game always; the first game and "+20" only where they keep clear of it
+    const label = (text: string, at: number, anchor: 'start' | 'middle' | 'end') => {
+        const w = text.length * CAPTION_CHAR_PX;
+        const left = anchor === 'start' ? at : anchor === 'middle' ? at - w / 2 : at - w;
+        return { text, x: at, anchor, left, right: left + w };
+    };
+    const currentLabel = label(`Game ${last}`, x(last), pace === null ? 'end' : 'middle');
     const labelsX: ClimbGeometry['labelsX'] = [];
-    if (g0 + 1 !== last && x(last) - x(g0 + 1) >= LABEL_GAP_PX) labelsX.push({ text: `Game ${g0 + 1}`, x: x(g0 + 1), anchor: 'start' });
-    labelsX.push({ text: `Game ${last}`, x: x(last), anchor: pace === null ? 'end' : 'middle' });
-    if (pace !== null && x(gN) - x(last) >= END_LABEL_GAP_PX) labelsX.push({ text: `+${FORECAST_GAMES}`, x: x(gN), anchor: 'end' });
+    const firstLabel = label(`Game ${g0 + 1}`, x(g0 + 1), 'start');
+    if (g0 + 1 !== last && firstLabel.right + LABEL_GAP_PX <= currentLabel.left) labelsX.push(firstLabel);
+    labelsX.push(currentLabel);
+    const endLabel = label(`+${FORECAST_GAMES}`, x(gN), 'end');
+    if (pace !== null && currentLabel.right + LABEL_GAP_PX <= endLabel.left) labelsX.push(endLabel);
 
     return {
         width,

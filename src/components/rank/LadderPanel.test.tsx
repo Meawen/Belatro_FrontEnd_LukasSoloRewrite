@@ -5,6 +5,8 @@ import { LadderPanel } from './LadderPanel'
 import { useLadder } from '../../hooks/useRatings'
 import { useUser } from '../../hooks/useUser'
 import { ApiError } from '../../services/api'
+import { userService } from '../../services/userService'
+import { act } from '@testing-library/react'
 import { FEW_LADDER, LADDER, rankedUser } from '../../test/fixtures/ranks'
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', username: 'ana_k' }, isAuthenticated: true }) }))
@@ -112,5 +114,31 @@ describe('LadderPanel', () => {
         expect(screen.getByText("Couldn't load the ladder.")).toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
         expect(refetch).toHaveBeenCalledTimes(1)
+    })
+})
+
+// Final review, Important 1, with the real hook: no flash of the panel when the tab comes back
+describe('LadderPanel on a backend before team Elo', () => {
+    test('stays empty when the tab comes back into view, and asks once', async () => {
+        const actual = await vi.importActual<typeof import('../../hooks/useRatings')>('../../hooks/useRatings')
+        vi.mocked(useLadder).mockImplementation(actual.useLadder)
+        const getLadder = vi.spyOn(userService, 'getLadder').mockRejectedValue(new ApiError({ message: 'Not Found', status: 404 }))
+        vi.useFakeTimers({ toFake: ['Date'] })
+        try {
+            const { container } = render(<LadderPanel />)
+            await act(async () => {})
+            expect(container).toBeEmptyDOMElement()
+            vi.setSystemTime(Date.now() + actual.RATINGS_STALE_MS * 10)
+            Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+            act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+            expect(container).toBeEmptyDOMElement()
+            await act(async () => {})
+            expect(container).toBeEmptyDOMElement()
+            expect(getLadder).toHaveBeenCalledTimes(1)
+        } finally {
+            vi.useRealTimers()
+            getLadder.mockRestore()
+            delete (document as { visibilityState?: unknown }).visibilityState
+        }
     })
 })

@@ -34,7 +34,8 @@ export function useLadder(enabled: boolean = true) {
         dependencies: [enabled],
         staleTime: RATINGS_STALE_MS,
     });
-    useRefetchWhenVisible(query.execute, enabled);
+    // a 404 is a backend before team Elo: final for this screen, or the panel would flash back on every return
+    useRefetchWhenVisible(query.execute, enabled && !isNotFound(query.error));
     return query;
 }
 
@@ -51,6 +52,6 @@ export function useRatingHistory(userId?: string) {
         dependencies: [userId],
         staleTime: RATINGS_STALE_MS,
     });
-    useRefetchWhenVisible(query.execute, !!userId);
+    useRefetchWhenVisible(query.execute, !!userId && !isNotFound(query.error));
     return query;
 }

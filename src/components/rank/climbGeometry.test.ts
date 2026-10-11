@@ -89,6 +89,15 @@ describe('climbGeometry', () => {
         expect(one.labelsX.filter((label) => label.text === 'Game 1')).toHaveLength(1)
     })
 
+    test('x labels never touch: a phone with 80 and 100 ranked games (final review, Important 2)', () => {
+        for (const games of [57, 80, 100, 160]) {
+            const g = climbGeometry(history({ games, rating: 1500 }), 311, { bands: BANDS, nextMinRating: 1600 })
+            const spans = [...g.labelsX].sort((a, b) => a.left - b.left)
+            for (let i = 1; i < spans.length; i++) expect(spans[i].left - spans[i - 1].right, `${games} games`).toBeGreaterThanOrEqual(6)
+            expect(g.labelsX.map((label) => label.text)).toContain(`Game ${games}`)
+        }
+    })
+
     test('one point (review focus 3): a real domain, no NaN anywhere', () => {
         const g = climbGeometry(history({ games: 1, rating: 1256, pace: null, paceGames: 0 }), 343, { bands: BANDS, nextMinRating: null })
         expect(g.gN - g.g0).toBeGreaterThanOrEqual(1)
