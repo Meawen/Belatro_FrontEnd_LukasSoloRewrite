@@ -35,7 +35,8 @@ export interface LobbyTableProps {
 
 /**
  * Where each seat's column is anchored: the top one at the top, the bottom one at the bottom (it grows upwards), the
- * sides centred. The host's "+ Bot" is always the last line of its seat's column, centred under the name plate.
+ * sides centred. The host's "+ Bot" is always the last line of its seat's column, centred under the name plate; a side
+ * seat that shows one also gets a spacer as tall as that line above it, so the two side seats stay level.
  */
 const PLACE: Record<SeatPosition, string> = {
     top: 'left-1/2 top-5 -translate-x-1/2',
@@ -88,33 +89,42 @@ export function LobbyTable({ lobby, viewerId, mini = false, busy = null, onSeat,
                     aria-hidden="true"
                     className="notch-6 pointer-events-none absolute inset-0 shadow-[inset_0_0_0_6px_var(--rim),inset_0_0_0_9px_var(--rim-hi)]"
                 />
-                {seats.map((seat) => (
-                    <div
-                        key={seat.position}
-                        data-position={seat.position}
-                        className={cx('absolute', mini ? PLACE_MINI[seat.position] : `flex flex-col items-center gap-1 ${PLACE[seat.position]}`)}
-                    >
-                        {mini ? (
-                            <div className="flex w-24 flex-col items-center gap-1">
-                                <SeatFace seat={seat} lobby={lobby} viewerId={viewerId} canSit={false} pressable={false} mini />
-                            </div>
-                        ) : (
-                            <>
-                                <Seat
-                                    key={seat.player?.username ?? `open-${seat.key}`}
-                                    seat={seat}
-                                    lobby={lobby}
-                                    viewerId={viewerId}
-                                    busy={busy}
-                                    onSeat={onSeat}
-                                    arrived={seat.player?.username ? arrived(seat.player.username) : false}
-                                    reduced={reduced}
-                                />
-                                {onAddBot && canAddBot(seat, lobby, viewerId) && <BotChip seat={seat} busy={busy !== null} onAddBot={onAddBot} />}
-                            </>
-                        )}
-                    </div>
-                ))}
+                {seats.map((seat) => {
+                    const chip = !mini && onAddBot !== undefined && canAddBot(seat, lobby, viewerId);
+                    const side = seat.position === 'left' || seat.position === 'right';
+                    return (
+                        <div
+                            key={seat.position}
+                            data-position={seat.position}
+                            className={cx(
+                                'absolute',
+                                mini ? PLACE_MINI[seat.position] : `flex flex-col items-center gap-1 ${PLACE[seat.position]}`,
+                                // the chip line: 26 px and the 4-px gap
+                                chip && side && 'pt-7.5',
+                            )}
+                        >
+                            {mini ? (
+                                <div className="flex w-24 flex-col items-center gap-1">
+                                    <SeatFace seat={seat} lobby={lobby} viewerId={viewerId} canSit={false} pressable={false} mini />
+                                </div>
+                            ) : (
+                                <>
+                                    <Seat
+                                        key={seat.player?.username ?? `open-${seat.key}`}
+                                        seat={seat}
+                                        lobby={lobby}
+                                        viewerId={viewerId}
+                                        busy={busy}
+                                        onSeat={onSeat}
+                                        arrived={seat.player?.username ? arrived(seat.player.username) : false}
+                                        reduced={reduced}
+                                    />
+                                    {chip && <BotChip seat={seat} busy={busy !== null} onAddBot={onAddBot} />}
+                                </>
+                            )}
+                        </div>
+                    );
+                })}
                 <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
                     {mini ? (
                         // the quick-look asks "is there room for me?": people of the cap, then bots, as the list says,
@@ -165,7 +175,7 @@ function Seat({ seat, lobby, viewerId, busy, onSeat, arrived, reduced }: SeatPro
             onClick={() => {
                 if (action !== null && busy === null) onSeat?.(seat);
             }}
-            className={cx('group flex w-[92px] flex-col items-center gap-1.5 text-text', dimmed ? 'cursor-not-allowed opacity-45!' : action === null && 'cursor-default')}
+            className={cx('group flex w-[104px] flex-col items-center gap-1.5 text-text', dimmed ? 'cursor-not-allowed opacity-45!' : action === null && 'cursor-default')}
             animate={{ opacity: 1, scale: 1 }}
             {...motion}
         >
@@ -177,7 +187,8 @@ function Seat({ seat, lobby, viewerId, busy, onSeat, arrived, reduced }: SeatPro
 /**
  * The host's "+ Bot" on an empty seat: its own button, named for the team it seats the bot on, led by that team's 6-px
  * square as on the board's plates. It paints 26 px, the board plate's height, so the top and bottom seats' chips keep
- * clear of the centre's count; its tap box reaches 44 px above and below without taking layout height.
+ * clear of the centre's count; its tap box reaches 44 px without taking layout height: up the 4-px gap to its seat's
+ * plate, never over it, and 14 px down, where only the felt is. Its focus ring sits on its edge, 2 px clear of the robot.
  */
 function BotChip({ seat, busy, onAddBot }: { seat: TableSeat; busy: boolean; onAddBot: (seat: TableSeat) => void }) {
     return (
@@ -187,7 +198,7 @@ function BotChip({ seat, busy, onAddBot }: { seat: TableSeat; busy: boolean; onA
             aria-label={`Add a bot to team ${seat.team}`}
             disabled={busy}
             onClick={() => onAddBot(seat)}
-            className="h-6.5 min-h-0 whitespace-nowrap [--btn-inset:0] after:absolute after:inset-x-0 after:-inset-y-[9px]"
+            className="h-6.5 min-h-0 whitespace-nowrap [--btn-inset:0] after:absolute after:inset-x-0 after:-top-1 after:-bottom-3.5 focus-visible:outline-offset-[-3px]"
             leftIcon={
                 <span className="inline-flex items-center gap-1.5">
                     <span aria-hidden="true" className={cx('size-1.5', seat.team === 'A' ? 'bg-team-a' : 'bg-team-b')} />
@@ -220,8 +231,8 @@ function SeatFace({ seat, lobby, viewerId, canSit, pressable, busyLabel, mini = 
     const host = player !== null && isHost(lobby, player.id);
     const bot = isBot(player);
     const title = busyLabel ?? (player ? (player.username ?? 'Unknown') : canSit ? 'Sit here' : 'Open seat');
-    // a bot's tag names its team too, so the team shows by more than colour (spec §3.9); kept on one line, it runs into
-    // the plate's side padding but stays inside the 92-px seat
+    // a bot's tag names its team too, so the team shows by more than colour (spec §3.9); one line, which the 104-px seat
+    // fits with the plate's own padding
     const tag = own ? 'You' : host ? 'Host' : bot ? `Bot · Team ${seat.team}` : `Team ${seat.team}`;
     return (
         <>

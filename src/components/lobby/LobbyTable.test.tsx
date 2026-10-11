@@ -165,8 +165,26 @@ describe('LobbyTable (spec §4.7)', () => {
         expect(square).toHaveAttribute('aria-hidden', 'true')
         expect(square.compareDocumentPosition(chip.querySelector('svg') as SVGElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         for (const teamB of screen.getAllByRole('button', { name: 'Add a bot to team B' })) expect(teamB.querySelector('.bg-team-b')).not.toBeNull()
-        // it paints 26 px (the board plate's height) and its tap box reaches 44 without adding layout height
-        expect(chip).toHaveClass('h-6.5', 'min-h-0', 'after:-inset-y-[9px]')
+        // it paints 26 px (the board plate's height); its tap box reaches 44 without adding layout height: up the 4-px gap
+        // to its seat's plate, never over it, and 14 px down (M1)
+        expect(chip).toHaveClass('h-6.5', 'min-h-0', 'after:-top-1', 'after:-bottom-3.5')
+        expect(chip).not.toHaveClass('after:-inset-y-[9px]')
+        // its 2-px focus ring sits on the chip's edge, clear of the 16-px robot (the buttons' -5px would touch it)
+        expect(chip).toHaveClass('focus-visible:outline-offset-[-3px]')
+    })
+
+    test('a side seat that shows a "+ Bot" gets a spacer as tall as the chip line above it, so the side seats stay level (I1)', () => {
+        // mira at the bottom, ivo on the right: the left seat and the top seat are open, each with its chip
+        render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [ivo], unassignedPlayers: [] })} viewerId="u9" onAddBot={vi.fn()} />)
+        const column = (position: string) => document.querySelector(`[data-position="${position}"]`) as HTMLElement
+        expect(column('left').children).toHaveLength(2)
+        expect(column('left')).toHaveClass('pt-7.5')
+        expect(column('right').children).toHaveLength(1)
+        expect(column('right')).not.toHaveClass('pt-7.5')
+        // the top and bottom seats are anchored at an edge: no spacer, chip or not
+        expect(column('top').children).toHaveLength(2)
+        expect(column('top')).not.toHaveClass('pt-7.5')
+        expect(column('bottom')).not.toHaveClass('pt-7.5')
     })
 
     test('one rule for all four seats: a seat\'s "+ Bot" is the last line of its column, under its name plate (R32)', () => {
@@ -229,6 +247,8 @@ describe('LobbyTable (spec §4.7)', () => {
         render(<LobbyTable lobby={lobby({ teamBPlayers: [ivo, botAna], unassignedPlayers: [] })} viewerId="u9" />)
         const bot = seatAt('left')
         expect(bot).toHaveAccessibleName('Remove Bot-Ana, team B, bot')
+        // a 104-px seat: room for "BOT · TEAM B" inside the plate's own padding (R40)
+        expect(bot).toHaveClass('w-[104px]')
         // the tag names the team too, so it shows by more than colour (spec §3.9, R35); one line, never wrapped
         expect(bot).toHaveTextContent(/^Bot-AnaBot · Team B$/)
         expect(within(bot).getByText('Bot · Team B')).toHaveClass('t-caption', 'whitespace-nowrap')
