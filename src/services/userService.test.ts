@@ -201,3 +201,18 @@ describe('changePassword and the game socket', () => {
         }
     })
 })
+
+// spec §4.3: the two rating-chart routes
+describe('userService rating charts', () => {
+    test('getLadder calls GET /user/ladder', async () => {
+        const get = vi.spyOn(apiClient, 'get').mockResolvedValue({ players: 0, binSize: 100, bins: [], ranks: [] })
+        await userService.getLadder()
+        expect(get).toHaveBeenCalledWith('/user/ladder')
+    })
+
+    test('getRatingHistory calls GET /user/{id}/rating-history', async () => {
+        const get = vi.spyOn(apiClient, 'get').mockResolvedValue({ rating: 1200, rankedGamesPlayed: 0, startRating: null, points: [], step: 56, pace: null, paceGames: 0 })
+        await userService.getRatingHistory('u1')
+        expect(get).toHaveBeenCalledWith('/user/u1/rating-history')
+    })
+})

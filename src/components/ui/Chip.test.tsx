@@ -35,6 +35,14 @@ describe('Chip and Tag (spec §3.7)', () => {
         expect(icon).toHaveAttribute('alt', '')
     })
 
+    test('a rank chip takes the colour of its rank, light text on the darkest step, ink above; Cucek is neutral (spec §3.1)', () => {
+        render(<><Tag tone="rank" rank="PAJDAS">Pajdaš</Tag><Chip tone="rank" rank="DECEC">Dečec</Chip><Tag tone="rank" rank="KAJKAVAC">Kajkavac</Tag><Tag tone="rank" rank="CUCEK">Cucek</Tag></>)
+        expect(screen.getByText('Pajdaš').closest('.ui-tag')).toHaveClass('bg-rank-pajdas', 'text-ink')
+        expect(screen.getByText('Dečec').closest('.ui-chip')).toHaveClass('bg-rank-decec', 'text-text')
+        expect(screen.getByText('Kajkavac').closest('.ui-tag')).toHaveClass('bg-rank-kajkavac', 'text-ink')
+        expect(screen.getByText('Cucek').closest('.ui-tag')).toHaveClass('bg-surface-2', 'text-text-2')
+    })
+
     test('an icon is decoration; the text is the content', () => {
         render(<Chip icon="lock">Private</Chip>)
         const chip = screen.getByText('Private').closest('.ui-chip')!

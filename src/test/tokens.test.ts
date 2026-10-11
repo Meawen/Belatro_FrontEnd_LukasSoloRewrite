@@ -119,6 +119,30 @@ describe('design tokens (spec §3.2)', () => {
     })
 })
 
+// The rank ramp (ranks spec §3.1): one violet hue, lightness rising with rank, validated with the dataviz
+// skill's ordinal check against --surface; chip text is --text on the darkest step and --ink on the rest
+const RANKS = ['--rank-decec', '--rank-fakin', '--rank-pajdas', '--rank-gospon', '--rank-majster', '--rank-kajkavac']
+
+describe('rank tokens (ranks spec §3)', () => {
+    test('the six values', () => {
+        expect(tokens).toMatchObject({
+            '--rank-decec': '#7a4aba', '--rank-fakin': '#a376e9', '--rank-pajdas': '#b78aff',
+            '--rank-gospon': '#c7a8fe', '--rank-majster': '#d7c3ff', '--rank-kajkavac': '#e9dffe',
+        })
+    })
+
+    test('chip text reads on every step: --text on Dečec, --ink on the five above it', () => {
+        const pairs: Pair[] = [['--text', '--rank-decec', BODY], ...RANKS.slice(1).map((bg): Pair => ['--ink', bg, BODY])]
+        expect(failing(pairs, tokens)).toEqual([])
+    })
+
+    test('every step is a visible mark on --surface (the ordinal floor, 2:1) and lighter than the one below it', () => {
+        expect(failing(RANKS.map((fg): Pair => [fg, '--surface', 2]), tokens)).toEqual([])
+        const steps = RANKS.map((name) => luminance(tokens[name]))
+        for (let i = 1; i < steps.length; i++) expect(steps[i], RANKS[i]).toBeGreaterThan(steps[i - 1])
+    })
+})
+
 describe('preferences (spec §3.4)', () => {
     test('more contrast: edges use --edge-strong, secondary and tertiary text lighten and stay readable', () => {
         const more = declarations('@media (prefers-contrast: more)')
