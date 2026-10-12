@@ -1,3 +1,4 @@
+import { useCallback, useRef } from 'react';
 import { m, type MotionProps } from 'motion/react';
 import { fade, spring } from '../../motion/tokens';
 import { PlayingCard } from '../ui/PlayingCard';
@@ -20,6 +21,8 @@ export interface DeclarationMomentProps {
     reduced: boolean;
     /** A tap on the panel: the moment hides on this screen (a belot's end sheet opens at once: "Skip to the result"). */
     onSkip: () => void;
+    /** The panel goes (play opens, or a tap) while it has focus: the board moves focus on, so it never drops to <body>. */
+    onFocusLost: () => void;
 }
 
 /** Pops in where it stands (spring.quick); under reduced motion it only fades in, on the same timing. */
@@ -38,7 +41,13 @@ function appear(instant: boolean, reduced: boolean): Pick<MotionProps, 'initial'
  * overlay takes no taps (`board-region`): only the panel, a button that skips the moment, which sits in the middle
  * of the felt, clear of the hand. The bubbles are for the eye; the live region has the moment in words (Board).
  */
-export function DeclarationMoment({ model, layout, targets, snapshot, reduced, onSkip }: DeclarationMomentProps) {
+export function DeclarationMoment({ model, layout, targets, snapshot, reduced, onSkip, onFocusLost }: DeclarationMomentProps) {
+    // the ref goes to null while the button is still in the DOM: whether it has focus is still known then
+    const button = useRef<HTMLButtonElement | null>(null);
+    const keepFocus = useCallback((node: HTMLButtonElement | null) => {
+        if (!node && button.current !== null && button.current === document.activeElement) onFocusLost();
+        button.current = node;
+    }, [onFocusLost]);
     const belot = belotLine(model.zvanja, model.me);
     // a belot is one still picture; the declarations read the clock until they close
     const now = useNow(belot ? null : TICK_MS) + model.skew;
@@ -75,6 +84,7 @@ export function DeclarationMoment({ model, layout, targets, snapshot, reduced, o
                 </div>
             )}
             <m.button
+                ref={keepFocus}
                 type="button"
                 aria-label={belot ? 'Skip to the result' : 'Skip declarations'}
                 className="board-moment__panel notch-6 focus-inside"

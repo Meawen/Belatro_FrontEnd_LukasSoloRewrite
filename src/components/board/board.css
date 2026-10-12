@@ -38,6 +38,10 @@
     -webkit-user-select: none;
     user-select: none;
 }
+/* focus that lands on the table itself (the moment's button went with it): the ring inside the edge, on screen */
+.board:focus-visible {
+    outline-offset: -4px;
+}
 .board--screen {
     position: fixed;
     left: 0;

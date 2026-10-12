@@ -33,6 +33,7 @@ import {
 import { dropLeaving, emptyStage, landTrick, settleStage, shownPiles, stepStage, sweepHeld, tableTrick, withInput, type Stage } from './stage';
 import { useBoardViewport } from './useBoardViewport';
 import { useChallengeBanner } from './useChallengeBanner';
+import { useTableFocus } from './useTableFocus';
 import type { BoardState } from './model/accept';
 import type { Boja } from '../../types/game';
 import type { BoardModel, HandCardModel, Team } from './model/boardModel';
@@ -342,6 +343,8 @@ export function Board(props: BoardProps) {
         return () => window.clearTimeout(timer);
     }, [wakeAt, wakes]);
     const hand = waiting ? model.hand.map((card) => (card.enabled ? { ...card, enabled: false } : card)) : model.hand;
+    // the moment's button goes with focus on it: focus moves to my first playable card, else to the table (never <body>)
+    const focus = useTableFocus();
 
     // the challenge, out loud (gameplay rules §6, D-8): while its banner says who, the HUD, the seats, Bela Blok and an
     // open hand result show the step before (`shown`); the hand and the trick are the newest, inputs act on them
@@ -354,6 +357,8 @@ export function Board(props: BoardProps) {
     return (
         <LazyMotion features={domMax}>
             <section
+                ref={focus.table}
+                tabIndex={-1}
                 aria-label="Game table"
                 className={cx('board', viewport ? 'board--framed' : 'board--screen')}
                 data-layout={layout.kind}
@@ -376,7 +381,8 @@ export function Board(props: BoardProps) {
                         )}
                         <SweepLayer stage={current} model={model} layout={layout} targets={targets} reduced={reduced} />
                         {moment && !moment.skipped && (waiting || holding) && (
-                            <DeclarationMoment key={moment.key} model={model} layout={layout} targets={targets} snapshot={moment.snapshot} reduced={reduced} onSkip={skip} />
+                            <DeclarationMoment key={moment.key} model={model} layout={layout} targets={targets} snapshot={moment.snapshot} reduced={reduced}
+                                onSkip={skip} onFocusLost={focus.lost} />
                         )}
                         {banner && (
                             <ChallengeBanner key={banner.challenge.number} challenge={banner.challenge} name={seatName(model, banner.challenge.playerId)}

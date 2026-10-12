@@ -241,6 +241,69 @@ describe('Board: the declaration moment in the middle of the table (gameplay rul
     })
 })
 
+describe('Board: focus when the moment\'s skip button goes (gameplay rules §6)', () => {
+    const tableRegion = () => screen.getByRole('region', { name: 'Game table' })
+    /** The hand's tab stop: its first playable card. */
+    const firstPlayable = () => cards().find((card) => !(card as HTMLButtonElement).disabled)
+
+    test('focused when play opens: focus goes to my first playable card when I lead, else to the game table, never to <body>', () => {
+        // alice leads the first trick; carol doesn't
+        for (const me of ['alice', 'carol']) {
+            live(me)
+            const skip = panel()!
+            act(() => { skip.focus() })
+            expect(document.activeElement, me).toBe(skip)
+            after(4999)
+            expect(document.activeElement, me).toBe(skip)
+            after(1)
+            expect(panel(), me).toBeNull()
+            expect(document.activeElement, me).not.toBe(document.body)
+            if (me === 'alice') {
+                expect(firstPlayable(), me).toBeDefined()
+                expect(document.activeElement, me).toBe(firstPlayable())
+                expect(document.activeElement, me).toHaveAttribute('tabindex', '0')
+            } else {
+                expect(firstPlayable(), me).toBeUndefined()
+                expect(document.activeElement, me).toBe(tableRegion())
+            }
+            cleanup()
+            vi.useRealTimers()
+        }
+    })
+
+    test('a press on it while focused (the keyboard\'s Enter): focus goes to the game table, as my cards wait for play to open', () => {
+        live('alice')
+        const skip = panel()!
+        act(() => { skip.focus() })
+        act(() => { skip.click() })
+        expect(panel()).toBeNull()
+        expect(document.activeElement).toBe(tableRegion())
+        cleanup()
+        // a belot's "Skip to the result": the end sheet opens beside the table, which takes focus
+        live('carol', playTable({ belot: { player: 'bob', suit: 'PIK' } }))
+        const result = screen.getByRole('button', { name: 'Skip to the result' })
+        act(() => { result.focus() })
+        act(() => { result.click() })
+        expect(screen.queryByRole('button', { name: 'Skip to the result' })).toBeNull()
+        expect(document.activeElement).toBe(tableRegion())
+    })
+
+    test('the table takes focus only from code (no Tab stop), and shows the ring inside its edge', () => {
+        live('carol')
+        expect(tableRegion()).toHaveAttribute('tabindex', '-1')
+        expect(css).toMatch(/\.board:focus-visible \{[^}]*outline-offset: -4px;/)
+    })
+
+    test('focus elsewhere stays where it is when play opens', () => {
+        live('alice')
+        const menu = screen.getByRole('button', { name: 'Game menu' })
+        act(() => { menu.focus() })
+        after(5000)
+        expect(panel()).toBeNull()
+        expect(document.activeElement).toBe(menu)
+    })
+})
+
 describe('Board: my chips never sit on my hand (gameplay rules §6)', () => {
     test('in landscape my chips go over my plate with my declared cards, as my bubble did; elsewhere under it; the other seats as before', () => {
         // seed 1254, the hand's first card: carol (me) holds Zvanja 100 + 20 and six declared cards, alice 20 and three
