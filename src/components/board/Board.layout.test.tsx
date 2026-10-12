@@ -44,4 +44,39 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
         expect(css).toMatch(/\.board-bid \{[^}]*width: max-content;/)
         expect(css).toMatch(/\.board-hud__group \{[^}]*min-height: 44px;/)
     })
+
+    test('a side seat\'s chips and declared cards line up under its plate on its own edge: never across the felt onto my hand (gameplay rules §6)', () => {
+        // the right seat's plate ends at the right edge (seatSpot: translateX(-100%)), so its column grows leftwards from there
+        expect(css).toMatch(/\.board-seat\[data-position="right"\] \{[^}]*align-items: flex-end;/)
+        expect(css).toMatch(/\.board-seat\[data-position="right"\] \.board-seat__chips \{[^}]*justify-content: flex-end;/)
+        // the left seat's starts at the left edge: left-aligned, as every column is
+        expect(css).toMatch(/\.board-seat \{[^}]*align-items: flex-start;/)
+        // seed 7, the hand's second card: dave (my right) holds Zvanja 20 and his three declared cards
+        for (const viewport of [{ width: 812, height: 375 }, { width: 375, height: 812 }, { width: 1440, height: 900 }]) {
+            const { unmount } = renderBoard({ state: tableState(find(table, 'play:bob:PIK-BABA'), 'carol', 'snapshot'), viewport })
+            expect(['carol', 'dave', 'alice', 'bob'].map((id) => screen.getByTestId(`seat-${id}`).dataset.position)).toEqual(['me', 'right', 'partner', 'left'])
+            const dave = screen.getByTestId('seat-dave')
+            expect(dave.querySelector('.board-seat__chips')?.textContent).toBe('Zvanja 20')
+            expect(dave.querySelectorAll('.board-seat__declared img')).toHaveLength(3)
+            unmount()
+        }
+    })
+
+    test('on a portrait phone the HUD\'s Challenge stacks over its info button, so it stays in the felt\'s left column, clear of my partner\'s fan and plate (gameplay rules §6)', () => {
+        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-challenge--hud \.board-challenge__buttons \{[^}]*flex-direction: column;[^}]*align-items: flex-start;/)
+        // each on its own ink chip, as Blok: the button on an opaque panel (a spent, greyed button is see-through), the info button its own
+        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-challenge--hud \.board-challenge__buttons \{[^}]*background: none;[^}]*clip-path: none;/)
+        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-challenge--hud \.board-challenge__main \{[^}]*background: var\(--material-ink\);[^}]*clip-path: var\(--notch\);/)
+        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-challenge--hud \.ui-btn--icon \{[^}]*--btn-bg: var\(--material-ink\);/)
+        // elsewhere one panel behind both, as before
+        expect(css).toMatch(/\.board-challenge--hud \.board-challenge__buttons \{[^}]*background: var\(--material-ink\);[^}]*clip-path: var\(--notch\);/)
+        // on a line of its own, never beside Blok (that would reach the fan again); only its buttons and hint take taps
+        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-challenge--hud \{[^}]*flex-basis: 100%;[^}]*align-items: flex-start;[^}]*pointer-events: none;/)
+        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-challenge--hud > \* \{[^}]*pointer-events: auto;/)
+    })
+
+    test('in landscape the HUD\'s left group stops short of my partner\'s fan in the middle: a wide Challenge goes to a second line (gameplay rules §6)', () => {
+        // the fan's left edge is about 52 px left of the middle (eight backs at 0.4); the group ends 6 px before it
+        expect(css).toMatch(/\.board\[data-layout="landscape"\] \.board-hud__group:first-child \{[^}]*max-width: calc\(50% - 58px\);/)
+    })
 })

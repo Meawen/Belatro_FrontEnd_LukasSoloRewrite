@@ -18,6 +18,8 @@ export interface ChallengeBannerProps {
     /** The hand result is open (a right challenge in the window): on a short landscape screen the banner goes above it. */
     sheetOpen: boolean;
     reduced: boolean;
+    /** The outcome step has started: an open hand result may now show it (D-8). */
+    onOutcome: () => void;
     /** The outcome has been said: the board unmounts the banner. */
     onDone: () => void;
 }
@@ -29,7 +31,7 @@ export interface ChallengeBannerProps {
  * the eye; the live region says them once (announce). Each step pops in where it stands; under reduced motion it
  * only fades in, on the same timing.
  */
-export function ChallengeBanner({ challenge, name, since, layout, sheetOpen, reduced, onDone }: ChallengeBannerProps) {
+export function ChallengeBanner({ challenge, name, since, layout, sheetOpen, reduced, onOutcome, onDone }: ChallengeBannerProps) {
     const [now, setNow] = useState(() => Date.now());
     const said = challengeAt({ ...challenge, name }, now - since);
     const ends = said.step === 'who' ? since + WHO_MS : said.step === 'outcome' ? since + WHO_MS + OUTCOME_MS : null;
@@ -42,6 +44,9 @@ export function ChallengeBanner({ challenge, name, since, layout, sheetOpen, red
         const timer = window.setTimeout(() => setNow(Math.max(Date.now(), ends)), Math.max(0, ends - Date.now()));
         return () => window.clearTimeout(timer);
     }, [ends, onDone]);
+    useEffect(() => {
+        if (said.step === 'outcome') onOutcome();
+    }, [said.step, onOutcome]);
     if (said.step === 'done') return null;
     const spot = bannerSpot(layout, sheetOpen);
     return (

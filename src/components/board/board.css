@@ -276,6 +276,14 @@
     flex-wrap: wrap;
     gap: 4px;
 }
+/* the right seat's plate ends at the right edge (seatSpot): its chips and declared cards line up under it there, so a
+   long name never pulls them across the felt onto my hand (the left seat's start at the left edge, as every column) */
+.board-seat[data-position="right"] {
+    align-items: flex-end;
+}
+.board-seat[data-position="right"] .board-seat__chips {
+    justify-content: flex-end;
+}
 /* the winners' declared cards (gameplay rules §6), small and overlapping, until the first trick is down */
 .board-seat__declared {
     display: flex;
@@ -326,6 +334,11 @@
 .board-hud__group:last-child {
     flex: none;
     justify-content: flex-end;
+}
+/* landscape: the left group stops short of my partner's fan in the middle (its left edge about 52 px left of it), so
+   a wide Challenge goes to a second line instead of over the fan (gameplay rules §6) */
+.board[data-layout="landscape"] .board-hud__group:first-child {
+    max-width: calc(50% - 58px);
 }
 .board-hud__chip {
     display: inline-flex;
@@ -519,9 +532,11 @@
 .board-banner__panel[data-step="outcome"][data-foul] {
     color: var(--accent);
 }
-/* on a short landscape screen with the hand result docked (bannerSpot): its top edge under the HUD, above the sheet */
+/* on a short landscape screen with the hand result docked (bannerSpot): its top edge under the HUD, above the sheet,
+   opaque, since it lies over my partner's plate and the opponents' pile there */
 .board-banner__panel[data-place="top"] {
     translate: -50% 0;
+    background: var(--ink);
 }
 
 /* Challenge (§5.3.3): in the HUD while playing, in the hand-result sheet in HAND_COMPLETE */
@@ -537,10 +552,40 @@
     align-items: center;
     gap: 2px;
 }
+.board-challenge__main {
+    display: inline-flex;
+}
 .board-challenge--hud .board-challenge__buttons {
     padding-right: 2px;
     background: var(--material-ink);
     clip-path: var(--notch);
+}
+/* a portrait phone: Challenge over its info button, on a line of its own, so the group stays in
+   the felt's left column under the HUD, clear of my partner's fan and plate in the middle (side by side, or beside
+   Blok, it runs into them); the line takes no taps, only its buttons and hint do */
+.board[data-layout="portrait"] .board-challenge--hud {
+    flex-basis: 100%;
+    align-items: flex-start;
+    pointer-events: none;
+}
+.board[data-layout="portrait"] .board-challenge--hud > * {
+    pointer-events: auto;
+}
+.board[data-layout="portrait"] .board-challenge--hud .board-challenge__buttons {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding-right: 0;
+    background: none;
+    clip-path: none;
+}
+/* each on its own ink chip, as Blok is: the button's panel stays opaque behind it when a spent challenge greys it */
+.board[data-layout="portrait"] .board-challenge--hud .board-challenge__main {
+    background: var(--material-ink);
+    clip-path: var(--notch);
+}
+.board[data-layout="portrait"] .board-challenge--hud .ui-btn--icon {
+    --btn-bg: var(--material-ink);
 }
 .board-challenge__hint {
     width: min(300px, calc(100vw - 32px));

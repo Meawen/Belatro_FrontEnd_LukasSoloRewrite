@@ -182,6 +182,19 @@ interface MomentLocal {
     line: string | null;
 }
 
+/**
+ * The challenge banner as this screen keeps it: when it started, once it reached its outcome (`told`) and once it is
+ * said (`done`); whether it holds the hand result back (it ended the hand), or what an already open sheet showed.
+ */
+interface ChallengeLocal {
+    challenge: Challenged;
+    since: number;
+    told: boolean;
+    done: boolean;
+    holdsResult: boolean;
+    sheet: { model: BoardModel; delta: Stage['handDelta']; hands: MatchHands | null | undefined } | null;
+}
+
 /** "Your turn" over my hand (spec §5.3.3 `your-turn`): only while I can bid or play, never in HAND_COMPLETE. */
 function YourTurn({ model, targets, layout }: { model: BoardModel; targets: Targets; layout: Layout }) {
     if (!model.yourTurn) return null;
@@ -336,21 +349,27 @@ export function Board(props: BoardProps) {
 
     // the challenge, out loud (gameplay rules §6): a live Challenged starts the banner, which unmounts once said; a
     // snap (a snapshot) never shows one, and ends one still up. A right one that ended the hand holds the hand result
-    // until it is said (D-8: who, then the outcome, then the sheet); a sheet already open in the window stays open.
+    // until it is said (D-8: who, then the outcome, then the sheet); a sheet already open in the window stays open, but
+    // shows what it showed (`sheet`, the step before) until the banner reaches the outcome (`told`).
     const challenged = current.events?.find((event): event is Challenged => event.type === 'Challenged') ?? null;
-    const [keptBanner, setBanner] = useState<{ challenge: Challenged; since: number; done: boolean; holdsResult: boolean } | null>(null);
+    const [keptBanner, setBanner] = useState<ChallengeLocal | null>(null);
     let banner = keptBanner;
     if (challenged && challenged.number !== keptBanner?.challenge.number) {
         const endedHand = current.events!.some((event) => event.type === 'HandCompleted');
-        banner = { challenge: challenged, since: now, done: false, holdsResult: challenged.foulFound && endedHand };
+        // `stage` is still the step before here: what the open sheet showed before the challenge
+        const sheet = challenged.foulFound && !endedHand && stage.model ? { model: stage.model, delta: stage.handDelta, hands } : null;
+        banner = { challenge: challenged, since: now, done: false, told: false, holdsResult: challenged.foulFound && endedHand, sheet };
         setBanner(banner);
     } else if (instant && keptBanner && !keptBanner.done) {
         banner = { ...keptBanner, done: true };
         setBanner(banner);
     }
+    const bannerTold = useCallback(() => setBanner((was) => (was && !was.told ? { ...was, told: true } : was)), []);
     const bannerSaid = useCallback(() => setBanner((was) => (was && !was.done ? { ...was, done: true } : was)), []);
     // the hand result rises once the last trick has left the table, and a right challenge's banner has been said
     const resultOpen = model.handComplete && current.held === null && !(banner && !banner.done && banner.holdsResult);
+    // while the banner says who, an open sheet keeps its header and numbers; its Challenge goes (the window is decided)
+    const frozen = banner && !banner.done && !banner.told ? banner.sheet : null;
 
     return (
         <LazyMotion features={domMax}>
@@ -381,7 +400,7 @@ export function Board(props: BoardProps) {
                         )}
                         {banner && !banner.done && (
                             <ChallengeBanner key={banner.challenge.number} challenge={banner.challenge} name={seatName(model, banner.challenge.playerId)}
-                                since={banner.since} layout={layout} sheetOpen={resultOpen} reduced={reduced} onDone={bannerSaid} />
+                                since={banner.since} layout={layout} sheetOpen={resultOpen} reduced={reduced} onOutcome={bannerTold} onDone={bannerSaid} />
                         )}
                         <Hud model={model} instant={instant} calledBy={called?.type === 'TrumpCalled' ? called.playerId : null} calls={current.calls}
                             onChallenge={onChallenge} challengePending={challengeWaiting}
@@ -393,7 +412,8 @@ export function Board(props: BoardProps) {
                 <Summary model={model} />
                 {/* both rise once the last trick has left the table (spec §5.3.4 HandCompleted, Ended); the hand result also
                     waits for a right challenge's banner (resultOpen) */}
-                <HandResult model={model} open={resultOpen} hands={hands} delta={current.handDelta}
+                <HandResult model={frozen ? { ...frozen.model, challenge: model.challenge } : model} open={resultOpen}
+                    hands={frozen ? frozen.hands : hands} delta={frozen ? frozen.delta : current.handDelta}
                     onChallenge={onChallenge} challengePending={challengeWaiting} />
                 <EndSheet model={model} open={model.end !== null && current.held === null && !holding} rematch={rematch} onLeave={onLeave} />
                 <GameMenu model={model} open={panel === 'menu'} onClose={() => setPanel(null)} onBlok={layout.blok ? null : () => open('blok')} />

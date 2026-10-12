@@ -67,6 +67,8 @@ export interface SeatsProps {
  * trick is down; a quiet "No challenge" on every seat whose challenge is gone, for the rest of the game
  * (gameplay rules §6). Mine sit over my plate, which sits low by my pile: my declared cards always, and in
  * landscape, where my plate is beside my hand, my chips too (under it they would cover my hand's first cards).
+ * A side seat's line up under its plate on its own edge (`data-position`), so a long name never pulls them across
+ * the felt onto my hand.
  */
 export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps) {
     const chips = playOpen ? summaryChips(model.zvanja) : {};
@@ -108,7 +110,7 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                     </span>
                 );
                 return (
-                    <div key={seat.id} data-testid={`seat-${seat.id}`} data-current={seat.current ? 'true' : undefined} className="board-seat" style={seatSpot(seat, targets, layout)}>
+                    <div key={seat.id} data-testid={`seat-${seat.id}`} data-current={seat.current ? 'true' : undefined} data-position={seat.position} className="board-seat" style={seatSpot(seat, targets, layout)}>
                         <span className="board-seat__name notch t-footnote font-semibold" data-turn={seat.current || undefined}>
                             <span className={seat.team === 'B' ? 'board-seat__team bg-team-b' : 'board-seat__team bg-team-a'} aria-hidden="true" />
                             {/* a bot: the lobby's robot beside its name, and "(bot)" in its name (casual bots spec §7) */}

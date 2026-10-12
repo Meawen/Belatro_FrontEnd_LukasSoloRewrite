@@ -1,5 +1,5 @@
 import type { BoardModel, SeatModel } from './model/boardModel';
-import type { Layout, Target, Targets } from './model/cardTargets';
+import { fanStepOf, type Layout, type Target, type Targets } from './model/cardTargets';
 
 /** A seat's place on the board: its plate's top-left corner (or, with `transform`, its top centre or top right). */
 export interface SeatSpot {
@@ -31,6 +31,12 @@ export function seatSpot(seat: SeatModel, targets: Targets, layout: Layout): Sea
     }
     const bottom = backs.length ? Math.max(...backs.map((t) => t.top + t.height / 2 + across(t) / 2)) : anchor.y + 24;
     const middle = layout.board.w / 2;
+    if (seat.position === 'partner' && layout.kind === 'portrait') {
+        // centred under the fan, but a wide plate (a long name, the countdown) starts at a full fan's left edge and grows
+        // rightwards: the HUD stacks Challenge in the column left of the fan (gameplay rules §6)
+        const fanLeft = anchor.x - 3.5 * fanStepOf(layout) - (layout.back.w * layout.backScale) / 2;
+        return { left: anchor.x, top: bottom + 6, transform: `translateX(max(-50%, ${fanLeft - anchor.x}px))`, maxWidth: layout.board.w - 8 - fanLeft };
+    }
     if (seat.position === 'partner') return { left: anchor.x, top: bottom + 6, transform: 'translateX(-50%)', maxWidth: layout.board.w - 32 };
     if (seat.position === 'left') {
         const left = Math.max(8, anchor.x - 24);

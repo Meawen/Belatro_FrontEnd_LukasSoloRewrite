@@ -25,3 +25,25 @@ describe('bubbleSpot (gameplay rules §6): a bubble by each seat plate', () => {
         }
     })
 })
+
+describe('seatSpot: my partner on a portrait phone (gameplay rules §6)', () => {
+    test('centred under the fan, but a wide plate never reaches left of a full fan, where the HUD stacks Challenge; elsewhere as before', () => {
+        const partner = model.seats.find((seat) => seat.position === 'partner')!
+        for (const viewport of [{ width: 375, height: 812, dpr: 2 }, { width: 320, height: 568, dpr: 2 }, { width: 375, height: 667, dpr: 3 }]) {
+            const layout = layoutFor(viewport)
+            const anchor = cardTargets(model, layout).anchors[partner.id]
+            // eight backs, 10 px apart, each 71 px at half scale
+            const fanLeft = anchor.x - 3.5 * 10 - (71 * 0.5) / 2
+            const spot = seatSpot(partner, cardTargets(model, layout), layout)
+            expect(spot.left).toBe(anchor.x)
+            expect(spot.transform).toBe(`translateX(max(-50%, ${fanLeft - anchor.x}px))`)
+            expect(spot.maxWidth).toBe(layout.board.w - 8 - fanLeft)
+        }
+        for (const viewport of [{ width: 812, height: 375, dpr: 2 }, { width: 1440, height: 900, dpr: 1 }]) {
+            const layout = layoutFor(viewport)
+            const spot = seatSpot(partner, cardTargets(model, layout), layout)
+            if (layout.kind === 'desktop') expect(spot).toMatchObject({ transform: 'translateX(-50%)', maxWidth: layout.board.w - 32 })
+            else expect(spot.transform).toBeUndefined()
+        }
+    })
+})

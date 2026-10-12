@@ -32,9 +32,12 @@ export function Challenge({ onChallenge, place, state, pending }: ChallengeProps
             }}
         >
             <span className="board-challenge__buttons">
-                <Button size="sm" variant="secondary" aria-describedby={hint} disabled={used} loading={pending} onClick={onChallenge}>
-                    {used ? 'Challenge used' : 'Challenge'}
-                </Button>
+                {/* its own panel on a portrait phone, where the two stack (board.css): opaque behind a greyed button */}
+                <span className="board-challenge__main">
+                    <Button size="sm" variant="secondary" aria-describedby={hint} disabled={used} loading={pending} onClick={onChallenge}>
+                        {used ? 'Challenge used' : 'Challenge'}
+                    </Button>
+                </span>
                 <IconButton size="sm" icon="info" aria-label="What does Challenge do?" aria-expanded={open} aria-controls={hint} onClick={() => setOpen((shown) => !shown)} />
             </span>
             <span id={hint} data-testid="challenge-hint" className={open ? 'board-challenge__hint notch t-footnote' : 'sr-only'}>

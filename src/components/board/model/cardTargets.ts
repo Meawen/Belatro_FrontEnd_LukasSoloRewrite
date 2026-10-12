@@ -107,6 +107,11 @@ export function tilt(id: string): number {
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
 
+/** How far apart an opponent's backs are fanned (spec §5.6). */
+export function fanStepOf(layout: Layout): number {
+    return layout.kind === 'desktop' ? 16 : 10;
+}
+
 /** The middle of the trick's cross (spec §5.6), in board coordinates: where the declaration moment is said too. */
 export function trickCentre(layout: Layout): { x: number; y: number } {
     const { w, h } = layout.board;
@@ -151,7 +156,7 @@ export function cardTargets(model: BoardModel, layout: Layout): Targets {
     const below = landscape ? 0.25 : 0.2;
     const maxStep = landscape ? 52 : desktop ? (hs.w < 120 ? 64 : 84) : 36;
     const sideInset = desktop ? 70 : 30;
-    const fanStep = desktop ? 16 : 10;
+    const fanStep = fanStepOf(layout);
     const trickY = trickCentre(layout).y;
     const slot = landscape ? { x: 0.7, y: 0.45 } : { x: 0.84, y: 0.58 };
     const cards: Record<CardId, Target> = {};

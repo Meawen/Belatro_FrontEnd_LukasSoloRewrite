@@ -361,10 +361,22 @@ describe('Board: the hand result after a right challenge (gameplay rules §6, D-
 })
 
 describe('Board: a right challenge in the window (gameplay rules §1, R-4)', () => {
-    test('the open sheet takes the header and the new numbers, its countdown restarts, and no Challenge is left in it', () => {
-        vi.useFakeTimers()
+    /** carol's board in hand 1's open window, 3 s in; then dave's right challenge: the award taken back, team B 162, the window again at 10 s. */
+    function rightInWindow() {
         const last = indexOf(table, 'hand-complete')
         const win = indexOf(table, 'window-open')
+        const right = structuredClone(table[win])
+        right.at += 3000
+        Object.assign(right.private.carol.publicPart, {
+            teamAScore: 0, teamBScore: 162, stateVersion: right.version + 1, serverNow: right.at, challengeWindowExpiresAt: right.at + 10_000,
+            lastChallenge: { number: 1, playerId: 'dave', team: 'B', foulFound: true, thisHand: true },
+        })
+        return { last, win, right }
+    }
+
+    test('the open sheet stays as it was while the banner says who (D-8), then takes the header, the new numbers and the restarted countdown', () => {
+        vi.useFakeTimers()
+        const { last, win, right } = rightInWindow()
         vi.setSystemTime(table[last - 1].at)
         const { rerenderWith } = renderBoard({ state: tableState(table[last - 1]) })
         rerenderWith({ state: tableState(table[last]) })
@@ -373,27 +385,67 @@ describe('Board: a right challenge in the window (gameplay rules §1, R-4)', () 
         const open = screen.getByTestId('hand-result')
         // carol is in team A: Mi 11, Vi 171 as the hand was played
         expect(within(open).getAllByText(/^(11|171)$/).map((el) => el.textContent)).toEqual(['11', '171'])
-        // dave's right challenge takes the award back: team B 162, team A nothing, the window again at 10 s
-        const right = structuredClone(table[win])
-        right.at += 3000
-        Object.assign(right.private.carol.publicPart, {
-            teamAScore: 0, teamBScore: 162, stateVersion: right.version + 1, serverNow: right.at, challengeWindowExpiresAt: right.at + 10_000,
-            lastChallenge: { number: 1, playerId: 'dave', team: 'B', foulFound: true, thisHand: true },
-        })
+        const countdown = open.querySelector('.board-window')
         vi.setSystemTime(right.at)
         rerenderWith({ state: tableState(right) })
-        // the sheet already open stays open under the banner (nothing to wait for: the hand was over), the same element
+        // the sheet already open stays open under the banner, the same element, and gives nothing away while it says who:
+        // its header, its numbers and its countdown as before; only its Challenge goes (the window is decided, R-3)
         expect(panel()).toHaveTextContent('dave challenges!')
+        expect(screen.getByTestId('hand-result')).toBe(open)
+        expect(within(open).getByRole('heading', { name: 'Hand finished' })).toBeInTheDocument()
+        expect(within(open).queryByText('Foul found: Team B takes the hand')).toBeNull()
+        expect(within(open).getAllByText(/^(11|171)$/).map((el) => el.textContent)).toEqual(['11', '171'])
+        // the old window's countdown runs on, the same element: not restarted yet
+        expect(open.querySelector('.board-window')).toBe(countdown)
+        expect(screen.queryByRole('button', { name: /^Challenge/ })).toBeNull()
+        after(1199)
+        expect(within(open).getByRole('heading', { name: 'Hand finished' })).toBeInTheDocument()
+        // the outcome: now the sheet says it too, with the new numbers and the window restarted with the challenge
+        after(1)
+        expect(panel()).toHaveTextContent('Foul found: Team B takes the hand')
         expect(screen.getByTestId('hand-result')).toBe(open)
         expect(within(open).getByRole('heading', { name: 'Foul found: Team B takes the hand' })).toBeInTheDocument()
         expect(within(open).getAllByText(/^(0|162)$/).map((el) => el.textContent)).toEqual(['0', '162'])
-        expect(within(open).getByText('Next hand in 10 s')).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: /^Challenge/ })).toBeNull()
-        after(1200)
-        expect(screen.getByTestId('hand-result')).toBe(open)
+        expect(open.querySelector('.board-window')).not.toBe(countdown)
+        expect(within(open).getByText('Next hand in 9 s')).toBeInTheDocument()
         after(2000)
         expect(banner()).toBeNull()
         expect(screen.getByTestId('hand-result')).toBe(open)
+        expect(within(open).getByRole('heading', { name: 'Foul found: Team B takes the hand' })).toBeInTheDocument()
+    })
+
+    test('a snapshot of the decided window (a reconnect) shows the final header and numbers at once, with no banner', () => {
+        vi.useFakeTimers()
+        const { right } = rightInWindow()
+        vi.setSystemTime(right.at)
+        renderBoard({ state: tableState(right, 'carol', 'snapshot') })
+        expect(banner()).toBeNull()
+        const open = screen.getByTestId('hand-result')
+        // (its numbers come from the stored hand, which this test doesn't serve)
+        expect(within(open).getByRole('heading', { name: 'Foul found: Team B takes the hand' })).toBeInTheDocument()
+        expect(within(open).getByText('Next hand in 10 s')).toBeInTheDocument()
+    })
+
+    test('a snapshot during the banner ends it, and the sheet shows the final state at once', () => {
+        vi.useFakeTimers()
+        const { last, win, right } = rightInWindow()
+        vi.setSystemTime(table[last - 1].at)
+        const { rerenderWith } = renderBoard({ state: tableState(table[last - 1]) })
+        rerenderWith({ state: tableState(table[last]) })
+        rerenderWith({ state: tableState(table[win]) })
+        after(900)
+        vi.setSystemTime(right.at)
+        rerenderWith({ state: tableState(right) })
+        expect(within(screen.getByTestId('hand-result')).getByRole('heading', { name: 'Hand finished' })).toBeInTheDocument()
+        after(300)
+        rerenderWith({ state: { ...tableState(right, 'carol', 'snapshot'), receivedAt: right.at + 300 } })
+        expect(banner()).toBeNull()
+        expect(within(screen.getByTestId('hand-result')).getByRole('heading', { name: 'Foul found: Team B takes the hand' })).toBeInTheDocument()
+        expect(within(screen.getByTestId('hand-result')).getByText('Next hand in 10 s')).toBeInTheDocument()
+    })
+
+    test('the banner over the docked sheet is opaque: nothing under it shows through', () => {
+        expect(css).toMatch(/\.board-banner__panel\[data-place="top"\] \{[^}]*background: var\(--ink\);/)
     })
 })
 
