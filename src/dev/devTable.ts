@@ -2,7 +2,7 @@
 // clean or with chaos, the structured moves the server would have stored by then, and the URL options.
 // Dev only: src/dev is imported behind import.meta.env.DEV || VITE_DEV_BOARD (App.tsx).
 import {
-    deliveries, duplicated, indexOf, playTable, privateFirst, staleRedelivery, type Delivery, type FanOut,
+    deliveries, duplicated, indexOf, playTable, privateFirst, staleRedelivery, type ChallengeOption, type Delivery, type FanOut,
 } from '../test/fixtures/views/table';
 import type { Frame } from '../components/board/model/accept';
 import type { TableEffects } from '../settings/tableEffects';
@@ -51,19 +51,48 @@ export interface DevOptions {
     fixture: string | null;
     /** These seats are server-side bots (`bot: true` on their seats in every frame): the board's robot mark. */
     bots: string[];
+    /**
+     * With `at`: the board gets the fan-out before it as a snapshot, then steps into `at` live, so it sees the
+     * change (the declaration moment from its start, a live belot, the challenge banner) as a player would.
+     */
+    live: boolean;
+    /** With `live`: `at` came this many ms ago (the declaration moment mid-way: t=700, two seats have spoken). */
+    t: number;
+    /** `belot=bob:PIK`: hand 1 deals that seat all eight of the suit, a belot at the trump call (gameplay rules §3). */
+    belot: { player: string; suit: Boja } | null;
+    /** `challenge=bob:2:wrong`, `dave:2:right`, `dave:window:right`: a challenge in hand 1, after its n-th card or in its window (§1). */
+    challenge: ChallengeOption | null;
 }
 
 const one = <T extends string>(value: string | null, allowed: readonly T[], fallback: T): T =>
     allowed.includes(value as T) ? (value as T) : fallback;
 
-/** `/dev/board?seat=carol&at=window-open&layout=375x812&effects=off&motion=reduce&chaos=1&controls=0&skip=1&play=1&speed=2&seed=7&trump=KARA&hands=2&scores=990,900&names=long&bots=bob,dave` */
+const BOJE = ['HERC', 'KARA', 'PIK', 'TREF'] as const;
+const isSeat = (id: string): boolean => (SEATS as readonly string[]).includes(id);
+
+/** `bob:PIK`: a seat and a suit, else null. */
+function parseBelot(value: string | null): DevOptions['belot'] {
+    const [player, suit] = (value ?? '').split(':');
+    return isSeat(player) && (BOJE as readonly string[]).includes(suit) ? { player, suit: suit as Boja } : null;
+}
+
+/** `bob:2:wrong` or `dave:window:right`: who, after which card of the hand (1–31) or in the window, and the outcome; else null. */
+function parseChallenge(value: string | null): ChallengeOption | null {
+    const [by, after, outcome] = (value ?? '').split(':');
+    const card = Number(after);
+    const when = after === 'window' ? 'window' : Number.isInteger(card) && card >= 1 && card <= 31 ? card : null;
+    if (!isSeat(by) || when === null || (outcome !== 'right' && outcome !== 'wrong')) return null;
+    return { by, after: when, foul: outcome === 'right' };
+}
+
+/** `/dev/board?seat=carol&at=window-open&layout=375x812&effects=off&motion=reduce&chaos=1&controls=0&skip=1&play=1&speed=2&seed=7&trump=KARA&hands=2&scores=990,900&names=long&bots=bob,dave&live=1&t=700&belot=bob:PIK&challenge=dave:2:right` */
 export function parseDevOptions(search: string): DevOptions {
     const q = new URLSearchParams(search);
     const scores = (q.get('scores') ?? '').split(',').map(Number);
     return {
         seat: one(q.get('seat'), SEATS, 'alice'),
         seed: Number(q.get('seed')) || 7,
-        trump: one(q.get('trump'), ['HERC', 'KARA', 'PIK', 'TREF'] as const, 'HERC'),
+        trump: one(q.get('trump'), BOJE, 'HERC'),
         hands: Math.max(1, Number(q.get('hands')) || 2),
         scores: scores.length === 2 && scores.every(Number.isFinite) ? [scores[0], scores[1]] : null,
         at: q.get('at'),
@@ -77,7 +106,11 @@ export function parseDevOptions(search: string): DevOptions {
         speed: Math.min(8, Math.max(0.25, Number(q.get('speed')) || 1)),
         fixture: q.get('fixture'),
         names: q.get('names') === 'long',
-        bots: (q.get('bots') ?? '').split(',').filter((id) => (SEATS as readonly string[]).includes(id)),
+        bots: (q.get('bots') ?? '').split(',').filter(isSeat),
+        live: q.get('live') === '1',
+        t: Math.max(0, Number(q.get('t')) || 0),
+        belot: parseBelot(q.get('belot')),
+        challenge: parseChallenge(q.get('challenge')),
     };
 }
 
@@ -110,11 +143,16 @@ function withBots(fanOuts: FanOut[], bots: readonly string[]): FanOut[] {
 
 /** The table for these options, its clock set so that fan-out `atIndex` happens now (live countdowns). */
 export function devTable(
-    options: Pick<DevOptions, 'seed' | 'trump' | 'hands' | 'scores'> & { names?: boolean; bots?: readonly string[] },
+    options: Pick<DevOptions, 'seed' | 'trump' | 'hands' | 'scores'> & Partial<Pick<DevOptions, 'names' | 'bots' | 'belot' | 'challenge'>>,
     now: number,
     atIndex = 0,
 ): FanOut[] {
-    const base = { seed: options.seed, trump: options.trump, hands: options.hands, ...(options.scores ? { scores: options.scores } : {}) };
+    const base = {
+        seed: options.seed, trump: options.trump, hands: options.hands,
+        ...(options.scores ? { scores: options.scores } : {}),
+        ...(options.belot ? { belot: options.belot } : {}),
+        ...(options.challenge ? { challenge: options.challenge } : {}),
+    };
     const probe = playTable(base);
     const offset = probe[Math.min(Math.max(0, atIndex), probe.length - 1)].at - probe[0].at;
     const table = withBots(playTable({ ...base, start: now - offset }), options.bots ?? []);
@@ -179,8 +217,15 @@ export function frameOf(delivery: Delivery): Frame {
 
 const move = (card: GameCard, player: string, order: number) => ({ order, player, card: `${card.rank} of ${card.boja}`, legal: true });
 
-/** A team's declaration points as the fixture scores them: the zvanja total if it won the contest (gameplay rules §2), and its bela. */
+/** This hand went to a right challenge (gameplay rules §1). */
+const decidedByChallenge = (view: PublicGameView): boolean => Boolean(view.lastChallenge?.thisHand && view.lastChallenge.foulFound);
+
+/**
+ * A team's declaration points as the fixture scores them: the zvanja total if it won the contest (gameplay rules §2),
+ * and its bela; none for the team a right challenge caught (§1).
+ */
 function declared(view: PublicGameView, team: 'A' | 'B'): number {
+    if (decidedByChallenge(view) && view.lastChallenge!.team !== team) return 0;
     const members = (team === 'A' ? view.teamA : view.teamB).map((seat) => seat.id);
     let points = view.zvanja?.winnerTeam === team ? view.zvanja.total : 0;
     for (const [id, on] of Object.entries(view.belaDeclaredByPlayer ?? {})) if (on && members.includes(id)) points += 20;
@@ -189,12 +234,14 @@ function declared(view: PublicGameView, team: 'A' | 'B'): number {
 
 /**
  * The structured moves the server would have stored by fan-out `upTo` (GET /matches/{id}/structured-moves):
- * per hand its trump calls, its completed tricks with their winners, and its summary once it ended.
+ * per hand its trump calls, its completed tricks with their winners, its challenges, and its summary once it
+ * ended (again after a right challenge in its window, as the server stores END_HAND again).
  */
 export function devHands(fanOuts: readonly FanOut[], upTo: number): HandDTO[] {
     const hands: HandDTO[] = [];
     let current: HandDTO | null = null;
     let seen = '';
+    let challenges = 0;
     let before = { a: fanOuts[0]?.public.teamAScore ?? 0, b: fanOuts[0]?.public.teamBScore ?? 0 };
     for (const f of fanOuts.slice(0, upTo + 1)) {
         const view = f.public;
@@ -214,11 +261,18 @@ export function devHands(fanOuts: readonly FanOut[], upTo: number): HandDTO[] {
             const trick: TrickDTO = { trickNo, winnerId: last.winnerId, points: null, moves: last.order.map((id, k) => move(last.plays[id], id, k)), lastTrickBonus: trickNo === 8 };
             current.tricks = [...(current.tricks ?? []), trick];
         }
-        if (view.gameState === 'HAND_COMPLETE' && !current.handSummary) {
+        const challenge = view.lastChallenge;
+        if (challenge && challenge.number > challenges) {
+            challenges = challenge.number;
+            current.challenges = [...(current.challenges ?? []), { order: (current.challenges ?? []).length, player: challenge.playerId, success: challenge.foulFound }];
+        }
+        const summary = current.handSummary;
+        if (view.gameState === 'HAND_COMPLETE' && (!summary || summary.finalScoreA !== view.teamAScore || summary.finalScoreB !== view.teamBScore)) {
             const gainA = view.teamAScore - before.a;
             const gainB = view.teamBScore - before.b;
             const caller = view.bids.find((bid) => bid.action === 'CALL_TRUMP')?.playerId;
             const callerTeam = caller && view.teamA.some((seat) => seat.id === caller) ? 'A' : 'B';
+            const challenged = decidedByChallenge(view);
             current.handSummary = {
                 teamAPoints: gainA - declared(view, 'A'),
                 teamBPoints: gainB - declared(view, 'B'),
@@ -226,8 +280,8 @@ export function devHands(fanOuts: readonly FanOut[], upTo: number): HandDTO[] {
                 teamBDeclPoints: declared(view, 'B'),
                 teamATricksWon: view.tricksWonA ?? 0,
                 teamBTricksWon: view.tricksWonB ?? 0,
-                padanje: (callerTeam === 'A' ? gainA : gainB) === 0,
-                capot: view.tricksWonA === 8 || view.tricksWonB === 8,
+                padanje: !challenged && (callerTeam === 'A' ? gainA : gainB) === 0,
+                capot: !challenged && (view.tricksWonA === 8 || view.tricksWonB === 8),
                 finalScoreA: view.teamAScore,
                 finalScoreB: view.teamBScore,
             };

@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest'
-import { cardSize, cardTargets, layoutFor, tilt, trickCentre, type Target, type Targets, type Viewport } from './cardTargets'
+import { bannerSpot, belotRow, cardSize, cardTargets, layoutFor, tilt, trickCentre, type Target, type Targets, type Viewport } from './cardTargets'
+import { crispCardWidth } from '../../ui/cardWidth'
 import { EMPTY_LOCAL, boardModel, type BoardModel } from './boardModel'
 import { indexOf, playTable } from '../../../test/fixtures/views/table'
 
@@ -179,6 +180,51 @@ describe('trickCentre (spec §5.6; gameplay rules §6: the declaration moment is
             expect(centre.x).toBe(layout.board.w / 2)
             expect(centre.y).toBe(layout.kind === 'landscape' ? layout.board.h / 2 : layout.board.h * 0.44)
             expect(Math.max(...ys.map(Math.abs))).toBeLessThan(layout.trick.h)
+        }
+    })
+})
+
+describe('belotRow (gameplay rules §6): a belot\'s eight cards in the declaration panel', () => {
+    test('two-thirds of a trick card, crisp, 45 % under the next; closer where eight would overflow the panel', () => {
+        const viewports: Viewport[] = [
+            { width: 1440, height: 900, dpr: 1 }, { width: 1440, height: 900, dpr: 2 }, { width: 1024, height: 768, dpr: 2 }, { width: 1920, height: 1080, dpr: 1.25 },
+            { width: 375, height: 812, dpr: 2 }, { width: 375, height: 812, dpr: 3 }, { width: 812, height: 375, dpr: 2 }, { width: 812, height: 375, dpr: 3 },
+            { width: 320, height: 568, dpr: 2 }, { width: 768, height: 1024, dpr: 2 },
+        ]
+        for (const viewport of viewports) {
+            const layout = layoutFor(viewport)
+            const { width, step } = belotRow(layout)
+            const where = `${viewport.width}x${viewport.height}@${viewport.dpr}`
+            // board.css .board-moment__panel: max-width min(320px, 100% − 128px), 14 px each side
+            const room = Math.min(320, layout.board.w - 128) - 28
+            expect(width + 7 * step, where).toBeLessThanOrEqual(room + 1e-9)
+            // as PlayingCard draws it: crisp at this density, so it never grows past the row
+            expect(width, where).toBe(crispCardWidth(layout.trick.w * 0.66, viewport.dpr))
+            expect(crispCardWidth(width, viewport.dpr), where).toBeCloseTo(width, 9)
+            expect(step, where).toBeLessThanOrEqual(width * 0.55 + 1e-9)
+            expect(step, where).toBeGreaterThan(width * 0.3)
+        }
+        // a retina desktop: the crisp card rounds up to 71 px, so the eight sit closer (S3 review: ~12 px over each side)
+        const retina = belotRow(layoutFor({ width: 1440, height: 900, dpr: 2 }))
+        expect(retina.width).toBe(71)
+        expect(retina.step).toBeCloseTo((292 - 71) / 7, 9)
+        // elsewhere 45 % under the next, of the card as drawn
+        expect(belotRow(layoutFor({ width: 375, height: 812, dpr: 2 }))).toEqual({ width: 35.5, step: 35.5 * 0.55 })
+        expect(belotRow(layoutFor({ width: 1440, height: 900, dpr: 1 })).step).toBeCloseTo(71 * 0.66 * 0.55, 9)
+        expect(belotRow(layoutFor({ width: 375, height: 812, dpr: 2 }), 1).step).toBe(0)
+    })
+})
+
+describe('bannerSpot (gameplay rules §6): the challenge banner where the trick goes, unless the docked hand result covers it', () => {
+    test('centred on the trick; in landscape with the hand result open, its top edge under the HUD', () => {
+        for (const viewport of [{ width: 1440, height: 900, dpr: 1 }, { width: 375, height: 812, dpr: 2 }, { width: 812, height: 375, dpr: 2 }, { width: 812, height: 340, dpr: 3 }]) {
+            const layout = layoutFor(viewport)
+            const where = `${viewport.width}x${viewport.height}`
+            expect(bannerSpot(layout, false), where).toEqual({ ...trickCentre(layout), top: false })
+            // a short landscape screen: the docked sheet covers the middle of the felt (S4's open item)
+            expect(bannerSpot(layout, true), where).toEqual(layout.kind === 'landscape'
+                ? { x: layout.board.w / 2, y: layout.hud + 8, top: true }
+                : { ...trickCentre(layout), top: false })
         }
     })
 })

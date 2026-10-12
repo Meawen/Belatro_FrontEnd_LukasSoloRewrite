@@ -318,7 +318,8 @@ export function Board(props: BoardProps) {
         if (momentLine) setSaid((s) => ({ seq: s.seq, lines: [...s.lines, momentLine] }));
     }, [moment?.key, momentLine]);
 
-    // no card before playOpensAt (my cards look disabled); a live belot holds the end sheet a while (a tap opens it)
+    // no card before playOpensAt (my cards look disabled); a live belot holds the end sheet a while (a tap opens it),
+    // and shows only while it does: then the end sheet alone, and nothing after a reconnect to the finished game
     const waiting = waitingForDeclarations(model, now);
     const belot = model.zvanja?.belot != null;
     const holdEnds = belot && moment && !moment.snapshot && !moment.skipped ? moment.since + BELOT_HOLD_MS : null;
@@ -375,12 +376,12 @@ export function Board(props: BoardProps) {
                             <BelaPrompt card={model.belaPrompt} target={targets.cards[model.belaPrompt.id]} onAnswer={onBela} onDismiss={closeBela} />
                         )}
                         <SweepLayer stage={current} model={model} layout={layout} targets={targets} reduced={reduced} />
-                        {moment && !moment.skipped && (waiting || belot) && (
+                        {moment && !moment.skipped && (waiting || holding) && (
                             <DeclarationMoment key={moment.key} model={model} layout={layout} targets={targets} snapshot={moment.snapshot} reduced={reduced} onSkip={skip} />
                         )}
                         {banner && !banner.done && (
                             <ChallengeBanner key={banner.challenge.number} challenge={banner.challenge} name={seatName(model, banner.challenge.playerId)}
-                                since={banner.since} layout={layout} reduced={reduced} onDone={bannerSaid} />
+                                since={banner.since} layout={layout} sheetOpen={resultOpen} reduced={reduced} onDone={bannerSaid} />
                         )}
                         <Hud model={model} instant={instant} calledBy={called?.type === 'TrumpCalled' ? called.playerId : null} calls={current.calls}
                             onChallenge={onChallenge} challengePending={challengeWaiting}

@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { MotionGlobalConfig } from 'motion/react'
@@ -68,6 +68,27 @@ describe('/dev/board (spec §4.17)', () => {
         open('?fixture=recorded-nope')
         expect(screen.getByText('No recording named recorded-nope under src/test/fixtures/views/.')).toBeInTheDocument()
         expect(screen.queryByTestId('game-phase')).not.toBeInTheDocument()
+    })
+
+    test('live=1 draws the fan-out before `at`, then steps into it live: the moment from its start, or t ms in; the challenge banner (gameplay rules §6)', () => {
+        const bubbles = () => [...document.querySelectorAll('.board-moment__bubble')].map((bubble) => `${bubble.getAttribute('data-seat')} ${bubble.textContent}`)
+        // seed 1254: alice 20, bob 20, carol 100 + 20, dave 20; a jump shows the moment said, a live step from its start
+        open('?seat=carol&seed=1254&at=call:&controls=0&skip=1')
+        expect(bubbles()).toEqual(['carol 100 + 20', 'dave 20', 'alice 20', 'bob 20'])
+        cleanup()
+        open('?seat=carol&seed=1254&at=call:&live=1&controls=0&skip=1')
+        expect(bubbles()).toEqual(['alice 20'])
+        cleanup()
+        open('?seat=carol&seed=1254&at=call:&live=1&t=700&controls=0&skip=1')
+        expect(bubbles()).toEqual(['alice 20', 'bob 20'])
+        cleanup()
+        // a snapshot never says a challenge; stepped in live, every screen does
+        open('?seat=carol&challenge=bob:2:wrong&at=challenge:&controls=0&skip=1')
+        expect(document.querySelector('.board-banner')).toBeNull()
+        expect(screen.getByText('bob: no challenge left')).toBeInTheDocument()
+        cleanup()
+        open('?seat=carol&challenge=bob:2:wrong&at=challenge:&live=1&controls=0&skip=1')
+        expect(document.querySelector('.board-banner__panel')).toHaveTextContent('bob challenges!')
     })
 
     test('controls=0 shows only the board; skip=1 skips every animation', () => {

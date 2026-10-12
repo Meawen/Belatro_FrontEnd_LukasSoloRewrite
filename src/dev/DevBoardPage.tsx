@@ -24,9 +24,12 @@ const SPEEDS = [0.5, 1, 2, 4];
 const ACTIONS: GameActions = { bidTrump: () => true, passBid: () => true, play: () => true, challenge: () => true };
 const REMATCH: RematchState = { votes: 1, voted: false, cancelledBy: null, expired: false, playAgain: () => {}, leave: () => {} };
 
-/** The accepted state after a snapshot of fan-out `index` (the jump), and where the stream goes on from. */
-function jumpTo(options: DevOptions, index: number, now: number) {
-    const table = devTable(options, now, index);
+/**
+ * The accepted state after a snapshot of fan-out `index` (the jump), and where the stream goes on from. The table's
+ * clock puts fan-out `anchor` (default: the jump's) at `now`.
+ */
+function jumpTo(options: DevOptions, index: number, now: number, anchor = index) {
+    const table = devTable(options, now, anchor);
     const stream = devStream(table, seatId(options), options.chaos);
     const accepted = acceptFrame(NOTHING_ACCEPTED, frameOf({ channel: 'snapshot', body: table[index].private[seatId(options)] }), now);
     const cursor = stream.findIndex((step) => step.fanOut > index);
@@ -66,22 +69,32 @@ export default function DevBoardPage() {
         const now = Date.now();
         const table = devTable(options, now, 0);
         const at = resolveAt(table, options.at);
-        return options.at && !options.fixture ? jumpTo(options, at, now) : fromStart(options, now);
+        if (!options.at || options.fixture) return fromStart(options, now);
+        // live: the fan-out before `at` first; `at` itself is stepped in once the board has drawn that (below)
+        return options.live ? jumpTo(options, Math.max(0, at - 1), now - options.t, at) : jumpTo(options, at, now);
     });
     const [playing, setPlaying] = useState(options.play);
     const [jump, setJump] = useState(String(run.fanOut));
     const [effects, setEffects] = useTableEffects();
     const windowSize = useWindowSize();
 
-    const step = () => setRun((r) => {
+    /** The next delivery, received `ago` ms before now (live=1 with t: the board's clock reads `at` as that long past). */
+    const step = (ago = 0) => setRun((r) => {
         const next = r.stream[r.cursor];
         if (!next) return r;
-        return { ...r, accepted: acceptFrame(r.accepted, frameOf(next.delivery), Date.now()), cursor: r.cursor + 1, fanOut: next.fanOut };
+        return { ...r, accepted: acceptFrame(r.accepted, frameOf(next.delivery), Date.now() - ago), cursor: r.cursor + 1, fanOut: next.fanOut };
     });
 
     useEffect(() => {
+        // live=1: one step into `at` (its private frame, clean), after the board has drawn the fan-out before it
+        if (options.live && options.at && !options.fixture) step(options.t);
+        // once, on load
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
         if (!playing) return;
-        const timer = window.setInterval(step, STEP_MS / options.speed);
+        const timer = window.setInterval(() => step(), STEP_MS / options.speed);
         return () => window.clearInterval(timer);
     }, [playing, options.speed]);
 
@@ -123,7 +136,7 @@ export default function DevBoardPage() {
                     <strong className="font-pix text-xl">Dev board</strong>
                     {!recording && <Select label="Seat" hideLabel value={options.seat} options={SEATS.map((seat) => ({ value: seat, label: seat }))} onChange={(seat) => restart({ ...options, seat })} />}
                     <Button size="sm" variant="secondary" onClick={() => setPlaying((p) => !p)}>{playing ? 'Pause' : 'Play'}</Button>
-                    <Button size="sm" variant="secondary" onClick={step}>Step</Button>
+                    <Button size="sm" variant="secondary" onClick={() => step()}>Step</Button>
                     <Select label="Speed" hideLabel value={String(options.speed)} options={SPEEDS.map((speed) => ({ value: String(speed), label: `${speed}×` }))} onChange={(speed) => setOptions({ ...options, speed: Number(speed) })} />
                     <Switch label="Chaos" checked={options.chaos} onChange={(chaos) => restart({ ...options, chaos })} />
                     {!recording && (<>

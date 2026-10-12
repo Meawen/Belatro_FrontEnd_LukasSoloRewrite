@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { actions, renderBoard, tableState } from './testing'
+import { bannerSpot, layoutFor } from './model/cardTargets'
 import { find, indexOf, playTable, type FanOut } from '../../test/fixtures/views/table'
 
 // board.css as written (Vitest doesn't load CSS); not new URL(…, import.meta.url), which Vite turns into an import
@@ -393,6 +394,55 @@ describe('Board: a right challenge in the window (gameplay rules §1, R-4)', () 
         after(2000)
         expect(banner()).toBeNull()
         expect(screen.getByTestId('hand-result')).toBe(open)
+    })
+})
+
+describe('Board: the banner shows above an open hand result on a short landscape screen (S4\'s open item)', () => {
+    const SIZES = [{ width: 812, height: 375 }, { width: 375, height: 812 }, { width: 1440, height: 900 }]
+    const spotIn = (viewport: { width: number; height: number }, sheetOpen: boolean) => bannerSpot(layoutFor({ ...viewport, dpr: window.devicePixelRatio || 1 }), sheetOpen)
+
+    test('a right challenge in the window: under the HUD in landscape, where the trick goes elsewhere; "Team B" stays on one line', () => {
+        expect(css).toMatch(/\.board-banner__panel\[data-place="top"\] \{[^}]*translate: -50% 0;/)
+        // the fixture's own: dave's right challenge in hand 1's window, stepped into from the open window
+        const t = playTable({ challenge: { by: 'dave', after: 'window', foul: true } })
+        const said = indexOf(t, 'challenge:')
+        for (const viewport of SIZES) {
+            vi.useFakeTimers()
+            vi.setSystemTime(t[said - 1].at)
+            const { rerenderWith } = renderBoard({ state: tableState(t[said - 1], 'carol', 'snapshot'), viewport })
+            vi.setSystemTime(t[said].at)
+            rerenderWith({ state: tableState(t[said]) })
+            const where = `${viewport.width}x${viewport.height}`
+            expect(screen.getByTestId('hand-result'), where).toBeInTheDocument()
+            const spot = spotIn(viewport, true)
+            expect(spot.top, where).toBe(viewport.width === 812)
+            expect(panel()!.style.top, where).toBe(`${spot.y}px`)
+            expect(panel()!.dataset.place, where).toBe(spot.top ? 'top' : undefined)
+            after(1200)
+            // the banner is for the eye: the team's letter never starts a line alone when it wraps on a phone
+            expect(panel()!.textContent, where).toBe('Foul found: Team\u00a0B takes the hand')
+            expect(panel()!.style.top, where).toBe(`${spot.y}px`)
+            cleanup()
+            vi.useRealTimers()
+        }
+    })
+
+    test('a right challenge during play holds the sheet, so the banner stays where the trick goes at every size', () => {
+        const t = playTable({ challenge: { by: 'dave', after: 2, foul: true } })
+        const said = indexOf(t, 'challenge:')
+        for (const viewport of SIZES) {
+            vi.useFakeTimers()
+            vi.setSystemTime(t[said - 1].at)
+            const { rerenderWith } = renderBoard({ state: tableState(t[said - 1]), viewport })
+            vi.setSystemTime(t[said].at)
+            rerenderWith({ state: tableState(t[said]) })
+            const where = `${viewport.width}x${viewport.height}`
+            expect(screen.queryByTestId('hand-result'), where).toBeNull()
+            expect(panel()!.style.top, where).toBe(`${spotIn(viewport, false).y}px`)
+            expect(panel()!.dataset.place, where).toBeUndefined()
+            cleanup()
+            vi.useRealTimers()
+        }
     })
 })
 

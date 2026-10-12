@@ -65,18 +65,48 @@ export interface SeatsProps {
  * `turn-countdown` and its bar; the bid chips while bidding, Bela, and once play opens each winning
  * seat's zvanja chip (summaryChips) for the rest of the hand, with its declared cards until the first
  * trick is down; a quiet "No challenge" on every seat whose challenge is gone, for the rest of the game
- * (gameplay rules §6).
+ * (gameplay rules §6). Mine sit over my plate, which sits low by my pile: my declared cards always, and in
+ * landscape, where my plate is beside my hand, my chips too (under it they would cover my hand's first cards).
  */
 export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps) {
     const chips = playOpen ? summaryChips(model.zvanja) : {};
     const showCards = playOpen && model.playing && model.lastTrick === null;
     // small cards, at the size the opponents' backs are drawn
     const cardWidth = layout.back.w * layout.backScale;
+    const chipsOver = layout.kind === 'landscape';
     return (
         <div className="board-region board-chips">
             {model.seats.map((seat) => {
                 const turn = seat.current && model.turn?.playerId === seat.id ? model.turn : null;
                 const declared = showCards ? model.zvanja?.seats.find((one) => one.playerId === seat.id && one.declarations.length > 0)?.cards ?? [] : [];
+                const chipRow = (
+                    <span className="board-seat__chips">
+                        {seat.bid && (
+                            <Pop instant={instant}>
+                                {seat.bid === 'PASS' ? <Tag>Pass</Tag> : <Tag tone="trump" suit={seat.bid}>{SUIT_LABEL[seat.bid]}</Tag>}
+                            </Pop>
+                        )}
+                        {seat.bela && <Pop instant={instant}><Tag tone="mode">Bela</Tag></Pop>}
+                        {chips[seat.id] && <Pop instant={instant}><Tag tone="neutral">{chips[seat.id]}</Tag></Pop>}
+                        {seat.challengeUsed && (
+                            <Pop instant={instant}>
+                                <Tag tone="neutral">
+                                    <span aria-hidden="true">No challenge</span>
+                                    <span className="sr-only">{`${seatName(model, seat.id)}: no challenge left`}</span>
+                                </Tag>
+                            </Pop>
+                        )}
+                    </span>
+                );
+                const cards = declared.length > 0 && (
+                    <span role="group" aria-label={seat.isMe ? 'Your declared cards' : `${seat.id}'s declared cards`} className="board-seat__declared">
+                        <Pop instant={instant} delay={0.06}>
+                            {declared.map((card, i) => (
+                                <PlayingCard key={cardId(card)} card={card} width={cardWidth} style={i ? { marginLeft: -cardWidth * 0.45 } : undefined} />
+                            ))}
+                        </Pop>
+                    </span>
+                );
                 return (
                     <div key={seat.id} data-testid={`seat-${seat.id}`} data-current={seat.current ? 'true' : undefined} className="board-seat" style={seatSpot(seat, targets, layout)}>
                         <span className="board-seat__name notch t-footnote font-semibold" data-turn={seat.current || undefined}>
@@ -98,36 +128,8 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                             {turn?.expiresAt != null && <Countdown expiresAt={turn.expiresAt} skew={model.skew} />}
                         </span>
                         {turn?.expiresAt != null && <TimerBar key={`${seat.id}:${turn.expiresAt}`} expiresAt={turn.expiresAt} skew={model.skew} />}
-                        <span className="board-seat__chips">
-                            {seat.bid && (
-                                <Pop instant={instant}>
-                                    {seat.bid === 'PASS' ? <Tag>Pass</Tag> : <Tag tone="trump" suit={seat.bid}>{SUIT_LABEL[seat.bid]}</Tag>}
-                                </Pop>
-                            )}
-                            {seat.bela && <Pop instant={instant}><Tag tone="mode">Bela</Tag></Pop>}
-                            {chips[seat.id] && <Pop instant={instant}><Tag tone="neutral">{chips[seat.id]}</Tag></Pop>}
-                            {seat.challengeUsed && (
-                                <Pop instant={instant}>
-                                    <Tag tone="neutral">
-                                        <span aria-hidden="true">No challenge</span>
-                                        <span className="sr-only">{`${seatName(model, seat.id)}: no challenge left`}</span>
-                                    </Tag>
-                                </Pop>
-                            )}
-                        </span>
-                        {declared.length > 0 && (
-                            <span
-                                role="group"
-                                aria-label={seat.isMe ? 'Your declared cards' : `${seat.id}'s declared cards`}
-                                className={seat.isMe ? 'board-seat__declared board-seat__declared--above' : 'board-seat__declared'}
-                            >
-                                <Pop instant={instant} delay={0.06}>
-                                    {declared.map((card, i) => (
-                                        <PlayingCard key={cardId(card)} card={card} width={cardWidth} style={i ? { marginLeft: -cardWidth * 0.45 } : undefined} />
-                                    ))}
-                                </Pop>
-                            </span>
-                        )}
+                        {!(seat.isMe && chipsOver) && chipRow}
+                        {seat.isMe ? (cards || chipsOver) && <span className="board-seat__above">{cards}{chipsOver && chipRow}</span> : cards}
                     </div>
                 );
             })}

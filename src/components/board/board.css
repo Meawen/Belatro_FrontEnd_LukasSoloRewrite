@@ -276,15 +276,20 @@
     flex-wrap: wrap;
     gap: 4px;
 }
-/* the winners' declared cards (gameplay rules §6), small and overlapping, until the first trick is down; mine
-   over my plate, which sits low by my pile */
+/* the winners' declared cards (gameplay rules §6), small and overlapping, until the first trick is down */
 .board-seat__declared {
     display: flex;
 }
-.board-seat__declared--above {
+/* mine over my plate, which sits low by my pile: my declared cards, and in landscape (my plate beside my hand) my
+   chips under them, closest to the plate, so that none covers my hand */
+.board-seat__above {
     position: absolute;
     left: 0;
     bottom: calc(100% + 4px);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
 }
 .board-your-turn {
     position: absolute;
@@ -513,6 +518,10 @@
 }
 .board-banner__panel[data-step="outcome"][data-foul] {
     color: var(--accent);
+}
+/* on a short landscape screen with the hand result docked (bannerSpot): its top edge under the HUD, above the sheet */
+.board-banner__panel[data-place="top"] {
+    translate: -50% 0;
 }
 
 /* Challenge (§5.3.3): in the HUD while playing, in the hand-result sheet in HAND_COMPLETE */

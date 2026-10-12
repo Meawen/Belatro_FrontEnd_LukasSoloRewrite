@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { actions, renderBoard, tableState } from './testing'
+import { belotRow, layoutFor } from './model/cardTargets'
 import { cardLabel } from '../game/gameView'
 import { indexOf, playTable, type FanOut } from '../../test/fixtures/views/table'
 
@@ -237,32 +238,68 @@ describe('Board: the declaration moment in the middle of the table (gameplay rul
     })
 })
 
+describe('Board: my chips never sit on my hand (gameplay rules §6)', () => {
+    test('in landscape my chips go over my plate with my declared cards, as my bubble did; elsewhere under it; the other seats as before', () => {
+        // seed 1254, the hand's first card: carol (me) holds Zvanja 100 + 20 and six declared cards, alice 20 and three
+        const t = playTable({ seed: 1254 })
+        const first = t[indexOf(t, 'play:')]
+        for (const viewport of [{ width: 812, height: 375 }, { width: 375, height: 812 }, { width: 1440, height: 900 }]) {
+            vi.useFakeTimers()
+            vi.setSystemTime(first.at)
+            renderBoard({ state: tableState(first, 'carol', 'snapshot'), viewport })
+            const where = `${viewport.width}x${viewport.height}`
+            const mine = screen.getByTestId('seat-carol')
+            const above = mine.querySelector<HTMLElement>(':scope > .board-seat__above')!
+            const chip = within(mine).getByText('Zvanja 100 + 20')
+            expect(above.querySelector('[role="group"]'), where).toHaveAccessibleName('Your declared cards')
+            expect(declared('carol'), where).toHaveLength(6)
+            // landscape: my plate sits low beside my hand, so the chips go over it too, closest to the plate
+            const landscape = viewport.width === 812
+            expect(above.contains(chip), where).toBe(landscape)
+            if (landscape) expect([...above.children].map((child) => child.className), where).toEqual(['board-seat__declared', 'board-seat__chips'])
+            else expect(chip.closest('.board-seat__chips')?.parentElement, where).toBe(mine)
+            // the other seats keep their chips and cards under the plate
+            const alice = screen.getByTestId('seat-alice')
+            expect(alice.querySelector('.board-seat__above'), where).toBeNull()
+            expect(within(alice).getByText('Zvanja 20').closest('.board-seat__chips')?.parentElement, where).toBe(alice)
+            expect(declared('alice'), where).toHaveLength(3)
+            cleanup()
+            vi.useRealTimers()
+        }
+    })
+})
+
 describe('Board: belot (gameplay rules §3, §6)', () => {
     // bob holds all eight Pik: the game ends at the call
     const belot = playTable({ belot: { player: 'bob', suit: 'PIK' } })
     const BELOT = 'Belot! bob holds all eight Pik'
     const PIK = belot[indexOf(belot, 'call:')].public.zvanja!.seats[1].cards.map(cardLabel)
     const gameOver = () => screen.queryByRole('heading', { name: 'Game over' })
+    /** A belot's panel: a tap skips the wait for the end sheet, so it is named for that. */
+    const belotPanel = () => screen.queryByRole('button', { name: 'Skip to the result' })
 
-    test('live: the belot line with the eight cards; the end sheet waits about 4 s, then opens', () => {
+    test('live: the belot line with the eight cards while the end sheet waits about 4 s; then the end sheet alone', () => {
         live('carol', belot)
-        expect(panel()).toHaveTextContent(BELOT)
-        expect([...panel()!.querySelectorAll('img')].map((img) => img.getAttribute('alt'))).toEqual(PIK)
+        expect(belotPanel()).toHaveTextContent(BELOT)
+        expect(panel()).toBeNull()
+        expect([...belotPanel()!.querySelectorAll('img')].map((img) => img.getAttribute('alt'))).toEqual(PIK)
         expect(PIK).toHaveLength(8)
         expect(logged(BELOT)).toBe(1)
         expect(gameOver()).toBeNull()
         after(3999)
         expect(gameOver()).toBeNull()
+        expect(belotPanel()).toHaveTextContent(BELOT)
         after(1)
         expect(gameOver()).toBeInTheDocument()
-        // the eight cards stay on the table until a tap hides them
-        expect(panel()).toHaveTextContent(BELOT)
+        // not beside the end sheet: the panel goes as the sheet rises, and nothing in the finished game skips anything
+        expect(overlay()).toBeNull()
+        expect(belotPanel()).toBeNull()
         expect(logged(BELOT)).toBe(1)
     })
 
-    test('a tap opens the end sheet at once; so does a snapshot, the belot still shown', () => {
+    test('a tap opens the end sheet at once, the panel gone; a snapshot (a reconnect) shows the end sheet alone', () => {
         live('carol', belot)
-        act(() => { panel()!.click() })
+        act(() => { belotPanel()!.click() })
         expect(overlay()).toBeNull()
         expect(gameOver()).toBeInTheDocument()
         cleanup()
@@ -270,7 +307,25 @@ describe('Board: belot (gameplay rules §3, §6)', () => {
         vi.setSystemTime(belot[call].at)
         renderBoard({ state: tableState(belot[call], 'carol', 'snapshot') })
         expect(gameOver()).toBeInTheDocument()
-        expect(panel()).toHaveTextContent(BELOT)
+        expect(screen.getByText('Team B wins by belot')).toBeInTheDocument()
+        expect(overlay()).toBeNull()
+        expect(belotPanel()).toBeNull()
+    })
+
+    test('the eight cards fit the panel: sized and stepped by belotRow at every layout', () => {
+        vi.useFakeTimers()
+        const call = indexOf(belot, 'call:')
+        for (const viewport of [{ width: 1440, height: 900 }, { width: 375, height: 812 }, { width: 812, height: 375 }]) {
+            vi.setSystemTime(belot[call - 1].at)
+            const { rerenderWith } = renderBoard({ state: tableState(belot[call - 1]), viewport })
+            vi.setSystemTime(belot[call].at)
+            rerenderWith({ state: tableState(belot[call]) })
+            const row = belotRow(layoutFor({ ...viewport, dpr: window.devicePixelRatio || 1 }))
+            const shown = [...belotPanel()!.querySelectorAll<HTMLElement>('.ui-card')]
+            expect(shown.map((card) => card.style.width)).toEqual(Array(8).fill(`${row.width}px`))
+            expect(shown.map((card) => card.style.marginLeft)).toEqual(['', ...Array(7).fill(`${row.step - row.width}px`)])
+            cleanup()
+        }
     })
 
     test('a belot after an earlier hand: no card on the table, though the view still carries the last hand\'s trick (backend review B3)', () => {

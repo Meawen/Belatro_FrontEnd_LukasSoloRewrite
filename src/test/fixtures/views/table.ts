@@ -1,8 +1,8 @@
 // A deterministic bela table for tests and the /dev/board playground. Four simple bots play whole
 // hands, and every fan-out the server would send comes back in the server's order and shape
 // (RUN/explore/game-data.md §2.2): one public frame plus one private frame per seat, built after
-// each save, with the UI-redesign §6.1 fields and the gameplay rules' zvanja and lastChallenge (null:
-// nobody challenges here), or (fields: false) as an older backend sends them.
+// each save, with the UI-redesign §6.1 fields and the gameplay rules' zvanja and lastChallenge (null
+// until the `challenge` option's), or (fields: false) as an older backend sends them.
 //
 //   deal ............ GSC (turnExpiresAt null), TS
 //   pass ............ TS, CTL                     (one save)
@@ -13,13 +13,18 @@
 //   card ............ TS, CTL                     (the 4th card shows the completed trick, the
 //                                                  winner to act and seatingOrder rotated to them)
 //   8th card ........ 'hand-complete' GSC (window null), 'window-open' GSC, 'window-open' CTL
+//   challenge ....... (the `challenge` option, hand 1; gameplay rules §1) 'challenge:bob:wrong' GSC: bob's
+//                     challenge is gone for the game, play or the window goes on; 'challenge:dave:right'
+//                     GSC during play: the hand ends there, cards still held (HAND_COMPLETE, window
+//                     null), then 'window-open' GSC and CTL as after an 8th card; in the window: the
+//                     award taken back, the challengers' instead, and the window again at 10 s
 //   window expiry ... 'window-close' GSC (HAND_COMPLETE, window null), then 'next-deal' GSC
 //                     (BIDDING; the old trump's trick 8 and the old window still on the view),
 //                     TS and GSC; or 'game-over' GSC ×2 when a team has reached the target
 import { cardId, playOrder, trickWinner } from '../../../components/board/model/rules';
 import type {
-    Boja, DeclarationView, DeclarationsView, EndReason, GameBid, GameCard, GamePhase, LastTrickView, LiveTrick, PrivateGameView,
-    PublicGameView, Rank, ZvanjaView,
+    Boja, DeclarationView, DeclarationsView, EndReason, GameBid, GameCard, GamePhase, LastChallengeView, LastTrickView, LiveTrick,
+    PrivateGameView, PublicGameView, Rank, ZvanjaView,
 } from '../../../types/game';
 
 /** Seats in turn order (A1, B1, A2, B2): Team A is alice and carol, Team B bob and dave. */
@@ -49,6 +54,20 @@ export interface TableOptions {
     pauseMs?: number;
     /** Hand 1 deals `player` all eight cards of `suit` (six in hand, two in the talon): belot at the trump call. */
     belot?: { player: string; suit: Boja };
+    /** A challenge in hand 1 (gameplay rules §1). */
+    challenge?: ChallengeOption;
+}
+
+/**
+ * `by` presses Challenge in hand 1, after the hand's `after`-th card (1–31) or in its window. A right one
+ * (`foul`) finds a foul by the other team (the bots never play one: the fixture says so): the challengers take
+ * 162 plus their declarations and bela, the others nothing. A wrong one changes no score, and `by`'s challenge
+ * is gone for the rest of the game.
+ */
+export interface ChallengeOption {
+    by: string;
+    after: number | 'window';
+    foul: boolean;
 }
 
 /** One fan-out: what every subscriber receives after one save (or a clock-only re-broadcast). */
@@ -272,6 +291,10 @@ export function playTable(options: TableOptions = {}): FanOut[] {
     let endReason: EndReason | null = null;
     const won: Record<Team, number> = { A: 0, B: 0 };
     const handPoints: Record<Team, number> = { A: 0, B: 0 };
+    // the challenge (gameplay rules §1, §5): spent for the game by a wrong one; the last one, thisHand until the next deal
+    const challengeUsed: Record<string, boolean> = Object.fromEntries(PLAYERS.map((id) => [id, false]));
+    let lastChallenge: LastChallengeView | null = null;
+    let scoresBefore: Record<Team, number> = { ...scores };
 
     const asLive = (lead: string, plays: Record<string, GameCard>, seq: string[]): LiveTrick => {
         const cards = seq.map((id) => plays[id]);
@@ -299,7 +322,7 @@ export function playTable(options: TableOptions = {}): FanOut[] {
             teamBScore: scores.B,
             teamA: TEAM_A.map(seat),
             teamB: TEAM_B.map(seat),
-            challengeUsedByPlayer: Object.fromEntries(PLAYERS.map((id) => [id, false])),
+            challengeUsedByPlayer: { ...challengeUsed },
             winnerTeamId,
             tieBreaker: false,
             seatingOrder: order.map(seat),
@@ -314,7 +337,7 @@ export function playTable(options: TableOptions = {}): FanOut[] {
         if (!fields) return view;
         return {
             ...view, stateVersion: version, lastTrick, tricksWonA: won.A, tricksWonB: won.B, dealerId: dealer, serverNow: at,
-            zvanja: clone(zvanja), lastChallenge: null,
+            zvanja: clone(zvanja), lastChallenge: clone(lastChallenge),
         };
     };
     const emit = (label: string, trigger: FanOut['trigger']) => {
@@ -330,7 +353,7 @@ export function playTable(options: TableOptions = {}): FanOut[] {
                 publicPart: clone(pub),
                 hand: serverOrder(hands[id]),
                 yourTurn: live && current === id,
-                challengeUsed: false,
+                challengeUsed: challengeUsed[id],
             }])),
         });
     };
@@ -359,6 +382,8 @@ export function playTable(options: TableOptions = {}): FanOut[] {
         won.B = 0;
         handPoints.A = 0;
         handPoints.B = 0;
+        scoresBefore = { ...scores };
+        if (lastChallenge) lastChallenge = { ...lastChallenge, thisHand: false };
         current = order[0];
     };
 
@@ -479,6 +504,37 @@ export function playTable(options: TableOptions = {}): FanOut[] {
         emit('window-open', 'CTL');
     };
 
+    /** The `challenge` option's press (spec §1), during play or in the window: one save, told by lastChallenge. */
+    const challenge = ({ by, foul }: ChallengeOption, inWindow: boolean) => {
+        const team = teamOf(by);
+        at += STEP_MS / 2;
+        lastChallenge = { number: (lastChallenge?.number ?? 0) + 1, playerId: by, team, foulFound: foul, thisHand: true };
+        version++;
+        if (!foul) {
+            challengeUsed[by] = true;
+            emit(`challenge:${by}:wrong`, 'GSC');
+            return;
+        }
+        // the hand is the challengers': 162, their declarations and their bela; the others nothing (an award taken back)
+        let declared = zvanja?.winnerTeam === team ? zvanja.total : 0;
+        for (const [id, on] of Object.entries(bela)) if (on && teamOf(id) === team) declared += 20;
+        scores.A = scoresBefore.A;
+        scores.B = scoresBefore.B;
+        scores[team] += 162 + declared;
+        phase = 'HAND_COMPLETE';
+        current = null;
+        turnExpiresAt = null;
+        // in the window it starts again at 10 s; during play it opens as after an 8th card
+        window = inWindow ? at + WINDOW_MS : null;
+        emit(`challenge:${by}:right`, 'GSC');
+        if (inWindow) return;
+        window = at + WINDOW_MS;
+        version++;
+        emit('window-open', 'GSC');
+        version++;
+        emit('window-open', 'CTL');
+    };
+
     const windowExpiry = () => {
         const expired = window!;
         at = expired;
@@ -493,8 +549,8 @@ export function playTable(options: TableOptions = {}): FanOut[] {
             emit('game-over', 'GSC');
             return false;
         }
-        const last = completed[completed.length - 1];
-        stale = asLive(last.lead, last.plays, last.order);
+        // the next deal still carries what the table last showed: trick 8, or a trick a right challenge cut short
+        stale = display();
         window = expired;
         dealer = nextOf(dealer);
         deal();
@@ -520,7 +576,14 @@ export function playTable(options: TableOptions = {}): FanOut[] {
         });
         // a belot ended the game at the call
         if (winnerTeamId) break;
-        for (let card = 0; card < 32; card++) play(current!);
+        const pressed = h === 0 ? options.challenge : undefined;
+        // a right challenge ends the hand where it is (a closure reads the phase that play and challenge set)
+        const playing = () => phase === 'PLAYING';
+        for (let card = 1; card <= 32 && playing(); card++) {
+            play(current!);
+            if (pressed?.after === card && playing()) challenge(pressed, false);
+        }
+        if (pressed?.after === 'window') challenge(pressed, true);
         if (!windowExpiry()) break;
     }
     return out;

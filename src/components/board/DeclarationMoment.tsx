@@ -2,7 +2,7 @@ import { m, type MotionProps } from 'motion/react';
 import { fade, spring } from '../../motion/tokens';
 import { PlayingCard } from '../ui/PlayingCard';
 import { belotLine, momentAt } from './model/declarationMoment';
-import { trickCentre, type Layout, type Targets } from './model/cardTargets';
+import { belotRow, trickCentre, type Layout, type Targets } from './model/cardTargets';
 import { cardId } from './model/rules';
 import { bubbleSpot } from './seatSpot';
 import { useNow } from './useNow';
@@ -18,7 +18,7 @@ export interface DeclarationMomentProps {
     /** It came from a snapshot (a reconnect): its end state, and nothing animates in. */
     snapshot: boolean;
     reduced: boolean;
-    /** A tap on the panel: the moment hides on this screen (a belot's end sheet opens). */
+    /** A tap on the panel: the moment hides on this screen (a belot's end sheet opens at once: "Skip to the result"). */
     onSkip: () => void;
 }
 
@@ -34,9 +34,9 @@ function appear(instant: boolean, reduced: boolean): Pick<MotionProps, 'initial'
 /**
  * The declaration moment (gameplay rules §6), timed to playOpensAt on the server clock (Date.now() + skew):
  * each seat's bubble by its plate in turn order (momentAt), and a panel where the trick goes with the winner
- * line, or a belot's line and its eight cards. The overlay takes no taps (`board-region`): only the panel, a
- * button that skips the moment, which sits in the middle of the felt, clear of the hand. The bubbles are for
- * the eye; the live region has the moment in words (Board).
+ * line, or a belot's line and its eight cards (the board shows a belot only while it holds the end sheet). The
+ * overlay takes no taps (`board-region`): only the panel, a button that skips the moment, which sits in the middle
+ * of the felt, clear of the hand. The bubbles are for the eye; the live region has the moment in words (Board).
  */
 export function DeclarationMoment({ model, layout, targets, snapshot, reduced, onSkip }: DeclarationMomentProps) {
     const belot = belotLine(model.zvanja, model.me);
@@ -47,7 +47,7 @@ export function DeclarationMoment({ model, layout, targets, snapshot, reduced, o
     const centre = trickCentre(layout);
     const holder = model.zvanja?.belot?.playerId;
     const eight = belot ? model.zvanja?.seats.find((seat) => seat.playerId === holder)?.cards ?? [] : [];
-    const width = layout.trick.w * 0.66;
+    const row = belotRow(layout, eight.length);
     return (
         <div className="board-region board-moment" data-step={moment?.step ?? 'belot'}>
             {moment && (
@@ -76,7 +76,7 @@ export function DeclarationMoment({ model, layout, targets, snapshot, reduced, o
             )}
             <m.button
                 type="button"
-                aria-label="Skip declarations"
+                aria-label={belot ? 'Skip to the result' : 'Skip declarations'}
                 className="board-moment__panel notch-6 focus-inside"
                 style={{ left: centre.x, top: centre.y }}
                 onClick={onSkip}
@@ -87,8 +87,9 @@ export function DeclarationMoment({ model, layout, targets, snapshot, reduced, o
                     <>
                         <span className="board-moment__line t-callout font-semibold">{belot}</span>
                         <span className="board-moment__cards">
+                            {/* sized to the panel (belotRow): eight in a row never run past its sides */}
                             {eight.map((card, i) => (
-                                <PlayingCard key={cardId(card)} card={card} width={width} style={i ? { marginLeft: -width * 0.45 } : undefined} />
+                                <PlayingCard key={cardId(card)} card={card} width={row.width} style={i ? { marginLeft: row.step - row.width } : undefined} />
                             ))}
                         </span>
                     </>
