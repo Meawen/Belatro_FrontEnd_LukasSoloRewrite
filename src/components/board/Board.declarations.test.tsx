@@ -272,4 +272,25 @@ describe('Board: belot (gameplay rules §3, §6)', () => {
         expect(gameOver()).toBeInTheDocument()
         expect(panel()).toHaveTextContent(BELOT)
     })
+
+    test('a belot after an earlier hand: no card on the table, though the view still carries the last hand\'s trick (backend review B3)', () => {
+        const played = playTable()
+        const stale = played[indexOf(played, 'next-deal')].public.currentTrick!
+        const call = indexOf(belot, 'call:')
+        const edit = (f: FanOut): FanOut => {
+            const view = { ...f.public, currentTrick: stale }
+            return { ...f, public: view, private: Object.fromEntries(Object.entries(f.private).map(([id, p]) => [id, { ...p, publicPart: view }])) }
+        }
+        const later = [...belot.slice(0, call), edit(belot[call])]
+        live('carol', later)
+        expect(screen.queryAllByTestId('trick-card')).toHaveLength(0)
+        after(4000)
+        expect(gameOver()).toBeInTheDocument()
+        expect(screen.getByText('Team B wins by belot')).toBeInTheDocument()
+        expect(screen.getByTestId('end-reason')).toHaveTextContent('bob held all eight Pik')
+        expect(screen.queryAllByTestId('trick-card')).toHaveLength(0)
+        cleanup()
+        renderBoard({ state: tableState(later[call], 'carol', 'snapshot') })
+        expect(screen.queryAllByTestId('trick-card')).toHaveLength(0)
+    })
 })

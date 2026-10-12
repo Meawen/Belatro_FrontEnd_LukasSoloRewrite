@@ -92,10 +92,20 @@ export function declarationLines(view: PublicGameView): string[] {
     return lines;
 }
 
+/** A belot in words, e.g. "ivo held all eight Pik" (gameplay rules §3): the end sheet's reason and the hand history's line. */
+export function heldAllEight(name: string, suit: Boja): string {
+    return `${name} held all eight ${SUIT_LABEL[suit]}`;
+}
+
 /** Why a game ended other than by being played out (R-31); null for a game played to its end. */
 export function endSentence(view: PublicGameView): string | null {
     const team = view.forfeitTeamId;
     switch (view.endReason) {
+        case 'BELOT': {
+            // who held it comes from zvanja (gameplay rules §3); a view without it says nothing more than the winner line
+            const belot = view.zvanja?.belot;
+            return belot ? heldAllEight(belot.playerId, belot.suit) : null;
+        }
         case 'FORFEIT':
             return team ? `Team ${team} forfeited — Team ${OTHER_TEAM[team]} wins` : null;
         case 'ABANDONED':

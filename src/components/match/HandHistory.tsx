@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Panel, PixelIcon, Tag } from '../ui';
 import { cx } from '../ui/cx';
-import { BOJE, SUIT_LABEL } from '../game/gameView';
+import { BOJE, SUIT_LABEL, heldAllEight } from '../game/gameView';
+import { heightText } from '../board/model/declarationMoment';
+import type { ZvanjaView } from '../../types/game';
 import type { ChallengeDTO, HandDTO, HandSummary, MatchDTO, TrumpCallDTO } from '../../types/match';
 import { PlayerChip } from './PlayerChip';
 import { TricksPlayed } from './TricksPlayed';
@@ -48,6 +50,32 @@ function HandSummaryBox({ hand, summary }: { hand: HandDTO; summary: HandSummary
                     {summary.padanje && <Tag tone="warn">HAND AWARDED (PADANJE)</Tag>}
                 </div>
             )}
+        </section>
+    );
+}
+
+/**
+ * What the table heard at the trump call (gameplay rules §7): each seat in turn order, its value and its height
+ * when tied ("ivo 20 (up to Baba)") or a dash, me as You; then the team and the total it said it scores. That total
+ * is what was said: the no-trick rule can void it later, so the hand summary's points stay the hand's points.
+ */
+function zvanjaLine(zvanja: ZvanjaView, me: string | null): string {
+    const name = (playerId: string) => (playerId === me ? 'You' : playerId);
+    if (zvanja.belot) return `Belot: ${heldAllEight(name(zvanja.belot.playerId), zvanja.belot.suit)}.`;
+    if (zvanja.winnerTeam === null) return 'Declarations: none.';
+    const said = zvanja.seats.map((seat) => {
+        if (seat.said === null) return `${name(seat.playerId)} –`;
+        const height = heightText(seat);
+        return `${name(seat.playerId)} ${seat.said}${height ? ` (${height})` : ''}`;
+    });
+    return `Declarations: ${said.join(', ')}. Team ${zvanja.winnerTeam} scores ${zvanja.total}.`;
+}
+
+/** The hand's declarations line, under its summary; an older hand has no `zvanja` and no line. */
+function ZvanjaLine({ zvanja, me }: { zvanja: ZvanjaView; me: string | null }) {
+    return (
+        <section aria-label="Declarations" className="notch bg-surface p-3">
+            <p className="t-callout">{zvanjaLine(zvanja, me)}</p>
         </section>
     );
 }
@@ -149,6 +177,7 @@ function HandRow({ hand, index, match, me }: { hand: HandDTO; index: number; mat
             {open && (
                 <div className="flex flex-col gap-2 px-2 pb-3 sm:px-3">
                     {summary && <HandSummaryBox hand={hand} summary={summary} />}
+                    {hand.zvanja && <ZvanjaLine zvanja={hand.zvanja} me={me} />}
                     {calls.length > 0 && <Declarations calls={calls} match={match} me={me} />}
                     {(hand.challenges ?? []).length > 0 && <Challenges challenges={hand.challenges ?? []} match={match} me={me} />}
                     {(hand.tricks ?? []).length > 0 && <TricksPlayed hand={hand} match={match} me={me} />}

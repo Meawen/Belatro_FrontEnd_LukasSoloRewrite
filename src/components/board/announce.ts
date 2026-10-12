@@ -62,7 +62,8 @@ export function announce(events: readonly BoardEvent[], model: BoardModel, handN
                 messages.push(event.mine ? 'No foul found' : `${event.playerId} challenged: no foul found`);
                 break;
             case 'Ended':
-                if (model.end) messages.push(model.end.reason ?? model.end.winnerLine ?? model.end.title);
+                // the winner, then why (a belot has both; a forfeit's reason names the winner itself)
+                if (model.end) messages.push([model.end.winnerLine, model.end.reason].filter(Boolean).join('. ') || model.end.title);
                 break;
             default:
                 break;

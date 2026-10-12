@@ -94,6 +94,25 @@ describe('Match details final scores (R-36)', () => {
         expect(screen.getByTestId('final-b')).toHaveTextContent(/^650$/)
     })
 
+    test('a belot shows both scores and a "Won by belot" note beside the result (gameplay rules §3)', async () => {
+        serve(details('Team A wins 1001–420 by belot'))
+        renderAt(MATCH_URL)
+        expect(await screen.findByTestId('final-a')).toHaveTextContent(/^1001$/)
+        expect(screen.getByTestId('final-b')).toHaveTextContent(/^420$/)
+        expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('WIN')
+        const panel = screen.getByRole('region', { name: 'Match summary' })
+        const note = within(panel).getByText('Won by belot')
+        expect(note).toHaveClass('t-headline')
+        expect(note.nextElementSibling).toHaveTextContent('Team A wins 1001–420 by belot')
+    })
+
+    test('a result played out has no belot note', async () => {
+        serve(details('Team A wins 1001–650'))
+        renderAt(MATCH_URL)
+        await screen.findByTestId('final-a')
+        expect(screen.queryByText(/by belot/i)).not.toBeInTheDocument()
+    })
+
     test('a forfeit shows "Won by forfeit" and no points', async () => {
         serve(details('Team B wins by forfeit'))
         renderAt(MATCH_URL)

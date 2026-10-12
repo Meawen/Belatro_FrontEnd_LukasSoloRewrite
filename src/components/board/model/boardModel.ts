@@ -81,7 +81,7 @@ export interface HandCardModel {
 export interface EndModel {
     /** "Match cancelled" for CANCELLED unless forfeited, else "Game over". */
     title: 'Game over' | 'Match cancelled';
-    /** "Team A wins" (COMPLETED only). */
+    /** "Team A wins", or "Team A wins by belot" (COMPLETED only). */
     winnerLine: string | null;
     /** endSentence: why it ended other than played out (`end-reason`). */
     reason: string | null;
@@ -116,9 +116,9 @@ export interface BoardModel {
     hand: HandCardModel[];
     /** handOrder's frozen order: keep it as `local.order` for the next state. */
     order: FrozenOrder | null;
-    /** The trick on the table; null while bidding. */
+    /** The trick on the table; null while bidding and after a belot. */
     trick: TrickModel | null;
-    /** The hand's last completed trick (§6.1), or null. */
+    /** The hand's last completed trick (§6.1), or null (always after a belot). */
     lastTrick: TrickModel | null;
     bids: GameBid[];
     trump: { suit: Boja; label: string; callerId: string | null } | null;
@@ -193,8 +193,10 @@ export function boardModel(state: BoardState, me: string, local: BoardLocal): Bo
     const dealerId = view.dealerId ?? (bidding ? turnOrder[3] ?? null : null);
     const pending = local.input.pending;
 
-    const trick = displayedTrick(view, positions);
-    const lastTrick = completedTrick(view, positions);
+    // a belot ends the game at the trump call: its view still carries the last hand's trick (backend review B3)
+    const belotEnd = view.endReason === 'BELOT';
+    const trick = belotEnd ? null : displayedTrick(view, positions);
+    const lastTrick = belotEnd ? null : completedTrick(view, positions);
     const onTable = new Set([...(trick?.plays ?? []), ...(lastTrick?.plays ?? [])].map((play) => play.id));
     const held = (priv?.hand ?? []).filter((card) => !onTable.has(cardId(card)));
     const sorted = priv ? handOrder(held, trumpSuit, local.order) : null;
@@ -289,7 +291,7 @@ export function boardModel(state: BoardState, me: string, local: BoardLocal): Bo
         end: finished
             ? {
                 title: phase === 'CANCELLED' && view.endReason !== 'FORFEIT' ? 'Match cancelled' : 'Game over',
-                winnerLine: phase === 'COMPLETED' && view.winnerTeamId ? `Team ${view.winnerTeamId} wins` : null,
+                winnerLine: phase === 'COMPLETED' && view.winnerTeamId ? `Team ${view.winnerTeamId} wins${belotEnd ? ' by belot' : ''}` : null,
                 reason: endSentence(view),
                 declined: view.endReason === 'DECLINED',
                 rematchOffered: rematchOffered(view),

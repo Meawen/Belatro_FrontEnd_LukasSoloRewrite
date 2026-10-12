@@ -80,4 +80,16 @@ describe('the dev board’s data (spec §4.17)', () => {
         expect(rows.reduce((sum, row) => sum + row.a, 0)).toBe(last.teamAScore)
         expect(rows.reduce((sum, row) => sum + row.b, 0)).toBe(last.teamBScore)
     })
+
+    test('a hand\'s declaration points are what the table scored: the winning team\'s zvanja total, then bela (gameplay rules §2)', () => {
+        // seed 44: dave holds a run of four and a run of three, and both count; the older declarations field keeps only the 50
+        const t = playTable({ seed: 44 })
+        const end = indexOf(t, 'hand-complete')
+        const view = t[end].public
+        expect(view.zvanja).toMatchObject({ winnerTeam: 'B', total: 70 })
+        expect(view.declarations.dave.bestSequencePoints).toBe(50)
+        const bela = (ids: string[]) => ids.filter((id) => view.belaDeclaredByPlayer[id]).length * 20
+        const [hand] = devHands(t, end)
+        expect(hand.handSummary).toMatchObject({ teamADeclPoints: bela(['alice', 'carol']), teamBDeclPoints: 70 + bela(['bob', 'dave']) })
+    })
 })

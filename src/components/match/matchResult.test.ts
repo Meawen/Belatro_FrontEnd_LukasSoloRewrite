@@ -18,6 +18,11 @@ describe('parseMatchResult (R-36)', () => {
         expect(parseMatchResult('Team A wins by forfeit')).toBe('forfeit')
     })
 
+    test('a belot result reads as its scores, Team A first (gameplay rules §3)', () => {
+        expect(parseMatchResult('Team A wins 1001–420 by belot')).toEqual({ teamAScore: 1001, teamBScore: 420 })
+        expect(parseMatchResult('Team B wins 420–1001 by belot')).toEqual({ teamAScore: 420, teamBScore: 1001 })
+    })
+
     test('text it cannot read gives no points, never a made-up 0 : 0 (spec §3.1 rule 6)', () => {
         expect(parseMatchResult('Match abandoned')).toBeNull()
     })
@@ -44,6 +49,15 @@ describe('resultWinner and yourResult (spec §4.9; R-36)', () => {
         expect(yourResult(match('Team A wins 1001–650'), 'u3')).toBe('LOSS')
         expect(yourResult(match('Team B wins by forfeit'), 'u4')).toBe('WIN')
         expect(yourResult(match('Team B wins by forfeit'), 'u2')).toBe('LOSS')
+    })
+
+    test('a belot result names its winner: WIN for the belot team, LOSS for the other (gameplay rules §3)', () => {
+        expect(resultWinner('Team A wins 1001–420 by belot')).toBe('A')
+        expect(resultWinner('Team B wins 420–1001 by belot')).toBe('B')
+        expect(yourResult(match('Team A wins 1001–420 by belot'), 'u2')).toBe('WIN')
+        expect(yourResult(match('Team A wins 1001–420 by belot'), 'u4')).toBe('LOSS')
+        expect(yourResult(match('Team B wins 420–1001 by belot'), 'u3')).toBe('WIN')
+        expect(yourResult(match('Team B wins 420–1001 by belot'), 'u1')).toBe('LOSS')
     })
 
     test('the raw result when it does not parse, or when I am in neither team; nothing without one', () => {

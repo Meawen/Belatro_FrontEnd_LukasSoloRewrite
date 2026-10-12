@@ -344,11 +344,30 @@ describe('boardModel: the declarations and the last challenge (gameplay rules §
             .toMatchObject({ zvanja: null, lastChallenge: null, playOpensAt: null })
     })
 
-    test('a belot ends the game: Game over with the winner; its reason line is S5\'s (null until then)', () => {
+    test('a belot ends the game: Game over, "Team A wins by belot", and who held all eight of which suit', () => {
         const t = playTable({ belot: { player: 'carol', suit: 'PIK' } })
         const last = t[t.length - 1]
         const m = model({ publicView: last.public, privateView: last.private.carol, receivedAt: last.at, skew: 0, source: 'live' })
-        expect(m.end).toEqual({ title: 'Game over', winnerLine: 'Team A wins', reason: null, declined: false, rematchOffered: true })
+        expect(m.end).toEqual({ title: 'Game over', winnerLine: 'Team A wins by belot', reason: 'carol held all eight Pik', declined: false, rematchOffered: true })
         expect(m).toMatchObject({ playOpensAt: null, zvanja: { belot: { playerId: 'carol', suit: 'PIK' } } })
+    })
+
+    test('a belot after an earlier hand shows no trick, though its view still carries the last hand\'s (backend review B3)', () => {
+        // the server's final view keeps the previous hand's trick 8 as currentTrick; lastTrick too, should it ever
+        const played = playTable()
+        const stale = find(played, 'next-deal').public.currentTrick!
+        const lastTrick = find(played, 'window-open').public.lastTrick!
+        expect(Object.keys(stale.plays)).toHaveLength(4)
+        const t = playTable({ belot: { player: 'carol', suit: 'PIK' } })
+        const end = t[t.length - 1]
+        const edited = { ...end.public, currentTrick: stale, lastTrick }
+        const m = model({ publicView: edited, privateView: { ...end.private.carol, publicPart: edited }, receivedAt: end.at, skew: 0, source: 'live' })
+        expect(m).toMatchObject({ trick: null, lastTrick: null })
+        expect(m.hand).toHaveLength(8)
+        // only a belot: the same view of a game played out shows its trick
+        const playedOut = { ...edited, endReason: null }
+        const shown = model({ publicView: playedOut, privateView: { ...end.private.carol, publicPart: playedOut }, receivedAt: end.at, skew: 0, source: 'live' })
+        expect(shown.trick?.plays).toHaveLength(4)
+        expect(shown.lastTrick?.plays).toHaveLength(4)
     })
 })

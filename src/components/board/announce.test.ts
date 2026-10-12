@@ -69,4 +69,11 @@ describe('announce (spec §5.8)', () => {
         const model = boardModel({ publicView: f.private.carol.publicPart, privateView: f.private.carol, receivedAt: f.at, skew: 0, source: 'live' }, 'carol', EMPTY_LOCAL)
         expect(announce([{ type: 'Ended', phase: 'COMPLETED' }], model, null)).toEqual(['Team B wins'])
     })
+
+    test('a belot\'s end says who won by belot, then who held it (gameplay rules §3)', () => {
+        const belot = playTable({ belot: { player: 'bob', suit: 'PIK' } })
+        const f = belot[belot.length - 1]
+        const model = boardModel({ publicView: f.private.carol.publicPart, privateView: f.private.carol, receivedAt: f.at, skew: 0, source: 'live' }, 'carol', EMPTY_LOCAL)
+        expect(announce([{ type: 'Ended', phase: 'COMPLETED' }], model, null)).toEqual(['Team B wins by belot. bob held all eight Pik'])
+    })
 })

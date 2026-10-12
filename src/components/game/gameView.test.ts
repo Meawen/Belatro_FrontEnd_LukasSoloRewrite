@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { cardLabel, declarationLines, isBelaCard, seatsFromMe, trumpOf } from './gameView'
+import { cardLabel, declarationLines, endSentence, isBelaCard, seatsFromMe, trumpOf } from './gameView'
 import type { GameCard, PublicGameView, ZvanjaSeatView, ZvanjaView } from '../../types/game'
 
 const seats = ['alice', 'bob', 'carol', 'dave'].map((id) => ({ id, cardsLeft: 8 }))
@@ -90,6 +90,22 @@ describe('declarationLines (R-31, gameplay rules §6)', () => {
         expect(declarationLines({ ...base, zvanja: null, belaDeclaredByPlayer: { ivo: true } })).toEqual(['ivo: bela 20'])
         const nobody: ZvanjaView = { seats: [seat('ivo'), seat('mara')], winnerTeam: null, total: 0, decidedBy: null, belot: null, playOpensAt: null }
         expect(declarationLines({ ...base, zvanja: nobody })).toEqual([])
+    })
+})
+
+describe('endSentence for a belot (gameplay rules §3)', () => {
+    const ended = { gameState: 'COMPLETED', winnerTeamId: 'B', endReason: 'BELOT', forfeitTeamId: null } as unknown as PublicGameView
+    const belot: ZvanjaView = { seats: [], winnerTeam: 'B', total: 0, decidedBy: null, belot: { playerId: 'ivo', suit: 'PIK' }, playOpensAt: null }
+
+    test('who held all eight of which suit', () => {
+        expect(endSentence({ ...ended, zvanja: belot })).toBe('ivo held all eight Pik')
+        expect(endSentence({ ...ended, zvanja: { ...belot, belot: { playerId: 'mara', suit: 'KARA' } } })).toBe('mara held all eight Karo')
+    })
+
+    test('null without zvanja, or a zvanja without its belot', () => {
+        expect(endSentence(ended)).toBeNull()
+        expect(endSentence({ ...ended, zvanja: null })).toBeNull()
+        expect(endSentence({ ...ended, zvanja: { ...belot, belot: null } })).toBeNull()
     })
 })
 

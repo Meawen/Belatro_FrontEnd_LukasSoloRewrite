@@ -255,7 +255,7 @@ export function RulesGuide({ onOpenRule }: RulesGuideProps) {
                 <Step n={4} title="Follow suit" rule="rules-playing" text="Follow suit and beat the best card if you can. No card of that suit? Play a trump, higher if you can. Neither? Play anything." {...step}>
                     <FollowSuit />
                 </Step>
-                <Step n={5} title="Declarations and bela" rule="rules-declarations" text="Counted for you when trump is named: 3 in a row 20, 4 in a row 50, 5 or more 100. Bela you declare with Play + Bela." {...step}>
+                <Step n={5} title="Declarations and bela" rule="rules-declarations" text="Said out loud when play starts: 3 in a row 20, 4 in a row 50, 5 to 7 in a row 100; all eight of a suit wins the game. The team with the best one scores all of its own. Bela you declare with Play + Bela." {...step}>
                     <Declarations />
                 </Step>
                 <Step n={6} title="Win the hand" rule="rules-scoring" text="The team that named trump must score more, or it falls and the other team takes the whole hand. All eight tricks: 90 more." {...step}>
@@ -264,7 +264,7 @@ export function RulesGuide({ onOpenRule }: RulesGuideProps) {
                         <Tag tone="win">Capot +90</Tag>
                     </div>
                 </Step>
-                <Step n={7} title="Challenge a foul" rule="rules-challenge" text="Illegal cards aren't blocked. Press Challenge during the hand or in the 10 seconds after: if the other team fouled, your team wins the hand." {...step}>
+                <Step n={7} title="Challenge a foul" rule="rules-challenge" text="Illegal cards aren't blocked. Press Challenge during the hand or in the 10 seconds after: if the other team fouled, your team wins the hand. A wrong challenge costs no points, but you lose your challenge for the rest of the game." {...step}>
                     <Foul />
                 </Step>
                 <Step n={8} title="Ranks" rule="rules-ranks" text="Everyone starts at 1200. After 10 placement games your rank follows your rating." {...step}>

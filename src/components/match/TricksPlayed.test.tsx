@@ -9,7 +9,8 @@ afterEach(() => vi.unstubAllGlobals())
 
 // Tailwind's own colour scale (bg-emerald-900, text-red-300, …): the design uses tokens only (spec §3.2)
 const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange|teal|pink)-\d/
-const ILLEGAL_HINT = 'This play violated rules; points only awarded if challenge succeeds.'
+// gameplay rules spec §6 "Texts": a foul stands unless a challenge catches it
+const ILLEGAL_HINT = 'This card broke the rules. It stood unless a challenge caught it.'
 
 // Seat (turn) order A1, B1, A2, B2: ana, cy, bob, dan; I am ana
 const MATCH: MatchDTO = {

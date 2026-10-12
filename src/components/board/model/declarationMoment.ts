@@ -29,8 +29,11 @@ const FOUR_LABEL: Partial<Record<Rank, string>> = {
     DECKO: 'Decki', DEVETKA: 'Devetke', AS: 'Asovi', DESETKA: 'Desetke', KRALJ: 'Kralji', BABA: 'Babe',
 };
 
-/** "up to Baba" (a run) or "four Asovi" (a four) for a seat tied at the top value; null for any other seat. */
-function heightText(seat: ZvanjaSeatView): string | null {
+/**
+ * "up to Baba" (a run) or "four Asovi" (a four) for a seat tied at the top value; null for any other seat. The
+ * moment's bubbles and the hand history's line (gameplay rules §7) say it the same way.
+ */
+export function heightText(seat: ZvanjaSeatView): string | null {
     if (seat.height === null) return null;
     return seat.kind === 'FOUR' ? `four ${FOUR_LABEL[seat.height] ?? RANK_LABEL[seat.height]}` : `up to ${RANK_LABEL[seat.height]}`;
 }

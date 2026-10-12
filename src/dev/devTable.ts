@@ -179,12 +179,10 @@ export function frameOf(delivery: Delivery): Frame {
 
 const move = (card: GameCard, player: string, order: number) => ({ order, player, card: `${card.rank} of ${card.boja}`, legal: true });
 
+/** A team's declaration points as the fixture scores them: the zvanja total if it won the contest (gameplay rules §2), and its bela. */
 function declared(view: PublicGameView, team: 'A' | 'B'): number {
     const members = (team === 'A' ? view.teamA : view.teamB).map((seat) => seat.id);
-    let points = 0;
-    for (const [id, d] of Object.entries(view.declarations ?? {})) {
-        if (members.includes(id)) points += (d.bestSequencePoints ?? 0) + (d.fourOfAKindPoints ?? 0);
-    }
+    let points = view.zvanja?.winnerTeam === team ? view.zvanja.total : 0;
     for (const [id, on] of Object.entries(view.belaDeclaredByPlayer ?? {})) if (on && members.includes(id)) points += 20;
     return points;
 }
