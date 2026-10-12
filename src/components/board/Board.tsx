@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { AnimatePresence, LazyMotion, domMax } from 'motion/react';
 import { hold } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
@@ -11,6 +11,7 @@ import { Arena } from './Arena';
 import { BelaPrompt } from './BelaPrompt';
 import { BidPanel } from './BidPanel';
 import { BlokColumn, BlokTable, BLOK_HINT } from './BelaBlok';
+import { ChallengeBanner } from './ChallengeBanner';
 import { DeclarationMoment } from './DeclarationMoment';
 import { EndSheet } from './EndSheet';
 import { GameMenu } from './GameMenu';
@@ -22,15 +23,19 @@ import { Peek } from './Peek';
 import { Piles } from './Piles';
 import { Seats } from './Seats';
 import { Summary } from './Summary';
-import { announce, seatName, toastFor } from './announce';
+import { announce, seatName } from './announce';
 import { cardTargets, layoutFor, type Layout, type Targets } from './model/cardTargets';
 import { BELOT_HOLD_MS, momentKey, momentSrLine } from './model/declarationMoment';
-import { answerBela, pendingUntil, pressBid, pressCard, unlock, waitingForDeclarations, type InputResult, type Move } from './model/input';
+import {
+    answerBela, challengePending, pendingUntil, pressBid, pressCard, pressChallenge, unlock, waitingForDeclarations, type ChallengeSent, type InputResult,
+    type Move,
+} from './model/input';
 import { dropLeaving, emptyStage, landTrick, settleStage, shownPiles, stepStage, sweepHeld, tableTrick, withInput, type Stage } from './stage';
 import { useBoardViewport } from './useBoardViewport';
 import type { BoardState } from './model/accept';
 import type { Boja } from '../../types/game';
 import type { BoardModel, Team } from './model/boardModel';
+import type { Challenged } from './model/diffBoard';
 import type { GameActions } from '../../hooks/useGameViews';
 import type { MatchHands } from '../../hooks/useMatchHands';
 import type { RematchState } from '../../hooks/useRematch';
@@ -235,6 +240,17 @@ export function Board(props: BoardProps) {
     const onBid = (call: Boja | 'PASS') => apply(pressBid(latest.current.model!, latest.current.local.input, call, Date.now()));
     const closeBela = () => setStage((s) => withInput(s, { ...s.local.input, belaCardId: null }));
 
+    // Challenge (gameplay rules §6): one tap; disabled until the server answers with a newer state, or with an error
+    // (a refused press changes no state). A send that didn't go out keeps nothing.
+    const [challengeSent, setChallengeSent] = useState<ChallengeSent | null>(null);
+    const onChallenge = () => {
+        const sent = pressChallenge(latest.current.model!, challengeSent);
+        if (sent && actions.challenge()) setChallengeSent(sent);
+    };
+    useEffect(() => {
+        if (error !== null) setChallengeSent(null);
+    }, [error]);
+
     // the menu, Bela Blok (a sheet on phones) and the peek; opening a panel of stored hands asks for fresh ones
     const [panel, setPanel] = useState<'menu' | 'blok' | 'peek' | null>(null);
     const open = (next: 'blok' | 'peek') => {
@@ -246,17 +262,13 @@ export function Board(props: BoardProps) {
         else showToast("You can only look at your team's tricks");
     };
 
-    // one polite message per event (spec §5.8), and a toast for every challenge result (O-4)
+    // one polite message per event (spec §5.8); a challenge is said by the banner and here, never a toast (gameplay rules §6)
     const [said, setSaid] = useState<{ seq: number; lines: string[] }>({ seq: 0, lines: [] });
     useEffect(() => {
         const events = current.events;
         if (!events || events.length === 0 || !current.model) return;
         const lines = announce(events, current.model, hands?.ended?.handNo ?? null);
         if (lines.length) setSaid({ seq: current.seq, lines });
-        for (const event of events) {
-            const toast = toastFor(event);
-            if (toast) showToast(toast);
-        }
         // once per step
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [current.seq]);
@@ -272,7 +284,10 @@ export function Board(props: BoardProps) {
     // a reconnect: a move sent before the drop may be lost, so nothing stays locked
     const wasConnected = useRef(isConnected);
     useEffect(() => {
-        if (isConnected && !wasConnected.current) setStage((s) => withInput(s, unlock(s.local.input)));
+        if (isConnected && !wasConnected.current) {
+            setStage((s) => withInput(s, unlock(s.local.input)));
+            setChallengeSent(null);
+        }
         wasConnected.current = isConnected;
     }, [isConnected]);
     const reduced = useReducedMotion();
@@ -281,6 +296,7 @@ export function Board(props: BoardProps) {
     const model = current.model!;
     const targets = useMemo(() => cardTargets(model, layout), [model, layout]);
     const instant = current.events === null;
+    const challengeWaiting = challengePending(challengeSent, model);
     const piles = shownPiles(current);
     const called = current.events?.find((event) => event.type === 'TrumpCalled');
 
@@ -317,6 +333,20 @@ export function Board(props: BoardProps) {
     }, [wakeAt, wakes]);
     const hand = waiting ? model.hand.map((card) => (card.enabled ? { ...card, enabled: false } : card)) : model.hand;
 
+    // the challenge, out loud (gameplay rules §6): a live Challenged starts the banner, which unmounts once said; a
+    // snap (a snapshot) never shows one, and ends one still up
+    const challenged = current.events?.find((event): event is Challenged => event.type === 'Challenged') ?? null;
+    const [keptBanner, setBanner] = useState<{ challenge: Challenged; since: number; done: boolean } | null>(null);
+    let banner = keptBanner;
+    if (challenged && challenged.number !== keptBanner?.challenge.number) {
+        banner = { challenge: challenged, since: now, done: false };
+        setBanner(banner);
+    } else if (instant && keptBanner && !keptBanner.done) {
+        banner = { ...keptBanner, done: true };
+        setBanner(banner);
+    }
+    const bannerSaid = useCallback(() => setBanner((was) => (was && !was.done ? { ...was, done: true } : was)), []);
+
     return (
         <LazyMotion features={domMax}>
             <section
@@ -344,7 +374,12 @@ export function Board(props: BoardProps) {
                         {moment && !moment.skipped && (waiting || belot) && (
                             <DeclarationMoment key={moment.key} model={model} layout={layout} targets={targets} snapshot={moment.snapshot} reduced={reduced} onSkip={skip} />
                         )}
-                        <Hud model={model} instant={instant} calledBy={called?.type === 'TrumpCalled' ? called.playerId : null} calls={current.calls} onChallenge={actions.challenge}
+                        {banner && !banner.done && (
+                            <ChallengeBanner key={banner.challenge.number} challenge={banner.challenge} name={seatName(model, banner.challenge.playerId)}
+                                since={banner.since} layout={layout} reduced={reduced} onDone={bannerSaid} />
+                        )}
+                        <Hud model={model} instant={instant} calledBy={called?.type === 'TrumpCalled' ? called.playerId : null} calls={current.calls}
+                            onChallenge={onChallenge} challengePending={challengeWaiting}
                             resultOpen={model.handComplete && current.held === null} onMenu={() => setPanel('menu')} onBlok={layout.blok ? null : () => open('blok')} />
                         {error && <div className="board-error"><ErrorAlert message={error} /></div>}
                     </div>
@@ -352,7 +387,8 @@ export function Board(props: BoardProps) {
                 </div>
                 <Summary model={model} />
                 {/* both rise once the last trick has left the table (spec §5.3.4 HandCompleted, Ended) */}
-                <HandResult model={model} open={model.handComplete && current.held === null} hands={hands} delta={current.handDelta} onChallenge={actions.challenge} />
+                <HandResult model={model} open={model.handComplete && current.held === null} hands={hands} delta={current.handDelta}
+                    onChallenge={onChallenge} challengePending={challengeWaiting} />
                 <EndSheet model={model} open={model.end !== null && current.held === null && !holding} rematch={rematch} onLeave={onLeave} />
                 <GameMenu model={model} open={panel === 'menu'} onClose={() => setPanel(null)} onBlok={layout.blok ? null : () => open('blok')} />
                 <Sheet open={panel === 'blok' && !layout.blok} onClose={() => setPanel(null)} title="Bela Blok" showClose data-testid="bela-blok">

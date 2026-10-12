@@ -10,6 +10,7 @@ import { summaryChips } from './model/declarationMoment';
 import { cardId } from './model/rules';
 import { secondsLeft, type BoardModel } from './model/boardModel';
 import type { Layout, Targets } from './model/cardTargets';
+import { seatName } from './announce';
 import { seatSpot } from './seatSpot';
 import { useNow } from './useNow';
 
@@ -63,7 +64,8 @@ export interface SeatsProps {
  * `cards-left-{id}` (visually hidden on phones), the dealer chip, and on the seat to act the
  * `turn-countdown` and its bar; the bid chips while bidding, Bela, and once play opens each winning
  * seat's zvanja chip (summaryChips) for the rest of the hand, with its declared cards until the first
- * trick is down (gameplay rules §6).
+ * trick is down; a quiet "No challenge" on every seat whose challenge is gone, for the rest of the game
+ * (gameplay rules §6).
  */
 export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps) {
     const chips = playOpen ? summaryChips(model.zvanja) : {};
@@ -104,6 +106,14 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                             )}
                             {seat.bela && <Pop instant={instant}><Tag tone="mode">Bela</Tag></Pop>}
                             {chips[seat.id] && <Pop instant={instant}><Tag tone="neutral">{chips[seat.id]}</Tag></Pop>}
+                            {seat.challengeUsed && (
+                                <Pop instant={instant}>
+                                    <Tag tone="neutral">
+                                        <span aria-hidden="true">No challenge</span>
+                                        <span className="sr-only">{`${seatName(model, seat.id)}: no challenge left`}</span>
+                                    </Tag>
+                                </Pop>
+                            )}
                         </span>
                         {declared.length > 0 && (
                             <span

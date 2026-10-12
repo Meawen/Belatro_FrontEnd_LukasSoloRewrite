@@ -19,7 +19,7 @@ export interface Entrance {
 /**
  * A trick on its way off the table: the sweep layer (spec §5.10). `table`: still on its slots while a
  * recovered 4th card lands; `pile`: flying to the winner's pile, then fading; `fade`: fading where it
- * lies (a successful challenge ended the hand).
+ * lies (a right challenge ended the hand).
  */
 export interface Leaving {
     key: string;
@@ -97,9 +97,11 @@ export function stepStage(stage: Stage, state: BoardState, now: number): Stage {
     const model = step.model;
     const base = { ...stage, state, model, local: step.local, events: step.events, seq: stage.seq + 1 };
     if (step.events === null) {
-        // a snap: every element at its target; a finished trick counts as gone, a trick in progress shows as is
+        // a snap: every element at its target; a finished trick counts as gone, a trick in progress shows as is,
+        // unless the hand is over (a right challenge ended it with cards still held: gameplay rules §1)
         const shown = model.trick;
-        return { ...base, held: null, leaving: [], cleared: shown?.complete ? [trickKey(shown)] : [], entrances: {} };
+        const gone = shown && (shown.complete || model.handComplete);
+        return { ...base, held: null, leaving: [], cleared: gone ? [trickKey(shown)] : [], entrances: {} };
     }
 
     let { deal, calls, held, handDelta } = stage;
@@ -110,7 +112,14 @@ export function stepStage(stage: Stage, state: BoardState, now: number): Stage {
 
     for (const event of step.events) {
         switch (event.type) {
+            case 'Challenged':
             case 'ChallengeUpheld': {
+                // a right challenge ends the hand: a partial trick fades where it lies (a wrong one changes nothing)
+                if (event.type === 'Challenged' && !event.foulFound) break;
+                // in the window it takes the hand's award back and gives its own: the hand's change moves with the scores
+                if (event.type === 'Challenged' && prev?.handComplete && handDelta) {
+                    handDelta = { a: handDelta.a + model.scores.a - prev.scores.a, b: handDelta.b + model.scores.b - prev.scores.b };
+                }
                 const partial = prev?.trick;
                 if (partial && !partial.complete && partial.plays.length > 0 && !cleared.includes(trickKey(partial))) {
                     leaving.push({ key: trickKey(partial), deal, trick: partial, team: null, at: 'fade', enter: null });

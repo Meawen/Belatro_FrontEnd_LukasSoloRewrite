@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { PENDING_MS, answerBela, pendingUntil, pressBid, pressCard, settleInput, unlock, waitingForDeclarations } from './input'
+import { PENDING_MS, answerBela, challengePending, pendingUntil, pressBid, pressCard, pressChallenge, settleInput, unlock, waitingForDeclarations } from './input'
 import { EMPTY_LOCAL, NO_INPUT, boardModel, type BoardModel, type InputState } from './boardModel'
 import { indexOf, playTable, type FanOut } from '../../../test/fixtures/views/table'
 import type { GameCard, PrivateGameView } from '../../../types/game'
@@ -140,5 +140,44 @@ describe('the declarations wait (gameplay rules §4)', () => {
         expect(answerBela(asking, open, true, opens - skew - 1)).toEqual({ input: open, move: null })
         expect(answerBela(asking, open, true, opens - skew).move).toEqual({ kind: 'play', card: q, declareBela: true })
         expect(pressCard(leader(NO_INPUT, hand), NO_INPUT, 'HERC-BABA', opens - skew - 1)).toEqual({ input: NO_INPUT, move: null })
+    })
+})
+
+describe('Challenge: one tap, then disabled until the server answers (gameplay rules §6, D-4)', () => {
+    // carol's turn, two cards on the table: Challenge is offered
+    const at = (offset: number, change: (priv: PrivateGameView) => void = () => {}, receivedAt = 0) => {
+        const priv = structuredClone(table[myTurn + offset].private.carol)
+        change(priv)
+        return boardModel({ publicView: priv.publicPart, privateView: priv, receivedAt, skew: 0, source: 'live' }, 'carol', EMPTY_LOCAL)
+    }
+
+    test('a press sends from the state on screen; a second press sends nothing while the first waits', () => {
+        const model = at(0)
+        expect(model.challenge).toBe('available')
+        const sent = pressChallenge(model, null)
+        expect(sent).toEqual({ version: table[myTurn].version, receivedAt: 0 })
+        expect(challengePending(sent, model)).toBe(true)
+        expect(pressChallenge(model, sent)).toBeNull()
+        expect(challengePending(null, model)).toBe(false)
+    })
+
+    test('it waits through re-broadcasts of the same state and is answered by a newer one (a higher version, or a later state without versions)', () => {
+        const sent = pressChallenge(at(0), null)
+        expect(table[myTurn - 1].version).toBe(table[myTurn].version)
+        expect(challengePending(sent, at(-1))).toBe(true)
+        expect(challengePending(sent, at(1))).toBe(false)
+        expect(pressChallenge(at(1), sent)).toEqual({ version: table[myTurn + 1].version, receivedAt: 0 })
+        const unversioned = (receivedAt: number) => at(0, (priv) => { delete priv.publicPart.stateVersion }, receivedAt)
+        const old = pressChallenge(unversioned(10), null)
+        expect(old).toEqual({ version: null, receivedAt: 10 })
+        expect(challengePending(old, unversioned(10))).toBe(true)
+        expect(challengePending(old, unversioned(11))).toBe(false)
+    })
+
+    test('nothing is sent while Challenge is hidden or used', () => {
+        expect(pressChallenge(at(0, (priv) => { priv.challengeUsed = true }), null)).toBeNull()
+        const call = indexOf(table, 'call:')
+        expect(modelOf(table[call]).challenge).toBe('hidden')
+        expect(pressChallenge(modelOf(table[call]), null)).toBeNull()
     })
 })

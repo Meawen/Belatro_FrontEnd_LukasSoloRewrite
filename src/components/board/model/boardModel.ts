@@ -135,7 +135,11 @@ export interface BoardModel {
     yourTurn: boolean;
     canBid: boolean;
     canPlay: boolean;
-    canChallenge: boolean;
+    /**
+     * My Challenge (gameplay rules §6): from the hand's first card while playing (R-2), and in the window unless a
+     * right challenge decided the hand (R-3); 'used' where it would show once my challenge is gone for the game.
+     */
+    challenge: 'hidden' | 'available' | 'used';
     /** Three passes on record and my bid: the dealer must call (R-23). */
     dealerMustCall: boolean;
     /** The bid buttons: canBid and no bid in flight. */
@@ -152,6 +156,8 @@ export interface BoardModel {
     zvanja: ZvanjaView | null;
     /** The game's last challenge; null until the first and from an older backend. */
     lastChallenge: LastChallengeView | null;
+    /** The view carries lastChallenge (gameplay rules §5): a challenge is told by its number, never inferred from scores. */
+    tellsChallenges: boolean;
     /** While PLAYING, when play opens after the declarations (server clock; waitingForDeclarations); otherwise null. */
     playOpensAt: number | null;
     /** The visually hidden "This hand" summary: `bid` lines, `declaration` lines, `your-team`. */
@@ -221,6 +227,15 @@ export function boardModel(state: BoardState, me: string, local: BoardLocal): Bo
         };
     });
 
+    const piles = typeof view.tricksWonA === 'number' && typeof view.tricksWonB === 'number'
+        ? { a: view.tricksWonA, b: view.tricksWonB }
+        : local.counted;
+    const lastChallenge = view.lastChallenge ?? null;
+    // a card down this hand: in the trick, or a completed trick (R-2); a window a right challenge decided (R-3)
+    const cardDown = (trick?.plays.length ?? 0) > 0 || lastTrick !== null || (piles !== null && piles.a + piles.b > 0);
+    const decided = lastChallenge?.thisHand === true && lastChallenge.foulFound;
+    const challengeShown = priv !== null && ((playing && cardDown) || (handComplete && !decided));
+
     const caller = [...bids].reverse().find((bid) => bid.action === 'CALL_TRUMP');
     const belaCard = canPlay && local.input.belaCardId ? hand.find((card) => card.id === local.input.belaCardId) ?? null : null;
     const bidsEnabled = canBid && pending?.kind !== 'bid';
@@ -248,16 +263,14 @@ export function boardModel(state: BoardState, me: string, local: BoardLocal): Bo
         trump: trumpSuit ? { suit: trumpSuit, label: SUIT_LABEL[trumpSuit], callerId: caller?.playerId ?? null } : null,
         season: trumpSuit ? SEASON[trumpSuit] : 'none',
         scores: { a: view.teamAScore, b: view.teamBScore },
-        piles: typeof view.tricksWonA === 'number' && typeof view.tricksWonB === 'number'
-            ? { a: view.tricksWonA, b: view.tricksWonB }
-            : local.counted,
+        piles,
         dealerId,
         turn: view.currentPlayerId ? { playerId: view.currentPlayerId, expiresAt: view.turnExpiresAt ?? null } : null,
         skew: state.skew,
         yourTurn: canBid || canPlay,
         canBid,
         canPlay,
-        canChallenge: (playing || handComplete) && priv !== null && !priv.challengeUsed,
+        challenge: !challengeShown ? 'hidden' : priv?.challengeUsed ? 'used' : 'available',
         dealerMustCall,
         bidsEnabled,
         passEnabled: bidsEnabled && !dealerMustCall,
@@ -265,7 +278,8 @@ export function boardModel(state: BoardState, me: string, local: BoardLocal): Bo
         belaPrompt: belaCard,
         window: handComplete && view.challengeWindowExpiresAt != null ? { expiresAt: view.challengeWindowExpiresAt } : null,
         zvanja: view.zvanja ?? null,
-        lastChallenge: view.lastChallenge ?? null,
+        lastChallenge,
+        tellsChallenges: view.lastChallenge !== undefined,
         playOpensAt: playing ? view.zvanja?.playOpensAt ?? null : null,
         summary: {
             bids: bids.map((bid) => `${bid.playerId}: ${bid.action === 'CALL_TRUMP' && bid.selectedTrump ? SUIT_LABEL[bid.selectedTrump] : 'Pass'}`),

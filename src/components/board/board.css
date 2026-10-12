@@ -493,6 +493,28 @@
     filter: drop-shadow(0 3px 0 rgb(0 0 0 / 0.35)) brightness(0.66) saturate(0.75);
 }
 
+/* The challenge, out loud (gameplay rules §6): a banner where the trick goes, on every screen, above the trick and a
+   trick fading off the table (layer 60, after the sweep layer) and below the sheets. It takes no taps (board-region). */
+.board-banner {
+    z-index: var(--z-sweep);
+}
+.board-banner__panel {
+    position: absolute;
+    translate: -50% -50%;
+    width: max-content;
+    max-width: min(320px, calc(100% - 128px));
+    margin: 0;
+    padding: 10px 14px 12px;
+    background: var(--material-ink);
+    color: var(--text);
+    text-align: center;
+    text-wrap: balance;
+    box-shadow: inset 0 -3px 0 var(--accent-ledge);
+}
+.board-banner__panel[data-step="outcome"][data-foul] {
+    color: var(--accent);
+}
+
 /* Challenge (§5.3.3): in the HUD while playing, in the hand-result sheet in HAND_COMPLETE */
 .board-challenge {
     position: relative;

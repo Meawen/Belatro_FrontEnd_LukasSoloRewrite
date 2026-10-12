@@ -128,19 +128,22 @@ describe('diffBoard (spec §5.3.4)', () => {
         expect(types(diffBoard(all[i], cancelled))).toEqual(['Ended'])
     })
 
-    test("challenges: a seat's flag alone → ChallengeFailed for that seat; the hand ending early, or HAND_COMPLETE scores moving → ChallengeUpheld", () => {
+    test("an older backend's challenges (no lastChallenge): a seat's flag alone → ChallengeFailed for that seat; the hand ending early, or HAND_COMPLETE scores moving → ChallengeUpheld", () => {
+        const older = (i: number, change: (pub: PublicGameView, priv: PrivateGameView) => void = () => {}) =>
+            edited(i, (pub, priv) => { delete pub.lastChallenge; change(pub, priv) })
         const i = at('play:bob:')
-        expect(diffBoard(all[i], edited(i, (pub, priv) => { priv.challengeUsed = true; pub.challengeUsedByPlayer.carol = true })))
+        expect(older(i).tellsChallenges).toBe(false)
+        expect(diffBoard(older(i), older(i, (pub, priv) => { priv.challengeUsed = true; pub.challengeUsedByPlayer.carol = true })))
             .toEqual([{ type: 'ChallengeFailed', playerId: 'carol', mine: true }])
-        expect(diffBoard(all[i], edited(i, (pub) => { pub.challengeUsedByPlayer.bob = true })))
+        expect(diffBoard(older(i), older(i, (pub) => { pub.challengeUsedByPlayer.bob = true })))
             .toEqual([{ type: 'ChallengeFailed', playerId: 'bob', mine: false }])
         const next = at('next-deal')
-        const early = diffBoard(all[i], all[next])!
+        const early = diffBoard(older(i), older(next))!
         expect(early[0]).toEqual({ type: 'ChallengeUpheld', team: all[next].scores.a - all[i].scores.a > all[next].scores.b - all[i].scores.b ? 'A' : 'B' })
         expect(types(early)).toContain('Dealt')
         const hc = at('window-open')
-        const upheld = edited(hc, (pub) => { pub.teamBScore += 182 })
-        expect(diffBoard(all[hc], upheld)).toEqual([
+        const upheld = older(hc, (pub) => { pub.teamBScore += 182 })
+        expect(diffBoard(older(hc), upheld)).toEqual([
             { type: 'ChallengeUpheld', team: 'B' },
             { type: 'Scored', from: all[hc].scores, to: { a: all[hc].scores.a, b: all[hc].scores.b + 182 } },
         ])
@@ -180,5 +183,80 @@ describe('diffBoard (spec §5.3.4)', () => {
         expect(new Set(events.flatMap((e) => (e.type === 'CardPlayed' ? [e.id] : []))).size).toBe(32)
         expect(count('TrickCompleted')).toBe(8)
         expect([count('Dealt'), count('TrumpCalled'), count('HandCompleted'), count('Bid')]).toEqual([2, 1, 1, 4])
+    })
+})
+
+describe('diffBoard: the challenge the view tells (gameplay rules §5, §6)', () => {
+    const TEAM: Record<string, 'A' | 'B'> = { alice: 'A', bob: 'B', carol: 'A', dave: 'B' }
+    /**
+     * `by`'s challenge, the game's `number`-th, as the server answers it: a right one ends the hand there (HAND_COMPLETE
+     * with the cards still held, the challengers +162, the window open); a wrong one spends `by`'s challenge for the game.
+     */
+    const challenge = (by: string, foulFound: boolean, number: number, me = 'carol') => (pub: PublicGameView, priv: PrivateGameView) => {
+        pub.lastChallenge = { number, playerId: by, team: TEAM[by], foulFound, thisHand: true }
+        pub.stateVersion = pub.stateVersion! + 1
+        if (!foulFound) {
+            pub.challengeUsedByPlayer[by] = true
+            if (by === me) priv.challengeUsed = true
+            return
+        }
+        pub.gameState = 'HAND_COMPLETE'
+        if (TEAM[by] === 'A') pub.teamAScore += 162
+        else pub.teamBScore += 162
+        pub.currentPlayerId = null
+        pub.turnExpiresAt = null
+        pub.challengeWindowExpiresAt = pub.serverNow! + 10_000
+        priv.yourTurn = false
+    }
+    // bob's card is the trick's second: carol is to play, everyone still holds cards
+    const i = at('play:bob:')
+
+    test('Challenged when lastChallenge.number rises: a wrong one, then a right one; no inferred event beside it', () => {
+        expect(all[i].tellsChallenges).toBe(true)
+        const wrong = edited(i, challenge('bob', false, 1))
+        expect(diffBoard(all[i], wrong)).toEqual([{ type: 'Challenged', number: 1, playerId: 'bob', team: 'B', foulFound: false, mine: false }])
+        const right = edited(i, (pub, priv) => { challenge('bob', false, 1)(pub, priv); challenge('carol', true, 2)(pub, priv) })
+        const events = diffBoard(wrong, right)!
+        expect(events[0]).toEqual({ type: 'Challenged', number: 2, playerId: 'carol', team: 'A', foulFound: true, mine: true })
+        expect(types(events)).not.toContain('ChallengeUpheld')
+        expect(types(events)).not.toContain('ChallengeFailed')
+    })
+
+    test('none when the number is unchanged: a re-broadcast, or the next card after a wrong challenge', () => {
+        const wrong = edited(i, challenge('bob', false, 1))
+        expect(diffBoard(wrong, edited(i, challenge('bob', false, 1)))).toEqual([])
+        const next = edited(i + 2, (pub) => { pub.lastChallenge = wrong.lastChallenge; pub.challengeUsedByPlayer.bob = true })
+        expect(types(diffBoard(wrong, next))).toEqual(['CardPlayed', 'Turn'])
+    })
+
+    test('none on a snapshot (no previous model): a first state is never a challenge', () => {
+        expect(diffBoard(null, edited(i, challenge('bob', false, 1)))).toBeNull()
+        expect(diffBoard(null, edited(0, (pub) => { pub.lastChallenge = { number: 4, playerId: 'bob', team: 'B', foulFound: false, thisHand: false } })))
+            .toEqual([{ type: 'Dealt', dealerId: 'dave', order: ['alice', 'bob', 'carol', 'dave'] }])
+    })
+
+    test('with the field, the old inferences are off: a flag alone, or HAND_COMPLETE scores moving, are no challenge', () => {
+        expect(diffBoard(all[i], edited(i, (pub) => { pub.challengeUsedByPlayer.bob = true }))).toEqual([])
+        const hc = at('window-open')
+        expect(types(diffBoard(all[hc], edited(hc, (pub) => { pub.teamBScore += 182 })))).toEqual(['Scored'])
+    })
+
+    test('a right challenge during play (PLAYING → HAND_COMPLETE, cards held): Challenged and HandCompleted with the delta, not ChallengeUpheld', () => {
+        const right = edited(i, challenge('dave', true, 1))
+        expect(right.seats.every((seat) => seat.cardsLeft > 0)).toBe(true)
+        expect(diffBoard(all[i], right)).toEqual([
+            { type: 'Challenged', number: 1, playerId: 'dave', team: 'B', foulFound: true, mine: false },
+            { type: 'HandCompleted', delta: { a: 0, b: 162 } },
+            { type: 'Scored', from: all[i].scores, to: { a: all[i].scores.a, b: all[i].scores.b + 162 } },
+            { type: 'Turn', playerId: null },
+        ])
+        // a view that takes the partial trick off the table with the hand is explained by the challenge: no snap
+        const cleared = edited(i, (pub, priv) => {
+            challenge('dave', true, 1)(pub, priv)
+            pub.currentTrick = { ...pub.currentTrick!, plays: {}, winningCard: null }
+        })
+        expect(types(diffBoard(all[i], cleared))).toEqual(['Challenged', 'HandCompleted', 'Scored', 'Turn'])
+        // without a right challenge the same vanishing trick still snaps
+        expect(diffBoard(all[i], edited(i, (pub) => { pub.currentTrick = { ...pub.currentTrick!, plays: {}, winningCard: null } }))).toBeNull()
     })
 })

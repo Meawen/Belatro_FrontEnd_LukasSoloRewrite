@@ -226,13 +226,47 @@ describe('boardModel: bidding controls, declarations, challenge, window, end', (
         expect(m.seats[0]).not.toHaveProperty('zvanja')
     })
 
-    test('Challenge while playing and in HAND_COMPLETE, until it is used', () => {
-        expect(model(state(view({ gameState: 'PLAYING' }))).canChallenge).toBe(true)
-        expect(model(state(view({ gameState: 'HAND_COMPLETE' }))).canChallenge).toBe(true)
-        expect(model(state(view({ gameState: 'HAND_COMPLETE' }), false, { challengeUsed: true }))).toMatchObject({ canChallenge: false, challengeUsed: true })
+    test('Challenge from the hand\'s first card while playing, and in HAND_COMPLETE; greyed in place once used (gameplay rules §6, R-2)', () => {
+        const firstCard = { leadPlayerId: 'alice', trump: 'HERC' as const, plays: { alice: c('PIK', 'AS') } }
+        // the trump call: no card down yet
+        expect(model(state(view({ gameState: 'PLAYING', currentTrick: { leadPlayerId: 'alice', trump: 'HERC', plays: {} } }))).challenge).toBe('hidden')
+        expect(model(state(view({ gameState: 'PLAYING', currentTrick: firstCard }))).challenge).toBe('available')
+        expect(model(state(view({ gameState: 'HAND_COMPLETE' }))).challenge).toBe('available')
+        expect(model(state(view({ gameState: 'PLAYING', currentTrick: firstCard }), false, { challengeUsed: true }))).toMatchObject({ challenge: 'used', challengeUsed: true })
+        expect(model(state(view({ gameState: 'HAND_COMPLETE' }), false, { challengeUsed: true }))).toMatchObject({ challenge: 'used', challengeUsed: true })
         const seats = model(state(view({ gameState: 'PLAYING', challengeUsedByPlayer: { bob: true } }))).seats
         expect(seats.filter((s) => s.challengeUsed).map((s) => s.id)).toEqual(['bob'])
-        expect(model(state(view())).canChallenge).toBe(false)
+        expect(model(state(view())).challenge).toBe('hidden')
+        expect(model(state(view({ gameState: 'COMPLETED' }))).challenge).toBe('hidden')
+        // not seated: no private view, no Challenge
+        expect(model({ ...state(view({ gameState: 'HAND_COMPLETE' })), privateView: null }).challenge).toBe('hidden')
+    })
+
+    test('a card down this hand is a card in the trick, a completed trick, or a trick on a pile', () => {
+        const table = playTable({ pauseMs: 0 })
+        const challengeAt = (label: string, change: (pub: PublicGameView) => void = () => {}) => {
+            const priv = structuredClone(find(table, label).private.carol)
+            change(priv.publicPart)
+            return model({ publicView: priv.publicPart, privateView: priv, receivedAt: 0, skew: 0, source: 'live' }).challenge
+        }
+        expect(challengeAt('call:')).toBe('hidden')
+        expect(challengeAt('play:')).toBe('available')
+        // between tricks: the next lead hasn't played, and the view shows no trick
+        const between = (pub: PublicGameView) => { pub.currentTrick = { leadPlayerId: pub.lastTrick!.winnerId, trump: 'HERC', plays: {} } }
+        const fourth = indexOf(table, 'play:', indexOf(table, 'call:')) + 6
+        expect(table[fourth].public.lastTrick).not.toBeNull()
+        expect(challengeAt(table[fourth].label, between)).toBe('available')
+        // an older backend without lastTrick: the piles count it
+        expect(challengeAt(table[fourth].label, (pub) => { between(pub); pub.lastTrick = null })).toBe('available')
+        expect(challengeAt(table[fourth].label, (pub) => { between(pub); pub.lastTrick = null; pub.tricksWonA = 0; pub.tricksWonB = 0 })).toBe('hidden')
+    })
+
+    test('no Challenge in a window a right challenge decided (R-3); a wrong one, or one from an earlier hand, leaves it', () => {
+        const decided = (lastChallenge: LastChallengeView) => model(state(view({ gameState: 'HAND_COMPLETE', lastChallenge }))).challenge
+        const right: LastChallengeView = { number: 1, playerId: 'alice', team: 'A', foulFound: true, thisHand: true }
+        expect(decided(right)).toBe('hidden')
+        expect(decided({ ...right, foulFound: false })).toBe('available')
+        expect(decided({ ...right, thisHand: false })).toBe('available')
     })
 
     test('the window only in HAND_COMPLETE: null first, then set; the stale value of later phases is ignored', () => {
@@ -294,7 +328,9 @@ describe('boardModel: the declarations and the last challenge (gameplay rules §
         const m = model(state(old, true))
         expect(m).toMatchObject({ zvanja: null, lastChallenge: null, playOpensAt: null, canPlay: true })
         expect(m.hand.every((h) => h.enabled)).toBe(true)
-        expect(model(state({ ...old, zvanja: null, lastChallenge: null }, true))).toEqual(m)
+        expect(m.tellsChallenges).toBe(false)
+        // a newer backend says null: the same board, except that it tells its challenges (diffBoard's Challenged)
+        expect(model(state({ ...old, zvanja: null, lastChallenge: null }, true))).toEqual({ ...m, tellsChallenges: true })
     })
 
     test('a real hand: the call carries zvanja with playOpensAt; an older backend\'s table has neither', () => {

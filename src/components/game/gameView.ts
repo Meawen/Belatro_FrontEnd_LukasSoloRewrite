@@ -53,12 +53,12 @@ export const PHASE_LABEL: Record<GamePhase, string> = {
     SCORING: 'Scoring',
 };
 
-/**
- * By the Challenge button while it is offered (R-31). The quota resets every hand
- * (BelotGame.resetHandState clears challengeUsed), hence "for this hand".
- */
+/** By the Challenge button while it is available (R-31): one challenge per player per game (gameplay rules §1, §6). */
 export const CHALLENGE_HINT =
-    'Think an opponent played an illegal card this hand? Challenge to win the whole hand. A wrong challenge costs your challenge for this hand';
+    "Think an opponent played an illegal card this hand? Challenge to win the whole hand. If you're wrong it costs no points, but you lose your challenge for the rest of the game.";
+
+/** By the greyed "Challenge used" once my challenge is gone (gameplay rules §6, D-7). */
+export const CHALLENGE_USED_INFO = "Your challenge was wrong, so it's gone for the rest of the game.";
 
 /** A declined ranked match (R-25): the end sentence, and the notice /play shows after it. */
 export const DECLINED_NOTICE = "A player declined — you're back in the queue";

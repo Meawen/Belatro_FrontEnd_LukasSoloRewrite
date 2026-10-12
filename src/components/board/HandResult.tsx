@@ -4,6 +4,7 @@ import { Sheet } from '../ui/Sheet';
 import { Tag } from '../ui/Chip';
 import { Challenge } from './Challenge';
 import { useNow } from './useNow';
+import { challengeHeader } from './model/challengeMoment';
 import { blokRows } from './model/hands';
 import { secondsLeft, type BoardModel, type Team } from './model/boardModel';
 import type { MatchHands } from '../../hooks/useMatchHands';
@@ -34,14 +35,17 @@ export interface HandResultProps {
     /** The score change the board saw (PLAYING → HAND_COMPLETE), while the stored hand hasn't arrived. */
     delta: { a: number; b: number } | null;
     onChallenge: () => void;
+    /** A challenge waits for the server's answer. */
+    challengePending: boolean;
 }
 
 /**
  * The hand result (spec §5.4, US-33): a non-modal sheet docked at the bottom of the board once the 8th
- * trick has swept. "Hand n", Mi and Vi with their zvanja and bela, PAD/CAPOT, the challenge window's bar
- * ("Next hand shortly" before the server sets it), and Challenge with its hint while it is offered.
+ * trick has swept, or at once when a right challenge ended the hand ("Foul found: Team B takes the hand",
+ * gameplay rules §6). "Hand n", Mi and Vi with their zvanja and bela, PAD/CAPOT, the challenge window's bar
+ * ("Next hand shortly" before the server sets it), and Challenge with its hint while it shows.
  */
-export function HandResult({ model, open, hands, delta, onChallenge }: HandResultProps) {
+export function HandResult({ model, open, hands, delta, onChallenge, challengePending }: HandResultProps) {
     const ended = hands?.ended ?? null;
     const teamOf = (id: string): Team | null => model.seats.find((seat) => seat.id === id)?.team ?? null;
     const row = ended ? blokRows(hands?.hands ?? null, teamOf).find((r) => r.handNo === ended.handNo) ?? null : null;
@@ -53,7 +57,7 @@ export function HandResult({ model, open, hands, delta, onChallenge }: HandResul
         <Sheet
             open={open}
             onClose={() => {}}
-            title={ended?.handNo ? `Hand ${ended.handNo}` : model.phaseLabel}
+            title={challengeHeader(model.lastChallenge) ?? (ended?.handNo ? `Hand ${ended.handNo}` : model.phaseLabel)}
             modal={false}
             dismissible={false}
             side="bottom"
@@ -79,7 +83,9 @@ export function HandResult({ model, open, hands, delta, onChallenge }: HandResul
                 </dl>
             )}
             {model.window ? <WindowBar key={model.window.expiresAt} expiresAt={model.window.expiresAt} skew={model.skew} /> : <p className="t-footnote text-text-2">Next hand shortly</p>}
-            {model.canChallenge && model.handComplete && <Challenge place="sheet" onChallenge={onChallenge} />}
+            {model.challenge !== 'hidden' && model.handComplete && (
+                <Challenge place="sheet" state={model.challenge} pending={challengePending} onChallenge={onChallenge} />
+            )}
         </Sheet>
     );
 }

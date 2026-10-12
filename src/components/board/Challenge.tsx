@@ -1,21 +1,27 @@
 import { useId, useState } from 'react';
 import { Button } from '../ui/Button';
 import { IconButton } from '../ui/IconButton';
-import { CHALLENGE_HINT } from '../game/gameView';
+import { CHALLENGE_HINT, CHALLENGE_USED_INFO } from '../game/gameView';
 
 export interface ChallengeProps {
     onChallenge: () => void;
     /** Where it sits: the HUD while playing, the hand-result sheet in HAND_COMPLETE. */
     place: 'hud' | 'sheet';
+    /** 'used': my challenge is gone for the game; it stays here, greyed, reading "Challenge used" (D-7). */
+    state: 'available' | 'used';
+    /** A press waits for the server's answer: disabled, so a double tap sends once (gameplay rules §6). */
+    pending: boolean;
 }
 
 /**
- * Challenge (spec §5.3.3, R-18, R-31): the button, and an info button that reveals the hint. The hint
- * (`challenge-hint`) is in the DOM in full while Challenge is offered, visually hidden until revealed.
+ * Challenge (spec §5.3.3, R-18, R-31; gameplay rules §6): the button, one tap with no confirm (D-4), and an info
+ * button that reveals the hint. The hint (`challenge-hint`) is in the DOM in full while Challenge shows, visually
+ * hidden until revealed; once my challenge is gone it says why the button is greyed.
  */
-export function Challenge({ onChallenge, place }: ChallengeProps) {
+export function Challenge({ onChallenge, place, state, pending }: ChallengeProps) {
     const [open, setOpen] = useState(false);
     const hint = useId();
+    const used = state === 'used';
     return (
         <span
             className={place === 'hud' ? 'board-challenge board-challenge--hud' : 'board-challenge'}
@@ -26,10 +32,14 @@ export function Challenge({ onChallenge, place }: ChallengeProps) {
             }}
         >
             <span className="board-challenge__buttons">
-                <Button size="sm" variant="secondary" aria-describedby={hint} onClick={onChallenge}>Challenge</Button>
+                <Button size="sm" variant="secondary" aria-describedby={hint} disabled={used} loading={pending} onClick={onChallenge}>
+                    {used ? 'Challenge used' : 'Challenge'}
+                </Button>
                 <IconButton size="sm" icon="info" aria-label="What does Challenge do?" aria-expanded={open} aria-controls={hint} onClick={() => setOpen((shown) => !shown)} />
             </span>
-            <span id={hint} data-testid="challenge-hint" className={open ? 'board-challenge__hint notch t-footnote' : 'sr-only'}>{CHALLENGE_HINT}</span>
+            <span id={hint} data-testid="challenge-hint" className={open ? 'board-challenge__hint notch t-footnote' : 'sr-only'}>
+                {used ? CHALLENGE_USED_INFO : CHALLENGE_HINT}
+            </span>
         </span>
     );
 }
