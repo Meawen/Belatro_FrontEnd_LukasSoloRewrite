@@ -82,7 +82,7 @@ export interface ZvanjaSeatView {
     playerId: string;
     /** The seat's best value (20, 50, 100, 150, 200), or null for nothing. */
     said: number | null;
-    /** Only when `said` ties the table's top value with another seat: the best's kind and its top card (run) or rank (four). */
+    /** Only when `said` ties the table's top value with a seat of the other team (D-20): the best's kind and its top card (run) or rank (four). */
     kind: ZvanjaKind | null;
     height: Rank | null;
     /** Every declaration that scored for this seat; empty for the losing team. */
@@ -98,10 +98,13 @@ export interface ZvanjaView {
     winnerTeam: 'A' | 'B' | null;
     /** The winning team's declaration points, without bela. */
     total: number;
+    /** Why the winner beat the strongest opponent seat's best (D-20); null when the other team declared nothing. */
     decidedBy: ZvanjaDecidedBy | null;
     belot: { playerId: string; suit: Boja } | null;
     /** Epoch ms (server clock) when the first card may be played; null when nobody declared. */
     playOpensAt: number | null;
+    /** The contest winner's player id (the belot holder for a belot); null when nobody declared. */
+    winnerId?: string | null;
 }
 
 /** The game's last challenge (gameplay rules spec §5). */

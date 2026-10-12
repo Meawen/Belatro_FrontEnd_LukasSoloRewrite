@@ -5,7 +5,7 @@ import type { Rank, ZvanjaSeatView, ZvanjaView } from '../../../types/game';
 export const MOMENT_MS = 5000;
 /** Between two seats speaking. */
 export const SAY_GAP_MS = 600;
-/** From T0: the heights step when values tie, else the winner step (after the fourth seat speaks). */
+/** From T0: the heights step when values tie between opponents (D-20), else the winner step (after the fourth seat speaks). */
 const HEIGHTS_MS = 4 * SAY_GAP_MS + 200;
 /** From T0: the winner step after a heights step. */
 const WINNER_AFTER_HEIGHTS_MS = 3400;
@@ -30,8 +30,9 @@ const FOUR_LABEL: Partial<Record<Rank, string>> = {
 };
 
 /**
- * "up to Baba" (a run) or "four Asovi" (a four) for a seat tied at the top value; null for any other seat. The
- * moment's bubbles and the hand history's line (gameplay rules §7) say it the same way.
+ * "up to Baba" (a run) or "four Asovi" (a four) for a seat tied at the top value with an opponent (the view's kind and
+ * height); null for any other seat. The moment's bubbles and the hand history's line (gameplay rules §7) say it the
+ * same way.
  */
 export function heightText(seat: ZvanjaSeatView): string | null {
     if (seat.height === null) return null;
@@ -39,13 +40,21 @@ export function heightText(seat: ZvanjaSeatView): string | null {
 }
 
 /**
- * "Team B scores 70", with why when nobody won by value: "ivo's is higher", "ivo's four beats the run" or
- * "ivo was first" ("Yours", "Your", "You were" for me). The winner: the first winning seat holding the top value.
+ * An older backend sends no winnerId: the first winning seat holding the top value. It misnames the winner when
+ * partners both hold the top value at different heights.
+ */
+function firstWinnerAtTop(zvanja: ZvanjaView): string | undefined {
+    const top = Math.max(...zvanja.seats.map((seat) => seat.said ?? 0));
+    return zvanja.seats.find((seat) => seat.declarations.length > 0 && seat.said === top)?.playerId;
+}
+
+/**
+ * "Team B scores 70", with why when the opponents tied it on value (D-20; the view's decidedBy): "ivo's is higher",
+ * "ivo's four beats the run" or "ivo was first" ("Yours", "Your", "You were" for me). The winner: the view's winnerId.
  */
 function winnerLine(zvanja: ZvanjaView, me: string): string {
     const scores = `Team ${zvanja.winnerTeam} scores ${zvanja.total}`;
-    const top = Math.max(...zvanja.seats.map((seat) => seat.said ?? 0));
-    const winner = zvanja.seats.find((seat) => seat.declarations.length > 0 && seat.said === top)?.playerId;
+    const winner = zvanja.winnerId ?? firstWinnerAtTop(zvanja);
     if (winner === undefined) return scores;
     const mine = winner === me;
     switch (zvanja.decidedBy) {

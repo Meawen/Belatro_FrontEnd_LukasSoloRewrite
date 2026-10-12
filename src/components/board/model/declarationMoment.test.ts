@@ -120,6 +120,55 @@ describe('the declaration moment (gameplay rules spec §6, D-9, D-14)', () => {
             .toBe('Declarations: you 20 up to Baba, mara nothing, lana nothing, me 20 up to Baba. You were first: Team B scores 20.')
     })
 
+    test('only partners tie (D-20): no heights, no heights step, and the plain line', () => {
+        // ivo and lana (team B) both said 50, lana's up to As the higher; my team said 20 or nothing: the server sends
+        // no kind or height, and decidedBy against the strongest opponent seat (VALUE), or null when it said nothing
+        const partners = (mine: number | null) => zvanja([
+            seat('ivo', 50, { declarations: [run(50, 'BABA')] }),
+            seat('mara', null),
+            seat('lana', 50, { declarations: [run(50, 'AS')] }),
+            seat('me', mine),
+        ], { winnerTeam: 'B', total: 100, decidedBy: mine === null ? null : 'VALUE', winnerId: 'lana' })
+        for (const [mine, me] of [[20, '20'], [null, '–']] as const) {
+            const view = partners(mine)
+            expect(momentAt(view, 'me', T0 + 2599)!.step).toBe('saying')
+            expect(momentAt(view, 'me', T0 + 2600)).toEqual({
+                step: 'winner',
+                bubbles: { ivo: '50', mara: '–', lana: '50', me },
+                line: 'Team B scores 100',
+                srLine: `Declarations: ivo 50, mara nothing, lana 50, you ${mine ?? 'nothing'}. Team B scores 100.`,
+                showCards: false,
+            })
+        }
+    })
+
+    test('partners both at the top value with different heights: the winner is winnerId (A2), not the first of them', () => {
+        // A1 20 up to Baba, B1 20 up to Kralj, A2 20 up to As: A2's beats B1's (HEIGHT), and team A scores both 20s
+        const view = zvanja([
+            seat('A1', 20, { kind: 'RUN', height: 'BABA', declarations: [run(20, 'BABA')] }),
+            seat('B1', 20, { kind: 'RUN', height: 'KRALJ' }),
+            seat('A2', 20, { kind: 'RUN', height: 'AS', declarations: [run(20, 'AS')] }),
+            seat('B2', null),
+        ], { winnerTeam: 'A', total: 40, decidedBy: 'HEIGHT', winnerId: 'A2' })
+        const theirs = momentAt(view, 'B2', T0 + 3400)!
+        expect(theirs.bubbles).toEqual({ A1: '20 · up to Baba', B1: '20 · up to Kralj', A2: '20 · up to As', B2: '–' })
+        expect(theirs.line).toBe("A2's is higher: Team A scores 40")
+        expect(theirs.srLine).toBe(
+            "Declarations: A1 20 up to Baba, B1 20 up to Kralj, A2 20 up to As, you nothing. A2's is higher: Team A scores 40.")
+        expect(momentAt(view, 'A2', T0 + 3400)!.line).toBe('Yours is higher: Team A scores 40')
+        expect(momentAt(view, 'A1', T0 + 3400)!.line).toBe("A2's is higher: Team A scores 40")
+    })
+
+    test('an older backend (no winnerId): the first winning seat at the top value, as before', () => {
+        expect(tied).not.toHaveProperty('winnerId')
+        expect(momentAt(tied, 'me', T0 + 3400)!.line).toBe('ivo was first: Team B scores 20')
+        expect(momentAt({ ...tied, winnerId: null }, 'me', T0 + 3400)!.line).toBe('ivo was first: Team B scores 20')
+        const height = zvanja([
+            seat('ivo', 20, { kind: 'RUN', height: 'AS', declarations: [run(20, 'AS')] }), seat('mara', 20, { kind: 'RUN', height: 'BABA' }),
+        ], { winnerTeam: 'B', total: 20, decidedBy: 'HEIGHT' })
+        expect(momentAt(height, 'me', T0 + 3400)!.line).toBe("ivo's is higher: Team B scores 20")
+    })
+
     test('a four names its rank in the plural', () => {
         const plural: [Rank, string][] = [
             ['DECKO', 'Decki'], ['DEVETKA', 'Devetke'], ['AS', 'Asovi'], ['DESETKA', 'Desetke'], ['KRALJ', 'Kralji'], ['BABA', 'Babe'],

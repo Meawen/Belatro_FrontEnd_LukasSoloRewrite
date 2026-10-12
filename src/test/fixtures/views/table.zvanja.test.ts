@@ -19,7 +19,7 @@ describe('playTable: the declarations at the trump call (gameplay rules §2, §5
         const call = find(t, 'call:')
         const z = call.public.zvanja!
         expect(seatsOf(call.public)).toEqual([['alice', 20, null, null], ['bob', 20, null, null], ['carol', 100, null, null], ['dave', 20, null, null]])
-        expect(z).toMatchObject({ winnerTeam: 'A', total: 140, decidedBy: 'VALUE', belot: null })
+        expect(z).toMatchObject({ winnerTeam: 'A', total: 140, decidedBy: 'VALUE', belot: null, winnerId: 'carol' })
         const [alice, bob, carol, dave] = z.seats
         expect(carol.declarations).toEqual([{ kind: 'FOUR', points: 100, suit: null, top: 'AS' }, { kind: 'RUN', points: 20, suit: 'KARA', top: 'AS' }])
         expect(ids(carol.cards)).toEqual(['HERC-AS', 'KARA-AS', 'KARA-BABA', 'KARA-KRALJ', 'PIK-AS', 'TREF-AS'])
@@ -35,12 +35,12 @@ describe('playTable: the declarations at the trump call (gameplay rules §2, §5
         expect(added(find(t, 'hand-complete').public)).toBe(140)
     })
 
-    test('seed 234: two runs in one suit both count; heights on every seat at the top value; the partner is the one beaten (HEIGHT)', () => {
-        // alice Karo 8-10 and Baba-As, bob Tref up to Decko, carol Herc up to Baba
+    test('seed 234: two runs in one suit both count; heights on every seat at the top value (bob ties both); decided against bob (HEIGHT)', () => {
+        // alice Karo 8-10 and Baba-As, bob Tref up to Decko, carol Herc up to Baba: alice's As beats bob's Decko, the strongest opponent
         const t = playTable({ seed: 234 })
         const call = find(t, 'call:')
         expect(seatsOf(call.public)).toEqual([['alice', 20, 'RUN', 'AS'], ['bob', 20, 'RUN', 'DECKO'], ['carol', 20, 'RUN', 'BABA'], ['dave', null, null, null]])
-        expect(call.public.zvanja).toMatchObject({ winnerTeam: 'A', total: 60, decidedBy: 'HEIGHT' })
+        expect(call.public.zvanja).toMatchObject({ winnerTeam: 'A', total: 60, decidedBy: 'HEIGHT', winnerId: 'alice' })
         expect(call.public.zvanja!.seats[0].declarations).toEqual([
             { kind: 'RUN', points: 20, suit: 'KARA', top: 'AS' }, { kind: 'RUN', points: 20, suit: 'KARA', top: 'DESETKA' },
         ])
@@ -52,7 +52,7 @@ describe('playTable: the declarations at the trump call (gameplay rules §2, §5
     test('seed 113: two 20s up to As tie fully: the first in turn order wins (ORDER), heights on the two tied seats', () => {
         const call = find(playTable({ seed: 113 }), 'call:')
         expect(seatsOf(call.public)).toEqual([['alice', 20, 'RUN', 'AS'], ['bob', 20, 'RUN', 'AS'], ['carol', null, null, null], ['dave', null, null, null]])
-        expect(call.public.zvanja).toMatchObject({ winnerTeam: 'A', total: 20, decidedBy: 'ORDER' })
+        expect(call.public.zvanja).toMatchObject({ winnerTeam: 'A', total: 20, decidedBy: 'ORDER', winnerId: 'alice' })
         expect(call.public.zvanja!.seats.map((s) => s.declarations.length)).toEqual([1, 0, 0, 0])
         expect(ids(call.public.zvanja!.seats[0].cards)).toEqual(['KARA-AS', 'KARA-BABA', 'KARA-KRALJ'])
     })
@@ -60,14 +60,36 @@ describe('playTable: the declarations at the trump call (gameplay rules §2, §5
     test('a four beats an equal run (FOUR); a lone declarer (decidedBy null); nobody declared', () => {
         const four = find(playTable({ seed: 1101 }), 'call:').public
         expect(seatsOf(four)).toEqual([['alice', 100, 'FOUR', 'AS'], ['bob', null, null, null], ['carol', null, null, null], ['dave', 100, 'RUN', 'BABA']])
-        expect(four.zvanja).toMatchObject({ winnerTeam: 'A', total: 100, decidedBy: 'FOUR' })
+        expect(four.zvanja).toMatchObject({ winnerTeam: 'A', total: 100, decidedBy: 'FOUR', winnerId: 'alice' })
         const lone = find(playTable(), 'call:').public
         expect(seatsOf(lone)).toEqual([['alice', null, null, null], ['bob', null, null, null], ['carol', null, null, null], ['dave', 20, null, null]])
-        expect(lone.zvanja).toMatchObject({ winnerTeam: 'B', total: 20, decidedBy: null })
+        expect(lone.zvanja).toMatchObject({ winnerTeam: 'B', total: 20, decidedBy: null, winnerId: 'dave' })
         const nobody = find(playTable({ seed: 3 }), 'call:').public
-        expect(nobody.zvanja).toMatchObject({ winnerTeam: null, total: 0, decidedBy: null, belot: null, playOpensAt: null })
+        expect(nobody.zvanja).toMatchObject({ winnerTeam: null, total: 0, decidedBy: null, belot: null, playOpensAt: null, winnerId: null })
         expect(nobody.zvanja!.seats.every((s) => s.said === null && s.declarations.length === 0 && s.cards.length === 0)).toBe(true)
         expect(nobody.declarations).toEqual({})
+    })
+
+    test('seed 305: partners both at the top value, an opponent too: heights on all three; the winner is carol, not alice (HEIGHT)', () => {
+        // alice 20 up to Decko and carol 20 up to As (team A), dave 20 up to Baba (team B): carol's As beats dave's Baba
+        const call = find(playTable({ seed: 305 }), 'call:').public
+        expect(seatsOf(call)).toEqual([['alice', 20, 'RUN', 'DECKO'], ['bob', null, null, null], ['carol', 20, 'RUN', 'AS'], ['dave', 20, 'RUN', 'BABA']])
+        expect(call.zvanja).toMatchObject({ winnerTeam: 'A', total: 40, decidedBy: 'HEIGHT', winnerId: 'carol' })
+    })
+
+    test('only partners tie (D-20): no kind or height on any seat; decidedBy against the strongest opponent seat (VALUE), or null', () => {
+        // seed 451: bob 50 up to Baba and dave 50 up to As (team B), carol 20: dave wins, by value against carol
+        const value = find(playTable({ seed: 451 }), 'call:').public
+        expect(seatsOf(value)).toEqual([['alice', null, null, null], ['bob', 50, null, null], ['carol', 20, null, null], ['dave', 50, null, null]])
+        expect(value.zvanja).toMatchObject({ winnerTeam: 'B', total: 100, decidedBy: 'VALUE', winnerId: 'dave' })
+        // seed 139: alice and carol (team A) both 20 up to Kralj, team B nothing: alice, first in order; decidedBy null
+        const alone = find(playTable({ seed: 139 }), 'call:').public
+        expect(seatsOf(alone)).toEqual([['alice', 20, null, null], ['bob', null, null, null], ['carol', 20, null, null], ['dave', null, null, null]])
+        expect(alone.zvanja).toMatchObject({ winnerTeam: 'A', total: 40, decidedBy: null, winnerId: 'alice' })
+        // seed 84: alice 20 up to As beats carol's up to Decko; team B nothing
+        const higher = find(playTable({ seed: 84 }), 'call:').public
+        expect(seatsOf(higher)).toEqual([['alice', 20, null, null], ['bob', null, null, null], ['carol', 20, null, null], ['dave', null, null, null]])
+        expect(higher.zvanja).toMatchObject({ winnerTeam: 'A', total: 40, decidedBy: null, winnerId: 'alice' })
     })
 
     test('null while bidding, the same from the call to the end of the hand, null again at the next deal; lastChallenge always null', () => {
@@ -138,7 +160,7 @@ describe('playTable: belot (gameplay rules §3)', () => {
             expect(Object.values(f.private).some((p) => p.yourTurn)).toBe(false)
         }
         const z = t[i].public.zvanja!
-        expect(z).toMatchObject({ belot: { playerId: 'carol', suit: 'PIK' }, winnerTeam: 'A', total: 0, decidedBy: null, playOpensAt: null })
+        expect(z).toMatchObject({ belot: { playerId: 'carol', suit: 'PIK' }, winnerTeam: 'A', total: 0, decidedBy: null, playOpensAt: null, winnerId: 'carol' })
         expect(z.seats.every((s) => s.said === null && s.kind === null && s.height === null)).toBe(true)
         expect(z.seats.map((s) => [s.playerId, s.declarations, ids(s.cards)])).toEqual([
             ['alice', [], []], ['bob', [], []], ['carol', [], PIK], ['dave', [], []],
@@ -148,6 +170,6 @@ describe('playTable: belot (gameplay rules §3)', () => {
     test('the belot team goes one above the other when the other is past 1001 (R-7)', () => {
         const t = playTable({ belot: { player: 'bob', suit: 'KARA' }, scores: [1100, 1050] })
         expect(t[t.length - 1].public).toMatchObject({ teamAScore: 1100, teamBScore: 1101, winnerTeamId: 'B', endReason: 'BELOT' })
-        expect(t[t.length - 1].public.zvanja).toMatchObject({ belot: { playerId: 'bob', suit: 'KARA' }, winnerTeam: 'B' })
+        expect(t[t.length - 1].public.zvanja).toMatchObject({ belot: { playerId: 'bob', suit: 'KARA' }, winnerTeam: 'B', winnerId: 'bob' })
     })
 })

@@ -183,8 +183,11 @@ function declarationsOf(hand: readonly GameCard[]): Declared[] {
 /**
  * The one contest at the trump call (spec §2, §5), `order` from the player after the dealer: the single
  * best declaration wins, a full tie going to the first in order, and its team scores every declaration
- * of both its players. A belot (the first in order holding all eight of a suit) ends the game instead:
- * nothing scores and `winnerTeam` is the holder's team. `playOpensAt` is left null.
+ * of both its players. Ties are told only between opponents (D-20): a seat's kind and height only when
+ * its best ties the top value with a seat of the other team, and decidedBy against the strongest opponent
+ * seat's best (null when the other team declared nothing). A belot (the first in order holding all eight
+ * of a suit) ends the game instead: nothing scores, `winnerTeam` is the holder's team and `winnerId` the
+ * holder. `playOpensAt` is left null.
  */
 function contest(hands: Record<string, GameCard[]>, order: readonly string[]): ZvanjaView {
     const holder = order.find((id) => belotSuit(hands[id]));
@@ -195,22 +198,22 @@ function contest(hands: Record<string, GameCard[]>, order: readonly string[]): Z
                 playerId, said: null, kind: null, height: null, declarations: [],
                 cards: playerId === holder ? RANKS.map((rank) => ({ boja: suit, rank })) : [],
             })),
-            winnerTeam: teamOf(holder), total: 0, decidedBy: null, belot: { playerId: holder, suit }, playOpensAt: null,
+            winnerTeam: teamOf(holder), total: 0, decidedBy: null, belot: { playerId: holder, suit }, playOpensAt: null, winnerId: holder,
         };
     }
     const all = order.map((id) => ({ id, found: declarationsOf(hands[id]) }));
     let winner: (typeof all)[number] | null = null;
     for (const seat of all) if (seat.found[0] && (!winner || stronger(seat.found[0], winner.found[0]) > 0)) winner = seat;
+    const team = winner ? teamOf(winner.id) : null;
     let rival: Declared | null = null;
-    for (const seat of all) if (seat !== winner && seat.found[0] && (!rival || stronger(seat.found[0], rival) > 0)) rival = seat.found[0];
+    for (const seat of all) if (teamOf(seat.id) !== team && seat.found[0] && (!rival || stronger(seat.found[0], rival) > 0)) rival = seat.found[0];
     const best = winner?.found[0] ?? null;
     const decidedBy = !best || !rival ? null
         : best.points !== rival.points ? 'VALUE' : best.kind !== rival.kind ? 'FOUR' : stronger(best, rival) > 0 ? 'HEIGHT' : 'ORDER';
-    const team = winner ? teamOf(winner.id) : null;
     const atTop = (seat: (typeof all)[number]) => best !== null && seat.found[0]?.points === best.points;
     const seats = all.map((seat) => {
         const scored = teamOf(seat.id) === team ? seat.found : [];
-        const shown = atTop(seat) && all.some((other) => other !== seat && atTop(other)) ? seat.found[0] : null;
+        const shown = atTop(seat) && all.some((other) => teamOf(other.id) !== teamOf(seat.id) && atTop(other)) ? seat.found[0] : null;
         const cards = scored.flatMap((d) => d.cards);
         return {
             playerId: seat.id,
@@ -222,7 +225,7 @@ function contest(hands: Record<string, GameCard[]>, order: readonly string[]): Z
         };
     });
     const total = seats.reduce((sum, seat) => sum + seat.declarations.reduce((points, d) => points + d.points, 0), 0);
-    return { seats, winnerTeam: team, total, decidedBy, belot: null, playOpensAt: null };
+    return { seats, winnerTeam: team, total, decidedBy, belot: null, playOpensAt: null, winnerId: winner?.id ?? null };
 }
 
 /** The older `declarations` field from the contest: each scorer's best run and best four, bela false. */
