@@ -72,6 +72,21 @@ export function teamOf(view: PublicGameView, me: string): 'A' | 'B' | null {
     return null;
 }
 
+/** A four's rank in the plural ("four Asovi"); sevens and eights never make a four that scores. */
+const FOUR_LABEL: Partial<Record<Rank, string>> = {
+    DECKO: 'Decki', DEVETKA: 'Devetke', AS: 'Asovi', DESETKA: 'Desetke', KRALJ: 'Kralji', BABA: 'Babe',
+};
+
+/**
+ * "up to Baba" (a run) or "four Asovi" (a four) for a seat tied at the top value with an opponent (D-20; the view's
+ * kind and height); null for any other seat. The board's declaration moment and the hand history (gameplay rules §7)
+ * say it the same way: it lives here so the hand history doesn't pull the moment's module into every page.
+ */
+export function heightText(seat: ZvanjaSeatView): string | null {
+    if (seat.height === null) return null;
+    return seat.kind === 'FOUR' ? `four ${FOUR_LABEL[seat.height] ?? RANK_LABEL[seat.height]}` : `up to ${RANK_LABEL[seat.height]}`;
+}
+
 /** A seat's scored declarations as values, strongest first (the view's order): "50 + 20". */
 export function declaredPoints(seat: ZvanjaSeatView): string {
     return seat.declarations.map((declaration) => declaration.points).join(' + ');

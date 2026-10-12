@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Panel, PixelIcon, Tag } from '../ui';
 import { cx } from '../ui/cx';
-import { BOJE, SUIT_LABEL, heldAllEight } from '../game/gameView';
-import { heightText } from '../board/model/declarationMoment';
+import { BOJE, SUIT_LABEL, heightText, heldAllEight } from '../game/gameView';
 import type { ZvanjaView } from '../../types/game';
 import type { ChallengeDTO, HandDTO, HandSummary, MatchDTO, TrumpCallDTO } from '../../types/match';
 import { PlayerChip } from './PlayerChip';

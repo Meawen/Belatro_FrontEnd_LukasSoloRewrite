@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest'
-import { cardLabel, declarationLines, endSentence, isBelaCard, seatsFromMe, trumpOf } from './gameView'
+import { cardLabel, declarationLines, endSentence, heightText, isBelaCard, seatsFromMe, trumpOf } from './gameView'
+import { shippedSources } from '../../test/sourceFiles'
 import type { GameCard, PublicGameView, ZvanjaSeatView, ZvanjaView } from '../../types/game'
 
 const seats = ['alice', 'bob', 'carol', 'dave'].map((id) => ({ id, cardsLeft: 8 }))
@@ -119,5 +120,26 @@ describe('isBelaCard (R-32)', () => {
         expect(isBelaCard({ boja: 'HERC', rank: 'BABA' }, hand, 'HERC')).toBe(false)
         expect(isBelaCard({ boja: 'PIK', rank: 'AS' }, hand, 'PIK')).toBe(false)
         expect(isBelaCard({ boja: 'PIK', rank: 'KRALJ' }, hand, null)).toBe(false)
+    })
+})
+
+describe('heightText: a tied seat\'s height, said the same on the board and in the hand history (gameplay rules §6, §7, D-20)', () => {
+    const tied = (kind: ZvanjaSeatView['kind'], height: ZvanjaSeatView['height']): ZvanjaSeatView =>
+        ({ playerId: 'ivo', said: kind === 'FOUR' ? 100 : 20, kind, height, declarations: [], cards: [] })
+
+    test('"up to Baba" for a run, "four Asovi" for a four, its rank\'s label for a four with no plural; null when not tied with an opponent', () => {
+        expect(heightText(tied('RUN', 'BABA'))).toBe('up to Baba')
+        expect(heightText(tied('FOUR', 'AS'))).toBe('four Asovi')
+        expect(heightText(tied('FOUR', 'DECKO'))).toBe('four Decki')
+        expect(heightText(tied('FOUR', 'OSMICA'))).toBe('four 8')
+        expect(heightText(tied(null, null))).toBeNull()
+    })
+
+    test('the board\'s moment module stays in the game page\'s chunk: nothing outside the board imports it (the every-page JS)', () => {
+        const hits = shippedSources()
+            .filter(({ path }) => !path.startsWith('src/components/board/'))
+            .filter(({ text }) => /from\s+['"][^'"]*board\/model\/declarationMoment['"]/.test(text))
+            .map(({ path }) => path)
+        expect(hits).toEqual([])
     })
 })
