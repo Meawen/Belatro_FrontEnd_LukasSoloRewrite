@@ -298,18 +298,22 @@ describe('Board: your Challenge button (gameplay rules §6, R-2, R-3, D-4, D-7)'
     test('hidden in the window a right challenge decided (R-3), in the HUD and in the sheet', () => {
         const right = challenged(table[PLAYING], 'dave', true)
         for (const me of ['carol', 'dave']) {
-            const { rerenderWith } = renderBoard({ state: tableState(table[PLAYING], me), me })
-            rerenderWith({ state: tableState(right, me) })
+            live(me, right)
+            // while the banner says it (the sheet waits), and once the sheet is up
+            expect(screen.queryByRole('button', { name: /^Challenge/ }), me).toBeNull()
+            after(1200)
+            after(2000)
             expect(screen.getByTestId('hand-result'), me).toBeInTheDocument()
             expect(screen.queryByRole('button', { name: /^Challenge/ }), me).toBeNull()
             expect(screen.queryByTestId('challenge-hint'), me).toBeNull()
             cleanup()
+            vi.useRealTimers()
         }
     })
 })
 
 describe('Board: the hand result after a right challenge (gameplay rules §6, D-8)', () => {
-    test('the sheet rises at once, the table clear: its header names the challengers, the new numbers and the countdown; the cards stay in hand', () => {
+    test('who, then the outcome, then the sheet (D-8): its header names the challengers, the new numbers and the countdown; the cards stay in hand', () => {
         vi.useFakeTimers()
         const right = challenged(table[PLAYING], 'dave', true)
         vi.setSystemTime(table[PLAYING].at)
@@ -318,19 +322,38 @@ describe('Board: the hand result after a right challenge (gameplay rules §6, D-
         const held = screen.getAllByTestId('hand-card').length
         vi.setSystemTime(right.at)
         rerenderWith({ state: tableState(right) })
-        // the partial trick leaves the table with the hand; nothing is held, so the sheet is up at once
+        // the partial trick leaves the table with the hand; the sheet waits while the banner says it
         expect(screen.queryAllByTestId('trick-card')).toHaveLength(0)
+        expect(panel()).toHaveTextContent('dave challenges!')
+        expect(screen.queryByTestId('hand-result')).toBeNull()
+        expect(screen.queryByText('Foul found: Team B takes the hand')).toBeNull()
+        after(1200)
+        expect(panel()).toHaveTextContent('Foul found: Team B takes the hand')
+        expect(screen.queryByTestId('hand-result')).toBeNull()
+        after(1999)
+        expect(screen.queryByTestId('hand-result')).toBeNull()
+        after(1)
+        expect(banner()).toBeNull()
         const sheet = screen.getByTestId('hand-result')
         expect(within(sheet).getByRole('heading', { name: 'Foul found: Team B takes the hand' })).toBeInTheDocument()
         // carol is in team A: Mi 0, Vi 162 from the scores the board saw change
         expect(within(sheet).getAllByText(/^(0|162)$/).map((el) => el.textContent)).toEqual(['0', '162'])
-        expect(within(sheet).getByText('Next hand in 10 s')).toBeInTheDocument()
+        // the server's 10-s window started with the challenge
+        expect(within(sheet).getByText('Next hand in 7 s')).toBeInTheDocument()
         expect(screen.getAllByTestId('hand-card')).toHaveLength(held)
-        // the banner is up above it, then gone; the sheet stays for its window
-        expect(panel()).toHaveTextContent('dave challenges!')
-        after(1200)
-        expect(panel()).toHaveTextContent('Foul found: Team B takes the hand')
-        after(2000)
+    })
+
+    test('a snapshot of the decided hand shows no banner, so the sheet is up at once', () => {
+        renderBoard({ state: tableState(challenged(table[PLAYING], 'dave', true), 'carol', 'snapshot') })
+        expect(banner()).toBeNull()
+        expect(within(screen.getByTestId('hand-result')).getByRole('heading', { name: 'Foul found: Team B takes the hand' })).toBeInTheDocument()
+    })
+
+    test('a snapshot during the banner ends it, and the sheet rises', () => {
+        const right = challenged(table[PLAYING], 'dave', true)
+        const { rerenderWith } = live('carol', right)
+        expect(screen.queryByTestId('hand-result')).toBeNull()
+        rerenderWith({ state: tableState(right, 'carol', 'snapshot') })
         expect(banner()).toBeNull()
         expect(screen.getByTestId('hand-result')).toBeInTheDocument()
     })
@@ -346,8 +369,9 @@ describe('Board: a right challenge in the window (gameplay rules §1, R-4)', () 
         rerenderWith({ state: tableState(table[last]) })
         rerenderWith({ state: tableState(table[win]) })
         after(900)
+        const open = screen.getByTestId('hand-result')
         // carol is in team A: Mi 11, Vi 171 as the hand was played
-        expect(within(screen.getByTestId('hand-result')).getAllByText(/^(11|171)$/).map((el) => el.textContent)).toEqual(['11', '171'])
+        expect(within(open).getAllByText(/^(11|171)$/).map((el) => el.textContent)).toEqual(['11', '171'])
         // dave's right challenge takes the award back: team B 162, team A nothing, the window again at 10 s
         const right = structuredClone(table[win])
         right.at += 3000
@@ -357,12 +381,18 @@ describe('Board: a right challenge in the window (gameplay rules §1, R-4)', () 
         })
         vi.setSystemTime(right.at)
         rerenderWith({ state: tableState(right) })
-        const sheet = screen.getByTestId('hand-result')
-        expect(within(sheet).getByRole('heading', { name: 'Foul found: Team B takes the hand' })).toBeInTheDocument()
-        expect(within(sheet).getAllByText(/^(0|162)$/).map((el) => el.textContent)).toEqual(['0', '162'])
-        expect(within(sheet).getByText('Next hand in 10 s')).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: /^Challenge/ })).toBeNull()
+        // the sheet already open stays open under the banner (nothing to wait for: the hand was over), the same element
         expect(panel()).toHaveTextContent('dave challenges!')
+        expect(screen.getByTestId('hand-result')).toBe(open)
+        expect(within(open).getByRole('heading', { name: 'Foul found: Team B takes the hand' })).toBeInTheDocument()
+        expect(within(open).getAllByText(/^(0|162)$/).map((el) => el.textContent)).toEqual(['0', '162'])
+        expect(within(open).getByText('Next hand in 10 s')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /^Challenge/ })).toBeNull()
+        after(1200)
+        expect(screen.getByTestId('hand-result')).toBe(open)
+        after(2000)
+        expect(banner()).toBeNull()
+        expect(screen.getByTestId('hand-result')).toBe(open)
     })
 })
 

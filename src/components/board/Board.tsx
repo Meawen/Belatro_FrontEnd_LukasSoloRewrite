@@ -334,18 +334,22 @@ export function Board(props: BoardProps) {
     const hand = waiting ? model.hand.map((card) => (card.enabled ? { ...card, enabled: false } : card)) : model.hand;
 
     // the challenge, out loud (gameplay rules §6): a live Challenged starts the banner, which unmounts once said; a
-    // snap (a snapshot) never shows one, and ends one still up
+    // snap (a snapshot) never shows one, and ends one still up. A right one that ended the hand holds the hand result
+    // until it is said (D-8: who, then the outcome, then the sheet); a sheet already open in the window stays open.
     const challenged = current.events?.find((event): event is Challenged => event.type === 'Challenged') ?? null;
-    const [keptBanner, setBanner] = useState<{ challenge: Challenged; since: number; done: boolean } | null>(null);
+    const [keptBanner, setBanner] = useState<{ challenge: Challenged; since: number; done: boolean; holdsResult: boolean } | null>(null);
     let banner = keptBanner;
     if (challenged && challenged.number !== keptBanner?.challenge.number) {
-        banner = { challenge: challenged, since: now, done: false };
+        const endedHand = current.events!.some((event) => event.type === 'HandCompleted');
+        banner = { challenge: challenged, since: now, done: false, holdsResult: challenged.foulFound && endedHand };
         setBanner(banner);
     } else if (instant && keptBanner && !keptBanner.done) {
         banner = { ...keptBanner, done: true };
         setBanner(banner);
     }
     const bannerSaid = useCallback(() => setBanner((was) => (was && !was.done ? { ...was, done: true } : was)), []);
+    // the hand result rises once the last trick has left the table, and a right challenge's banner has been said
+    const resultOpen = model.handComplete && current.held === null && !(banner && !banner.done && banner.holdsResult);
 
     return (
         <LazyMotion features={domMax}>
@@ -380,14 +384,15 @@ export function Board(props: BoardProps) {
                         )}
                         <Hud model={model} instant={instant} calledBy={called?.type === 'TrumpCalled' ? called.playerId : null} calls={current.calls}
                             onChallenge={onChallenge} challengePending={challengeWaiting}
-                            resultOpen={model.handComplete && current.held === null} onMenu={() => setPanel('menu')} onBlok={layout.blok ? null : () => open('blok')} />
+                            resultOpen={resultOpen} onMenu={() => setPanel('menu')} onBlok={layout.blok ? null : () => open('blok')} />
                         {error && <div className="board-error"><ErrorAlert message={error} /></div>}
                     </div>
                     {layout.blok && <BlokColumn model={model} hands={hands} />}
                 </div>
                 <Summary model={model} />
-                {/* both rise once the last trick has left the table (spec §5.3.4 HandCompleted, Ended) */}
-                <HandResult model={model} open={model.handComplete && current.held === null} hands={hands} delta={current.handDelta}
+                {/* both rise once the last trick has left the table (spec §5.3.4 HandCompleted, Ended); the hand result also
+                    waits for a right challenge's banner (resultOpen) */}
+                <HandResult model={model} open={resultOpen} hands={hands} delta={current.handDelta}
                     onChallenge={onChallenge} challengePending={challengeWaiting} />
                 <EndSheet model={model} open={model.end !== null && current.held === null && !holding} rematch={rematch} onLeave={onLeave} />
                 <GameMenu model={model} open={panel === 'menu'} onClose={() => setPanel(null)} onBlok={layout.blok ? null : () => open('blok')} />
