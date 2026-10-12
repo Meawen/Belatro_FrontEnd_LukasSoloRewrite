@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { dropLeaving, emptyStage, landTrick, settleStage, shownPiles, stepStage, sweepHeld, tableTrick, trickKey, withInput, type Stage } from './stage'
+import { dropLeaving, emptyStage, fadeKept, landTrick, settleStage, shownPiles, stepStage, sweepHeld, tableTrick, trickKey, withInput, type Stage } from './stage'
 import { pressCard, PENDING_MS } from './model/input'
 import type { BoardState } from './model/accept'
 import { indexOf, playTable, type FanOut } from '../../test/fixtures/views/table'
@@ -102,17 +102,40 @@ describe('the stage: holds, sweeps and entrances (spec §5.3.4, §5.5)', () => {
         return f
     }
 
-    test('a right challenge mid-trick (gameplay rules §6): the partial trick fades, nothing is held, so the hand result can rise; the cards stay in hand', () => {
+    test('a right challenge mid-trick (gameplay rules §6): the partial trick stays on the table while the banner says who, then fades (fadeKept); nothing is held; the cards stay in hand', () => {
         const midTrick = run(at('play:bob:PIK-BABA'))
         const partial = midTrick.model!.trick!
         expect(partial.plays).toHaveLength(2)
         const after = stepStage(midTrick, stateOf(decided()), 0)
         expect(after.events!.map((e) => e.type)).toEqual(['Challenged', 'HandCompleted', 'Scored', 'Turn'])
-        expect(after.leaving).toEqual([expect.objectContaining({ key: trickKey(partial), team: null, at: 'fade', deal: 1 })])
-        expect(tableTrick(after)).toBeNull()
+        expect(after.kept).toEqual({ key: trickKey(partial), trick: partial })
+        expect(after.leaving).toEqual([])
+        expect(tableTrick(after)).toEqual(partial)
         expect(after.held).toBeNull()
         expect(after.handDelta).toEqual({ a: 0, b: 162 })
         expect(after.model!.hand).toHaveLength(midTrick.model!.hand.length)
+        // the banner's outcome: it fades where it lies
+        const faded = fadeKept(after)
+        expect(faded.kept).toBeNull()
+        expect(faded.leaving).toEqual([expect.objectContaining({ key: trickKey(partial), team: null, at: 'fade', deal: 1 })])
+        expect(tableTrick(faded)).toBeNull()
+        expect(fadeKept(faded)).toBe(faded)
+    })
+
+    test('the kept trick shows even when the view takes it off the table; a snapshot or a deal ends it', () => {
+        const midTrick = run(at('play:bob:PIK-BABA'))
+        const partial = midTrick.model!.trick!
+        const gone = decided()
+        gone.private.carol.publicPart.currentTrick = { leadPlayerId: '_NO_LEAD_', trump: null, plays: {} }
+        const after = stepStage(midTrick, stateOf(gone), 0)
+        expect(after.model!.trick?.plays ?? []).toHaveLength(0)
+        expect(tableTrick(after)).toEqual(partial)
+        // a snapshot (a reconnect) shows the decided hand as it is
+        expect(stepStage(after, stateOf(decided(), 'snapshot'), 0).kept).toBeNull()
+        // the next deal: it fades, if the banner never reached its outcome
+        const dealt = stepStage(after, stateOf(table[at('next-deal')]), 0)
+        expect(dealt.kept).toBeNull()
+        expect(dealt.leaving).toEqual([expect.objectContaining({ key: trickKey(partial), at: 'fade', deal: 1 })])
     })
 
     test('a right challenge in the window: the hand\'s change follows the scores (the award taken back, the challengers\' given)', () => {

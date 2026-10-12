@@ -11,6 +11,8 @@ export interface ChallengeProps {
     state: 'available' | 'used';
     /** A press waits for the server's answer: disabled, so a double tap sends once (gameplay rules §6). */
     pending: boolean;
+    /** The step before a challenge, shown while its banner says who: disabled, as it was labelled (the board ignores a press). */
+    frozen?: boolean;
 }
 
 /**
@@ -18,7 +20,7 @@ export interface ChallengeProps {
  * button that reveals the hint. The hint (`challenge-hint`) is in the DOM in full while Challenge shows, visually
  * hidden until revealed; once my challenge is gone it says why the button is greyed.
  */
-export function Challenge({ onChallenge, place, state, pending }: ChallengeProps) {
+export function Challenge({ onChallenge, place, state, pending, frozen = false }: ChallengeProps) {
     const [open, setOpen] = useState(false);
     const hint = useId();
     const used = state === 'used';
@@ -34,7 +36,7 @@ export function Challenge({ onChallenge, place, state, pending }: ChallengeProps
             <span className="board-challenge__buttons">
                 {/* its own panel on a portrait phone, where the two stack (board.css): opaque behind a greyed button */}
                 <span className="board-challenge__main">
-                    <Button size="sm" variant="secondary" aria-describedby={hint} disabled={used} loading={pending} onClick={onChallenge}>
+                    <Button size="sm" variant="secondary" aria-describedby={hint} disabled={used || frozen} loading={pending} onClick={onChallenge}>
                         {used ? 'Challenge used' : 'Challenge'}
                     </Button>
                 </span>

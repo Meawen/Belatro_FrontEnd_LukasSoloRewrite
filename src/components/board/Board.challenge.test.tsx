@@ -1,12 +1,16 @@
 import { describe, test, expect, vi, afterEach, beforeEach } from 'vitest'
-import { act, cleanup, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { actions, renderBoard, tableState } from './testing'
 import { bannerSpot, layoutFor } from './model/cardTargets'
+import { WHO_MS } from './model/challengeMoment'
+import { endedHand } from './model/hands'
+import { devHands } from '../../dev/devTable'
 import { find, indexOf, playTable, type FanOut } from '../../test/fixtures/views/table'
+import type { MatchHands } from '../../hooks/useMatchHands'
 
 // board.css as written (Vitest doesn't load CSS); not new URL(…, import.meta.url), which Vite turns into an import
 const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'board.css'), 'utf8')
@@ -186,9 +190,12 @@ describe('Board: the challenge said out loud in the middle of the table (gamepla
 })
 
 describe('Board: the seats without a challenge (gameplay rules §6, D-6)', () => {
-    test('a quiet "No challenge" tag on the spent seat for every viewer, said "bob: no challenge left", still there after the next deal', () => {
+    test('a quiet "No challenge" tag on the spent seat for every viewer, said "bob: no challenge left", from the banner\'s outcome, still there after the next deal', () => {
         for (const me of PLAYERS) {
             const { rerenderWith } = live(me, challenged(table[PLAYING], 'bob', false))
+            // while the banner says who, the seats are as before (the board's step before)
+            expect(screen.queryByText('No challenge'), me).toBeNull()
+            after(WHO_MS)
             const check = (when: string) => {
                 const seat = screen.getByTestId('seat-bob')
                 expect(within(seat).getByText('No challenge'), `${me} ${when}`).toBeInTheDocument()
@@ -197,7 +204,7 @@ describe('Board: the seats without a challenge (gameplay rules §6, D-6)', () =>
                     expect(screen.getByTestId(`seat-${other}`), `${me} ${when}`).not.toHaveTextContent(/no challenge/i)
                 }
             }
-            check('at once')
+            check('at the outcome')
             rerenderWith({ state: tableState(spent(table[NEXT_DEAL], 'bob'), me) })
             expect(screen.getByTestId('game-phase'), me).toHaveTextContent('Bidding')
             check('after the next deal')
@@ -254,8 +261,9 @@ describe('Board: your Challenge button (gameplay rules §6, R-2, R-3, D-4, D-7)'
         rerenderWith({ state: tableState(table[PLAYING + 1]) })
         expect(table[PLAYING + 1].version).toBe(table[PLAYING].version)
         expect(button()).toBeDisabled()
-        // a newer state is (here another seat's wrong challenge: mine is still there)
-        rerenderWith({ state: tableState(challenged(table[PLAYING], 'bob', false)) })
+        // a newer state is (here the next card: a challenge's answer is said first, which the next describe covers)
+        rerenderWith({ state: tableState(table[PLAYING + 2]) })
+        expect(table[PLAYING + 2].version).toBeGreaterThan(table[PLAYING].version)
         expect(button()).toBeEnabled()
         await user.click(button())
         expect(moves.challenge).toHaveBeenCalledTimes(2)
@@ -296,13 +304,15 @@ describe('Board: your Challenge button (gameplay rules §6, R-2, R-3, D-4, D-7)'
         expect(screen.getAllByTestId('challenge-hint')).toHaveLength(1)
     })
 
-    test('hidden in the window a right challenge decided (R-3), in the HUD and in the sheet', () => {
+    test('hidden in the window a right challenge decided (R-3), in the HUD and in the sheet, from the banner\'s outcome', () => {
         const right = challenged(table[PLAYING], 'dave', true)
         for (const me of ['carol', 'dave']) {
             live(me, right)
-            // while the banner says it (the sheet waits), and once the sheet is up
-            expect(screen.queryByRole('button', { name: /^Challenge/ }), me).toBeNull()
+            // while the banner says who, the HUD is the step before's: its Challenge shows, disabled
+            expect(screen.getByRole('button', { name: 'Challenge' }), me).toBeDisabled()
             after(1200)
+            // from the outcome (the sheet waits), and once the sheet is up
+            expect(screen.queryByRole('button', { name: /^Challenge/ }), me).toBeNull()
             after(2000)
             expect(screen.getByTestId('hand-result'), me).toBeInTheDocument()
             expect(screen.queryByRole('button', { name: /^Challenge/ }), me).toBeNull()
@@ -323,13 +333,18 @@ describe('Board: the hand result after a right challenge (gameplay rules §6, D-
         const held = screen.getAllByTestId('hand-card').length
         vi.setSystemTime(right.at)
         rerenderWith({ state: tableState(right) })
-        // the partial trick leaves the table with the hand; the sheet waits while the banner says it
-        expect(screen.queryAllByTestId('trick-card')).toHaveLength(0)
+        // the partial trick stays on the table while the banner says who; the sheet waits while the banner says it
+        expect(screen.getAllByTestId('trick-card')).toHaveLength(2)
         expect(panel()).toHaveTextContent('dave challenges!')
         expect(screen.queryByTestId('hand-result')).toBeNull()
         expect(screen.queryByText('Foul found: Team B takes the hand')).toBeNull()
-        after(1200)
+        after(1199)
+        expect(screen.getAllByTestId('trick-card')).toHaveLength(2)
+        // the outcome: the partial trick fades where it lies (the sweep layer), off the trick region
+        after(1)
         expect(panel()).toHaveTextContent('Foul found: Team B takes the hand')
+        expect(screen.queryAllByTestId('trick-card')).toHaveLength(0)
+        expect(document.querySelectorAll('.board-sweep-card')).toHaveLength(2)
         expect(screen.queryByTestId('hand-result')).toBeNull()
         after(1999)
         expect(screen.queryByTestId('hand-result')).toBeNull()
@@ -389,7 +404,8 @@ describe('Board: a right challenge in the window (gameplay rules §1, R-4)', () 
         vi.setSystemTime(right.at)
         rerenderWith({ state: tableState(right) })
         // the sheet already open stays open under the banner, the same element, and gives nothing away while it says who:
-        // its header, its numbers and its countdown as before; only its Challenge goes (the window is decided, R-3)
+        // its header, its numbers, its countdown and its Challenge as before, the Challenge disabled (the window is
+        // decided, R-3: a press would be refused)
         expect(panel()).toHaveTextContent('dave challenges!')
         expect(screen.getByTestId('hand-result')).toBe(open)
         expect(within(open).getByRole('heading', { name: 'Hand finished' })).toBeInTheDocument()
@@ -397,7 +413,7 @@ describe('Board: a right challenge in the window (gameplay rules §1, R-4)', () 
         expect(within(open).getAllByText(/^(11|171)$/).map((el) => el.textContent)).toEqual(['11', '171'])
         // the old window's countdown runs on, the same element: not restarted yet
         expect(open.querySelector('.board-window')).toBe(countdown)
-        expect(screen.queryByRole('button', { name: /^Challenge/ })).toBeNull()
+        expect(within(open).getByRole('button', { name: 'Challenge' })).toBeDisabled()
         after(1199)
         expect(within(open).getByRole('heading', { name: 'Hand finished' })).toBeInTheDocument()
         // the outcome: now the sheet says it too, with the new numbers and the window restarted with the challenge
@@ -408,6 +424,7 @@ describe('Board: a right challenge in the window (gameplay rules §1, R-4)', () 
         expect(within(open).getAllByText(/^(0|162)$/).map((el) => el.textContent)).toEqual(['0', '162'])
         expect(open.querySelector('.board-window')).not.toBe(countdown)
         expect(within(open).getByText('Next hand in 9 s')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /^Challenge/ })).toBeNull()
         after(2000)
         expect(banner()).toBeNull()
         expect(screen.getByTestId('hand-result')).toBe(open)
@@ -446,6 +463,221 @@ describe('Board: a right challenge in the window (gameplay rules §1, R-4)', () 
 
     test('the banner over the docked sheet is opaque: nothing under it shows through', () => {
         expect(css).toMatch(/\.board-banner__panel\[data-place="top"\] \{[^}]*background: var\(--ink\);/)
+    })
+})
+
+describe('Board: the step before, while the banner says who (gameplay rules §6, D-8)', () => {
+    // a desktop, so Bela Blok is the column beside the board
+    const DESKTOP = { width: 1440, height: 900 }
+    const CHALLENGE = /^Challenge( used)?$/
+
+    /** The stored hands by fan-out `upTo`, as a refetch brings them. */
+    function storedHands(fanOuts: readonly FanOut[], upTo: number): MatchHands {
+        const hands = devHands(fanOuts, upTo)
+        const v = fanOuts[upTo].public
+        return { hands, ended: endedHand(hands, { a: v.teamAScore, b: v.teamBScore }), loading: false, error: null, refresh: vi.fn() }
+    }
+
+    /** A Challenge button inside `root`: its label, or null. */
+    const challengeIn = (root: HTMLElement | null) => (root ? within(root).queryByRole('button', { name: CHALLENGE })?.textContent ?? null : null)
+
+    /** Everything on the board a challenge's outcome changes, besides the hand-result sheet (which keeps its own rule). */
+    function shown() {
+        return {
+            scores: [screen.getByTestId('score-a').textContent, screen.getByTestId('score-b').textContent],
+            phase: screen.getByTestId('game-phase').textContent,
+            hudChallenge: challengeIn(document.querySelector<HTMLElement>('.board-hud')),
+            tags: PLAYERS.filter((id) => within(screen.getByTestId(`seat-${id}`)).queryByText('No challenge') !== null),
+            countdowns: screen.queryAllByTestId('turn-countdown').map((el) => el.closest('.board-seat')!.getAttribute('data-testid')),
+            yourTurn: screen.queryByTestId('your-turn') !== null,
+            trick: screen.queryAllByTestId('trick-card').map((el) => el.getAttribute('data-card')),
+            blok: screen.getByTestId('bela-blok').textContent,
+        }
+    }
+
+    /** The open hand result's header and numbers, and its Challenge. */
+    function sheetShown() {
+        const sheet = screen.queryByTestId('hand-result')
+        if (!sheet) return null
+        return { header: within(sheet).getByRole('heading').textContent, numbers: sheet.querySelector('.board-result')?.textContent ?? null, challenge: challengeIn(sheet) }
+    }
+
+    /** What `me` sees of fan-out `f` from a snapshot (a reconnect): the outcome, all of it at once. */
+    function finalOf(f: FanOut, me: string, hands: MatchHands) {
+        vi.useFakeTimers()
+        vi.setSystemTime(f.at)
+        renderBoard({ state: tableState(f, me, 'snapshot'), me, hands, viewport: DESKTOP })
+        const final = { shown: shown(), sheet: sheetShown() }
+        cleanup()
+        vi.useRealTimers()
+        return final
+    }
+
+    /** `me`'s board live at fan-out `from` (the step before), with the hands stored by then. */
+    function liveFrom(t: FanOut[], from: number, me: string, source: 'live' | 'snapshot' = 'live') {
+        vi.useFakeTimers()
+        vi.setSystemTime(t[from].at)
+        const moves = actions()
+        const result = renderBoard({ state: tableState(t[from], me, source), me, hands: storedHands(t, from), viewport: DESKTOP, actions: moves })
+        /** The next fan-out, live, at its own time. */
+        const step = (i: number, hands = storedHands(t, i - 1)) => {
+            vi.setSystemTime(t[i].at)
+            result.rerenderWith({ state: tableState(t[i], me), hands })
+        }
+        return { ...result, moves, step }
+    }
+
+    test('a right challenge during play: until WHO_MS the board is the step before (scores, phase, Challenge, countdown, Your turn, the trick, Blok); at WHO_MS the outcome', () => {
+        const t = playTable({ challenge: { by: 'dave', after: 2, foul: true } })
+        const said = indexOf(t, 'challenge:')
+        // the seat to act sees its countdown and "Your turn"; the hand's two cards are on the table
+        const me = t[said - 1].public.currentPlayerId!
+        expect(me).not.toBe('dave')
+        expect(t[said + 1].label).toBe('window-open')
+        const final = finalOf(t[said + 2], me, storedHands(t, said + 2))
+        const { step } = liveFrom(t, said - 1, me)
+        const before = shown()
+        expect(before.phase).toBe('Playing')
+        expect(before.hudChallenge).toBe('Challenge')
+        expect(before.countdowns).toEqual([`seat-${me}`])
+        expect(before.yourTurn).toBe(true)
+        expect(before.trick).toHaveLength(2)
+        expect(final.shown).not.toEqual(before)
+        step(said)
+        // the window opens, and the refetch brings the hand's stored result: none of it shows while the banner says who
+        step(said + 1)
+        step(said + 2, storedHands(t, said + 2))
+        expect(panel()).toHaveTextContent('dave challenges!')
+        expect(shown()).toEqual(before)
+        after(WHO_MS - 1)
+        expect(panel()).toHaveTextContent('dave challenges!')
+        expect(shown()).toEqual(before)
+        // the frozen Challenge is the step before's, shown disabled
+        expect(within(document.querySelector<HTMLElement>('.board-hud')!).getByRole('button', { name: 'Challenge' })).toBeDisabled()
+        after(1)
+        expect(panel()).toHaveTextContent('Foul found: Team B takes the hand')
+        expect(shown()).toEqual(final.shown)
+        // the sheet still waits for the banner (D-8: who, the outcome, then the sheet)
+        expect(sheetShown()).toBeNull()
+    })
+
+    test('a right challenge in the window: until WHO_MS the HUD, Blok and the open sheet are the step before; at WHO_MS the outcome', () => {
+        const t = playTable({ challenge: { by: 'dave', after: 'window', foul: true } })
+        const said = indexOf(t, 'challenge:')
+        const final = finalOf(t[said], 'carol', storedHands(t, said))
+        const { step, rerenderWith } = liveFrom(t, said - 1, 'carol', 'snapshot')
+        const before = shown()
+        const sheet = sheetShown()!
+        expect(sheet.header).toBe('Hand 1')
+        expect(sheet.challenge).toBe('Challenge')
+        expect(before.hudChallenge).toBeNull()
+        expect(final.shown).not.toEqual(before)
+        expect(final.sheet).not.toEqual(sheet)
+        // the challenge, and the refetch with the corrected hand: the HUD, Blok and the sheet give nothing away yet
+        step(said)
+        rerenderWith({ hands: storedHands(t, said) })
+        after(WHO_MS - 1)
+        expect(panel()).toHaveTextContent('dave challenges!')
+        expect(shown()).toEqual(before)
+        expect(sheetShown()).toEqual(sheet)
+        expect(within(screen.getByTestId('hand-result')).getByRole('button', { name: 'Challenge' })).toBeDisabled()
+        after(1)
+        expect(panel()).toHaveTextContent('Foul found: Team B takes the hand')
+        expect(shown()).toEqual(final.shown)
+        expect(sheetShown()).toEqual(final.sheet)
+        expect(sheetShown()!.challenge).toBeNull()
+    })
+
+    test('a wrong challenge: until WHO_MS no "No challenge" tag, and my own Challenge is not yet "Challenge used"; at WHO_MS both', () => {
+        const t = playTable({ challenge: { by: 'bob', after: 2, foul: false } })
+        const said = indexOf(t, 'challenge:')
+        for (const me of ['bob', 'carol']) {
+            const final = finalOf(t[said], me, storedHands(t, said))
+            const { step } = liveFrom(t, said - 1, me)
+            const before = shown()
+            expect(before.tags).toEqual([])
+            expect(before.hudChallenge, me).toBe('Challenge')
+            step(said)
+            expect(panel(), me).toHaveTextContent(me === 'bob' ? 'You challenge!' : 'bob challenges!')
+            after(WHO_MS - 1)
+            expect(shown(), me).toEqual(before)
+            expect(screen.getByRole('button', { name: 'Challenge' }), me).toBeDisabled()
+            after(1)
+            expect(shown(), me).toEqual(final.shown)
+            expect(shown().tags, me).toEqual(['bob'])
+            expect(shown().hudChallenge, me).toBe(me === 'bob' ? 'Challenge used' : 'Challenge')
+            cleanup()
+            vi.useRealTimers()
+        }
+    })
+
+    test('a press on the frozen Challenge sends nothing; from the outcome a press acts on the newest model', () => {
+        // carol's own challenge is still there after bob's wrong one: frozen, it is inert all the same
+        const wrong = playTable({ challenge: { by: 'bob', after: 2, foul: false } })
+        const said = indexOf(wrong, 'challenge:')
+        const { step, moves } = liveFrom(wrong, said - 1, 'carol')
+        step(said)
+        fireEvent.click(screen.getByRole('button', { name: 'Challenge' }))
+        expect(moves.challenge).not.toHaveBeenCalled()
+        after(WHO_MS)
+        expect(screen.getByRole('button', { name: 'Challenge' })).toBeEnabled()
+        fireEvent.click(screen.getByRole('button', { name: 'Challenge' }))
+        expect(moves.challenge).toHaveBeenCalledTimes(1)
+        cleanup()
+        vi.useRealTimers()
+        // a right one decided the hand: the server would refuse a press ("You can't challenge now")
+        const right = playTable({ challenge: { by: 'dave', after: 2, foul: true } })
+        const decided = indexOf(right, 'challenge:')
+        const board = liveFrom(right, decided - 1, 'carol')
+        board.step(decided)
+        fireEvent.click(screen.getByRole('button', { name: 'Challenge' }))
+        expect(board.moves.challenge).not.toHaveBeenCalled()
+        after(WHO_MS)
+        expect(screen.queryByRole('button', { name: CHALLENGE })).toBeNull()
+        expect(board.moves.challenge).not.toHaveBeenCalled()
+    })
+
+    test('the partial trick stays on its slots while the banner says who, even when the view has taken it off the table', () => {
+        const right = challenged(table[PLAYING], 'dave', true)
+        Object.values(right.private).forEach((priv) => { priv.publicPart.currentTrick = { leadPlayerId: '_NO_LEAD_', trump: null, plays: {} } })
+        vi.useFakeTimers()
+        renderBoard({ state: tableState(table[PLAYING]) })
+        const slots = screen.getAllByTestId('trick-card').map((el) => [el.getAttribute('data-card'), el.style.left, el.style.top])
+        cleanup()
+        live('carol', right)
+        expect(screen.getAllByTestId('trick-card').map((el) => [el.getAttribute('data-card'), el.style.left, el.style.top])).toEqual(slots)
+        after(WHO_MS)
+        expect(screen.queryAllByTestId('trick-card')).toHaveLength(0)
+    })
+
+    test('a new deal while the banner says who (a wrong challenge late in the window) shows the new hand: the step before is a finished hand', () => {
+        const t = playTable({ challenge: { by: 'bob', after: 'window', foul: false } })
+        const said = indexOf(t, 'challenge:')
+        const deal = indexOf(t, 'next-deal', said)
+        const { step } = liveFrom(t, said - 1, 'carol', 'snapshot')
+        step(said)
+        expect(shown().phase).toBe('Hand finished')
+        expect(shown().tags).toEqual([])
+        // no timer has run: the banner still says who when the window closes and the next hand is dealt
+        for (let i = said + 1; i <= deal; i++) step(i)
+        expect(panel()).toHaveTextContent('bob challenges!')
+        expect(shown().phase).toBe('Bidding')
+        expect(shown().tags).toEqual(['bob'])
+    })
+
+    test('a snapshot while the banner says who shows the final state at once', () => {
+        const t = playTable({ challenge: { by: 'dave', after: 2, foul: true } })
+        const said = indexOf(t, 'challenge:')
+        const final = finalOf(t[said], 'carol', storedHands(t, said))
+        const { rerenderWith } = liveFrom(t, said - 1, 'carol')
+        vi.setSystemTime(t[said].at)
+        rerenderWith({ state: tableState(t[said], 'carol'), hands: storedHands(t, said) })
+        after(300)
+        expect(shown()).not.toEqual(final.shown)
+        rerenderWith({ state: { ...tableState(t[said], 'carol', 'snapshot'), receivedAt: t[said].at + 300 } })
+        expect(banner()).toBeNull()
+        expect(shown()).toEqual(final.shown)
+        expect(sheetShown()).toEqual(final.sheet)
     })
 })
 

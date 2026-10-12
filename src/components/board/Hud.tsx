@@ -49,6 +49,8 @@ export interface HudProps {
     onChallenge: () => void;
     /** A challenge waits for the server's answer. */
     challengePending: boolean;
+    /** `model` is the step before a challenge while its banner says who: Challenge shows as it was, disabled. */
+    challengeFrozen: boolean;
     /** The hand-result sheet is open: Challenge sits there, not here. */
     resultOpen: boolean;
     onMenu: () => void;
@@ -61,7 +63,7 @@ export interface HudProps {
  * the trump badge, whose inner `trump` element holds exactly the suit name and exists only once trump
  * is called ("Bidding" and the season word sit outside it); Challenge while playing; Blok (phones); the menu.
  */
-export function Hud({ model, instant, calledBy, calls, onChallenge, challengePending, resultOpen, onMenu, onBlok }: HudProps) {
+export function Hud({ model, instant, calledBy, calls, onChallenge, challengePending, challengeFrozen, resultOpen, onMenu, onBlok }: HudProps) {
     const reduced = useReducedMotion();
     const badge = useRef<HTMLSpanElement>(null);
     const mine = model.myTeam ?? 'A';
@@ -101,7 +103,7 @@ export function Hud({ model, instant, calledBy, calls, onChallenge, challengePen
                 )}
                 {/* nothing waits for the hold (§5.3.5 rule 5): while the last trick is held the window is already open */}
                 {model.challenge !== 'hidden' && (model.playing || (model.handComplete && !resultOpen)) && (
-                    <Challenge place="hud" state={model.challenge} pending={challengePending} onChallenge={onChallenge} />
+                    <Challenge place="hud" state={model.challenge} pending={challengePending} frozen={challengeFrozen} onChallenge={onChallenge} />
                 )}
             </div>
             <div className="board-hud__group">

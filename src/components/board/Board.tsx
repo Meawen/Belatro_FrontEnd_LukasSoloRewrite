@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { AnimatePresence, LazyMotion, domMax } from 'motion/react';
 import { hold } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
@@ -32,10 +32,10 @@ import {
 } from './model/input';
 import { dropLeaving, emptyStage, landTrick, settleStage, shownPiles, stepStage, sweepHeld, tableTrick, withInput, type Stage } from './stage';
 import { useBoardViewport } from './useBoardViewport';
+import { useChallengeBanner } from './useChallengeBanner';
 import type { BoardState } from './model/accept';
 import type { Boja } from '../../types/game';
-import type { BoardModel, Team } from './model/boardModel';
-import type { Challenged } from './model/diffBoard';
+import type { BoardModel, HandCardModel, Team } from './model/boardModel';
 import type { GameActions } from '../../hooks/useGameViews';
 import type { MatchHands } from '../../hooks/useMatchHands';
 import type { RematchState } from '../../hooks/useRematch';
@@ -183,22 +183,12 @@ interface MomentLocal {
 }
 
 /**
- * The challenge banner as this screen keeps it: when it started, once it reached its outcome (`told`) and once it is
- * said (`done`); whether it holds the hand result back (it ended the hand), or what an already open sheet showed.
+ * "Your turn" over my hand (spec §5.3.3 `your-turn`): only while I can bid or play (`shown`), never in HAND_COMPLETE;
+ * placed by the hand as it is.
  */
-interface ChallengeLocal {
-    challenge: Challenged;
-    since: number;
-    told: boolean;
-    done: boolean;
-    holdsResult: boolean;
-    sheet: { model: BoardModel; delta: Stage['handDelta']; hands: MatchHands | null | undefined } | null;
-}
-
-/** "Your turn" over my hand (spec §5.3.3 `your-turn`): only while I can bid or play, never in HAND_COMPLETE. */
-function YourTurn({ model, targets, layout }: { model: BoardModel; targets: Targets; layout: Layout }) {
-    if (!model.yourTurn) return null;
-    const tops = model.hand.map((card) => targets.cards[card.id]?.top ?? layout.board.h);
+function YourTurn({ shown, hand, targets, layout }: { shown: boolean; hand: HandCardModel[]; targets: Targets; layout: Layout }) {
+    if (!shown) return null;
+    const tops = hand.map((card) => targets.cards[card.id]?.top ?? layout.board.h);
     const top = (tops.length ? Math.min(...tops) : layout.board.h - layout.hand.h) - 40;
     return <span data-testid="your-turn" className="board-your-turn notch t-footnote font-semibold" style={{ top }}>Your turn</span>;
 }
@@ -240,6 +230,9 @@ export function Board(props: BoardProps) {
     useStageTimers(current, setStage);
     const latest = useRef(current);
     latest.current = current;
+    // this render's clock: when a declaration moment or a challenge banner first shows
+    const now = Date.now();
+    const challenge = useChallengeBanner(stage, current, hands, now, setStage);
 
     // Input (spec §5.3.5): a press acts on the newest model at once; one move in flight. If it didn't go
     // out ("Not sent — reconnecting") the lock clears, so the player can try again.
@@ -257,6 +250,8 @@ export function Board(props: BoardProps) {
     // (a refused press changes no state). A send that didn't go out keeps nothing.
     const [challengeSent, setChallengeSent] = useState<ChallengeSent | null>(null);
     const onChallenge = () => {
+        // a frozen Challenge (the step before, while a banner says who) is inert
+        if (challenge.frozen) return;
         const sent = pressChallenge(latest.current.model!, challengeSent);
         if (sent && actions.challenge()) setChallengeSent(sent);
     };
@@ -307,14 +302,15 @@ export function Board(props: BoardProps) {
     const box = useBoardViewport(viewport);
     const layout = useMemo(() => layoutFor(box.viewport), [box.viewport]);
     const model = current.model!;
-    const targets = useMemo(() => cardTargets(model, layout), [model, layout]);
+    // a partial trick a right challenge took off the table stays on its slots while the banner says who
+    const held = current.kept?.trick ?? null;
+    const targets = useMemo(() => cardTargets(held ? { ...model, trick: held } : model, layout), [model, held, layout]);
     const instant = current.events === null;
     const challengeWaiting = challengePending(challengeSent, model);
     const piles = shownPiles(current);
     const called = current.events?.find((event) => event.type === 'TrumpCalled');
 
     // the declaration moment (gameplay rules §6): a new hand's starts afresh; a snapshot during it shows its end state
-    const now = Date.now();
     const key = momentKey(model.zvanja, model.playOpensAt);
     const [kept, setMoment] = useState<MomentLocal | null>(null);
     let moment = kept;
@@ -347,29 +343,13 @@ export function Board(props: BoardProps) {
     }, [wakeAt, wakes]);
     const hand = waiting ? model.hand.map((card) => (card.enabled ? { ...card, enabled: false } : card)) : model.hand;
 
-    // the challenge, out loud (gameplay rules §6): a live Challenged starts the banner, which unmounts once said; a
-    // snap (a snapshot) never shows one, and ends one still up. A right one that ended the hand holds the hand result
-    // until it is said (D-8: who, then the outcome, then the sheet); a sheet already open in the window stays open, but
-    // shows what it showed (`sheet`, the step before) until the banner reaches the outcome (`told`).
-    const challenged = current.events?.find((event): event is Challenged => event.type === 'Challenged') ?? null;
-    const [keptBanner, setBanner] = useState<ChallengeLocal | null>(null);
-    let banner = keptBanner;
-    if (challenged && challenged.number !== keptBanner?.challenge.number) {
-        const endedHand = current.events!.some((event) => event.type === 'HandCompleted');
-        // `stage` is still the step before here: what the open sheet showed before the challenge
-        const sheet = challenged.foulFound && !endedHand && stage.model ? { model: stage.model, delta: stage.handDelta, hands } : null;
-        banner = { challenge: challenged, since: now, done: false, told: false, holdsResult: challenged.foulFound && endedHand, sheet };
-        setBanner(banner);
-    } else if (instant && keptBanner && !keptBanner.done) {
-        banner = { ...keptBanner, done: true };
-        setBanner(banner);
-    }
-    const bannerTold = useCallback(() => setBanner((was) => (was && !was.told ? { ...was, told: true } : was)), []);
-    const bannerSaid = useCallback(() => setBanner((was) => (was && !was.done ? { ...was, done: true } : was)), []);
-    // the hand result rises once the last trick has left the table, and a right challenge's banner has been said
-    const resultOpen = model.handComplete && current.held === null && !(banner && !banner.done && banner.holdsResult);
-    // while the banner says who, an open sheet keeps its header and numbers; its Challenge goes (the window is decided)
-    const frozen = banner && !banner.done && !banner.told ? banner.sheet : null;
+    // the challenge, out loud (gameplay rules §6, D-8): while its banner says who, the HUD, the seats, Bela Blok and an
+    // open hand result show the step before (`shown`); the hand and the trick are the newest, inputs act on them
+    const { banner, told, done, resultOpen, frozen } = challenge;
+    const shown = frozen?.model ?? model;
+    const shownHands = frozen ? frozen.hands : hands;
+    // the sheet keeps its rule: held during play until the banner is done (resultOpen); frozen in the window
+    const sheet = frozen?.model.handComplete ? frozen : null;
 
     return (
         <LazyMotion features={domMax}>
@@ -388,8 +368,8 @@ export function Board(props: BoardProps) {
                         {piles && <Piles counts={piles} targets={targets} myTeam={model.myTeam ?? 'A'} onTap={onPile} />}
                         <TrickRegion stage={current} model={model} targets={targets} reduced={reduced} />
                         <Hand cards={hand} targets={targets} deal={current.deal} entrances={current.entrances} instant={instant} reduced={reduced} onPress={onCard} />
-                        <Seats model={model} targets={targets} layout={layout} instant={instant} playOpen={!waiting} />
-                        <YourTurn model={model} targets={targets} layout={layout} />
+                        <Seats model={shown} targets={targets} layout={layout} instant={instant} playOpen={!waiting} />
+                        <YourTurn shown={shown.yourTurn} hand={hand} targets={targets} layout={layout} />
                         <BidPanel model={model} onBid={onBid} />
                         {model.belaPrompt && targets.cards[model.belaPrompt.id] && (
                             <BelaPrompt card={model.belaPrompt} target={targets.cards[model.belaPrompt.id]} onAnswer={onBela} onDismiss={closeBela} />
@@ -398,27 +378,26 @@ export function Board(props: BoardProps) {
                         {moment && !moment.skipped && (waiting || holding) && (
                             <DeclarationMoment key={moment.key} model={model} layout={layout} targets={targets} snapshot={moment.snapshot} reduced={reduced} onSkip={skip} />
                         )}
-                        {banner && !banner.done && (
+                        {banner && (
                             <ChallengeBanner key={banner.challenge.number} challenge={banner.challenge} name={seatName(model, banner.challenge.playerId)}
-                                since={banner.since} layout={layout} sheetOpen={resultOpen} reduced={reduced} onOutcome={bannerTold} onDone={bannerSaid} />
+                                since={banner.since} layout={layout} sheetOpen={resultOpen} reduced={reduced} onOutcome={told} onDone={done} />
                         )}
-                        <Hud model={model} instant={instant} calledBy={called?.type === 'TrumpCalled' ? called.playerId : null} calls={current.calls}
-                            onChallenge={onChallenge} challengePending={challengeWaiting}
+                        <Hud model={shown} instant={instant} calledBy={called?.type === 'TrumpCalled' ? called.playerId : null} calls={current.calls}
+                            onChallenge={onChallenge} challengePending={challengeWaiting} challengeFrozen={frozen !== null}
                             resultOpen={resultOpen} onMenu={() => setPanel('menu')} onBlok={layout.blok ? null : () => open('blok')} />
                         {error && <div className="board-error"><ErrorAlert message={error} /></div>}
                     </div>
-                    {layout.blok && <BlokColumn model={model} hands={hands} />}
+                    {layout.blok && <BlokColumn model={shown} hands={shownHands} />}
                 </div>
                 <Summary model={model} />
                 {/* both rise once the last trick has left the table (spec §5.3.4 HandCompleted, Ended); the hand result also
                     waits for a right challenge's banner (resultOpen) */}
-                <HandResult model={frozen ? { ...frozen.model, challenge: model.challenge } : model} open={resultOpen}
-                    hands={frozen ? frozen.hands : hands} delta={frozen ? frozen.delta : current.handDelta}
-                    onChallenge={onChallenge} challengePending={challengeWaiting} />
+                <HandResult model={sheet ? sheet.model : model} open={resultOpen} hands={sheet ? sheet.hands : hands} delta={sheet ? sheet.delta : current.handDelta}
+                    onChallenge={onChallenge} challengePending={challengeWaiting} challengeFrozen={frozen !== null} />
                 <EndSheet model={model} open={model.end !== null && current.held === null && !holding} rematch={rematch} onLeave={onLeave} />
                 <GameMenu model={model} open={panel === 'menu'} onClose={() => setPanel(null)} onBlok={layout.blok ? null : () => open('blok')} />
                 <Sheet open={panel === 'blok' && !layout.blok} onClose={() => setPanel(null)} title="Bela Blok" showClose data-testid="bela-blok">
-                    <BlokTable model={model} hands={hands} />
+                    <BlokTable model={shown} hands={shownHands} />
                     <p className="t-footnote text-text-3 mt-3">{BLOK_HINT}</p>
                 </Sheet>
                 <Peek model={model} hands={hands} open={panel === 'peek'} onClose={() => setPanel(null)} />

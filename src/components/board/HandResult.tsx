@@ -37,6 +37,8 @@ export interface HandResultProps {
     onChallenge: () => void;
     /** A challenge waits for the server's answer. */
     challengePending: boolean;
+    /** `model` is the step before a challenge while its banner says who: Challenge shows as it was, disabled. */
+    challengeFrozen: boolean;
 }
 
 /**
@@ -45,7 +47,7 @@ export interface HandResultProps {
  * gameplay rules §6). "Hand n", Mi and Vi with their zvanja and bela, PAD/CAPOT, the challenge window's bar
  * ("Next hand shortly" before the server sets it), and Challenge with its hint while it shows.
  */
-export function HandResult({ model, open, hands, delta, onChallenge, challengePending }: HandResultProps) {
+export function HandResult({ model, open, hands, delta, onChallenge, challengePending, challengeFrozen }: HandResultProps) {
     const ended = hands?.ended ?? null;
     const teamOf = (id: string): Team | null => model.seats.find((seat) => seat.id === id)?.team ?? null;
     const row = ended ? blokRows(hands?.hands ?? null, teamOf).find((r) => r.handNo === ended.handNo) ?? null : null;
@@ -84,7 +86,7 @@ export function HandResult({ model, open, hands, delta, onChallenge, challengePe
             )}
             {model.window ? <WindowBar key={model.window.expiresAt} expiresAt={model.window.expiresAt} skew={model.skew} /> : <p className="t-footnote text-text-2">Next hand shortly</p>}
             {model.challenge !== 'hidden' && model.handComplete && (
-                <Challenge place="sheet" state={model.challenge} pending={challengePending} onChallenge={onChallenge} />
+                <Challenge place="sheet" state={model.challenge} pending={challengePending} frozen={challengeFrozen} onChallenge={onChallenge} />
             )}
         </Sheet>
     );
