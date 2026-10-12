@@ -5,6 +5,7 @@ import type { BoardState } from './accept';
 import {
     PHASE_LABEL, SUIT_LABEL, cardLabel, declarationLines, endSentence, isBelaCard, rematchOffered, seatsFromMe, teamOf, trumpOf, zvanjaOf,
 } from '../../game/gameView';
+import { isBot } from '../../lobby/lobbyModel';
 import type { Boja, GameBid, GameCard, GamePhase } from '../../../types/game';
 
 export type { SeatPosition, Team, TrickModel, TrickPlayModel } from './trick';
@@ -49,6 +50,8 @@ export interface SeatModel {
     position: SeatPosition;
     team: Team | null;
     isMe: boolean;
+    /** A server-side bot (PlayerPublicInfo.bot, lobbyModel `isBot`): a robot mark beside its name. */
+    bot: boolean;
     cardsLeft: number;
     /** The seat to act (`data-current`). */
     current: boolean;
@@ -204,6 +207,7 @@ export function boardModel(state: BoardState, me: string, local: BoardLocal): Bo
             position: POSITIONS[i],
             team: teamOf(view, seat.id),
             isMe: seat.id === me,
+            bot: isBot(seat),
             cardsLeft: seat.cardsLeft,
             current: seat.id === view.currentPlayerId,
             dealer: seat.id === dealerId,

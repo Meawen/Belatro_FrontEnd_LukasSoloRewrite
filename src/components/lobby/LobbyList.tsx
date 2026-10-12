@@ -7,13 +7,13 @@ import { useAuth } from '../../hooks/useAuth';
 import type { LobbyDTO } from '../../types/lobby';
 import { LobbyQuickLook } from './LobbyQuickLook';
 import {
+    countLine,
     filterLobbies,
+    isBot,
     isFull,
     isMember,
-    LOBBY_CAP,
     lobbyName,
     lobbyRowLabel,
-    memberCount,
     SORT_OPTIONS,
     sortLobbies,
     type LobbySort,
@@ -175,40 +175,46 @@ function RowFacts({ lobby, me }: { lobby: LobbyDTO; me: string | null }) {
     return (
         <span className="inline-flex items-center gap-2">
             <SeatSquares lobby={lobby} />
-            <span className="t-footnote tabular-nums text-text">
-                {memberCount(lobby)}/{LOBBY_CAP}
-            </span>
+            {/* people of the cap, then the bots: "1 of 4 · 3 bots"; Full counts people too (isFull) */}
+            <span className="t-footnote tabular-nums text-text">{countLine(lobby)}</span>
             {isFull(lobby) && <Tag tone="warn">Full</Tag>}
             {isMember(lobby, me) && <Tag tone="you">You're in</Tag>}
         </span>
     );
 }
 
-/** Team A's two seats, then Team B's: filled in the team colour when taken, outlined when free. */
+type SquareState = 'taken' | 'bot' | 'free';
+
+/** Each look in its team's colour, spelled out for Tailwind: a person fills the square, a bot is an outline with a dot. */
+const SQUARE: Record<'A' | 'B', Record<SquareState, string>> = {
+    A: {
+        taken: 'bg-team-a',
+        bot: 'shadow-[inset_0_0_0_2px_var(--team-a)] bg-[linear-gradient(var(--team-a),var(--team-a))] bg-[length:4px_4px] bg-center bg-no-repeat',
+        free: 'shadow-[inset_0_0_0_2px_var(--team-a)]',
+    },
+    B: {
+        taken: 'bg-team-b',
+        bot: 'shadow-[inset_0_0_0_2px_var(--team-b)] bg-[linear-gradient(var(--team-b),var(--team-b))] bg-[length:4px_4px] bg-center bg-no-repeat',
+        free: 'shadow-[inset_0_0_0_2px_var(--team-b)]',
+    },
+};
+
+/**
+ * Team A's two seats, then Team B's, in each team's order: filled in the team colour for a person, an outline with a
+ * dot for a bot (it holds the seat until a lobby of four takes a joiner, who gets a bot's place), outlined when free.
+ */
 function SeatSquares({ lobby }: { lobby: LobbyDTO }) {
-    const seats = [
-        { team: 'A', taken: (lobby.teamAPlayers?.length ?? 0) > 0 },
-        { team: 'A', taken: (lobby.teamAPlayers?.length ?? 0) > 1 },
-        { team: 'B', taken: (lobby.teamBPlayers?.length ?? 0) > 0 },
-        { team: 'B', taken: (lobby.teamBPlayers?.length ?? 0) > 1 },
-    ];
+    const seats = (['A', 'B'] as const).flatMap((team) =>
+        [0, 1].map((index) => {
+            const player = (team === 'A' ? lobby.teamAPlayers : lobby.teamBPlayers)?.[index];
+            const state: SquareState = !player ? 'free' : isBot(player) ? 'bot' : 'taken';
+            return { team, state };
+        }),
+    );
     return (
         <span aria-hidden="true" className="inline-flex gap-[3px]">
             {seats.map((seat, i) => (
-                <span
-                    key={i}
-                    data-seat={`${seat.team} ${seat.taken ? 'taken' : 'free'}`}
-                    className={cx(
-                        'size-2.5',
-                        seat.team === 'A'
-                            ? seat.taken
-                                ? 'bg-team-a'
-                                : 'shadow-[inset_0_0_0_2px_var(--team-a)]'
-                            : seat.taken
-                              ? 'bg-team-b'
-                              : 'shadow-[inset_0_0_0_2px_var(--team-b)]',
-                    )}
-                />
+                <span key={i} data-seat={`${seat.team} ${seat.state}`} className={cx('size-2.5', SQUARE[seat.team][seat.state])} />
             ))}
         </span>
     );

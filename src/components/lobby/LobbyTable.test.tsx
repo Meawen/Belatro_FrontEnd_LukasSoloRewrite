@@ -4,10 +4,11 @@ import userEvent from '@testing-library/user-event'
 import { LobbyTable } from './LobbyTable'
 import type { LobbyDTO } from '../../types/lobby'
 
-const mira = { id: 'u9', username: 'mira_z' }
-const luka = { id: 'u2', username: 'luka' }
-const ivo = { id: 'u3', username: 'ivo' }
-const tea = { id: 'u4', username: 'tea_r' }
+const mira = { id: 'u9', username: 'mira_z', bot: false }
+const luka = { id: 'u2', username: 'luka', bot: false }
+const ivo = { id: 'u3', username: 'ivo', bot: false }
+const tea = { id: 'u4', username: 'tea_r', bot: false }
+const botAna = { id: 'b1', username: 'Bot-Ana', bot: true }
 
 function lobby(overrides: Partial<LobbyDTO> = {}): LobbyDTO {
     return {
@@ -17,7 +18,9 @@ function lobby(overrides: Partial<LobbyDTO> = {}): LobbyDTO {
     }
 }
 
-const seatAt = (position: string) => within(document.querySelector(`[data-position="${position}"]`) as HTMLElement).getByRole('button')
+// a seat's column holds its button, then the host's "+ Bot" when there is one
+const seatAt = (position: string) => document.querySelector(`[data-position="${position}"] > button`) as HTMLElement
+const POSITIONS = ['bottom', 'right', 'top', 'left']
 
 describe('LobbyTable (spec §4.7)', () => {
     test('a seated viewer sits at the bottom, the next in turn order on the right, the partner on top (AC 11)', () => {
@@ -84,6 +87,13 @@ describe('LobbyTable (spec §4.7)', () => {
         expect(screen.getByText('Ready to deal')).toBeInTheDocument()
     })
 
+    test('in the room the centre counts seats, bots included: the host with three bots is ready to deal', () => {
+        render(<LobbyTable lobby={lobby({ teamAPlayers: [mira, botAna], teamBPlayers: [{ ...ivo, id: 'b2', username: 'Bot-Tin', bot: true }, { ...tea, id: 'b3', username: 'Bot-Nika', bot: true }], unassignedPlayers: [] })} viewerId="u9" />)
+        expect(screen.getByText('4/4')).toBeInTheDocument()
+        expect(screen.getByText('Ready to deal')).toBeInTheDocument()
+        expect(screen.queryByText(/ of 4/)).not.toBeInTheDocument()
+    })
+
     test('the host wears the crown, you are marked You, the others by team', () => {
         render(<LobbyTable lobby={lobby()} viewerId="u3" />)
         expect(seatAt('left')).toHaveTextContent('mira_zHost')
@@ -92,11 +102,210 @@ describe('LobbyTable (spec §4.7)', () => {
         expect(seatAt('left').querySelectorAll('svg').length).toBeGreaterThan(0)
     })
 
+    test('the host gets a "+ Bot" chip for each team with room, a button of its own beside the seat\'s tap', async () => {
+        const user = userEvent.setup()
+        const onSeat = vi.fn()
+        const onAddBot = vi.fn()
+        render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })} viewerId="u9" onSeat={onSeat} onAddBot={onAddBot} />)
+        expect(screen.getAllByRole('button', { name: /^Add a bot to team/ }).map((chip) => chip.textContent)).toEqual(['Bot', 'Bot'])
+        expect(screen.getAllByRole('button', { name: 'Add a bot to team B' })).toHaveLength(1)
+        await user.click(screen.getByRole('button', { name: 'Add a bot to team A' }))
+        expect(onAddBot).toHaveBeenCalledWith(expect.objectContaining({ key: 'A2', team: 'A', player: null }))
+        expect(onSeat).not.toHaveBeenCalled()
+        // the seat itself still sits (R9): the host's tap on a Team B seat moves them there
+        await user.click(within(document.querySelector('[data-position="right"]') as HTMLElement).getByRole('button', { name: 'Sit here, team B' }))
+        expect(onSeat).toHaveBeenCalledWith(expect.objectContaining({ key: 'B1', team: 'B' }))
+        expect(onAddBot).toHaveBeenCalledTimes(1)
+    })
+
+    test('nobody but the host sees the chip, nor the mini table, nor a taken seat', () => {
+        const { unmount } = render(<LobbyTable lobby={lobby({ unassignedPlayers: [] })} viewerId="u9" onAddBot={vi.fn()} />)
+        expect(screen.getAllByRole('button', { name: /^Add a bot/ })).toHaveLength(1)
+        unmount()
+        // three members and an empty seat: a seated member, an outsider, nobody signed in, an unassigned member
+        const views: [LobbyDTO, string | null][] = [
+            [lobby({ unassignedPlayers: [] }), 'u2'],
+            [lobby({ unassignedPlayers: [] }), 'u7'],
+            [lobby({ unassignedPlayers: [] }), null],
+            [lobby({ teamBPlayers: [], unassignedPlayers: [tea] }), 'u4'],
+        ]
+        for (const [view, viewer] of views) {
+            const { unmount: next } = render(<LobbyTable lobby={view} viewerId={viewer} onAddBot={vi.fn()} />)
+            expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
+            next()
+        }
+        render(<LobbyTable lobby={lobby({ unassignedPlayers: [] })} viewerId="u9" mini />)
+        expect(screen.queryByText('Bot')).not.toBeInTheDocument()
+    })
+
+    test('no chip without a handler: a "+ Bot" that does nothing is never drawn (R18)', () => {
+        render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })} viewerId="u9" onSeat={vi.fn()} />)
+        expect(screen.getAllByRole('button', { name: /^Sit here|^Open seat/ }).length).toBeGreaterThan(0)
+        expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
+    })
+
+    test('while a request runs the chips take no tap', async () => {
+        const user = userEvent.setup()
+        const onAddBot = vi.fn()
+        render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })} viewerId="u9" busy={{ key: 'A2', label: 'Adding…' }} onAddBot={onAddBot} />)
+        expect(screen.getByRole('button', { name: 'Adding…' })).toHaveAttribute('aria-busy', 'true')
+        const chip = screen.getAllByRole('button', { name: 'Add a bot to team B' })[0]
+        expect(chip).toBeDisabled()
+        await user.click(chip)
+        expect(onAddBot).not.toHaveBeenCalled()
+    })
+
+    test('the host\'s "+ Bot" is a small secondary button: the team\'s 6-px square at its leading edge, the robot, "Bot" (R32)', () => {
+        render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })} viewerId="u9" onAddBot={vi.fn()} />)
+        const chip = screen.getByRole('button', { name: 'Add a bot to team A' })
+        expect(chip).toHaveClass('ui-btn', 'ui-btn--secondary', 'ui-btn--sm')
+        expect(chip).toHaveTextContent(/^Bot$/)
+        const square = chip.querySelector('.bg-team-a') as HTMLElement
+        expect(square).toHaveClass('size-1.5')
+        expect(square).toHaveAttribute('aria-hidden', 'true')
+        expect(square.compareDocumentPosition(chip.querySelector('svg') as SVGElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        for (const teamB of screen.getAllByRole('button', { name: 'Add a bot to team B' })) expect(teamB.querySelector('.bg-team-b')).not.toBeNull()
+        // it paints 26 px (the board plate's height); its tap box reaches 44 without adding layout height: up the 4-px gap
+        // to its seat's plate, never over it, and 14 px down (M1)
+        expect(chip).toHaveClass('h-6.5', 'min-h-0', 'after:-top-1', 'after:-bottom-3.5')
+        expect(chip).not.toHaveClass('after:-inset-y-[9px]')
+        // its 2-px focus ring sits on the chip's edge, clear of the 16-px robot (the buttons' -5px would touch it)
+        expect(chip).toHaveClass('focus-visible:outline-offset-[-3px]')
+    })
+
+    test('a side seat that shows a "+ Bot" gets a spacer as tall as the chip line above it, so the side seats stay level (I1)', () => {
+        // mira at the bottom, ivo on the right: the left seat and the top seat are open, each with its chip
+        render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [ivo], unassignedPlayers: [] })} viewerId="u9" onAddBot={vi.fn()} />)
+        const column = (position: string) => document.querySelector(`[data-position="${position}"]`) as HTMLElement
+        expect(column('left').children).toHaveLength(2)
+        expect(column('left')).toHaveClass('pt-7.5')
+        expect(column('right').children).toHaveLength(1)
+        expect(column('right')).not.toHaveClass('pt-7.5')
+        // the top and bottom seats are anchored at an edge: no spacer, chip or not
+        expect(column('top').children).toHaveLength(2)
+        expect(column('top')).not.toHaveClass('pt-7.5')
+        expect(column('bottom')).not.toHaveClass('pt-7.5')
+    })
+
+    test('one rule for all four seats: a seat\'s "+ Bot" is the last line of its column, under its name plate (R32)', () => {
+        // mira standing: the chips are bottom (A1) and right (B1); mira seated with ivo on B: top (A2) and left (B2)
+        const views: [LobbyDTO, string[]][] = [
+            [lobby({ teamAPlayers: [], teamBPlayers: [], unassignedPlayers: [mira] }), ['bottom', 'right']],
+            [lobby({ teamAPlayers: [mira], teamBPlayers: [ivo], unassignedPlayers: [] }), ['top', 'left']],
+        ]
+        for (const [view, positions] of views) {
+            const { unmount } = render(<LobbyTable lobby={view} viewerId="u9" onSeat={vi.fn()} onAddBot={vi.fn()} />)
+            for (const position of positions) {
+                const column = document.querySelector(`[data-position="${position}"]`) as HTMLElement
+                expect(column).toHaveClass('flex', 'flex-col', 'items-center')
+                expect(column.children).toHaveLength(2)
+                expect(column.children[0]).toHaveAccessibleName(/^(Sit here|Open seat), team [AB]$/)
+                expect(column.children[1]).toHaveAccessibleName(/^Add a bot to team [AB]$/)
+                expect(column.children[1]).not.toHaveClass('absolute')
+            }
+            unmount()
+        }
+    })
+
+    test('one "+ Bot" per team, under the seat the bot will take; once it is taken, the chip moves to the team\'s other seat (R44)', () => {
+        const chipsAt = () => POSITIONS.filter((position) => document.querySelector(`[data-position="${position}"] > button + button`) !== null)
+        const botTin = { id: 'b2', username: 'Bot-Tin', bot: true }
+        // mira at the bottom (A1), Team B empty: B1 (right) takes Team B's bot, B2 (left) shows nothing yet
+        const { rerender } = render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })} viewerId="u9" onAddBot={vi.fn()} />)
+        expect(chipsAt()).toEqual(['right', 'top'])
+        rerender(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [botTin], unassignedPlayers: [] })} viewerId="u9" onAddBot={vi.fn()} />)
+        expect(chipsAt()).toEqual(['top', 'left'])
+        // mira standing, both teams empty: A1 (bottom) and B1 (right); with a bot in A1, Team A's chip moves to A2 (top)
+        rerender(<LobbyTable lobby={lobby({ teamAPlayers: [], teamBPlayers: [], unassignedPlayers: [mira] })} viewerId="u9" onAddBot={vi.fn()} />)
+        expect(chipsAt()).toEqual(['bottom', 'right'])
+        rerender(<LobbyTable lobby={lobby({ teamAPlayers: [botAna], teamBPlayers: [], unassignedPlayers: [mira] })} viewerId="u9" onAddBot={vi.fn()} />)
+        expect(chipsAt()).toEqual(['right', 'top'])
+        expect(document.querySelector('[data-position="top"] > button + button')).toHaveAccessibleName('Add a bot to team A')
+    })
+
+    test('the host\'s view of a lobby that takes bots has a 348-px phone felt, for its chips, all the lobby\'s life; every other view keeps 330 (R32)', () => {
+        const felt = () => screen.getByTestId('lobby-table')
+        const { rerender } = render(<LobbyTable lobby={lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })} viewerId="u9" onAddBot={vi.fn()} />)
+        expect(felt()).toHaveClass('h-[348px]', 'md:h-[420px]')
+        // the last chip gone, and the match starting: the same felt
+        rerender(<LobbyTable lobby={lobby({ teamBPlayers: [ivo, tea], unassignedPlayers: [] })} viewerId="u9" />)
+        expect(felt()).toHaveClass('h-[348px]')
+        rerender(<LobbyTable lobby={lobby({ teamBPlayers: [ivo, tea], unassignedPlayers: [] })} viewerId="u9" launching />)
+        expect(felt()).toHaveClass('h-[348px]')
+        // a member, an outsider, a ranked lobby's host, a host on a backend before bots
+        const older = { id: 'u9', username: 'mira_z' }
+        const others: [LobbyDTO, string][] = [
+            [lobby(), 'u2'],
+            [lobby(), 'u7'],
+            [lobby({ gameMode: 'RANKED' }), 'u9'],
+            [lobby({ hostUser: older, teamAPlayers: [older, luka] }), 'u9'],
+        ]
+        for (const [view, viewer] of others) {
+            rerender(<LobbyTable lobby={view} viewerId={viewer} onAddBot={vi.fn()} />)
+            expect(felt()).toHaveClass('h-[330px]', 'md:h-[420px]')
+        }
+    })
+
+    test('while a request runs, every seat but the busy one and every "+ Bot" show disabled at 0.45; the count and the felt don\'t dim (R33)', () => {
+        const alone = lobby({ teamAPlayers: [mira], teamBPlayers: [], unassignedPlayers: [] })
+        const dimmed = () => POSITIONS.filter((position) => seatAt(position).classList.contains('opacity-45!'))
+        const chips = () => screen.getAllByRole('button', { name: /^Add a bot/ })
+        const { rerender } = render(<LobbyTable lobby={alone} viewerId="u9" onSeat={vi.fn()} onAddBot={vi.fn()} />)
+        expect(dimmed()).toEqual([])
+        expect(chips().filter((chip) => chip.hasAttribute('disabled'))).toHaveLength(0)
+        // a bot on its way to A2, the top seat: it alone stays bright and reads what is happening
+        rerender(<LobbyTable lobby={alone} viewerId="u9" busy={{ key: 'A2', label: 'Adding…' }} onSeat={vi.fn()} onAddBot={vi.fn()} />)
+        expect(dimmed()).toEqual(['bottom', 'right', 'left'])
+        expect(seatAt('top')).toHaveAccessibleName('Adding…')
+        expect(seatAt('right')).toHaveAttribute('aria-disabled', 'true')
+        expect(chips()).toHaveLength(2)
+        for (const chip of chips()) expect(chip).toBeDisabled()
+        expect(screen.getByTestId('lobby-table').className).not.toMatch(/opacity/)
+        expect((screen.getByText('1/4').parentElement as HTMLElement).className).not.toMatch(/opacity/)
+        // a fill is about no one seat: they all dim
+        rerender(<LobbyTable lobby={alone} viewerId="u9" busy={{ key: null, label: 'Filling with bots…' }} onSeat={vi.fn()} onAddBot={vi.fn()} />)
+        expect(dimmed()).toEqual(POSITIONS)
+    })
+
+    test('a bot\'s seat: the robot in place of the initial, its name, "Bot · Team B", and ", bot" in its name, which the host\'s starts "Remove"', () => {
+        render(<LobbyTable lobby={lobby({ teamBPlayers: [ivo, botAna], unassignedPlayers: [] })} viewerId="u9" />)
+        const bot = seatAt('left')
+        expect(bot).toHaveAccessibleName('Remove Bot-Ana, team B, bot')
+        // a 104-px seat: room for "BOT · TEAM B" inside the plate's own padding (R40)
+        expect(bot).toHaveClass('w-[104px]')
+        // the tag names the team too, so it shows by more than colour (spec §3.9, R35); one line, never wrapped
+        expect(bot).toHaveTextContent(/^Bot-AnaBot · Team B$/)
+        expect(within(bot).getByText('Bot · Team B')).toHaveClass('t-caption', 'whitespace-nowrap')
+        const avatar = bot.querySelector('.ui-avatar') as HTMLElement
+        expect(avatar).toHaveTextContent(/^$/)
+        expect(avatar.querySelector('svg')).not.toBeNull()
+        expect(seatAt('right').querySelector('.ui-avatar')).toHaveTextContent(/^I$/)
+        expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
+    })
+
     test('the mini table (the quick-look) draws the same seats without buttons', () => {
         render(<LobbyTable lobby={lobby()} viewerId="u4" mini />)
         expect(screen.queryAllByRole('button')).toHaveLength(0)
         expect(document.querySelector('[data-position="bottom"]')).toHaveTextContent('mira_z')
         expect(document.querySelector('[data-position="left"]')).toHaveTextContent('Open seat')
         expect(screen.getByTestId('lobby-table')).toHaveClass('h-[198px]')
+        // its centre counts people, as the list does, not the room's seats (casual bots spec §7), in the room's two
+        // lines: the count in the score face, then "players" (R34)
+        expect(screen.getByText('4/4')).toHaveClass('t-score', 'tabular-nums')
+        expect(screen.getByText('players')).toHaveClass('t-footnote')
+        expect(screen.queryByText('3/4')).not.toBeInTheDocument()
+        expect(screen.queryByText('seated')).not.toBeInTheDocument()
+    })
+
+    test('the mini table\'s count is people of four, then its bots: "players · 1 bot", "players · 3 bots" (R34)', () => {
+        const botTin = { id: 'b2', username: 'Bot-Tin', bot: true }
+        const botNika = { id: 'b3', username: 'Bot-Nika', bot: true }
+        const { rerender } = render(<LobbyTable lobby={lobby({ teamBPlayers: [ivo, botAna], unassignedPlayers: [] })} viewerId="u4" mini />)
+        expect(screen.getByText('3/4')).toHaveClass('t-score')
+        expect(screen.getByText('players · 1 bot')).toHaveClass('t-footnote')
+        rerender(<LobbyTable lobby={lobby({ teamAPlayers: [mira, botAna], teamBPlayers: [botTin, botNika], unassignedPlayers: [] })} viewerId="u4" mini />)
+        expect(screen.getByText('1/4')).toBeInTheDocument()
+        expect(screen.getByText('players · 3 bots')).toBeInTheDocument()
+        expect(screen.queryByText(/ of 4/)).not.toBeInTheDocument()
     })
 })

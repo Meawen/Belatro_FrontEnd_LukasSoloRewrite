@@ -534,7 +534,7 @@ Each screen gives its purpose, entry points, states, layout (375 and desktop), t
     - the lobby name (`display`, the only `h1`);
     - chips for Casual, Private (lock) and the host (crown);
     - a "Copy invite link" icon button.
-  - **The table:** a dithered felt with a wooden rim (notch-6), 330 px tall on phones, 420 px on desktop.
+  - **The table:** a dithered felt with a wooden rim (notch-6), 330 px tall on phones (348 px in the host's view of a lobby that takes bots, for the "+ Bot" under each team's first open seat), 420 px on desktop.
     - **The seat geometry matches the board:** turn order is A1 → B1 → A2 → B2, running counter-clockwise.
       - If you're seated, you're at the **bottom**, the next seat in turn order is on your **right**, your partner is at the **top**, and the remaining seat is on the **left**.
       - If you're not seated, A1 is at the bottom.
@@ -543,7 +543,7 @@ Each screen gives its purpose, entry points, states, layout (375 and desktop), t
     - The centre shows "{seated}/4" (`score`) and "seated" / "Ready to deal".
     - A seat is a 52-px avatar tile in the team colour, the name, and "You" / "Host" / "Team A|B", with the host's crown above. An empty seat is a notched outline with a plus, reading "Sit here" (accent) for a member not on that team, otherwise "Open seat".
   - **"Not seated":** chips of Unassigned members ("· you" marked). **For the host, each chip is a button** that opens "Remove {name}?".
-  - **Hint line** (non-hosts): "Pick a seat. Partners sit opposite each other." / "The host starts the match when all four seats are taken." / outsiders "You are looking at this lobby. Join to pick a seat."
+  - **Hint line** (non-hosts): "Pick a seat. Partners sit opposite each other." / "The host starts the match when all four seats are taken." / outsiders "You are looking at this lobby. Join to play."
   - **Action bar** (`material-bar`):
     - **host:** an options icon button, the reason line ("Waiting for {n} more player(s)." / "{name} hasn't taken a seat yet." / "Everyone is seated."), and **"Start match"** (enabled only for 2 + 2 and nobody unassigned);
     - **member:** a status line and **"Leave"**;

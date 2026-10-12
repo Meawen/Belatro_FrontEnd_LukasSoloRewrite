@@ -10,11 +10,23 @@ describe('the dev board’s data (spec §4.17)', () => {
         expect(parseDevOptions('')).toEqual({
             seat: 'alice', seed: 7, trump: 'HERC', hands: 2, scores: null, at: null, chaos: false, layout: 'fit',
             reduced: false, effects: null, controls: true, skip: false, play: false, speed: 1, names: false, fixture: null,
+            bots: [],
         })
         expect(parseDevOptions('?fixture=recorded-k3f9q').fixture).toBe('recorded-k3f9q')
         expect(parseDevOptions('?seat=carol&at=window-open&layout=812x375&motion=reduce&effects=off&chaos=1&controls=0&skip=1&play=1&speed=2&scores=990,900&trump=KARA'))
             .toMatchObject({ seat: 'carol', at: 'window-open', layout: '812x375', reduced: true, effects: 'off', chaos: true, controls: false, skip: true, play: true, speed: 2, scores: [990, 900], trump: 'KARA' })
         expect(parseDevOptions('?seat=eve&layout=1x1&effects=sparkly')).toMatchObject({ seat: 'alice', layout: 'fit', effects: 'full' })
+    })
+
+    test('bots=bob,dave: those seats carry the server’s bot flag in every frame, public and private; nothing else changes (casual bots spec §7)', () => {
+        expect(parseDevOptions('?bots=bob,dave,eve').bots).toEqual(['bob', 'dave'])
+        const options = { seed: 7, trump: 'HERC' as const, hands: 1, scores: null }
+        const marked = devTable({ ...options, bots: ['bob', 'dave'] }, 0)
+        const views = marked.flatMap((f) => [f.public, ...Object.values(f.private).map((p) => p.publicPart)])
+        for (const v of views) {
+            for (const seat of [...v.teamA, ...v.teamB, ...v.seatingOrder]) expect([seat.id, seat.bot === true]).toEqual([seat.id, seat.id === 'bob' || seat.id === 'dave'])
+        }
+        expect(JSON.parse(JSON.stringify(marked).split(',"bot":true').join(''))).toEqual(devTable(options, 0))
     })
 
     test('a jump by index or by label; the table’s clock puts that fan-out now', () => {

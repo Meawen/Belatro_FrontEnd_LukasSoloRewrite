@@ -43,7 +43,10 @@ export function EndSheet({ model, open, rematch, onLeave }: EndSheetProps) {
                             {rematch.cancelledBy && <p className="t-callout text-danger-text">{`${rematch.cancelledBy} left — no rematch`}</p>}
                             {rematch.expired && !rematch.cancelledBy && <p className="t-callout text-danger-text">Rematch expired</p>}
                             <div className="board-end__actions">
-                                <Button onClick={rematch.playAgain} disabled={rematch.cancelledBy !== null || rematch.expired}>Play again</Button>
+                                {/* one vote: off once mine went out, until the rematch starts, is declined or expires (R29) */}
+                                <Button onClick={rematch.playAgain} disabled={rematch.voted || rematch.cancelledBy !== null || rematch.expired}>
+                                    Play again
+                                </Button>
                                 <Button variant="secondary" onClick={rematch.leave}>Leave</Button>
                             </div>
                         </div>

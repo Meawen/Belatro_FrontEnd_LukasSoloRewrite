@@ -52,6 +52,8 @@ export interface RatingHistory {
 export interface UserSimpleDTO {
     id: string | null;
     username: string | null;
+    /** A server-side bot (casual bots spec §3); a backend before bots doesn't send it. Tell a bot by this, never by its name. */
+    bot?: boolean;
 }
 
 export interface ChangePasswordRequest {

@@ -14,6 +14,16 @@ describe('Avatar (spec §3.7; X-12)', () => {
         expect(ivo).toHaveTextContent(/^I$/)
         expect(ivo).toHaveClass('bg-surface-3', 'text-text', 'size-9')
     })
+
+    test('an icon in place of the initial (a bot\'s robot), sized to the tile', () => {
+        const { container } = render(<><Avatar initial="Bot-Ana" icon="robot" tone="team-b" size="lg" /><Avatar initial="Bot-Tin" icon="robot" size="sm" /></>)
+        const [lg, sm] = [...container.querySelectorAll('.ui-avatar')]
+        expect(lg).toHaveTextContent(/^$/)
+        expect(lg).toHaveClass('notch', 'bg-team-b', 'text-ink', 'size-13')
+        expect(lg).toHaveAttribute('aria-hidden', 'true')
+        expect(lg.querySelector('svg')).toHaveAttribute('width', '27')
+        expect(sm.querySelector('svg')).toHaveAttribute('width', '18')
+    })
 })
 
 describe('Pager (spec §3.7)', () => {

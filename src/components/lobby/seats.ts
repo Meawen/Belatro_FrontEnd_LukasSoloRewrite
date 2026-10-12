@@ -1,6 +1,6 @@
 import type { LobbyDTO, LobbyTeam } from '../../types/lobby';
 import type { UserSimpleDTO } from '../../types/user';
-import { LOBBY_CAP, memberCount } from './lobbyModel';
+import { botCount, isBot, LOBBY_CAP, memberCount } from './lobbyModel';
 
 /** A table seat: A1 is Team A's first player in the server's list, B2 Team B's second. */
 export type SeatKey = 'A1' | 'B1' | 'A2' | 'B2';
@@ -70,12 +70,43 @@ export function seatAction(seat: TableSeat, lobby: LobbyDTO, viewerId: string | 
     return isHost(lobby, viewerId) ? 'remove' : null;
 }
 
-/** A seat's accessible name (spec §4.7). */
+/**
+ * Whether a lobby takes bots at all: never a ranked one (the room can show a legacy one, and the server refuses bots
+ * there), and only from a backend with bots, which always sends its members' `bot` flag; one before bots sends none
+ * and has no bot routes (R27). The one rule behind the "+ Bot" chips (`canAddBot`) and "Fill with bots".
+ */
+export function takesBots(lobby: LobbyDTO): boolean {
+    return lobby.gameMode !== 'RANKED' && typeof lobby.hostUser?.bot === 'boolean';
+}
+
+/**
+ * Whether the host may put a bot on this seat: its team's first free slot, the one a bot added to that team lands in
+ * (the server fills the team's list in order), so a team shows one "+ Bot" and it seats the bot where it is (R44);
+ * while the lobby has fewer than four members (the server refuses a bot at four, unassigned people included), in a
+ * lobby that takes bots. Separate from the seat's own tap.
+ */
+export function canAddBot(seat: TableSeat, lobby: LobbyDTO, viewerId: string | null): boolean {
+    const team = (seat.team === 'A' ? lobby.teamAPlayers : lobby.teamBPlayers) ?? [];
+    const firstFree = seat.key === `${seat.team}${team.length + 1}`;
+    return seat.player === null && firstFree && isHost(lobby, viewerId) && memberCount(lobby) < LOBBY_CAP && takesBots(lobby);
+}
+
+/**
+ * How many bots "Fill with bots" can seat: the free team places, but no more than the lobby has room for, so a person
+ * waiting unassigned keeps a seat (casual bots spec §3).
+ */
+export function fillableSeats(lobby: LobbyDTO): number {
+    const freePlaces = (2 - (lobby.teamAPlayers?.length ?? 0)) + (2 - (lobby.teamBPlayers?.length ?? 0));
+    return Math.max(0, Math.min(freePlaces, LOBBY_CAP - memberCount(lobby)));
+}
+
+/** A seat's accessible name (spec §4.7); a bot's ends ", bot", and the host's, whose tap removes it, starts "Remove" (R37). */
 export function seatLabel(seat: TableSeat, lobby: LobbyDTO, viewerId: string | null): string {
     const team = `team ${seat.team}`;
     if (seat.player === null) return `${seatAction(seat, lobby, viewerId) === 'sit' ? 'Sit here' : 'Open seat'}, ${team}`;
     const name = seat.player.username ?? 'Unknown';
     if (viewerId != null && seat.player.id === viewerId) return `${name} (you), ${team}`;
+    if (isBot(seat.player)) return `${isHost(lobby, viewerId) ? 'Remove ' : ''}${name}, ${team}, bot`;
     return isHost(lobby, seat.player.id) ? `${name}, ${team}, host` : `${name}, ${team}`;
 }
 
@@ -92,9 +123,16 @@ export function startReadiness(lobby: LobbyDTO): { ready: boolean; reason: strin
 export function lobbyHint(lobby: LobbyDTO, viewerId: string | null): string | null {
     if (isHost(lobby, viewerId)) return null;
     const team = teamOf(lobby, viewerId);
-    if (team === null) return 'You are looking at this lobby. Join to pick a seat.';
+    // true either way: a join lands in Unassigned, or in a bot's seat when four are there with a bot
+    if (team === null) return 'You are looking at this lobby. Join to play.';
     if (team === 'U') return 'Pick a seat. Partners sit opposite each other.';
     return 'The host starts the match when all four seats are taken.';
+}
+
+/** The hint under the table for the host: a public lobby with a bot gives that bot's seat to whoever joins. */
+export function hostHint(lobby: LobbyDTO, viewerId: string | null): string | null {
+    if (!isHost(lobby, viewerId) || lobby.privateLobby || botCount(lobby) === 0) return null;
+    return "Anyone who joins takes a bot's seat. To play alone, create a private lobby.";
 }
 
 /** A member's status line in the action bar. */

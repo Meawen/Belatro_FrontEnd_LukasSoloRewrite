@@ -16,7 +16,7 @@ vi.mock('./ReconnectBanner', () => ({ ReconnectBanner: () => <p>Reconnect banner
 // useRematch holds its own socket channel; here it is a stub the tests read back
 const rematchMock = vi.hoisted(() => ({
     useRematch: vi.fn(),
-    state: { votes: 0, cancelledBy: null, expired: false, playAgain: vi.fn(), leave: vi.fn() },
+    state: { votes: 0, voted: false, cancelledBy: null, expired: false, playAgain: vi.fn(), leave: vi.fn() },
 }))
 vi.mock('../../hooks/useRematch', () => ({ useRematch: rematchMock.useRematch }))
 // useMatchHands asks the REST API for the stored moves; here nothing is stored yet

@@ -12,6 +12,9 @@ const mira = { id: 'u9', username: 'mira_z' }
 const luka = { id: 'u2', username: 'luka' }
 const ivo = { id: 'u3', username: 'ivo' }
 const tea = { id: 'u4', username: 'tea_r' }
+const botAna = { id: 'b1', username: 'Bot-Ana', bot: true }
+const botTin = { id: 'b2', username: 'Bot-Tin', bot: true }
+const botNika = { id: 'b3', username: 'Bot-Nika', bot: true }
 
 function lobby(overrides: Partial<LobbyDTO> = {}): LobbyDTO {
     return {
@@ -45,14 +48,44 @@ describe('LobbyList (spec §4.6)', () => {
         expect(kod).toHaveTextContent('Kod Mire')
         expect(kod).toHaveTextContent('Private')
         expect(kod).toHaveTextContent('host mira_z')
-        expect(kod).toHaveTextContent('3/4')
+        expect(kod).toHaveTextContent('3 of 4')
         expect(kod.querySelectorAll('[data-seat]')).toHaveLength(4)
         expect([...kod.querySelectorAll('[data-seat]')].map((square) => square.getAttribute('data-seat'))).toEqual(['A taken', 'A taken', 'B taken', 'B free'])
         const petak = screen.getByRole('button', { name: "Petak, host mira_z, 4 of 4, you're in" })
-        expect(petak).toHaveTextContent('4/4')
+        expect(petak).toHaveTextContent('4 of 4')
         expect(petak).toHaveTextContent('Full')
         expect(petak).toHaveTextContent("You're in")
         expect(kod).not.toHaveTextContent("You're in")
+    })
+
+    test('a row counts people, then bots: a host with three bots is "1 of 4 · 3 bots", not full, and its quick-look joins (casual bots spec §7)', async () => {
+        const user = userEvent.setup()
+        renderList([lobby({ privateLobby: false, teamAPlayers: [mira, botAna], teamBPlayers: [botTin, botNika] })])
+        // the row reads "1 of 4 · 3 bots"; its name says it with a comma (R27)
+        const row = screen.getByRole('button', { name: 'Kod Mire, host mira_z, 1 of 4, 3 bots' })
+        expect(row).toHaveTextContent('1 of 4 · 3 bots')
+        expect(row).not.toHaveTextContent('Full')
+        await user.click(row)
+        const sheet = screen.getByRole('dialog', { name: 'Kod Mire' })
+        expect(within(sheet).getByRole('button', { name: 'Join lobby' })).toBeEnabled()
+        expect(within(sheet).queryByRole('button', { name: 'Lobby full' })).not.toBeInTheDocument()
+    })
+
+    test('four people are full whatever the seats: "4 of 4", the Full tag, and "Lobby full" in the quick-look', async () => {
+        renderList([lobby({ privateLobby: false, teamAPlayers: [mira, luka], teamBPlayers: [ivo], unassignedPlayers: [tea] })])
+        const row = screen.getByRole('button', { name: 'Kod Mire, host mira_z, 4 of 4' })
+        expect(row).toHaveTextContent('4 of 4')
+        expect(row).toHaveTextContent('Full')
+        await userEvent.setup().click(row)
+        expect(within(screen.getByRole('dialog', { name: 'Kod Mire' })).getByRole('button', { name: 'Lobby full' })).toBeDisabled()
+    })
+
+    test('the seat squares tell a bot\'s seat from a person\'s and a free one, in each team\'s order', () => {
+        renderList([lobby({ teamAPlayers: [botAna, mira], teamBPlayers: [botTin] })])
+        const row = screen.getByRole('button', { name: /^Kod Mire/ })
+        expect([...row.querySelectorAll('[data-seat]')].map((square) => square.getAttribute('data-seat'))).toEqual(['A bot', 'A taken', 'B bot', 'B free'])
+        // a bot's dot is 4 px, so it reads apart from a free seat at 1× (R36)
+        for (const square of row.querySelectorAll('[data-seat$="bot"]')) expect(square).toHaveClass('bg-[length:4px_4px]')
     })
 
     test('search finds a lobby by name or host; "Most players" orders by members, descending (AC 2)', async () => {
@@ -69,6 +102,17 @@ describe('LobbyList (spec §4.6)', () => {
         await user.clear(screen.getByLabelText('Search lobbies'))
         await user.type(screen.getByLabelText('Search lobbies'), 'nobody')
         expect(screen.getByText('No lobbies match your search.')).toBeInTheDocument()
+    })
+
+    test('"Most players" counts people: two people come before a host with three bots', async () => {
+        const user = userEvent.setup()
+        renderList([
+            lobby({ id: 'a', name: 'Alpha', teamAPlayers: [mira, botAna], teamBPlayers: [botTin, botNika], createdAt: '2026-10-09T19:00:00Z' }),
+            lobby({ id: 'b', name: 'Bravo', hostUser: tea, teamAPlayers: [tea], teamBPlayers: [ivo], createdAt: '2026-10-09T17:00:00Z' }),
+        ])
+        expect(order()).toEqual(['Alpha', 'Bravo'])
+        await user.selectOptions(screen.getByLabelText('Sort by'), 'Most players')
+        expect(order()).toEqual(['Bravo', 'Alpha'])
     })
 
     test('a row opens its quick-look, which follows the lobby across polls and says when it has gone', async () => {

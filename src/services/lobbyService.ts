@@ -65,5 +65,15 @@ export const lobbyService = {
 
     async switchTeam(lobbyId: string, switchData: TeamSwitchRequestDTO): Promise<LobbyDTO> {
         return apiClient.post<LobbyDTO>('/lobbies/switchTeam', { ...switchData, lobbyId });
+    },
+
+    // Host only: seats a free bot on that team (casual bots spec §3)
+    async addBot(lobbyId: string, team: 'A' | 'B'): Promise<LobbyDTO> {
+        return apiClient.post<LobbyDTO>(`/lobbies/${lobbyId}/bots`, { team });
+    },
+
+    // Host only: seats bots on the free team places, keeping a seat for anyone unassigned
+    async fillBots(lobbyId: string): Promise<LobbyDTO> {
+        return apiClient.post<LobbyDTO>(`/lobbies/${lobbyId}/bots/fill`);
     }
 };

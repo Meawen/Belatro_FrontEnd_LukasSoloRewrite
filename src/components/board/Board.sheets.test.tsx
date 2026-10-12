@@ -23,7 +23,7 @@ afterEach(() => {
 const table = playTable()
 const ended = (overrides: Partial<PublicGameView>) => stateOf(privateFor(view(overrides), false))
 const rematch = (overrides: Partial<RematchState> = {}): RematchState => ({
-    votes: 0, cancelledBy: null, expired: false, playAgain: vi.fn(), leave: vi.fn(), ...overrides,
+    votes: 0, voted: false, cancelledBy: null, expired: false, playAgain: vi.fn(), leave: vi.fn(), ...overrides,
 })
 /** The structured moves as the server would have stored them by this fan-out. */
 function storedHands(fanOuts: readonly FanOut[], upTo: number): MatchHands {
@@ -87,6 +87,16 @@ describe('Board: Play again after the game (GameTable cases, R-45)', () => {
         renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'B' }), rematch: rematch({ votes: 1, cancelledBy: 'bob' }) })
         expect(screen.getByText('bob left — no rematch')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Play again' })).toBeDisabled()
+    })
+
+    test('after my vote, Play again is off until the outcome: a second tap sends no second vote (R29)', async () => {
+        const user = userEvent.setup()
+        const state = rematch({ votes: 1, voted: true })
+        renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: state })
+        expect(screen.getByRole('button', { name: 'Play again' })).toBeDisabled()
+        await user.click(screen.getByRole('button', { name: 'Play again' }))
+        expect(state.playAgain).not.toHaveBeenCalled()
+        expect(screen.getByRole('button', { name: 'Leave' })).toBeEnabled()
     })
 
     test('two minutes without a start: Rematch expired, and Play again is off', () => {
