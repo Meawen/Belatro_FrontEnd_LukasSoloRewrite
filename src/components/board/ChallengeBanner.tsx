@@ -18,7 +18,7 @@ export interface ChallengeBannerProps {
     /** The hand result is open (a right challenge in the window): on a short landscape screen the banner goes above it. */
     sheetOpen: boolean;
     reduced: boolean;
-    /** The outcome step has started: an open hand result may now show it (D-8). */
+    /** The outcome step has started: the board, frozen at the step before while it said who, now shows it (D-8). */
     onOutcome: () => void;
     /** The outcome has been said: the board unmounts the banner. */
     onDone: () => void;
