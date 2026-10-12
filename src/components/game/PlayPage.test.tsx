@@ -4,6 +4,7 @@ import { render, screen, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { JSDOM } from 'jsdom'
 import { PlayPage } from './PlayPage'
+import { RankedQueueProvider } from './RankedQueueProvider'
 
 const stomp = vi.hoisted(() => ({ clients: [] as unknown[] }))
 vi.mock('@stomp/stompjs', () => ({
@@ -35,9 +36,19 @@ afterEach(() => {
 
 describe('/play page (B7)', () => {
     test('opens exactly one STOMP client although three components use the socket', async () => {
-        render(<StrictMode><MemoryRouter><PlayPage /></MemoryRouter></StrictMode>)
+        render(<StrictMode><MemoryRouter initialEntries={['/play']}><RankedQueueProvider><PlayPage /></RankedQueueProvider></MemoryRouter></StrictMode>)
         await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)) })
         expect(screen.getByText('RANKED')).toBeInTheDocument()
         expect(stomp.clients).toHaveLength(1)
+    })
+
+    // Phase 6's table sends the other three here when a player declines (R-25)
+    test('shows the notice the game table passes with a declined match', () => {
+        render(
+            <MemoryRouter initialEntries={[{ pathname: '/play', state: { notice: "A player declined — you're back in the queue" } }]}>
+                <RankedQueueProvider><PlayPage /></RankedQueueProvider>
+            </MemoryRouter>,
+        )
+        expect(screen.getByText("A player declined — you're back in the queue")).toBeInTheDocument()
     })
 })

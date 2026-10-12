@@ -195,7 +195,7 @@ export function useAuth() {
             console.log('Logout completed, all local state cleared');
 
             // Force page refresh to ensure clean state
-            window.location.href = '/';
+            window.location.assign('/');
         }
     }, [logoutMutation]);
 

@@ -114,6 +114,9 @@ export const PlayButton: React.FC = () => {
                             </span>
                             <ResendConfirmationButton />
                         </div>
+                    ) : joinError?.status === 429 ? (
+                        // a declined match's 2-minute cooldown (R-25) or the rate limit: the server says how long
+                        <span className="font-medium">{joinError.message}</span>
                     ) : (
                         <span className="font-medium">Error: {joinError?.message || leaveError?.message}</span>
                     )}

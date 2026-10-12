@@ -31,4 +31,11 @@ describe('Sidebar admin link', () => {
         // hidden because /user/me says so, not because isAdmin is hard-coded
         expect(vi.mocked(useMe)).toHaveBeenCalledWith(true)
     })
+
+    test('the nav has no Settings link (R-34)', () => {
+        vi.mocked(useMe).mockReturnValue({ data: { roles: ['ROLE_USER'] } } as never)
+        renderSidebar()
+        expect(screen.queryByText('Settings')).not.toBeInTheDocument()
+        expect(screen.getByText('Match History')).toBeInTheDocument()
+    })
 })

@@ -8,7 +8,7 @@
 export const PASSWORD_RULE_MESSAGE = 'Password must be at least 8 characters and at most 72 bytes';
 
 /** SignupRequestDTO.username @Pattern */
-export const USERNAME_RULE_MESSAGE = 'Username must be 3-20 characters: letters, digits or underscore';
+export const USERNAME_RULE_MESSAGE = 'Username must be 3-20 characters: English letters a-z, digits or underscore';
 
 const MIN_PASSWORD_LENGTH = 8;
 // BCrypt ignores everything after 72 bytes, so the backend refuses longer passwords.

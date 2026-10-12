@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '../common/Button';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { PlayingCard } from '../common/PlayingCard';
+import type { RematchState } from '../../hooks/useRematch';
 import type { Boja, GameCard, PrivateGameView, PublicGameView } from '../../types/game';
-import { BOJE, SUIT_LABEL, cardLabel, seatsFromMe, trumpOf } from './gameView';
+import { BOJE, CHALLENGE_HINT, PHASE_LABEL, SUIT_LABEL, cardLabel, declarationLines, endSentence, isBelaCard, rematchOffered, seatsFromMe, teamOf, trumpOf } from './gameView';
 
 export interface GameTableProps {
     publicView: PublicGameView;
@@ -13,9 +14,12 @@ export interface GameTableProps {
     error: string | null;
     onPass: () => void;
     onCallTrump: (trump: Boja) => void;
-    onPlayCard: (card: GameCard) => void;
+    /** declareBela is true only from the bela prompt: the trump K or Q played with the other in hand (R-32). */
+    onPlayCard: (card: GameCard, declareBela: boolean) => void;
     onChallenge: () => void;
     onLeave: () => void;
+    /** The game-over rematch (R-45). Without it, or for a game with no rematch, only Back to lobbies. */
+    rematch?: RematchState;
 }
 
 // Grid cells for seatsFromMe order: you (bottom), next player (right), partner (top), left.
@@ -25,6 +29,17 @@ const SEAT_CELL = [
     'col-start-2 row-start-1',
     'col-start-1 row-start-2',
 ];
+
+/** Seconds left on the running turn timer (R-31), ticking once a second; never below 0. */
+function TurnCountdown({ expiresAt }: { expiresAt: number }) {
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {
+        const timer = window.setInterval(() => setNow(Date.now()), 1000);
+        return () => window.clearInterval(timer);
+    }, []);
+    const seconds = Math.max(0, Math.ceil((expiresAt - now) / 1000));
+    return <span data-testid="turn-countdown" className="font-mono text-amber-300">{seconds} s</span>;
+}
 
 export const GameTable: React.FC<GameTableProps> = ({
     publicView,
@@ -36,6 +51,7 @@ export const GameTable: React.FC<GameTableProps> = ({
     onPlayCard,
     onChallenge,
     onLeave,
+    rematch,
 }) => {
     const phase = publicView.gameState;
     const yourTurn = privateView?.yourTurn === true;
@@ -51,6 +67,24 @@ export const GameTable: React.FC<GameTableProps> = ({
     const myMove = canBid || canPlay;
     const canChallenge = (phase === 'PLAYING' || phase === 'HAND_COMPLETE')
         && privateView !== null && !privateView.challengeUsed;
+    const myTeam = teamOf(publicView, me);
+    const declarations = declarationLines(publicView);
+    const ending = endSentence(publicView);
+    // R-23: the dealer bids last, so three passes on record mean the dealer must call trump
+    const dealerMustCall = canBid && publicView.bids.filter((bid) => bid.action === 'PASS').length >= 3;
+    // R-32: the trump K or Q, chosen while the other is in hand, waits for Play or Play + Bela
+    const [belaCard, setBelaCard] = useState<GameCard | null>(null);
+    useEffect(() => {
+        if (!canPlay) setBelaCard(null);
+    }, [canPlay]);
+    const chooseCard = (card: GameCard) => {
+        if (isBelaCard(card, hand, trump)) setBelaCard(card);
+        else onPlayCard(card, false);
+    };
+    const answerBela = (declareBela: boolean) => {
+        if (belaCard) onPlayCard(belaCard, declareBela);
+        setBelaCard(null);
+    };
 
     return (
         <div className="max-w-5xl mx-auto px-4 space-y-6">
@@ -60,7 +94,9 @@ export const GameTable: React.FC<GameTableProps> = ({
                     <span className="text-red-300">Team B: <span data-testid="score-b">{publicView.teamBScore}</span></span>
                 </div>
                 <div className="flex flex-wrap items-center gap-4 text-sm text-emerald-200">
-                    <span>Phase: <span data-testid="game-phase" className="font-medium text-white">{phase}</span></span>
+                    {myTeam && <span data-testid="your-team" className="font-medium text-white">{`Your team: ${myTeam}`}</span>}
+                    {/* R-31: the phase in words; data-phase keeps the raw state for scripts (e2e) */}
+                    <span>Phase: <span data-testid="game-phase" data-phase={phase} className="font-medium text-white">{PHASE_LABEL[phase] ?? phase}</span></span>
                     {trump && (
                         <span>Trump: <span data-testid="trump" className="font-medium text-amber-300">{SUIT_LABEL[trump]}</span></span>
                     )}
@@ -75,30 +111,60 @@ export const GameTable: React.FC<GameTableProps> = ({
             {finished ? (
                 <div className="card text-center space-y-4">
                     <h2 className="text-2xl font-bold text-white">
-                        {phase === 'CANCELLED' ? 'Match cancelled' : 'Game over'}
+                        {phase === 'CANCELLED' && publicView.endReason !== 'FORFEIT' ? 'Match cancelled' : 'Game over'}
                     </h2>
                     {phase === 'COMPLETED' && (
                         <p className="text-emerald-200">
                             {publicView.winnerTeamId ? `Team ${publicView.winnerTeamId} wins` : 'Draw'}
                         </p>
                     )}
-                    <Button onClick={onLeave} variant="primary">Back to lobbies</Button>
+                    {ending && <p data-testid="end-reason" className="text-emerald-200">{ending}</p>}
+                    {rematch && rematchOffered(publicView) ? (
+                        // R-45: Play again votes; Leave declines for everyone and goes back to the lobbies
+                        <div className="space-y-3">
+                            <p data-testid="rematch-votes" className="text-emerald-200">{`${rematch.votes}/4 want a rematch`}</p>
+                            {rematch.cancelledBy && (
+                                <p className="text-amber-300">{`${rematch.cancelledBy} left — no rematch`}</p>
+                            )}
+                            {rematch.expired && !rematch.cancelledBy && <p className="text-amber-300">Rematch expired</p>}
+                            <div className="flex flex-wrap justify-center gap-3">
+                                <Button
+                                    variant="primary"
+                                    onClick={rematch.playAgain}
+                                    disabled={rematch.cancelledBy !== null || rematch.expired}
+                                >
+                                    Play again
+                                </Button>
+                                <Button variant="outline" onClick={rematch.leave}>Leave</Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <Button onClick={onLeave} variant="primary">Back to lobbies</Button>
+                    )}
                 </div>
             ) : (
                 <>
                     <div className="card grid grid-cols-3 grid-rows-3 gap-2 min-h-[22rem] items-center justify-items-center">
                         {seats.map((seat, index) => {
                             const played = plays[seat.id];
+                            // R-31: the seat to act, with the seconds left on its turn timer
+                            const current = seat.id === publicView.currentPlayerId;
                             return (
                                 <div
                                     key={seat.id}
                                     data-testid={`seat-${seat.id}`}
-                                    className={`${SEAT_CELL[index]} flex flex-col items-center gap-2`}
+                                    data-current={current ? 'true' : undefined}
+                                    className={`${SEAT_CELL[index]} flex flex-col items-center gap-2 rounded-lg p-2 ${
+                                        current ? 'ring-2 ring-amber-400' : ''
+                                    }`}
                                 >
                                     <div className="text-sm text-emerald-200">
                                         <span className="font-medium text-white">{seat.id === me ? 'You' : seat.id}</span>
                                         {' · '}
                                         <span data-testid={`cards-left-${seat.id}`}>{seat.cardsLeft}</span> cards
+                                        {current && publicView.turnExpiresAt != null && (
+                                            <>{' · '}<TurnCountdown expiresAt={publicView.turnExpiresAt} /></>
+                                        )}
                                     </div>
                                     {played && (
                                         <div data-testid="trick-card" data-card={`${played.boja}-${played.rank}`}>
@@ -123,15 +189,29 @@ export const GameTable: React.FC<GameTableProps> = ({
                         </div>
                     )}
 
+                    {declarations.length > 0 && (
+                        <div className="card">
+                            <h3 className="text-sm font-semibold text-emerald-200 mb-2">Declarations</h3>
+                            <ul className="flex flex-wrap gap-3 text-sm text-white">
+                                {declarations.map((line) => (
+                                    <li key={line} data-testid="declaration">{line}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
                     {canBid && (
                         <div className="card flex flex-wrap items-center gap-3">
                             <span className="text-emerald-200 text-sm mr-2">Your bid:</span>
-                            <Button variant="outline" onClick={onPass}>Pass</Button>
+                            <Button variant="outline" onClick={onPass} disabled={dealerMustCall}>Pass</Button>
                             {BOJE.map((boja) => (
                                 <Button key={boja} variant="primary" onClick={() => onCallTrump(boja)}>
                                     Call {SUIT_LABEL[boja]}
                                 </Button>
                             ))}
+                            {dealerMustCall && (
+                                <span data-testid="dealer-must-call" className="text-amber-300 text-sm">The dealer must call trump</span>
+                            )}
                         </div>
                     )}
 
@@ -142,6 +222,16 @@ export const GameTable: React.FC<GameTableProps> = ({
                                 <Button variant="outline" size="small" onClick={onChallenge}>Challenge</Button>
                             )}
                         </div>
+                        {canChallenge && (
+                            <p data-testid="challenge-hint" className="text-xs text-emerald-300 mb-3">{CHALLENGE_HINT}</p>
+                        )}
+                        {canPlay && belaCard && (
+                            <div data-testid="bela-prompt" className="flex flex-wrap items-center justify-center gap-3 mb-3">
+                                <span className="text-sm text-emerald-200">Declare bela with {cardLabel(belaCard)}?</span>
+                                <Button variant="outline" size="small" onClick={() => answerBela(false)}>Play</Button>
+                                <Button variant="primary" size="small" onClick={() => answerBela(true)}>Play + Bela</Button>
+                            </div>
+                        )}
                         <div data-testid="hand" className="flex flex-wrap justify-center gap-2">
                             {hand.map((card) => (
                                 <button
@@ -151,7 +241,7 @@ export const GameTable: React.FC<GameTableProps> = ({
                                     data-card={`${card.boja}-${card.rank}`}
                                     aria-label={cardLabel(card)}
                                     disabled={!canPlay}
-                                    onClick={() => onPlayCard(card)}
+                                    onClick={() => chooseCard(card)}
                                     className={`w-16 h-24 rounded-lg transition-transform ${
                                         canPlay ? 'hover:-translate-y-1 cursor-pointer' : 'opacity-60 cursor-not-allowed'
                                     }`}

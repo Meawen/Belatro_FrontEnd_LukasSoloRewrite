@@ -1,9 +1,24 @@
 import React from 'react';
-import { PlayButton, QueueStatus, MatchFoundModal } from '../game';
+import { useLocation } from 'react-router-dom';
+import { PlayButton, QueueStatus } from '../game';
+import { ReconnectBanner } from './ReconnectBanner';
 
 export const PlayPage: React.FC = () => {
+    // Set by the game table when a DECLINED end sends the other three back here, still queued (R-25)
+    const notice = (useLocation().state as { notice?: string } | null)?.notice;
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-800">
+            {/* While the queue's socket is down (R-30) */}
+            <ReconnectBanner />
+            {notice && (
+                <div className="max-w-2xl mx-auto px-6 pt-6">
+                    <div className="rounded-xl border border-amber-500/40 bg-amber-900/30 px-4 py-3 text-amber-100">
+                        {notice}
+                    </div>
+                </div>
+            )}
+
             {/* Hero Section */}
             <div className="pt-20 pb-12">
                 <div className="max-w-4xl mx-auto px-6 text-center">
@@ -83,9 +98,6 @@ export const PlayPage: React.FC = () => {
                     </div>
                 </div>
             </div>
-
-            {/* Match found modal */}
-            <MatchFoundModal />
         </div>
     );
 };

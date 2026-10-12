@@ -18,13 +18,14 @@ const fake = vi.hoisted(() => {
         },
         publish: (destination: string, body: unknown) => {
             published.push({ destination, body })
-            return true
+            // like gameSocket.publish: false while the socket is down
+            return state.isConnected
         },
         getState: () => state,
         onStateChange: () => () => {},
     }
     const deliver = (destination: string, body: string) => handlers.get(destination)?.forEach((h) => h(body))
-    return { handlers, published, counters, gameSocket, deliver }
+    return { handlers, published, counters, state, gameSocket, deliver }
 })
 vi.mock('../services/gameSocket', () => ({ gameSocket: fake.gameSocket }))
 
@@ -38,10 +39,12 @@ beforeEach(() => {
 })
 
 describe('useGameWebSocket game channels', () => {
-    test('subscribes to the public topic, the private queue and the error queue; unmount releases all', () => {
+    test('subscribes to the snapshot, the public topic, the private queue and the error queue; unmount releases all', () => {
         const { result, unmount } = renderHook(() => useGameWebSocket({}))
         act(() => result.current.subscribeToGame('g1'))
-        expect([...fake.handlers.keys()].sort()).toEqual(['/topic/games/g1', '/user/queue/errors', '/user/queue/games/g1'])
+        expect([...fake.handlers.keys()].sort()).toEqual([
+            '/app/queue/games/g1', '/topic/games/g1', '/user/queue/errors', '/user/queue/games/g1',
+        ])
         expect(fake.counters.acquired).toBe(1)
         unmount()
         expect([...fake.handlers.values()].every((set) => set.size === 0)).toBe(true)
@@ -109,5 +112,54 @@ describe('useGameWebSocket actions match the backend messages (actor comes from 
             { destination: '/app/games/g1/refresh', body: {} },
             { destination: '/app/games/g1/cancel', body: {} },
         ])
+    })
+})
+
+describe('useGameWebSocket moves say whether they went out (R-30)', () => {
+    test('true while connected, false while the socket is down', () => {
+        const { result } = renderHook(() => useGameWebSocket({}))
+        expect(result.current.playCard('g1', { boja: 'HERC', rank: 'AS' }, false)).toBe(true)
+        expect(result.current.placeBid('g1', true)).toBe(true)
+        expect(result.current.challenge('g1')).toBe(true)
+        fake.state.isConnected = false
+        try {
+            expect(result.current.playCard('g1', { boja: 'HERC', rank: 'AS' }, false)).toBe(false)
+            expect(result.current.placeBid('g1', false, 'PIK')).toBe(false)
+            expect(result.current.challenge('g1')).toBe(false)
+        } finally {
+            fake.state.isConnected = true
+        }
+    })
+})
+
+describe('useGameWebSocket game snapshot (R-35)', () => {
+    test('the SUBSCRIBE to /app/queue/games/{id} answers with this player\'s private view', () => {
+        const onPrivateGameUpdate = vi.fn()
+        const { result } = renderHook(() => useGameWebSocket({ onPrivateGameUpdate }))
+        act(() => result.current.subscribeToGame('g1'))
+        fake.deliver('/app/queue/games/g1', '{"yourTurn":false,"publicPart":{"gameId":"g1"}}')
+        expect(onPrivateGameUpdate).toHaveBeenCalledWith({ yourTurn: false, publicPart: { gameId: 'g1' } })
+        act(() => result.current.unsubscribeFromGame('g1'))
+        expect(fake.handlers.get('/app/queue/games/g1')?.size).toBe(0)
+    })
+})
+
+describe('useGameWebSocket rematch (R-45)', () => {
+    test('the rematch topic of the finished game, and the vote and decline sends', () => {
+        const onRematchUpdate = vi.fn()
+        const { result } = renderHook(() => useGameWebSocket({ onRematchUpdate }))
+        act(() => result.current.subscribeToRematch('g1'))
+        fake.deliver('/topic/games/g1/rematch', '{"type":"VOTE","accepted":["alice"]}')
+        expect(onRematchUpdate).toHaveBeenCalledWith({ type: 'VOTE', accepted: ['alice'] })
+        act(() => {
+            result.current.voteRematch('g1')
+            result.current.declineRematch('g1')
+        })
+        expect(fake.published).toEqual([
+            { destination: '/app/games/g1/rematch/vote', body: {} },
+            { destination: '/app/games/g1/rematch/decline', body: {} },
+        ])
+        act(() => result.current.unsubscribeFromRematch('g1'))
+        expect(fake.handlers.get('/topic/games/g1/rematch')?.size).toBe(0)
     })
 })

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button, Input, Loading, Modal } from '../common';
 import { useAdmin } from '../../hooks/useAdmin';
 import { useAuth } from '../../hooks/useAuth';
@@ -12,6 +13,7 @@ export const UserManagement: React.FC = () => {
 
     const { users, isLoading, error, forgetUser, refetch, isForgettingUser } = useAdmin();
     const { user: currentUser } = useAuth();
+    const navigate = useNavigate();
 
     // Filter and sort users
     const filteredUsers = React.useMemo(() => {
@@ -195,7 +197,7 @@ export const UserManagement: React.FC = () => {
                                 <td className="p-3">
                                     <div className="flex gap-2">
                                         <Button
-                                            onClick={() => window.location.href = `/profile/${user.id}`}
+                                            onClick={() => navigate(`/profile/${user.id}`)}
                                             variant="outline"
                                             size="small"
                                         >
@@ -234,9 +236,12 @@ export const UserManagement: React.FC = () => {
                         <div className="bg-red-900/20 p-4 rounded border border-red-500/30">
                             <h4 className="text-red-400 font-semibold mb-2">⚠️ Warning</h4>
                             <p className="text-red-300 text-sm">
-                                This action will permanently delete the user account for{' '}
-                                <strong>{selectedUser.username}</strong> and cannot be undone.
-                                All associated data will be removed.
+                                Delete the account of{' '}
+                                <strong>{selectedUser.username}</strong>? This cannot be undone.
+                            </p>
+                            {/* What AdminService.forgetUser removes (R-40); the rest is the owner's manual 30-day process */}
+                            <p className="text-red-300 text-sm mt-2">
+                                Deletes the user record; friendships, match history and rank history remain.
                             </p>
                         </div>
 

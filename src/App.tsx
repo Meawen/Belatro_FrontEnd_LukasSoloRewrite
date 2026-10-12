@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
@@ -18,17 +18,23 @@ import { AuthPage } from './components/auth/AuthPage';
 import { ConfirmEmailPage } from './components/auth/ConfirmEmailPage';
 import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from './components/auth/ResetPasswordPage';
+import { PrivacyPage } from './components/info/PrivacyPage';
+import { TermsPage } from './components/info/TermsPage';
+import { RulesPage } from './components/info/RulesPage';
 import { LobbyList } from './components/lobby/LobbyList';
 import { LobbyDetails } from './components/lobby/LobbyDetails';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { FriendsList } from './components/profile/FriendList';
 import { PlayPage } from './components/game/PlayPage'; // Add this import
+import { RankedQueueProvider } from './components/game/RankedQueueProvider';
 
 // Common Components
 import { Button, Loading } from './components/common';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Hooks
 import { useAuth } from './hooks/useAuth';
+import { useUser } from './hooks/useUser';
 import GamePageConnected from './components/game/GamePageConnected';
 
 // Create a client
@@ -82,6 +88,11 @@ const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
 // Dashboard Component
 const DashboardContent = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
+    // GET /user/{id}: the tiles show the player's own numbers, "—" where the API gives none (R-34)
+    const { user: profile } = useUser(user?.id ?? undefined);
+    // a new player is level 0 in the database and Level 1 on every screen
+    const level = profile ? profile.level || 1 : '—';
 
     return (
         <div className="space-y-6">
@@ -101,7 +112,7 @@ const DashboardContent = () => {
                     </div>
                     <div className="hidden md:block">
                         <Button
-                            onClick={() => window.location.href = '/play'}
+                            onClick={() => navigate('/play')}
                             variant="primary"
                             className="bg-amber-600 hover:bg-amber-500 text-emerald-900 font-bold px-6 py-3"
                         >
@@ -117,8 +128,8 @@ const DashboardContent = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-emerald-300 text-sm font-medium">ELO Rating</p>
-                            <p className="text-3xl font-bold text-white mt-1">1200</p>
-                            <p className="text-emerald-400 text-xs mt-1">Default rating</p>
+                            <p data-testid="dashboard-elo" className="text-3xl font-bold text-white mt-1">{profile?.eloRating ?? '—'}</p>
+                            <p className="text-emerald-400 text-xs mt-1">Your rating</p>
                         </div>
                         <div className="w-12 h-12 bg-amber-600/20 rounded-lg flex items-center justify-center">
                             <svg className="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -132,7 +143,7 @@ const DashboardContent = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-emerald-300 text-sm font-medium">Games Played</p>
-                            <p className="text-3xl font-bold text-white mt-1">0</p>
+                            <p data-testid="dashboard-games" className="text-3xl font-bold text-white mt-1">{profile?.gamesPlayed ?? '—'}</p>
                             <p className="text-emerald-400 text-xs mt-1">Start your journey</p>
                         </div>
                         <div className="w-12 h-12 bg-emerald-600/20 rounded-lg flex items-center justify-center">
@@ -147,8 +158,8 @@ const DashboardContent = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-emerald-300 text-sm font-medium">Win Rate</p>
-                            <p className="text-3xl font-bold text-white mt-1">--%</p>
-                            <p className="text-emerald-400 text-xs mt-1">Play to see stats</p>
+                            <p data-testid="dashboard-win-rate" className="text-3xl font-bold text-white mt-1">—</p>
+                            <p className="text-emerald-400 text-xs mt-1">Not tracked yet</p>
                         </div>
                         <div className="w-12 h-12 bg-blue-600/20 rounded-lg flex items-center justify-center">
                             <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -161,9 +172,9 @@ const DashboardContent = () => {
                 <div className="card group hover:bg-emerald-800 transition-colors">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-emerald-300 text-sm font-medium">Rank</p>
-                            <p className="text-3xl font-bold text-white mt-1">Beginner</p>
-                            <p className="text-emerald-400 text-xs mt-1">Level 1</p>
+                            <p className="text-emerald-300 text-sm font-medium">Level</p>
+                            <p data-testid="dashboard-level" className="text-3xl font-bold text-white mt-1">{level}</p>
+                            <p className="text-emerald-400 text-xs mt-1">Every player starts at 1</p>
                         </div>
                         <div className="w-12 h-12 bg-purple-600/20 rounded-lg flex items-center justify-center">
                             <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -185,7 +196,7 @@ const DashboardContent = () => {
                     </h3>
                     <div className="space-y-3">
                         <Button
-                            onClick={() => window.location.href = '/play'}
+                            onClick={() => navigate('/play')}
                             variant="primary"
                             className="w-full bg-amber-600 hover:bg-amber-500 text-emerald-900 font-bold justify-start"
                         >
@@ -196,7 +207,7 @@ const DashboardContent = () => {
                         </Button>
 
                         <Button
-                            onClick={() => window.location.href = '/matches'}
+                            onClick={() => navigate('/matches')}
                             variant="outline"
                             className="w-full border-emerald-600 text-emerald-300 hover:bg-emerald-600 hover:text-white justify-start"
                         >
@@ -207,7 +218,7 @@ const DashboardContent = () => {
                         </Button>
 
                         <Button
-                            onClick={() => window.location.href = '/users'}
+                            onClick={() => navigate('/users')}
                             variant="outline"
                             className="w-full border-emerald-600 text-emerald-300 hover:bg-emerald-600 hover:text-white justify-start"
                         >
@@ -233,7 +244,7 @@ const DashboardContent = () => {
                                 Learn the rules and strategies of this classic card game.
                             </p>
                             <Button
-                                onClick={() => window.location.href = '/guide'}
+                                onClick={() => navigate('/rules')}
                                 variant="outline"
                                 size="small"
                                 className="border-amber-600 text-amber-400 hover:bg-amber-600 hover:text-emerald-900"
@@ -248,7 +259,7 @@ const DashboardContent = () => {
                                 Add friends and challenge them to private games.
                             </p>
                             <Button
-                                onClick={() => window.location.href = '/friends'}
+                                onClick={() => navigate('/friends')}
                                 variant="outline"
                                 size="small"
                                 className="border-emerald-600 text-emerald-300 hover:bg-emerald-600 hover:text-white"
@@ -327,6 +338,7 @@ const FriendsPage = () => (
 
 const UsersPage = () => {
     const { isAuthenticated } = useAuth();
+    const navigate = useNavigate();
 
     return (
         <PageLayout title="All Users" subtitle="Browse and connect with other players">
@@ -344,7 +356,7 @@ const UsersPage = () => {
                         <p className="text-emerald-300 mb-6">Please log in to view the user leaderboard.</p>
                         <div className="space-x-4">
                             <Button
-                                onClick={() => window.location.href = '/login'}
+                                onClick={() => navigate('/login')}
                                 variant="primary"
                                 size="medium"
                                 className="bg-amber-600 hover:bg-amber-500 text-emerald-900 font-bold"
@@ -352,7 +364,7 @@ const UsersPage = () => {
                                 Login
                             </Button>
                             <Button
-                                onClick={() => window.location.href = '/signup'}
+                                onClick={() => navigate('/signup')}
                                 variant="outline"
                                 size="medium"
                                 className="border-emerald-600 text-emerald-300 hover:bg-emerald-600 hover:text-white"
@@ -396,14 +408,16 @@ const AdminPage = () => (
     </PageLayout>
 );
 
-const NotFoundPage = () => (
+const NotFoundPage = () => {
+    const navigate = useNavigate();
+    return (
     <div className="min-h-screen bg-emerald-950 flex items-center justify-center">
         <div className="text-center">
             <div className="text-6xl font-bold text-amber-500 mb-4">404</div>
             <h1 className="text-2xl font-bold text-white mb-2">Page Not Found</h1>
             <p className="text-emerald-300 mb-6">The page you're looking for doesn't exist.</p>
             <Button
-                onClick={() => window.location.href = '/dashboard'}
+                onClick={() => navigate('/dashboard')}
                 variant="primary"
                 size="medium"
                 className="bg-amber-600 hover:bg-amber-500 text-emerald-900 font-bold"
@@ -412,12 +426,17 @@ const NotFoundPage = () => (
             </Button>
         </div>
     </div>
-);
+    );
+};
 
 function App() {
     return (
         <QueryClientProvider client={queryClient}>
             <Router>
+                {/* A render error on any page shows the boundary's fallback instead of a blank page (R-29) */}
+                <ErrorBoundary>
+                {/* The ranked queue outlives every page: Match Found reaches a queued player anywhere (R-33) */}
+                <RankedQueueProvider>
                 <Routes>
                     {/* Public Routes - AuthPage handles both login and signup internally */}
                     <Route path="/login" element={
@@ -435,6 +454,11 @@ function App() {
                     <Route path="/confirm-email" element={<ConfirmEmailPage />} />
                     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                     <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+                    {/* Public information pages: readable signed in or out (R-40) */}
+                    <Route path="/privacy" element={<PrivacyPage />} />
+                    <Route path="/terms" element={<TermsPage />} />
+                    <Route path="/rules" element={<RulesPage />} />
 
                     {/* Protected Routes - Using AppLayout with Sidebar enabled */}
                     <Route path="/" element={
@@ -564,6 +588,8 @@ function App() {
                     {/* 404 Page */}
                     <Route path="*" element={<NotFoundPage />} />
                 </Routes>
+                </RankedQueueProvider>
+                </ErrorBoundary>
             </Router>
             <ReactQueryDevtools initialIsOpen={false} />
         </QueryClientProvider>

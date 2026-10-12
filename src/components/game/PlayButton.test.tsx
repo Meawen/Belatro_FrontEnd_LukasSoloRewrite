@@ -28,6 +28,14 @@ describe('PlayButton', () => {
         expect(screen.queryByText(/^Error:/)).not.toBeInTheDocument()
     })
 
+    // the decline cooldown (R-25): the server says how long to wait
+    test('a 429 shows the server message as it is', () => {
+        ranked(new ApiError({ status: 429, message: 'You declined a match; you can queue again in 97 s' }))
+        render(<PlayButton />)
+        expect(screen.getByText('You declined a match; you can queue again in 97 s')).toBeInTheDocument()
+        expect(screen.queryByText(/^Error:/)).not.toBeInTheDocument()
+    })
+
     test('other failures keep the generic error line', () => {
         ranked(new ApiError({ status: 500, message: 'Internal Server Error' }))
         render(<PlayButton />)

@@ -6,7 +6,9 @@ import type { PlayerMatchHistoryDTO, PlayerMatchSummaryDTO } from '../types/user
 export function useMatchHistory(
     playerId?: string | null,
     page: number = 0,
-    size: number = 20
+    size: number = 20,
+    // false until the detailed view is shown: /matches opens in the summary view (R-9)
+    enabled: boolean = true
 ) {
     // Memoize API function to prevent unnecessary re-executions
     const apiFunction = useMemo(() => {
@@ -19,8 +21,8 @@ export function useMatchHistory(
     const matchHistoryQuery = useApi(
         apiFunction,
         {
-            immediate: !!playerId,
-            dependencies: [playerId, page, size],
+            immediate: !!playerId && enabled,
+            dependencies: [playerId, page, size, enabled],
             staleTime: 90000 // Cache for 1.5 minutes
         }
     );

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button, Modal, Input, ErrorAlert } from '../common';
 import { useAuth } from '../../hooks/useAuth';
 import { useLobbies } from '../../hooks/useLobby';
@@ -23,6 +24,7 @@ export const LobbyDetailsPopup: React.FC<LobbyDetailsPopupProps> = ({
     const [joinError, setJoinError] = useState<string | null>(null);
     const { user } = useAuth();
     const { joinLobby, isJoining } = useLobbies();
+    const navigate = useNavigate();
     const isPlayerInLobby = [
         ...(lobby.teamAPlayers || []),
         ...(lobby.teamBPlayers || []),
@@ -64,7 +66,7 @@ export const LobbyDetailsPopup: React.FC<LobbyDetailsPopupProps> = ({
     };
 
     const handleEnterLobby = () => {
-        window.location.href = `/lobby/${lobby.id}`;
+        navigate(`/lobby/${lobby.id}`);
     };
 
     const renderTeamSection = (title: string, players: any[] | null, teamColor: string) => {

@@ -3,6 +3,7 @@ import { Modal, Button } from '../common';
 import { PlayingCard } from '../common/PlayingCard';
 import type { PlayerMatchHistoryDTO } from '../../types/user';
 import type { UserSimpleDTO, HandDTO, TrumpCallDTO, MoveDTO, TrickDTO, ChallengeDTO } from '../../types';
+import { parseMatchResult } from './matchResult';
 
 interface MatchDetailsProps {
     historyItem: PlayerMatchHistoryDTO;
@@ -128,30 +129,6 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
             if (!trick.moves) return count;
             return count + trick.moves.filter(move => move.legal === false).length;
         }, 0);
-    };
-
-    // Helper function to parse match result and extract scores
-    const parseMatchResult = (result: string) => {
-        // Parse patterns like "Team A wins 1134-0" or "Team B wins 500-200"
-        const scoreMatch = result.match(/(\d+)-(\d+)/);
-        if (scoreMatch) {
-            const score1 = parseInt(scoreMatch[1]);
-            const score2 = parseInt(scoreMatch[2]);
-            
-            // Determine which team won based on the result text
-            const teamAWins = result.toLowerCase().includes('team a wins');
-            const teamBWins = result.toLowerCase().includes('team b wins');
-            
-            if (teamAWins) {
-                return { teamAScore: score1, teamBScore: score2 };
-            } else if (teamBWins) {
-                return { teamAScore: score2, teamBScore: score1 };
-            } else {
-                // Default to assuming first score is Team A if unclear
-                return { teamAScore: score1, teamBScore: score2 };
-            }
-        }
-        return { teamAScore: 0, teamBScore: 0 };
     };
 
     // Helper function to calculate total declarations across all hands
@@ -348,7 +325,17 @@ export const MatchDetails: React.FC<MatchDetailsProps> = ({ historyItem, current
                             <h3 className="text-emerald-300 font-semibold text-lg">Match Summary</h3>
                         </div>
                         {(() => {
-                            const { teamAScore, teamBScore } = parseMatchResult(match.result);
+                            const scores = parseMatchResult(match.result);
+                            // a forfeit result carries no points (R-36)
+                            if (scores === 'forfeit') {
+                                return (
+                                    <div className="text-center">
+                                        <div className="text-emerald-100 font-semibold text-lg">Won by forfeit</div>
+                                        <div className="text-emerald-300/80 text-sm mt-1">{match.result}</div>
+                                    </div>
+                                );
+                            }
+                            const { teamAScore, teamBScore } = scores;
                             const { teamADeclTotal, teamBDeclTotal } = calculateTotalDeclarations(structuredMoves);
                             
                             return (

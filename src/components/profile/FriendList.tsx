@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button, Loading, Input, ErrorAlert } from '../common';
 import { useFriends } from '../../hooks/useFriends';
 import { useAuth } from '../../hooks/useAuth';
@@ -12,6 +13,7 @@ export const FriendsList: React.FC = () => {
     const [actionError, setActionError] = useState<string | null>(null);
 
     const { user: currentUser } = useAuth();
+    const navigate = useNavigate();
     const {
         friendships,
         isLoading,
@@ -119,8 +121,8 @@ export const FriendsList: React.FC = () => {
     }, [removeFriend]);
 
     const handleViewProfile = useCallback((userId: string) => {
-        window.location.href = `/profile/${userId}`;
-    }, []);
+        navigate(`/profile/${userId}`);
+    }, [navigate]);
 
     if (isLoading && !friendships.length) {
         return <Loading size="large" text="Loading friends..." />;

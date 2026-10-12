@@ -1,4 +1,5 @@
 import React, { useMemo, useCallback, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../common';
 import { useFriends } from '../../hooks/useFriends';
 import type { User } from '../../types/user';
@@ -30,6 +31,7 @@ export const UserCard: React.FC<UserCardProps> = React.memo(({
         isRemoving
     } = useFriends(currentUser?.id || undefined);
     const [actionError, setActionError] = useState<string | null>(null);
+    const navigate = useNavigate();
 
     // Memoize friendship status calculation
     const friendshipStatus = useMemo(() => {
@@ -119,8 +121,8 @@ export const UserCard: React.FC<UserCardProps> = React.memo(({
     }, [friendshipStatus.friendship?.id, user.username, removeFriend, onUpdate]);
 
     const handleViewProfile = useCallback(() => {
-        window.location.href = `/profile/${user.id}`;
-    }, [user.id]);
+        navigate(`/profile/${user.id}`);
+    }, [navigate, user.id]);
 
     // Memoize rank icon calculation
     const rankIcon = useMemo(() => {

@@ -25,4 +25,11 @@ describe('CreateLobbyForm', () => {
         expect(createLobby).toHaveBeenCalledWith({ name: 'Friday', privateLobby: false, password: null })
         expect(onSuccess).toHaveBeenCalled()
     })
+
+    test('is plainly casual: no mode select and no Ranked option', () => {
+        render(<CreateLobbyForm onSuccess={vi.fn()} onCancel={vi.fn()} />)
+        expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+        expect(screen.queryByText(/ranked/i)).not.toBeInTheDocument()
+        expect(screen.getByText("Lobby games are casual: they don't change your rating.")).toBeInTheDocument()
+    })
 })

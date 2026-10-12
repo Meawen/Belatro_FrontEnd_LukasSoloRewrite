@@ -84,5 +84,12 @@ export const userService = {
 
     async requestForget(): Promise<void> {
         await apiClient.post<void>('/user/me/request-forget');
+    },
+
+    // R-33: 200 {"gameId": "…"} while the caller is seated in a running game, else 204
+    // (apiClient turns a 204 into {}).
+    async getActiveGame(): Promise<string | null> {
+        const body = await apiClient.get<{ gameId?: string | null }>('/user/me/active-game');
+        return body?.gameId ?? null;
     }
 };

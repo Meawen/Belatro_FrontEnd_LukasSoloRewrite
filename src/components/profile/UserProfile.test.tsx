@@ -201,3 +201,33 @@ describe('UserProfile change of email', () => {
         expect(screen.getByRole('button', { name: 'Resend confirmation email' })).toBeInTheDocument()
     })
 })
+
+describe('UserProfile numbers and debug text (R-34)', () => {
+    test('a level of 0 shows as 1 in the header and in the stats', () => {
+        vi.mocked(useUser).mockReturnValue({ user: { ...player, level: 0 }, isLoading: false, error: null, refetch: vi.fn() } as never)
+        render(<UserProfile />)
+        // header tile: <span>Level</span> labels the value in the next element of its row
+        expect(screen.getByText('Level', { selector: 'span' }).parentElement?.nextElementSibling).toHaveTextContent(/^1$/)
+        // ProfileStats tile: the value sits right before its <div>Level</div> label
+        expect(screen.getByText('Level', { selector: 'div' }).previousElementSibling).toHaveTextContent(/^1$/)
+    })
+
+    test('no debug Target ID while loading or when the profile is missing', () => {
+        vi.mocked(useUser).mockReturnValue({ user: null, isLoading: true, error: null, refetch: vi.fn() } as never)
+        const { unmount } = render(<UserProfile />)
+        expect(screen.queryByText(/Target ID/)).not.toBeInTheDocument()
+        unmount()
+        vi.mocked(useUser).mockReturnValue({ user: null, isLoading: false, error: null, refetch: vi.fn() } as never)
+        render(<UserProfile />)
+        expect(screen.getByText('Profile Not Found')).toBeInTheDocument()
+        expect(screen.queryByText(/Target ID/)).not.toBeInTheDocument()
+    })
+})
+
+describe('UserProfile deletion copy (R-40)', () => {
+    test('the confirmation says the account and its data go within 30 days', async () => {
+        render(<UserProfile />)
+        await userEvent.setup().click(screen.getByRole('button', { name: /request account deletion/i }))
+        expect(screen.getByText(/We delete your account/)).toHaveTextContent('We delete your account and its data within 30 days of your request.')
+    })
+})
