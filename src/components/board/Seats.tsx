@@ -5,6 +5,7 @@ import { useReducedMotion } from '../../motion/useReducedMotion';
 import { Tag } from '../ui/Chip';
 import { PixelIcon } from '../ui/PixelIcon';
 import { PlayingCard } from '../ui/PlayingCard';
+import { SuitIcon } from '../ui/SuitIcon';
 import { SUIT_LABEL } from '../game/gameView';
 import { summaryChips } from './model/declarationMoment';
 import { cardId } from './model/rules';
@@ -13,6 +14,10 @@ import type { Layout, Targets } from './model/cardTargets';
 import { seatName } from './announce';
 import { seatSpot } from './seatSpot';
 import { useNow } from './useNow';
+import type { Boja } from '../../types/game';
+
+// the trump caller's badge: the suit's colour, as its trump chips (BidPanel's SUIT_FILL)
+const SUIT_FILL: Record<Boja, string> = { HERC: 'bg-suit-herc', KARA: 'bg-suit-karo', PIK: 'bg-suit-pik', TREF: 'bg-suit-tref' };
 
 /** The turn timer's length (TurnTimerService, 30 s): where the countdown bar starts. */
 export const TURN_SECONDS = 30;
@@ -61,7 +66,8 @@ export interface SeatsProps {
 
 /**
  * The seat chips (spec §5.3.3, §5.10): `seat-{id}` with `data-current` on the seat to act, its
- * `cards-left-{id}` (visually hidden on phones), the dealer chip, and on the seat to act the
+ * `cards-left-{id}` (visually hidden on phones), the dealer chip, the trump caller's suit badge from the call to
+ * the hand's end (owner, 2026-10-12; on the plate, so the seat never grows a line), and on the seat to act the
  * `turn-countdown` and its bar; the bid chips while bidding, Bela, and once play opens each winning
  * seat's zvanja chip (summaryChips) for the rest of the hand, with its declared cards until the first
  * trick is down; a quiet "No challenge" on every seat whose challenge is gone, for the rest of the game
@@ -76,6 +82,7 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
     // small cards, at the size the opponents' backs are drawn
     const cardWidth = layout.back.w * layout.backScale;
     const chipsOver = layout.kind === 'landscape';
+    const caller = model.trump?.callerId ?? null;
     return (
         <div className="board-region board-chips">
             {model.seats.map((seat) => {
@@ -121,6 +128,12 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                                 <span data-testid="dealer-chip" className="board-seat__dealer font-pix">
                                     <span aria-hidden="true">D</span>
                                     <span className="sr-only">Dealer</span>
+                                </span>
+                            )}
+                            {caller === seat.id && model.trump && (
+                                <span data-testid="caller-badge" className={`board-seat__caller ${SUIT_FILL[model.trump.suit]}`}>
+                                    <SuitIcon boja={model.trump.suit} />
+                                    <span className="sr-only">{`${seatName(model, seat.id)} called ${model.trump.label}`}</span>
                                 </span>
                             )}
                             <span className="sr-only lg:not-sr-only text-text-2">

@@ -180,6 +180,28 @@ describe('Board: the DOM contract on real views (spec §5.10, §7.2)', () => {
         expect(screen.getAllByTestId('hand-card')).toHaveLength(8)
     })
 
+    test('the trump caller\'s name plate keeps a badge in the trump suit from the call to the hand\'s end, for every viewer', () => {
+        // bob calls (the second bid), so the badge is not the dealer's
+        const called = playTable({ callAt: 1, hands: 2 })
+        const steps = [indexOf(called, 'call:bob:HERC'), indexOf(called, 'play:'), indexOf(called, 'hand-complete')]
+        for (const me of ['alice', 'bob', 'carol', 'dave']) {
+            const { rerenderWith } = renderBoard({ state: tableState(called[indexOf(called, 'bid:alice:PASS')], me), me })
+            expect(screen.queryByTestId('caller-badge'), `${me} while bidding`).toBeNull()
+            for (const step of steps) {
+                rerenderWith({ state: tableState(called[step], me) })
+                const badge = within(screen.getByTestId('seat-bob')).getByTestId('caller-badge')
+                // on the plate, so the seat never grows a line (the 812x340 safe area)
+                expect(badge.closest('.board-seat__name'), `${me} ${called[step].label}`).not.toBeNull()
+                expect(badge).toHaveClass('bg-suit-herc')
+                expect(within(badge).getByText(me === 'bob' ? 'You called Herc' : 'bob called Herc')).toHaveClass('sr-only')
+                expect(screen.getAllByTestId('caller-badge'), `${me} ${called[step].label}`).toHaveLength(1)
+            }
+            rerenderWith({ state: tableState(find(called, 'next-deal'), me) })
+            expect(screen.queryByTestId('caller-badge'), `${me} after the next deal`).toBeNull()
+            cleanup()
+        }
+    })
+
     test('score-a holds exactly the number while the digits slide', () => {
         const { rerenderWith } = renderBoard({ state: tableState(table[indexOf(table, 'hand-complete') - 1]) })
         expect(screen.getByTestId('score-a').textContent).toBe('0')
