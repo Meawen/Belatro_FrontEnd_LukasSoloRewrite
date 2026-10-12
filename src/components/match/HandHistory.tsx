@@ -55,8 +55,9 @@ function HandSummaryBox({ hand, summary }: { hand: HandDTO; summary: HandSummary
 
 /**
  * What the table heard at the trump call (gameplay rules §7): each seat in turn order, its value and its height
- * when tied ("ivo 20 (up to Baba)") or a dash, me as You; then the team and the total it said it scores. That total
- * is what was said: the no-trick rule can void it later, so the hand summary's points stay the hand's points.
+ * when tied with an opponent (D-20; "ivo 20 (up to Baba)") or a dash, me as You; then the team and the total it
+ * said it scores. That total is what was said: the no-trick rule can void it later, so the hand summary's points
+ * stay the hand's points.
  */
 function zvanjaLine(zvanja: ZvanjaView, me: string | null): string {
     const name = (playerId: string) => (playerId === me ? 'You' : playerId);

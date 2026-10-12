@@ -155,7 +155,7 @@ describe('An open hand’s declarations and challenges (spec §4.9 item 6)', () 
 })
 
 describe('An open hand’s declarations line: what the table heard (gameplay rules spec §7)', () => {
-    /** A seat as END_HAND stores it: what it said, its height when tied at the top, no cards. */
+    /** A seat as END_HAND stores it: what it said, its height when tied with an opponent (D-20), no cards. */
     const seat = (playerId: string, said: number | null, kind: ZvanjaKind | null = null, height: Rank | null = null, scored: number[] = []): ZvanjaSeatView => ({
         playerId, said, kind, height, cards: [],
         declarations: scored.map((points) => ({ kind: kind ?? 'RUN', points, suit: kind === 'FOUR' ? null : 'PIK', top: height ?? 'AS' })),
