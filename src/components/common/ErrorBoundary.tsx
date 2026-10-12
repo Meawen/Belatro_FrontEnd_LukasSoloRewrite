@@ -1,9 +1,13 @@
 import  { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Button, Panel, PixelIcon } from '../ui';
+import { Wordmark } from '../layout/Wordmark';
 
 interface Props {
     children: ReactNode;
     fallback?: ReactNode;
     onError?: (error: Error, errorInfo: ErrorInfo) => void;
+    /** The app's root boundary: its fallback fills the page, in a minimal wordmark frame (spec §4.1). */
+    fullPage?: boolean;
 }
 
 interface State {
@@ -32,25 +36,34 @@ export class ErrorBoundary extends Component<Props, State> {
                 return this.props.fallback;
             }
 
-            return (
-                <div className="card max-w-md mx-auto mt-8">
-                    <div className="text-center">
-                        <div className="text-red-500 text-6xl mb-4">⚠️</div>
-                        <h2 className="text-xl font-semibold text-white mb-2">Something went wrong</h2>
-                        <p className="text-slate-400 mb-4">
+            const notice = (
+                <Panel padding="lg" className="mx-auto w-full max-w-md">
+                    <div className="flex flex-col items-center gap-3 text-center">
+                        <PixelIcon name="warning" scale={3} className="text-danger-text" />
+                        <h2 className="t-title">Something went wrong</h2>
+                        <p className="t-body text-text-2">
                             An unexpected error occurred. Please refresh the page or try again later.
                         </p>
                         {/* Full page loads on purpose (R-29): this boundary also wraps the app's
                             routes (Phase 7), and a fresh load drops whatever state crashed. */}
-                        <div className="flex flex-wrap justify-center gap-3">
-                            <button type="button" onClick={() => window.location.reload()} className="btn-primary">
+                        <div className="mt-2 flex flex-wrap justify-center gap-3">
+                            <Button onClick={() => window.location.reload()}>
                                 Reload
-                            </button>
-                            <button type="button" onClick={() => window.location.assign('/dashboard')} className="btn-secondary">
+                            </Button>
+                            <Button variant="secondary" onClick={() => window.location.assign('/dashboard')}>
                                 Go to dashboard
-                            </button>
+                            </Button>
                         </div>
                     </div>
+                </Panel>
+            );
+
+            if (!this.props.fullPage) return <div className="px-4 py-8">{notice}</div>;
+
+            return (
+                <div className="flex min-h-dvh flex-col items-center justify-center gap-8 bg-bg px-4 py-10 text-text">
+                    <Wordmark className="t-display" />
+                    {notice}
                 </div>
             );
         }

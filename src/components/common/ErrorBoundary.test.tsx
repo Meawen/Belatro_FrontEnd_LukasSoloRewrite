@@ -34,4 +34,20 @@ describe('ErrorBoundary (R-29)', () => {
         expect(screen.getByText('Table')).toBeInTheDocument()
         expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument()
     })
+
+    test('the fallback shows no emoji, the pixel warning icon instead (D-36)', () => {
+        captureConsole()
+        const { container } = render(<ErrorBoundary><Crash /></ErrorBoundary>)
+        expect(container.textContent).not.toMatch(/\p{Extended_Pictographic}/u)
+        expect(container.querySelector('svg')).not.toBeNull()
+    })
+
+    test("the root boundary's fallback fills the page in the wordmark frame (spec §4.1)", () => {
+        captureConsole()
+        render(<ErrorBoundary fullPage><Crash /></ErrorBoundary>)
+        expect(screen.getByText('Stiglja')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Go to dashboard' })).toBeInTheDocument()
+    })
 })

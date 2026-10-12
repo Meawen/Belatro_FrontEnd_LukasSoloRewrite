@@ -8,7 +8,8 @@ export function useAdmin() {
 
     const forgetUser = useCallback(async (userId: string) => {
         const result = await forgetUserMutation.mutate(userId);
-        await usersQuery.refetch();
+        // the user is gone: a failed refresh shows as the list's own error, never as a failed delete (spec §8)
+        await usersQuery.refetch().catch(() => {});
         return result;
     }, [forgetUserMutation, usersQuery]);
 

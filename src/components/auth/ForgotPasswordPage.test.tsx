@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { ForgotPasswordPage } from './ForgotPasswordPage'
 import { authService } from '../../services/authService'
 import { ApiError } from '../../services/api'
@@ -10,6 +10,12 @@ vi.mock('../../services/authService', () => ({ authService: { forgotPassword: vi
 
 function renderPage() {
     render(<MemoryRouter><ForgotPasswordPage /></MemoryRouter>)
+}
+
+/** Where the router is, and the state it carries. */
+function Where() {
+    const { pathname, state } = useLocation()
+    return <p data-testid="where">{`${pathname} ${JSON.stringify(state)}`}</p>
 }
 
 const SENT = /If that address has an account, we sent a link/
@@ -99,5 +105,22 @@ describe('ForgotPasswordPage', () => {
         expect(screen.queryByText(raw)).not.toBeInTheDocument()
         expect(screen.queryByText(SENT)).not.toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Send reset link' })).toBeEnabled()
+    })
+})
+
+describe('ForgotPasswordPage on the auth frame (spec §4.3)', () => {
+    test('sits in the auth frame, and "Back to sign in" carries the return path (spec §4.1)', async () => {
+        render(
+            <MemoryRouter initialEntries={[{ pathname: '/forgot-password', state: { from: '/lobby/abc' } }]}>
+                <Routes>
+                    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                    <Route path="/login" element={<Where />} />
+                </Routes>
+            </MemoryRouter>,
+        )
+        expect(screen.getByText('Belot for four, online.')).toBeInTheDocument()
+        expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Forgot your password?'])
+        await userEvent.setup().click(screen.getByRole('link', { name: 'Back to sign in' }))
+        expect(screen.getByTestId('where')).toHaveTextContent('/login {"from":"/lobby/abc"}')
     })
 })

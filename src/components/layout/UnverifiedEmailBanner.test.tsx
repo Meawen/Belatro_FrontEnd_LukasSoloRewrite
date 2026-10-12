@@ -14,6 +14,9 @@ vi.mock('../../hooks/useUser', async (importOriginal) => ({
 }))
 vi.mock('../../services/userService', () => ({ userService: { resendEmailConfirmation: vi.fn(), getMe: vi.fn() } }))
 
+// Tailwind's own colour scale (bg-amber-900, text-amber-100, …): the design uses tokens only
+const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange)-\d/
+
 const base = { id: 'u1', username: 'ana', email: null, pendingEmail: null, emailVerified: false, roles: null, deletionRequested: false }
 const refetch = vi.fn()
 
@@ -48,10 +51,11 @@ describe('UnverifiedEmailBanner', () => {
         expect(screen.getByRole('region', { name: 'Email confirmation' })).toHaveTextContent('Confirm old@example.com to play ranked:')
     })
 
-    test('an account without any address is sent to its profile', () => {
+    // X-11: e-mail management lives in Settings → Account now (D-32), not on the profile
+    test('an account without any address is sent to Settings (X-11)', () => {
         renderBanner(base)
         expect(screen.getByText(/Add an email address to play ranked/)).toBeInTheDocument()
-        expect(screen.getByRole('link', { name: 'Open your profile' })).toHaveAttribute('href', '/profile')
+        expect(screen.getByRole('link', { name: 'Open settings' })).toHaveAttribute('href', '/settings')
     })
 
     test('nothing to confirm stops asking to confirm the address and asks for a new one', async () => {
@@ -59,7 +63,8 @@ describe('UnverifiedEmailBanner', () => {
         renderBanner({ ...base, email: 'Ana@Example.com' })
         await userEvent.setup().click(screen.getByRole('button', { name: 'Resend confirmation email' }))
         const banner = screen.getByRole('region', { name: 'Email confirmation' })
-        expect(await screen.findByRole('link', { name: 'Add or change your email address' })).toHaveAttribute('href', '/profile')
+        // X-11: the address is changed in Settings now
+        expect(await screen.findByRole('link', { name: 'Add or change your email address' })).toHaveAttribute('href', '/settings')
         expect(banner).toHaveTextContent('Add or change your email address to play ranked.')
         expect(banner).not.toHaveTextContent('use the link if one arrived')
         expect(banner).not.toHaveTextContent('Confirm Ana@Example.com')
@@ -79,6 +84,11 @@ describe('UnverifiedEmailBanner', () => {
         expect(screen.queryByRole('link', { name: 'Add or change your email address' })).not.toBeInTheDocument()
     })
 
+    test('the banner is a strip on the design tokens (spec §3.2, §3.7)', () => {
+        renderBanner({ ...base, pendingEmail: 'ana@example.com' })
+        expect(screen.getByRole('region', { name: 'Email confirmation' }).outerHTML).not.toMatch(RAW_PALETTE)
+    })
+
     test('stops listening for changes once unmounted', () => {
         const { unmount } = renderBanner({ ...base, pendingEmail: 'ana@example.com' })
         unmount()
@@ -87,7 +97,7 @@ describe('UnverifiedEmailBanner', () => {
     })
 })
 
-// AppLayout stays mounted across navigation, so the banner must hear about a change made on the page itself
+// AppShell stays mounted across navigation, so the banner must hear about a change made on the page itself
 describe('UnverifiedEmailBanner after a change on the page', () => {
     beforeEach(async () => {
         const real = await vi.importActual<typeof import('../../hooks/useUser')>('../../hooks/useUser')

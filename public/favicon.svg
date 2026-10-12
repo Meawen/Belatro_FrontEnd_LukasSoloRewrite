@@ -1,4 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect x="8" y="2" width="48" height="60" rx="8" fill="#064e3b" stroke="#f59e0b" stroke-width="4"/>
-  <path fill="#f59e0b" d="M32 13C27 20 17 26 17 35c0 6 4.5 10 10 10 2 0 3.6-.6 4.6-1.6L29 53h6l-2.6-9.6c1 1 2.6 1.6 4.6 1.6 5.5 0 10-4 10-10 0-9-10-15-15-22z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- X-16: a pixel "S" in the accent (#fbf236) on the app background (#0a1916); the tile's corners are notched, never rounded -->
+  <rect x="1" y="0" width="14" height="16" fill="#0a1916"/>
+  <rect x="0" y="1" width="16" height="14" fill="#0a1916"/>
+  <rect x="5" y="2" width="6" height="1" fill="#fbf236"/>
+  <rect x="4" y="3" width="8" height="1" fill="#fbf236"/>
+  <rect x="4" y="4" width="2" height="2" fill="#fbf236"/>
+  <rect x="10" y="4" width="2" height="1" fill="#fbf236"/>
+  <rect x="4" y="6" width="7" height="1" fill="#fbf236"/>
+  <rect x="5" y="7" width="7" height="1" fill="#fbf236"/>
+  <rect x="10" y="8" width="2" height="3" fill="#fbf236"/>
+  <rect x="4" y="10" width="2" height="1" fill="#fbf236"/>
+  <rect x="4" y="11" width="8" height="1" fill="#fbf236"/>
+  <rect x="5" y="12" width="6" height="1" fill="#fbf236"/>
 </svg>

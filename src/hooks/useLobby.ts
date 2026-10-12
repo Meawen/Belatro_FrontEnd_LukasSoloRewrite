@@ -1,71 +1,110 @@
-import { useCallback, useMemo } from 'react';
-import { lobbyService } from '../services';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ApiError, lobbyService } from '../services';
+import { errorMessage } from '../utils/errorMessage';
 import { useApi, useMutation } from './useApi';
+import { usePolling } from './usePolling';
 import type {
-    LobbyUpdateDTO,
+    LobbyDTO,
     CreateLobbyDTO,
     JoinLobbyRequestDTO,
     KickPlayerRequestDTO,
     TeamSwitchRequestDTO,
 } from '../types';
 
-export function useLobby(lobbyId?: string) {
-    const apiFunction = useMemo(() => {
-        if (!lobbyId) {
-            return () => Promise.reject(new Error('No lobby ID provided'));
+// A casual start pushes nothing over STOMP: members learn about it by polling.
+/** The lobby page polls its lobby this often while the tab is visible (D-16; it was 3 s). */
+export const LOBBY_POLL_MS = 2000;
+
+export interface LobbyState {
+    /** The last good lobby; null until the first answer. */
+    lobby: LobbyDTO | null;
+    /** The first load (or Try again after it failed) is running. */
+    loading: boolean;
+    /** Why the first load failed (not a 404); null otherwise. */
+    loadError: unknown;
+    /** GET /lobbies/{id} answered 404: the host closed the lobby, or it was reaped after 24 h. */
+    closed: boolean;
+    /** "Could not refresh the lobby: …" after a failed poll; `lobby` stays the last good one. */
+    pollError: string | null;
+    /** Fetch now (Try again, after an action). Never rejects. */
+    refresh: () => Promise<void>;
+}
+
+/**
+ * One lobby for /lobby/:id (spec §4.7): loaded once, then polled every 2 s while the tab is visible and
+ * `polling` holds (the page stops it once you were removed). A failed poll keeps the last good lobby on
+ * screen and only says so; the next successful poll clears the message. Nothing polls before a lobby has
+ * loaded, so a failed first load keeps its error state and Try again; a 404 means the lobby was closed.
+ */
+export function useLobby(lobbyId: string, polling = true): LobbyState {
+    const [state, setState] = useState<Omit<LobbyState, 'refresh'>>({ lobby: null, loading: true, loadError: null, closed: false, pollError: null });
+
+    const load = useCallback(async () => {
+        setState((prev) => (prev.lobby ? prev : { ...prev, loading: true, loadError: null }));
+        try {
+            const lobby = await lobbyService.getLobby(lobbyId);
+            setState({ lobby, loading: false, loadError: null, closed: false, pollError: null });
+        } catch (e) {
+            if (e instanceof ApiError && e.status === 404) {
+                setState((prev) => ({ ...prev, loading: false, closed: true, pollError: null }));
+                return;
+            }
+            setState((prev) =>
+                prev.lobby
+                    ? { ...prev, pollError: `Could not refresh the lobby: ${errorMessage(e, 'unknown error')}` }
+                    : { ...prev, loading: false, loadError: e },
+            );
         }
-        return () => lobbyService.getLobby(lobbyId);
     }, [lobbyId]);
 
-    const lobbyQuery = useApi(
-        apiFunction,
-        {
-            immediate: !!lobbyId,
-            dependencies: [lobbyId]
+    useEffect(() => {
+        void load();
+    }, [load]);
+    usePolling(load, LOBBY_POLL_MS, polling && state.lobby !== null && !state.closed);
+
+    return { ...state, refresh: load };
+}
+
+/** /lobbies refreshes the open list this often while the tab is visible (D-16). */
+export const LOBBY_LIST_POLL_MS = 5000;
+
+export interface OpenLobbies {
+    /** The last good list; null until the first answer. */
+    lobbies: LobbyDTO[] | null;
+    /** The first load (or Try again after it failed) is running. */
+    loading: boolean;
+    /** The first load failed: there is no list to show. */
+    failed: boolean;
+    /** The last poll failed; `lobbies` is the last good list. */
+    pollFailed: boolean;
+    /** Fetch now (Refresh, Try again). */
+    refresh: () => Promise<void>;
+}
+
+/**
+ * The open lobbies for /lobbies (spec §4.6): one GET /lobbies/open at mount and one per poll, every 5 s
+ * while the tab is visible. A failed poll keeps the last good list on screen and only says so.
+ */
+export function useOpenLobbies(): OpenLobbies {
+    const [state, setState] = useState<Omit<OpenLobbies, 'refresh'>>({ lobbies: null, loading: true, failed: false, pollFailed: false });
+
+    const load = useCallback(async () => {
+        setState((prev) => (prev.lobbies ? prev : { ...prev, loading: true, failed: false }));
+        try {
+            const lobbies = await lobbyService.getAllOpenLobbies();
+            setState({ lobbies: Array.isArray(lobbies) ? lobbies : [], loading: false, failed: false, pollFailed: false });
+        } catch {
+            // a 401 has already ended the session (services/api.ts); anything else keeps what is on screen
+            setState((prev) => (prev.lobbies ? { ...prev, pollFailed: true } : { ...prev, loading: false, failed: true }));
         }
-    );
+    }, []);
 
-    const updateMutation = useMutation((data: { lobbyId: string; updateData: LobbyUpdateDTO }) =>
-        lobbyService.updateLobby(data.lobbyId, data.updateData)
-    );
-    const deleteMutation = useMutation((lobbyId: string) =>
-        lobbyService.deleteLobby(lobbyId)
-    );
-    const startMatchMutation = useMutation((lobbyId: string) =>
-        lobbyService.startMatch(lobbyId)
-    );
+    useEffect(() => {
+        void load();
+    }, [load]);
+    usePolling(load, LOBBY_LIST_POLL_MS, state.lobbies !== null);
 
-    const updateLobby = useCallback(async (updateData: LobbyUpdateDTO) => {
-        if (!lobbyId) throw new Error('Lobby ID is required');
-        const result = await updateMutation.mutate({ lobbyId, updateData });
-        await lobbyQuery.refetch();
-        return result;
-    }, [lobbyId, updateMutation, lobbyQuery]);
-
-    const deleteLobby = useCallback(async () => {
-        if (!lobbyId) throw new Error('Lobby ID is required');
-        return await deleteMutation.mutate(lobbyId);
-    }, [lobbyId, deleteMutation]);
-
-    const startMatch = useCallback(async () => {
-        if (!lobbyId) throw new Error('Lobby ID is required');
-        const result = await startMatchMutation.mutate(lobbyId);
-        await lobbyQuery.refetch();
-        return result;
-    }, [lobbyId, startMatchMutation, lobbyQuery]);
-
-    return {
-        lobby: lobbyQuery.data,
-        isLoading: lobbyQuery.isLoading,
-        error: lobbyQuery.error,
-        updateLobby,
-        deleteLobby,
-        startMatch,
-        refetch: lobbyQuery.refetch,
-        isUpdating: updateMutation.isLoading,
-        isDeleting: deleteMutation.isLoading,
-        isStartingMatch: startMatchMutation.isLoading,
-    };
+    return { ...state, refresh: load };
 }
 
 export function useLobbies() {

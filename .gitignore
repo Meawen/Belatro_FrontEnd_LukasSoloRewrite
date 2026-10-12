@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# the visual harness's shots (node e2e/visual.mjs, default --out)
+e2e/visual/out
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

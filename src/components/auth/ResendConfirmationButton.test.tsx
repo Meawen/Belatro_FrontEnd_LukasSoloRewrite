@@ -44,11 +44,12 @@ describe('ResendConfirmationButton', () => {
         expect(onChangeEmail).toHaveBeenCalledTimes(1)
     })
 
-    test('nothing to confirm, outside the profile, points to the profile', async () => {
+    // X-11: the change-of-address form moved from the profile to Settings → Account (D-32)
+    test('nothing to confirm, outside Settings, points to Settings (X-11)', async () => {
         vi.mocked(userService.resendEmailConfirmation).mockRejectedValue(new ApiError({ status: 409, message: 'Nothing to confirm' }))
         render(<MemoryRouter><ResendConfirmationButton /></MemoryRouter>)
         await clickResend()
-        expect(await screen.findByRole('link', { name: 'Add or change your email address' })).toHaveAttribute('href', '/profile')
+        expect(await screen.findByRole('link', { name: 'Add or change your email address' })).toHaveAttribute('href', '/settings')
         expect(screen.queryByRole('button', { name: 'Resend confirmation email' })).not.toBeInTheDocument()
     })
 
@@ -72,6 +73,7 @@ describe('ResendConfirmationButton', () => {
         expect(screen.queryByText(failure.message)).not.toBeInTheDocument()
     })
 
+    // the colours are the design tokens now: --danger-text and --success (spec §3.2)
     test('a failure reads in red and a sent link in green, both as the same status line', async () => {
         vi.mocked(userService.resendEmailConfirmation)
             .mockRejectedValueOnce(new ApiError({ status: 429, message: 'Too many requests, try again later' }))
@@ -80,13 +82,13 @@ describe('ResendConfirmationButton', () => {
         await clickResend()
         const failure = await screen.findByRole('status')
         expect(failure).toHaveTextContent('Too many requests, try again later')
-        expect(failure).toHaveClass('text-red-300')
-        expect(failure).not.toHaveClass('text-emerald-200')
+        expect(failure).toHaveClass('text-danger-text')
+        expect(failure).not.toHaveClass('text-success')
         await clickResend()
         const sent = await screen.findByText('If the address can still be confirmed, a new link is on its way.')
         expect(sent).toHaveAttribute('role', 'status')
-        expect(sent).toHaveClass('text-emerald-200')
-        expect(sent).not.toHaveClass('text-red-300')
+        expect(sent).toHaveClass('text-success')
+        expect(sent).not.toHaveClass('text-danger-text')
     })
 
     test('two rapid clicks send one request', () => {

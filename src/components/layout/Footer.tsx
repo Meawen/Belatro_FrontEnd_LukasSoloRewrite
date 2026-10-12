@@ -1,30 +1,19 @@
 import React from 'react';
+import { cx } from '../ui/cx';
 import { LegalLinks } from './LegalLinks';
 
-export const Footer: React.FC = () => {
-    const currentYear = new Date().getFullYear();
+export interface FooterProps {
+    /** The column it lines up with: 'list' (880 px, the shell) or 'read' (680 px, the public frame). */
+    width?: 'list' | 'read';
+}
 
-    return (
-        <footer className="bg-emerald-900 border-t border-emerald-700 py-8 mt-auto">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-                    {/* Brand */}
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-lg flex items-center justify-center text-emerald-900 font-bold">
-                            S
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-white">Stiglja</h3>
-                            <div className="text-emerald-400 text-sm">
-                                © {currentYear} Stiglja. All rights reserved.
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Only routed pages and the support address (R-40) */}
-                    <LegalLinks className="text-emerald-300" />
-                </div>
-            </div>
-        </footer>
-    );
-};
+/** At the bottom of every page but the game (R-40 as amended): the year and the routed links. */
+export const Footer: React.FC<FooterProps> = ({ width = 'list' }) => (
+    <footer className="mt-auto px-4 pt-5 pb-8 shadow-[inset_0_3px_0_var(--edge)] md:px-8">
+        <div className={cx('mx-auto flex flex-col gap-1 md:flex-row md:items-center md:justify-between', width === 'read' ? 'max-w-[680px]' : 'max-w-[880px]')}>
+            <p className="t-footnote text-text-3">© {new Date().getFullYear()} Stiglja</p>
+            {/* Only routed pages and the support address (R-40) */}
+            <LegalLinks />
+        </div>
+    </footer>
+);

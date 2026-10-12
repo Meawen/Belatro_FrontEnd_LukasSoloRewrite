@@ -5,6 +5,9 @@ import { Link, MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { ActiveGameBanner, ACTIVE_GAME_POLL_MS } from './ActiveGameBanner'
 import { userService } from '../../services/userService'
 
+// Tailwind's own colour scale (bg-amber-600, text-emerald-950, …): the design uses tokens only
+const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange)-\d/
+
 const auth = vi.hoisted(() => ({ isAuthenticated: true }))
 vi.mock('../../hooks/useAuth', () => ({
     useAuth: () => ({ isAuthenticated: auth.isAuthenticated, token: auth.isAuthenticated ? 'tok-1' : null }),
@@ -13,7 +16,7 @@ vi.mock('../../services/userService', () => ({ userService: { getActiveGame: vi.
 
 function GamePage() {
     const { gameId } = useParams()
-    return <><h1>Game {gameId}</h1><Link to="/dashboard">Dashboard</Link></>
+    return <><h1>Game {gameId}</h1><Link to="/friends">Friends</Link></>
 }
 
 /** The banner as AppLayout renders it: above whatever page the route shows. */
@@ -88,17 +91,35 @@ describe('ActiveGameBanner (R-33)', () => {
         renderAt('/profile')
         const user = userEvent.setup()
         await user.click(await screen.findByRole('button', { name: 'Return to your game' }))
-        // the game ends; the player leaves for the dashboard, whose check has not answered yet
-        await user.click(screen.getByRole('link', { name: 'Dashboard' }))
+        // the game ends; the player leaves for another page, whose check has not answered yet
+        // (not Home: the banner never shows there, spec §2.5 R-33)
+        await user.click(screen.getByRole('link', { name: 'Friends' }))
         await settle()
-        expect(screen.getByRole('heading', { name: 'Dashboard page' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Friends page' })).toBeInTheDocument()
         expect(userService.getActiveGame).toHaveBeenCalledTimes(2)
         expect(screen.queryByRole('button', { name: 'Return to your game' })).not.toBeInTheDocument()
+    })
+
+    test('on /dashboard: no banner and no request, Home shows its own card (spec §2.5 R-33)', async () => {
+        vi.mocked(userService.getActiveGame).mockResolvedValue('g1')
+        renderAt('/dashboard')
+        await settle()
+        expect(screen.getByRole('heading', { name: 'Dashboard page' })).toBeInTheDocument()
+        expect(userService.getActiveGame).not.toHaveBeenCalled()
+        expect(screen.queryByRole('region', { name: 'Game in progress' })).not.toBeInTheDocument()
     })
 
     test('on the game page: no request', async () => {
         renderAt('/game/g1')
         await settle()
         expect(userService.getActiveGame).not.toHaveBeenCalled()
+    })
+
+    test('the banner is a strip on the design tokens, its action a button (spec §3.2, §3.7)', async () => {
+        vi.mocked(userService.getActiveGame).mockResolvedValue('g1')
+        renderAt('/profile')
+        const banner = await screen.findByRole('region', { name: 'Game in progress' })
+        expect(banner).toHaveTextContent('You have a game in progress.')
+        expect(banner.outerHTML).not.toMatch(RAW_PALETTE)
     })
 })

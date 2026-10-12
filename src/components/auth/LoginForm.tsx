@@ -1,20 +1,19 @@
-
-import React, { useState } from 'react';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Input } from '../common';
+import { Button, Input } from '../ui';
+import { ErrorAlert } from '../common/ErrorAlert';
 import { useAuth } from '../../hooks/useAuth';
 import { ApiError } from '../../services/api';
 import { isNetworkOrServerFailure, SOMETHING_WENT_WRONG } from '../../utils/errorMessage';
+import { AUTH_LINK } from './AuthFrame';
+import { useReturnState } from './returnState';
 
 export interface LoginFormProps {
     onSuccess?: () => void;
-    onSwitchToSignup?: () => void;
 }
 
-export const LoginForm: React.FC<LoginFormProps> = ({
-                                                        onSuccess,
-                                                        onSwitchToSignup,
-                                                    }) => {
+/** Sign in (spec §4.2). "Sign up" is the other URL (X-2); both links carry the return path (§4.1). */
+export function LoginForm({ onSuccess }: LoginFormProps) {
     const [formData, setFormData] = useState({
         username: '',
         password: '',
@@ -22,8 +21,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     const { login, isLoginLoading } = useAuth();
+    const returnState = useReturnState();
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
 
@@ -48,25 +48,21 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        console.log('Login form submitted:', { username: formData.username });
 
         if (!validateForm()) {
-            console.log('Form validation failed:', errors);
             return;
         }
 
         try {
             setErrors({}); // Clear any previous errors
-            console.log('Attempting login with:', { username: formData.username });
 
-            const result = await login({
+            await login({
                 username: formData.username.trim(),
                 password: formData.password
             });
 
-            console.log('Login successful:', { username: result.user?.username });
             onSuccess?.();
         } catch (error) {
             console.error('Login error:', error);
@@ -79,13 +75,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     };
 
     return (
-        <div className="card max-w-md mx-auto">
-            <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">Welcome Back</h2>
-                <p className="text-slate-400">Sign in to your account</p>
+        <>
+            <div className="mb-6 text-center">
+                <h1 className="t-title">Welcome Back</h1>
+                <p className="t-callout mt-2 text-text-2">Sign in to your account</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <Input
                     label="Username"
                     name="username"
@@ -94,12 +90,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                     onChange={handleChange}
                     error={errors.username}
                     placeholder="Enter your username"
-                    fullWidth
-                    leftIcon={
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                    }
                 />
 
                 <Input
@@ -110,51 +100,27 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                     onChange={handleChange}
                     error={errors.password}
                     placeholder="Enter your password"
-                    fullWidth
-                    leftIcon={
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                    }
                 />
 
-                {errors.submit && (
-                    <div className="text-red-500 text-sm text-center bg-red-900/20 border border-red-500/30 rounded-lg p-3">
-                        {errors.submit}
-                    </div>
-                )}
+                <ErrorAlert message={errors.submit ?? null} />
 
-                <Button
-                    type="submit"
-                    variant="primary"
-                    fullWidth
-                    isLoading={isLoginLoading}
-                    disabled={isLoginLoading}
-                >
+                <Button type="submit" block loading={isLoginLoading}>
                     {isLoginLoading ? 'Signing In...' : 'Sign In'}
                 </Button>
-
-
             </form>
 
-            <div className="text-center mt-4">
-                <Link to="/forgot-password" className="text-sm text-yellow-500 hover:text-yellow-400">
+            <p className="t-callout mt-4 text-center">
+                <Link to="/forgot-password" state={returnState} className={`inline-flex min-h-11 items-center ${AUTH_LINK}`}>
                     Forgot password?
                 </Link>
-            </div>
+            </p>
 
-            {onSwitchToSignup && (
-                <div className="text-center mt-6">
-                    <span className="text-slate-400">Don't have an account? </span>
-                    <button
-                        onClick={onSwitchToSignup}
-                        className="text-yellow-500 hover:text-yellow-400 font-medium transition-colors"
-                        type="button"
-                    >
-                        Sign up
-                    </button>
-                </div>
-            )}
-        </div>
+            <p className="t-callout mt-1 text-center text-text-2">
+                Don't have an account?{' '}
+                <Link to="/signup" state={returnState} className={`inline-flex min-h-11 items-center ${AUTH_LINK}`}>
+                    Sign up
+                </Link>
+            </p>
+        </>
     );
-};
+}

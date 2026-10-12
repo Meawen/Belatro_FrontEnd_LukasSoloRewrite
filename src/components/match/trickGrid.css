@@ -1,0 +1,72 @@
+/*
+ * The trick replay (spec §4.9 item 6; D-31): fixed player columns, each tinted 20 % in its team's colour over
+ * --bg with a 3-px team top edge; the winner's gold ring around its cell; a trump's ring in its suit's colour
+ * around the card (a different element, so a Karo trump never reads as a winner). Tokens only.
+ */
+.mh-cols,
+.mh-plays {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+.mh-cols {
+    margin-bottom: 8px;
+    padding: 4px 0;
+    background: var(--surface);
+}
+/* desktop: the header row stays in view while the tricks scroll; on phones it scrolls with them */
+@media (min-width: 1024px) {
+    .mh-cols {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+}
+.mh-tile {
+    position: relative;
+    clip-path: var(--notch);
+}
+.mh-team-a {
+    background: color-mix(in srgb, var(--team-a) 20%, var(--bg));
+    box-shadow: inset 0 3px 0 var(--team-a);
+}
+.mh-team-b {
+    background: color-mix(in srgb, var(--team-b) 20%, var(--bg));
+    box-shadow: inset 0 3px 0 var(--team-b);
+}
+.mh-cell--empty {
+    box-shadow: inset 0 0 0 2px var(--surface-3);
+}
+.mh-cell--won::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0 0 0 3px var(--accent);
+    clip-path: var(--notch);
+    pointer-events: none;
+}
+.mh-card {
+    position: relative;
+    display: inline-block;
+    line-height: 0;
+}
+.mh-card--trump::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    box-shadow: inset 0 0 0 3px var(--mh-suit);
+    clip-path: var(--notch);
+    pointer-events: none;
+}
+/* a cell's tags fit a phone's four columns */
+.mh-tag {
+    gap: 2px;
+    padding: 0 4px;
+    font-size: 0.625rem;
+    letter-spacing: 0.02em;
+}
+@media (forced-colors: active) {
+    .mh-tile {
+        border: 1px solid;
+    }
+}

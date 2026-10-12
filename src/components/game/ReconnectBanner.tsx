@@ -1,6 +1,7 @@
 import { useSyncExternalStore, type JSX } from 'react';
 import { gameSocket } from '../../services/gameSocket';
-import { Button } from '../common/Button';
+import { Button } from '../ui/Button';
+import { PixelIcon } from '../ui/PixelIcon';
 
 /**
  * R-30: while a held game socket is down after a lost or failed connection, say so and offer an
@@ -12,12 +13,12 @@ export function ReconnectBanner(): JSX.Element | null {
     const { isReconnecting } = useSyncExternalStore(gameSocket.onStateChange, gameSocket.getState);
     if (!isReconnecting) return null;
     return (
-        <div
-            role="status"
-            className="max-w-5xl mx-auto mb-4 flex items-center justify-between gap-4 rounded-lg border border-amber-500/40 bg-amber-900/30 px-4 py-3 text-amber-100"
-        >
-            <span>Reconnecting…</span>
-            <Button variant="secondary" size="small" onClick={() => gameSocket.retryNow()}>Retry</Button>
+        <div role="status" className="flex items-center justify-between gap-3 notch bg-warn-fill px-3 py-1.5 text-text t-callout font-semibold">
+            <span className="inline-flex items-center gap-2">
+                <PixelIcon name="refresh" />
+                <span>Reconnecting…</span>
+            </span>
+            <Button variant="secondary" size="sm" onClick={() => gameSocket.retryNow()}>Retry</Button>
         </div>
     );
 }

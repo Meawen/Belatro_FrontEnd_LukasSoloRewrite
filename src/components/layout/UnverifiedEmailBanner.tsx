@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { ME_CHANGED, useMe } from '../../hooks/useUser';
 import { ResendConfirmationButton } from '../auth/ResendConfirmationButton';
+import { Banner } from '../ui';
 
 /** Unverified accounts may play casual, not ranked; say so on every page until confirmed. */
 export const UnverifiedEmailBanner: React.FC = () => {
@@ -37,13 +38,9 @@ export const UnverifiedEmailBanner: React.FC = () => {
     };
 
     return (
-        <div
-            role="region"
-            aria-label="Email confirmation"
-            className="bg-amber-900/30 border-b border-amber-600/40 px-6 py-3 flex flex-wrap items-center gap-3 text-sm text-amber-100"
-        >
+        <Banner label="Email confirmation" icon="mail">
             {address ? (
-                <>
+                <span className="flex flex-col items-start gap-2">
                     {unconfirmable === address ? (
                         <span>Add or change your email address to play ranked.</span>
                     ) : (
@@ -52,13 +49,16 @@ export const UnverifiedEmailBanner: React.FC = () => {
                     )}
                     {/* a new address gets a fresh button, not the old one's "nothing to confirm" */}
                     <ResendConfirmationButton key={address} onNothingToConfirm={handleNothingToConfirm} />
-                </>
+                </span>
             ) : (
                 <span>
                     Add an email address to play ranked.{' '}
-                    <Link to="/profile" className="underline text-amber-200 hover:text-white">Open your profile</Link>
+                    {/* X-11: e-mail management lives in Settings → Account (D-32) */}
+                    <Link to="/settings" className="inline-flex min-h-11 items-center font-semibold text-accent underline underline-offset-2">
+                        Open settings
+                    </Link>
                 </span>
             )}
-        </div>
+        </Banner>
     );
 };

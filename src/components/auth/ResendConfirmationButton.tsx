@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '../common/Button';
+import { Button } from '../ui';
 // direct module import (not the ../../hooks barrel) keeps tests off the WebSocket hooks
 import { useMutation } from '../../hooks/useApi';
 import { notifyMeChanged } from '../../hooks/useUser';
@@ -9,7 +9,7 @@ import { ApiError } from '../../services/api';
 import { errorMessage, isNetworkOrServerFailure, WAIT_AND_RETRY } from '../../utils/errorMessage';
 
 export interface ResendConfirmationButtonProps {
-    /** Opens the change-of-address form. Without it, "nothing to confirm" links to the profile, where the form is. */
+    /** Opens the change-of-address form. Without it, "nothing to confirm" links to Settings, where the form is (X-11). */
     onChangeEmail?: () => void;
     /** Told when the server answers 409 "Nothing to confirm", so a caller can stop asking to confirm the address. */
     onNothingToConfirm?: () => void;
@@ -58,14 +58,14 @@ export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> =
 
     if (nothingToConfirm) {
         return (
-            <span className="inline-flex flex-wrap items-center gap-2">
-                <span role="status" className="text-sm text-amber-200">{message}</span>
+            <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span role="status" className="t-footnote text-danger-text">{message}</span>
                 {onChangeEmail ? (
-                    <Button variant="outline" size="small" onClick={onChangeEmail}>
+                    <Button variant="secondary" size="sm" onClick={onChangeEmail}>
                         {ADD_OR_CHANGE}
                     </Button>
                 ) : (
-                    <Link to="/profile" className="text-sm underline text-amber-200 hover:text-white">
+                    <Link to="/settings" className="t-footnote inline-flex min-h-11 items-center font-semibold text-accent underline underline-offset-2">
                         {ADD_OR_CHANGE}
                     </Link>
                 )}
@@ -74,18 +74,12 @@ export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> =
     }
 
     return (
-        <span className="inline-flex flex-wrap items-center gap-2">
-            <Button
-                variant="outline"
-                size="small"
-                onClick={handleClick}
-                disabled={resend.isLoading}
-                isLoading={resend.isLoading}
-            >
+        <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+            <Button variant="secondary" size="sm" onClick={handleClick} loading={resend.isLoading}>
                 Resend confirmation email
             </Button>
-            {message && <span role="status" className={`text-sm ${failed ? 'text-red-300' : 'text-emerald-200'}`}>{message}</span>}
-            {hint && <span className="text-sm text-slate-400">{hint}</span>}
+            {message && <span role="status" className={`t-footnote ${failed ? 'text-danger-text' : 'text-success'}`}>{message}</span>}
+            {hint && <span className="t-footnote text-text-2">{hint}</span>}
         </span>
     );
 };

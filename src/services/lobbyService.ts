@@ -34,7 +34,7 @@ export const lobbyService = {
 
     async joinLobby(lobbyId: string, joinData: JoinLobbyRequestDTO): Promise<LobbyDTO> {
         const payload: JoinLobbyRequestDTO = { ...joinData, lobbyId };
-        return apiClient.post<LobbyDTO>('/lobbies/join', payload); // ✅ correct endpoint
+        return apiClient.post<LobbyDTO>('/lobbies/join', payload); // correct endpoint
     },
 
     async leaveLobby(lobbyId: string): Promise<Void> {

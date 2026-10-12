@@ -6,6 +6,7 @@ const fake = vi.hoisted(() => {
     const published: { destination: string; body: unknown }[] = []
     const counters = { acquired: 0, released: 0 }
     const state = { isConnected: true, isConnecting: false, error: null as string | null }
+    const listeners = new Set<() => void>()
     const gameSocket = {
         acquire: () => {
             counters.acquired += 1
@@ -22,10 +23,18 @@ const fake = vi.hoisted(() => {
             return state.isConnected
         },
         getState: () => state,
-        onStateChange: () => () => {},
+        onStateChange: (listener: () => void) => {
+            listeners.add(listener)
+            return () => { listeners.delete(listener) }
+        },
     }
     const deliver = (destination: string, body: string) => handlers.get(destination)?.forEach((h) => h(body))
-    return { handlers, published, counters, state, gameSocket, deliver }
+    // like gameSocket's setState: listeners hear every change
+    const setConnected = (isConnected: boolean) => {
+        state.isConnected = isConnected
+        listeners.forEach((listener) => listener())
+    }
+    return { handlers, published, counters, state, gameSocket, deliver, setConnected }
 })
 vi.mock('../services/gameSocket', () => ({ gameSocket: fake.gameSocket }))
 
@@ -141,6 +150,24 @@ describe('useGameWebSocket game snapshot (R-35)', () => {
         expect(onPrivateGameUpdate).toHaveBeenCalledWith({ yourTurn: false, publicPart: { gameId: 'g1' } })
         act(() => result.current.unsubscribeFromGame('g1'))
         expect(fake.handlers.get('/app/queue/games/g1')?.size).toBe(0)
+    })
+})
+
+describe('useGameWebSocket snapshot tagging (UI redesign spec §5.3.1)', () => {
+    test('with onGameSnapshot: the /app/queue answer, and the first private frame after subscribing or after a lost connection, are snapshots', () => {
+        const onPrivateGameUpdate = vi.fn()
+        const onGameSnapshot = vi.fn()
+        const { result } = renderHook(() => useGameWebSocket({ onPrivateGameUpdate, onGameSnapshot }))
+        act(() => result.current.subscribeToGame('g1'))
+        fake.deliver('/user/queue/games/g1', '{"n":1}')
+        fake.deliver('/user/queue/games/g1', '{"n":2}')
+        fake.deliver('/app/queue/games/g1', '{"n":3}')
+        act(() => fake.setConnected(false))
+        act(() => fake.setConnected(true))
+        fake.deliver('/user/queue/games/g1', '{"n":4}')
+        fake.deliver('/user/queue/games/g1', '{"n":5}')
+        expect(onGameSnapshot.mock.calls.map(([view]) => view.n)).toEqual([1, 3, 4])
+        expect(onPrivateGameUpdate.mock.calls.map(([view]) => view.n)).toEqual([2, 5])
     })
 })
 
