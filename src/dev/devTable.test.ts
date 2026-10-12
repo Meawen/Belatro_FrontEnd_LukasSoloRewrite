@@ -56,18 +56,23 @@ describe('the dev board’s data (spec §4.17)', () => {
             teamAPoints: 0, teamBPoints: 162, teamADeclPoints: 0, teamBDeclPoints: 20, padanje: false, capot: false, finalScoreA: 0, finalScoreB: 182,
         })
         expect(endedHand([hand], { a: 0, b: 182 })).toBe(hand)
-        // carol's: team B, caught, loses the declarations it won
+        // carol's: team B, caught, loses the declarations it won; dave called trump, so the hand is taken from the
+        // caller's team: padanje, as the server marks it (backend B7)
         const caught = playTable({ challenge: { by: 'carol', after: 2, foul: true } })
-        expect(devHands(caught, indexOf(caught, 'window-open'))[0].handSummary).toMatchObject({
-            teamAPoints: 162, teamBPoints: 0, teamADeclPoints: 0, teamBDeclPoints: 0, finalScoreA: 162, finalScoreB: 0,
+        const [taken] = devHands(caught, indexOf(caught, 'window-open'))
+        expect(taken.handSummary).toMatchObject({
+            teamAPoints: 162, teamBPoints: 0, teamADeclPoints: 0, teamBDeclPoints: 0, padanje: true, capot: false, finalScoreA: 162, finalScoreB: 0,
         })
-        // in the window: the award taken back, the hand's summary stored again with the new scores
+        expect(blokRows([taken], (id) => (id === 'alice' || id === 'carol' ? 'A' : 'B'))).toEqual([{ handNo: 1, a: 162, b: 0, padanje: 'B', capot: null }])
+        const caughtLate = playTable({ challenge: { by: 'carol', after: 'window', foul: true } })
+        expect(devHands(caughtLate, indexOf(caughtLate, 'challenge:'))[0].handSummary).toMatchObject({ padanje: true, finalScoreA: 162, finalScoreB: 0 })
+        // in the window: the award taken back; the corrected summary rides on the CHALLENGE move (backend B5)
         const late = playTable({ challenge: { by: 'dave', after: 'window', foul: true } })
         const said = indexOf(late, 'challenge:')
         expect(devHands(late, said - 1)[0].handSummary).toMatchObject({ finalScoreA: 11, finalScoreB: 171 })
         const [corrected] = devHands(late, said)
         expect(corrected.challenges).toEqual([{ order: 0, player: 'dave', success: true }])
-        expect(corrected.handSummary).toMatchObject({ teamAPoints: 0, teamBPoints: 162, teamADeclPoints: 0, teamBDeclPoints: 20, finalScoreA: 0, finalScoreB: 182 })
+        expect(corrected.handSummary).toMatchObject({ teamAPoints: 0, teamBPoints: 162, teamADeclPoints: 0, teamBDeclPoints: 20, padanje: false, finalScoreA: 0, finalScoreB: 182 })
         expect(blokRows([corrected], (id) => (id === 'alice' || id === 'carol' ? 'A' : 'B'))).toEqual([{ handNo: 1, a: 0, b: 182, padanje: null, capot: null }])
         // a wrong one: listed, the hand played out and summed as before
         const wrong = playTable({ challenge: { by: 'bob', after: 2, foul: false } })

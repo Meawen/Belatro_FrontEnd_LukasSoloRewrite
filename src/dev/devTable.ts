@@ -235,7 +235,8 @@ function declared(view: PublicGameView, team: 'A' | 'B'): number {
 /**
  * The structured moves the server would have stored by fan-out `upTo` (GET /matches/{id}/structured-moves):
  * per hand its trump calls, its completed tricks with their winners, its challenges, and its summary once it
- * ended (again after a right challenge in its window, as the server stores END_HAND again).
+ * ended; after a right challenge in its window, the corrected summary the CHALLENGE move carries (backend B5: the
+ * server reads it in place of END_HAND's, and stores no second END_HAND).
  */
 export function devHands(fanOuts: readonly FanOut[], upTo: number): HandDTO[] {
     const hands: HandDTO[] = [];
@@ -273,6 +274,8 @@ export function devHands(fanOuts: readonly FanOut[], upTo: number): HandDTO[] {
             const caller = view.bids.find((bid) => bid.action === 'CALL_TRUMP')?.playerId;
             const callerTeam = caller && view.teamA.some((seat) => seat.id === caller) ? 'A' : 'B';
             const challenged = decidedByChallenge(view);
+            // a right challenge: padanje only when the hand is taken from the trump caller's team (backend B7)
+            const fell = challenged ? view.lastChallenge!.team !== callerTeam : (callerTeam === 'A' ? gainA : gainB) === 0;
             current.handSummary = {
                 teamAPoints: gainA - declared(view, 'A'),
                 teamBPoints: gainB - declared(view, 'B'),
@@ -280,7 +283,7 @@ export function devHands(fanOuts: readonly FanOut[], upTo: number): HandDTO[] {
                 teamBDeclPoints: declared(view, 'B'),
                 teamATricksWon: view.tricksWonA ?? 0,
                 teamBTricksWon: view.tricksWonB ?? 0,
-                padanje: !challenged && (callerTeam === 'A' ? gainA : gainB) === 0,
+                padanje: fell,
                 capot: !challenged && (view.tricksWonA === 8 || view.tricksWonB === 8),
                 finalScoreA: view.teamAScore,
                 finalScoreB: view.teamBScore,
