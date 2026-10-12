@@ -2,6 +2,7 @@
 import type {UserSimpleDTO} from './user';
 import type {LobbyDTO} from './lobby';
 import type {GameMode} from './common';
+import type {ZvanjaView} from './game';
 
 export interface MatchDTO {
     id: string | null;
@@ -60,6 +61,8 @@ export interface HandDTO {
     tricks: TrickDTO[] | null;
     challenges: ChallengeDTO[] | null;
     handSummary?: HandSummary | null;
+    /** What the table heard at the trump call (gameplay rules spec §7), from a newer backend; the seats' `cards` are empty here. */
+    zvanja?: ZvanjaView | null;
 }
 
 export interface MatchHistoryDTO {

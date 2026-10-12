@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest'
 import { EMPTY_LOCAL, boardModel, secondsLeft, type BoardLocal } from './boardModel'
 import type { BoardState } from './accept'
 import { find, indexOf, playTable } from '../../../test/fixtures/views/table'
-import type { GameCard, GamePhase, PrivateGameView, PublicGameView } from '../../../types/game'
+import type { GameCard, GamePhase, LastChallengeView, PrivateGameView, PublicGameView, ZvanjaView } from '../../../types/game'
 
 const seating = ['alice', 'bob', 'carol', 'dave'].map((id) => ({ id, cardsLeft: 6 }))
 const c = (boja: GameCard['boja'], rank: GameCard['rank']): GameCard => ({ boja, rank })
@@ -247,5 +247,61 @@ describe('boardModel: bidding controls, declarations, challenge, window, end', (
         expect(model(state(view({ gameState: 'CANCELLED', endReason: 'CANCELLED' }))).end).toMatchObject({ title: 'Match cancelled', rematchOffered: false })
         expect(model(state(view({ gameState: 'CANCELLED', endReason: 'DECLINED' }))).end!.declined).toBe(true)
         expect(model(state(view({ gameState: 'PLAYING' }))).end).toBeNull()
+    })
+})
+
+describe('boardModel: the declarations and the last challenge (gameplay rules §4, §5)', () => {
+    const zvanja: ZvanjaView = {
+        seats: [
+            { playerId: 'alice', said: 20, kind: 'RUN', height: 'AS', declarations: [{ kind: 'RUN', points: 20, suit: 'KARA', top: 'AS' }], cards: [c('KARA', 'BABA'), c('KARA', 'KRALJ'), c('KARA', 'AS')] },
+            { playerId: 'bob', said: 20, kind: 'RUN', height: 'AS', declarations: [], cards: [] },
+            { playerId: 'carol', said: null, kind: null, height: null, declarations: [], cards: [] },
+            { playerId: 'dave', said: null, kind: null, height: null, declarations: [], cards: [] },
+        ],
+        winnerTeam: 'A', total: 20, decidedBy: 'ORDER', belot: null, playOpensAt: 40_000,
+    }
+    const lastChallenge: LastChallengeView = { number: 2, playerId: 'bob', team: 'B', foulFound: false, thisHand: true }
+
+    test('zvanja, lastChallenge and playOpensAt pass through while PLAYING', () => {
+        const m = model(state(view({ gameState: 'PLAYING', zvanja, lastChallenge })))
+        expect(m.zvanja).toEqual(zvanja)
+        expect(m.lastChallenge).toEqual(lastChallenge)
+        expect(m.playOpensAt).toBe(40_000)
+    })
+
+    test('playOpensAt is null outside PLAYING; zvanja and lastChallenge still pass through', () => {
+        for (const phase of ['BIDDING', 'HAND_COMPLETE', 'COMPLETED', 'CANCELLED'] as GamePhase[]) {
+            const m = model(state(view({ gameState: phase, zvanja, lastChallenge })))
+            expect([phase, m.playOpensAt]).toEqual([phase, null])
+            expect(m).toMatchObject({ zvanja, lastChallenge })
+        }
+        expect(model(state(view({ gameState: 'PLAYING', zvanja: { ...zvanja, playOpensAt: null } }))).playOpensAt).toBeNull()
+    })
+
+    test('an older view (no zvanja, no lastChallenge) gives nulls, and the board is as today', () => {
+        const old = view({ gameState: 'PLAYING', currentPlayerId: 'carol', turnExpiresAt: 31_000 })
+        const m = model(state(old, true))
+        expect(m).toMatchObject({ zvanja: null, lastChallenge: null, playOpensAt: null, canPlay: true })
+        expect(m.hand.every((h) => h.enabled)).toBe(true)
+        expect(model(state({ ...old, zvanja: null, lastChallenge: null }, true))).toEqual(m)
+    })
+
+    test('a real hand: the call carries zvanja with playOpensAt; an older backend\'s table has neither', () => {
+        const call = find(playTable(), 'call:')
+        const m = model({ publicView: call.public, privateView: call.private.carol, receivedAt: call.at, skew: 0, source: 'live' })
+        expect(m.zvanja).toEqual(call.public.zvanja)
+        expect(m.playOpensAt).toBe(call.public.zvanja!.playOpensAt)
+        expect(m.playOpensAt).not.toBeNull()
+        const old = find(playTable({ fields: false }), 'call:')
+        expect(model({ publicView: old.public, privateView: old.private.carol, receivedAt: old.at, skew: 0, source: 'live' }))
+            .toMatchObject({ zvanja: null, lastChallenge: null, playOpensAt: null })
+    })
+
+    test('a belot ends the game: Game over with the winner; its reason line is S5\'s (null until then)', () => {
+        const t = playTable({ belot: { player: 'carol', suit: 'PIK' } })
+        const last = t[t.length - 1]
+        const m = model({ publicView: last.public, privateView: last.private.carol, receivedAt: last.at, skew: 0, source: 'live' })
+        expect(m.end).toEqual({ title: 'Game over', winnerLine: 'Team A wins', reason: null, declined: false, rematchOffered: true })
+        expect(m).toMatchObject({ playOpensAt: null, zvanja: { belot: { playerId: 'carol', suit: 'PIK' } } })
     })
 })

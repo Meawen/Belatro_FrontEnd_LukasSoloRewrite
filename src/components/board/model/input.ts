@@ -18,25 +18,33 @@ export interface InputResult {
 
 const sentFrom = (model: BoardModel) => ({ version: model.version, receivedAt: model.receivedAt });
 
+/**
+ * The declarations are being said (gameplay rules spec §4): no card may be played before
+ * `playOpensAt`, on the server's clock (Date.now() + skew, as secondsLeft counts).
+ */
+export function waitingForDeclarations(model: BoardModel, now: number): boolean {
+    return model.playOpensAt !== null && now + model.skew < model.playOpensAt;
+}
+
 const cardPending = (model: BoardModel, cardId: CardId, now: number): Pending =>
     ({ kind: 'card', cardId, at: now, lifted: true, ...sentFrom(model) });
 
 /**
  * A click on a hand card (spec §5.3.5 #2, #5). It acts only on a card the newest model shows as mine
- * and enabled (my turn, nothing in flight): a bela card opens the prompt; any other card is sent and
- * becomes pending, which locks the rest of the hand.
+ * and enabled (my turn, nothing in flight), once the declarations are said: a bela card opens the
+ * prompt; any other card is sent and becomes pending, which locks the rest of the hand.
  */
 export function pressCard(model: BoardModel, input: InputState, cardId: CardId, now: number): InputResult {
     const card = model.hand.find((held) => held.id === cardId);
-    if (!card || !card.enabled) return { input, move: null };
+    if (!card || !card.enabled || waitingForDeclarations(model, now)) return { input, move: null };
     if (card.bela) return { input: { ...input, belaCardId: card.id }, move: null };
     return { input: { pending: cardPending(model, cardId, now), belaCardId: null }, move: { kind: 'play', card: card.card, declareBela: false } };
 }
 
-/** "Play" (false) or "Play + Bela" (true) in the bela prompt (R-32). */
+/** "Play" (false) or "Play + Bela" (true) in the bela prompt (R-32); nothing while the declarations are said. */
 export function answerBela(model: BoardModel, input: InputState, declareBela: boolean, now: number): InputResult {
     const card = model.belaPrompt;
-    if (!card || !card.enabled) return { input, move: null };
+    if (!card || !card.enabled || waitingForDeclarations(model, now)) return { input, move: null };
     return { input: { pending: cardPending(model, card.id, now), belaCardId: null }, move: { kind: 'play', card: card.card, declareBela } };
 }
 

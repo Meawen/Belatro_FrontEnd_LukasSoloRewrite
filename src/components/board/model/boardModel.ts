@@ -6,7 +6,7 @@ import {
     PHASE_LABEL, SUIT_LABEL, cardLabel, declarationLines, endSentence, isBelaCard, rematchOffered, seatsFromMe, teamOf, trumpOf, zvanjaOf,
 } from '../../game/gameView';
 import { isBot } from '../../lobby/lobbyModel';
-import type { Boja, GameBid, GameCard, GamePhase } from '../../../types/game';
+import type { Boja, GameBid, GameCard, GamePhase, LastChallengeView, ZvanjaView } from '../../../types/game';
 
 export type { SeatPosition, Team, TrickModel, TrickPlayModel } from './trick';
 
@@ -62,7 +62,7 @@ export interface SeatModel {
     bela: boolean;
     /** Its scored zvanja chips, e.g. "sequence 50 (Herc)". */
     zvanja: string[];
-    /** Its challenge is spent this hand (challengeUsedByPlayer). */
+    /** Its challenge is gone for the rest of the game (challengeUsedByPlayer). */
     challengeUsed: boolean;
 }
 
@@ -144,12 +144,18 @@ export interface BoardModel {
     bidsEnabled: boolean;
     /** Pass: bidsEnabled and not dealerMustCall. */
     passEnabled: boolean;
-    /** My challenge is spent this hand. */
+    /** My challenge is gone for the rest of the game. */
     challengeUsed: boolean;
     /** The card the bela prompt asks about ("Play" / "Play + Bela"), while I can play it. */
     belaPrompt: HandCardModel | null;
     /** The post-hand challenge window, only in HAND_COMPLETE (stale otherwise); null until the server sets it. */
     window: { expiresAt: number } | null;
+    /** This hand's declarations (gameplay rules spec §5); null before the trump call and from an older backend. */
+    zvanja: ZvanjaView | null;
+    /** The game's last challenge; null until the first and from an older backend. */
+    lastChallenge: LastChallengeView | null;
+    /** While PLAYING, when play opens after the declarations (server clock; waitingForDeclarations); otherwise null. */
+    playOpensAt: number | null;
     /** The visually hidden "This hand" summary: `bid` lines, `declaration` lines, `your-team`. */
     summary: { bids: string[]; declarations: string[]; yourTeam: string | null };
     end: EndModel | null;
@@ -261,6 +267,9 @@ export function boardModel(state: BoardState, me: string, local: BoardLocal): Bo
         challengeUsed: priv?.challengeUsed === true,
         belaPrompt: belaCard,
         window: handComplete && view.challengeWindowExpiresAt != null ? { expiresAt: view.challengeWindowExpiresAt } : null,
+        zvanja: view.zvanja ?? null,
+        lastChallenge: view.lastChallenge ?? null,
+        playOpensAt: playing ? view.zvanja?.playOpensAt ?? null : null,
         summary: {
             bids: bids.map((bid) => `${bid.playerId}: ${bid.action === 'CALL_TRUMP' && bid.selectedTrump ? SUIT_LABEL[bid.selectedTrump] : 'Pass'}`),
             declarations: declarationLines(view),

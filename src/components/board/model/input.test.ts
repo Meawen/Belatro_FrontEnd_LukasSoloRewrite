@@ -1,10 +1,11 @@
 import { describe, test, expect } from 'vitest'
-import { PENDING_MS, answerBela, pendingUntil, pressBid, pressCard, settleInput, unlock } from './input'
+import { PENDING_MS, answerBela, pendingUntil, pressBid, pressCard, settleInput, unlock, waitingForDeclarations } from './input'
 import { EMPTY_LOCAL, NO_INPUT, boardModel, type BoardModel, type InputState } from './boardModel'
 import { indexOf, playTable, type FanOut } from '../../../test/fixtures/views/table'
 import type { GameCard, PrivateGameView } from '../../../types/game'
 
-const table = playTable()
+// no wait for the declarations here: these tests press at small `now`s; the wait has its own describe below
+const table = playTable({ pauseMs: 0 })
 const modelOf = (f: FanOut | PrivateGameView, input: InputState = NO_INPUT, me = 'carol'): BoardModel => {
     const priv = 'private' in f ? f.private[me] : f
     return boardModel({ publicView: priv.publicPart, privateView: priv, receivedAt: 0, skew: 0, source: 'live' }, me, { ...EMPTY_LOCAL, input })
@@ -98,5 +99,46 @@ describe('input rules (spec §5.3.5, D-9)', () => {
         expect(dealer.dealerMustCall).toBe(true)
         expect(pressBid(dealer, NO_INPUT, 'PASS', 100).move).toBeNull()
         expect(pressBid(dealer, NO_INPUT, 'PIK', 100).move).toEqual({ kind: 'bid', trump: 'PIK' })
+    })
+})
+
+describe('the declarations wait (gameplay rules §4)', () => {
+    // the default table: dave holds a 20, so play opens 5 s after the trump call; alice leads
+    const waited = playTable()
+    const call = waited[indexOf(waited, 'call:') + 1]
+    const opens = call.public.zvanja!.playOpensAt!
+    const skew = 1500
+    const leader = (input: InputState = NO_INPUT, hand?: GameCard[]): BoardModel => {
+        const priv = hand ? { ...call.private.alice, hand } : call.private.alice
+        return boardModel({ publicView: priv.publicPart, privateView: priv, receivedAt: 0, skew, source: 'live' }, 'alice', { ...EMPTY_LOCAL, input })
+    }
+
+    test('waiting before playOpensAt on the server clock (now + skew); not at it or after', () => {
+        const model = leader()
+        expect(model).toMatchObject({ canPlay: true, playOpensAt: call.at + 5000 })
+        expect(waitingForDeclarations(model, opens - skew - 1)).toBe(true)
+        expect(waitingForDeclarations(model, opens - skew)).toBe(false)
+        expect(waitingForDeclarations(model, opens - skew + 10_000)).toBe(false)
+        // the local clock alone would still be waiting here
+        expect(waitingForDeclarations(model, opens - 1)).toBe(false)
+        expect(waitingForDeclarations(modelOf(table[indexOf(table, 'call:') + 1], NO_INPUT, 'alice'), 0)).toBe(false)
+    })
+
+    test('a card sends nothing while waiting, and is sent once play opens', () => {
+        const model = leader()
+        const card = model.hand.find((c) => c.enabled && !c.bela)!
+        expect(pressCard(model, NO_INPUT, card.id, opens - skew - 1)).toEqual({ input: NO_INPUT, move: null })
+        expect(pressCard(model, NO_INPUT, card.id, opens - skew).move).toEqual({ kind: 'play', card: card.card, declareBela: false })
+    })
+
+    test('Play + Bela sends nothing while waiting, and is sent once play opens; nor does a bela card open the prompt', () => {
+        const q: GameCard = { boja: 'HERC', rank: 'BABA' }
+        const hand: GameCard[] = [{ boja: 'HERC', rank: 'KRALJ' }, q, { boja: 'KARA', rank: 'AS' }]
+        const open: InputState = { pending: null, belaCardId: 'HERC-BABA' }
+        const asking = leader(open, hand)
+        expect(asking.belaPrompt!.id).toBe('HERC-BABA')
+        expect(answerBela(asking, open, true, opens - skew - 1)).toEqual({ input: open, move: null })
+        expect(answerBela(asking, open, true, opens - skew).move).toEqual({ kind: 'play', card: q, declareBela: true })
+        expect(pressCard(leader(NO_INPUT, hand), NO_INPUT, 'HERC-BABA', opens - skew - 1)).toEqual({ input: NO_INPUT, move: null })
     })
 })

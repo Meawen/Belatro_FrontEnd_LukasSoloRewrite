@@ -4,7 +4,8 @@ import { pressCard, PENDING_MS } from './model/input'
 import type { BoardState } from './model/accept'
 import { indexOf, playTable, type FanOut } from '../../test/fixtures/views/table'
 
-const table = playTable()
+// no wait for the declarations: the press below comes at a small `now`
+const table = playTable({ pauseMs: 0 })
 const stateOf = (f: FanOut, source: BoardState['source'] = 'live', me = 'carol'): BoardState =>
     ({ publicView: f.private[me].publicPart, privateView: f.private[me], receivedAt: f.at, skew: 0, source })
 

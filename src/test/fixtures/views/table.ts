@@ -1,11 +1,15 @@
 // A deterministic bela table for tests and the /dev/board playground. Four simple bots play whole
 // hands, and every fan-out the server would send comes back in the server's order and shape
 // (RUN/explore/game-data.md §2.2): one public frame plus one private frame per seat, built after
-// each save, with the UI-redesign §6.1 fields or (fields: false) as an older backend sends them.
+// each save, with the UI-redesign §6.1 fields and the gameplay rules' zvanja and lastChallenge (null:
+// nobody challenges here), or (fields: false) as an older backend sends them.
 //
 //   deal ............ GSC (turnExpiresAt null), TS
 //   pass ............ TS, CTL                     (one save)
-//   trump call ...... GSC (turnExpiresAt null), TS, CTL; +2 cards each, declarations revealed
+//   trump call ...... GSC (turnExpiresAt null), TS, CTL; +2 cards each, the declarations revealed
+//                     (gameplay rules §2, §5); when anyone declared, play opens pauseMs later
+//                     (playOpensAt): the first lead's timer runs from then and the first card waits
+//                     for it (§4). A belot ends the game here instead (§3): COMPLETED, nothing follows
 //   card ............ TS, CTL                     (the 4th card shows the completed trick, the
 //                                                  winner to act and seatingOrder rotated to them)
 //   8th card ........ 'hand-complete' GSC (window null), 'window-open' GSC, 'window-open' CTL
@@ -14,7 +18,8 @@
 //                     TS and GSC; or 'game-over' GSC ×2 when a team has reached the target
 import { cardId, playOrder, trickWinner } from '../../../components/board/model/rules';
 import type {
-    Boja, DeclarationsView, GameBid, GameCard, GamePhase, LastTrickView, LiveTrick, PrivateGameView, PublicGameView, Rank,
+    Boja, DeclarationView, DeclarationsView, EndReason, GameBid, GameCard, GamePhase, LastTrickView, LiveTrick, PrivateGameView,
+    PublicGameView, Rank, ZvanjaView,
 } from '../../../types/game';
 
 /** Seats in turn order (A1, B1, A2, B2): Team A is alice and carol, Team B bob and dave. */
@@ -40,6 +45,10 @@ export interface TableOptions {
     target?: number;
     /** Epoch ms of the first fan-out (default 1_760_040_000_000). */
     start?: number;
+    /** The wait for the declarations: play opens this long after a trump call where anyone declared (default 5000; 0: no wait). */
+    pauseMs?: number;
+    /** Hand 1 deals `player` all eight cards of `suit` (six in hand, two in the talon): belot at the trump call. */
+    belot?: { player: string; suit: Boja };
 }
 
 /** One fan-out: what every subscriber receives after one save (or a clock-only re-broadcast). */
@@ -69,6 +78,8 @@ const RANKS: readonly Rank[] = ['SEDMICA', 'OSMICA', 'DEVETKA', 'DESETKA', 'DECK
 const TRUMP_POINTS: Partial<Record<Rank, number>> = { DECKO: 20, DEVETKA: 14, AS: 11, DESETKA: 10, KRALJ: 4, BABA: 3 };
 const PLAIN_POINTS: Partial<Record<Rank, number>> = { AS: 11, DESETKA: 10, KRALJ: 4, BABA: 3, DECKO: 2 };
 const FOUR_POINTS: Partial<Record<Rank, number>> = { DECKO: 200, DEVETKA: 150, AS: 100, DESETKA: 100, KRALJ: 100, BABA: 100 };
+/** Fours by height, weakest first: As > 10 > Kralj > Baba (fours of 200 and 150 can't tie). */
+const FOUR_HEIGHT: readonly Rank[] = ['BABA', 'KRALJ', 'DESETKA', 'AS'];
 const STEP_MS = 800;
 const TURN_MS = 30_000;
 const WINDOW_MS = 10_000;
@@ -105,30 +116,119 @@ export function serverOrder(hand: readonly GameCard[]): GameCard[] {
     return [...hand].sort((x, y) => suits.indexOf(x.boja) - suits.indexOf(y.boja) || RANKS.indexOf(x.rank) - RANKS.indexOf(y.rank));
 }
 
-function declarationsOf(hand: readonly GameCard[]): DeclarationsView {
-    let best = 0;
-    let bestSuit: Boja | null = null;
+// The declarations (gameplay rules spec §2), ported as test support: the app never computes them.
+
+/** A declaration and the cards it is made of. */
+interface Declared extends DeclarationView {
+    cards: GameCard[];
+}
+
+const heightOf = (d: DeclarationView): number => (d.kind === 'RUN' ? RANKS.indexOf(d.top) : FOUR_HEIGHT.indexOf(d.top));
+
+/** Above 0 when `a` is stronger: the value, then a four over a run, then the top card or the four's rank. No trump. */
+const stronger = (a: DeclarationView, b: DeclarationView): number =>
+    a.points - b.points || Number(a.kind === 'FOUR') - Number(b.kind === 'FOUR') || heightOf(a) - heightOf(b);
+
+/** The suit the hand holds all eight of (belot), or null. */
+const belotSuit = (hand: readonly GameCard[]): Boja | null => BOJE.find((suit) => hand.filter((card) => card.boja === suit).length === 8) ?? null;
+
+/**
+ * Every declaration in an 8-card hand, strongest first: each maximal run of 3–7 in a suit (3 = 20, 4 = 50,
+ * 5–7 = 100; two in one suit both count) and each four (sevens and eights none). A card may count in both.
+ */
+function declarationsOf(hand: readonly GameCard[]): Declared[] {
+    const found: Declared[] = [];
     for (const suit of BOJE) {
-        const idx = hand.filter((card) => card.boja === suit).map((card) => RANKS.indexOf(card.rank)).sort((x, y) => x - y);
-        let run = 1;
-        for (let i = 1; i <= idx.length; i++) {
-            if (i < idx.length && idx[i] === idx[i - 1] + 1) {
-                run++;
-                continue;
+        let run: GameCard[] = [];
+        const close = () => {
+            if (run.length >= 3 && run.length < 8) {
+                found.push({ kind: 'RUN', points: run.length === 3 ? 20 : run.length === 4 ? 50 : 100, suit, top: run[run.length - 1].rank, cards: run });
             }
-            const points = run >= 5 ? 100 : run === 4 ? 50 : run === 3 ? 20 : 0;
-            if (points > best) {
-                best = points;
-                bestSuit = suit;
-            }
-            run = 1;
+            run = [];
+        };
+        for (const rank of RANKS) {
+            const card = hand.find((held) => held.boja === suit && held.rank === rank);
+            if (card) run.push(card);
+            else close();
         }
+        close();
     }
-    let four = 0;
     for (const rank of RANKS) {
-        if (hand.filter((card) => card.rank === rank).length === 4) four = Math.max(four, FOUR_POINTS[rank] ?? 0);
+        const four = BOJE.flatMap((boja) => hand.filter((card) => card.boja === boja && card.rank === rank));
+        const points = FOUR_POINTS[rank];
+        if (four.length === 4 && points) found.push({ kind: 'FOUR', points, suit: null, top: rank, cards: four });
     }
-    return { bela: false, sequencesBySuit: bestSuit ? { [bestSuit]: best } : {}, fourOfAKindPoints: four, bestSequencePoints: best };
+    return found.sort((a, b) => stronger(b, a));
+}
+
+/**
+ * The one contest at the trump call (spec §2, §5), `order` from the player after the dealer: the single
+ * best declaration wins, a full tie going to the first in order, and its team scores every declaration
+ * of both its players. A belot (the first in order holding all eight of a suit) ends the game instead,
+ * and nothing scores. `playOpensAt` is left null.
+ */
+function contest(hands: Record<string, GameCard[]>, order: readonly string[]): ZvanjaView {
+    const holder = order.find((id) => belotSuit(hands[id]));
+    if (holder) {
+        const suit = belotSuit(hands[holder])!;
+        return {
+            seats: order.map((playerId) => ({
+                playerId, said: null, kind: null, height: null, declarations: [],
+                cards: playerId === holder ? RANKS.map((rank) => ({ boja: suit, rank })) : [],
+            })),
+            winnerTeam: null, total: 0, decidedBy: null, belot: { playerId: holder, suit }, playOpensAt: null,
+        };
+    }
+    const all = order.map((id) => ({ id, found: declarationsOf(hands[id]) }));
+    let winner: (typeof all)[number] | null = null;
+    for (const seat of all) if (seat.found[0] && (!winner || stronger(seat.found[0], winner.found[0]) > 0)) winner = seat;
+    let rival: Declared | null = null;
+    for (const seat of all) if (seat !== winner && seat.found[0] && (!rival || stronger(seat.found[0], rival) > 0)) rival = seat.found[0];
+    const best = winner?.found[0] ?? null;
+    const decidedBy = !best || !rival ? null
+        : best.points !== rival.points ? 'VALUE' : best.kind !== rival.kind ? 'FOUR' : stronger(best, rival) > 0 ? 'HEIGHT' : 'ORDER';
+    const team = winner ? teamOf(winner.id) : null;
+    const atTop = (seat: (typeof all)[number]) => best !== null && seat.found[0]?.points === best.points;
+    const seats = all.map((seat) => {
+        const scored = teamOf(seat.id) === team ? seat.found : [];
+        const shown = atTop(seat) && all.some((other) => other !== seat && atTop(other)) ? seat.found[0] : null;
+        const cards = scored.flatMap((d) => d.cards);
+        return {
+            playerId: seat.id,
+            said: seat.found[0]?.points ?? null,
+            kind: shown?.kind ?? null,
+            height: shown?.top ?? null,
+            declarations: scored.map(({ kind, points, suit, top }) => ({ kind, points, suit, top })),
+            cards: cards.filter((card, i) => cards.findIndex((other) => cardId(other) === cardId(card)) === i),
+        };
+    });
+    const total = seats.reduce((sum, seat) => sum + seat.declarations.reduce((points, d) => points + d.points, 0), 0);
+    return { seats, winnerTeam: team, total, decidedBy, belot: null, playOpensAt: null };
+}
+
+/** The older `declarations` field from the contest: each scorer's best run and best four, bela false. */
+function declarationsMap(zvanja: ZvanjaView): Record<string, DeclarationsView> {
+    const map: Record<string, DeclarationsView> = {};
+    for (const seat of zvanja.seats) {
+        const run = seat.declarations.find((d) => d.kind === 'RUN');
+        const four = seat.declarations.find((d) => d.kind === 'FOUR');
+        if (!run && !four) continue;
+        map[seat.playerId] = {
+            bela: false, sequencesBySuit: run?.suit ? { [run.suit]: run.points } : {}, fourOfAKindPoints: four?.points ?? 0, bestSequencePoints: run?.points ?? 0,
+        };
+    }
+    return map;
+}
+
+/** The `belot` option: deal-order seat `i` gets every card of `suit` (six in hand, two in the talon), swapped with what was there. */
+function rig(deck: GameCard[], i: number, suit: Boja) {
+    const slots = [0, 1, 2, 3, 4, 5].map((k) => i * 6 + k).concat(24 + i * 2, 25 + i * 2);
+    const spare = deck.map((_, k) => k).filter((k) => deck[k].boja === suit && !slots.includes(k));
+    for (const k of slots) {
+        if (deck[k].boja === suit) continue;
+        const j = spare.shift()!;
+        [deck[k], deck[j]] = [deck[j], deck[k]];
+    }
 }
 
 interface Completed {
@@ -146,6 +246,7 @@ export function playTable(options: TableOptions = {}): FanOut[] {
     const callAt = options.callAt ?? 3;
     const trumpCall = options.trump ?? 'HERC';
     const target = options.target ?? 1001;
+    const pauseMs = options.pauseMs ?? 5000;
     const out: FanOut[] = [];
     let version = 0;
     let at = options.start ?? 1_760_040_000_000;
@@ -162,11 +263,13 @@ export function playTable(options: TableOptions = {}): FanOut[] {
     let completed: Completed[] = [];
     let stale: LiveTrick | null = null;
     let declarations: Record<string, DeclarationsView> = {};
+    let zvanja: ZvanjaView | null = null;
     let bela: Record<string, boolean> = {};
     let current: string | null = null;
     let turnExpiresAt: number | null = null;
     let window: number | null = null;
     let winnerTeamId: Team | null = null;
+    let endReason: EndReason | null = null;
     const won: Record<Team, number> = { A: 0, B: 0 };
     const handPoints: Record<Team, number> = { A: 0, B: 0 };
 
@@ -205,11 +308,14 @@ export function playTable(options: TableOptions = {}): FanOut[] {
             challengeWindowExpiresAt: window,
             currentPlayerId: current,
             turnExpiresAt,
-            endReason: null,
+            endReason,
             forfeitTeamId: null,
         };
         if (!fields) return view;
-        return { ...view, stateVersion: version, lastTrick, tricksWonA: won.A, tricksWonB: won.B, dealerId: dealer, serverNow: at };
+        return {
+            ...view, stateVersion: version, lastTrick, tricksWonA: won.A, tricksWonB: won.B, dealerId: dealer, serverNow: at,
+            zvanja: clone(zvanja), lastChallenge: null,
+        };
     };
     const emit = (label: string, trigger: FanOut['trigger']) => {
         const pub = publicView();
@@ -234,6 +340,7 @@ export function playTable(options: TableOptions = {}): FanOut[] {
         const rnd = random((options.seed ?? 7) * 1009 + handNo);
         const deck = shuffled(BOJE.flatMap((boja) => RANKS.map((rank) => ({ boja, rank }))), rnd);
         order = playOrder(PLAYERS, nextOf(dealer));
+        if (handNo === 1 && options.belot) rig(deck, order.indexOf(options.belot.player), options.belot.suit);
         hands = {};
         talon = {};
         order.forEach((id, i) => {
@@ -246,32 +353,13 @@ export function playTable(options: TableOptions = {}): FanOut[] {
         trick = { lead: '', plays: {}, seq: [] };
         completed = [];
         declarations = {};
+        zvanja = null;
         bela = Object.fromEntries(PLAYERS.map((id) => [id, false]));
         won.A = 0;
         won.B = 0;
         handPoints.A = 0;
         handPoints.B = 0;
         current = order[0];
-    };
-
-    const reveal = () => {
-        const all = Object.fromEntries(order.map((id) => [id, declarationsOf(hands[id])]));
-        const shown: Record<string, DeclarationsView> = {};
-        for (const kind of ['bestSequencePoints', 'fourOfAKindPoints'] as const) {
-            const top = Math.max(...order.map((id) => all[id][kind] ?? 0));
-            if (top === 0) continue;
-            const team = teamOf(order.find((id) => all[id][kind] === top)!);
-            for (const id of order) {
-                if (teamOf(id) !== team || !all[id][kind]) continue;
-                const entry = shown[id] ?? { bela: false, sequencesBySuit: {}, fourOfAKindPoints: 0, bestSequencePoints: 0 };
-                if (kind === 'bestSequencePoints') {
-                    entry.bestSequencePoints = all[id].bestSequencePoints;
-                    entry.sequencesBySuit = all[id].sequencesBySuit;
-                } else entry.fourOfAKindPoints = all[id].fourOfAKindPoints;
-                shown[id] = entry;
-            }
-        }
-        declarations = shown;
     };
 
     const bid = (player: string, call: Boja | null) => {
@@ -287,14 +375,27 @@ export function playTable(options: TableOptions = {}): FanOut[] {
         }
         trump = call;
         order.forEach((id) => hands[id].push(...talon[id]));
-        reveal();
-        phase = 'PLAYING';
+        zvanja = contest(hands, order);
+        declarations = declarationsMap(zvanja);
         trick = { lead: order[0], plays: {}, seq: [] };
-        current = order[0];
         version++;
         turnExpiresAt = null;
+        if (zvanja.belot) {
+            // belot wins the game at once (spec §3): its team to 1001, or one above the other (R-7)
+            const team = teamOf(zvanja.belot.playerId);
+            scores[team] = Math.max(1001, scores[team === 'A' ? 'B' : 'A'] + 1);
+            phase = 'COMPLETED';
+            winnerTeamId = team;
+            endReason = 'BELOT';
+            current = null;
+            for (const trigger of ['GSC', 'TS', 'CTL'] as const) emit(`call:${player}:${call}`, trigger);
+            return;
+        }
+        if (zvanja.winnerTeam && pauseMs > 0) zvanja.playOpensAt = at + pauseMs;
+        phase = 'PLAYING';
+        current = order[0];
         emit(`call:${player}:${call}`, 'GSC');
-        turnExpiresAt = at + TURN_MS;
+        turnExpiresAt = (zvanja.playOpensAt ?? at) + TURN_MS;
         emit(`call:${player}:${call}`, 'TS');
         emit(`call:${player}:${call}`, 'CTL');
     };
@@ -310,9 +411,7 @@ export function playTable(options: TableOptions = {}): FanOut[] {
 
     const endHand = () => {
         const declared: Record<Team, number> = { A: 0, B: 0 };
-        Object.entries(declarations).forEach(([id, d]) => {
-            declared[teamOf(id)] += (d.bestSequencePoints ?? 0) + (d.fourOfAKindPoints ?? 0);
-        });
+        if (zvanja?.winnerTeam) declared[zvanja.winnerTeam] += zvanja.total;
         Object.entries(bela).forEach(([id, on]) => {
             if (on) declared[teamOf(id)] += 20;
         });
@@ -331,6 +430,8 @@ export function playTable(options: TableOptions = {}): FanOut[] {
 
     const play = (player: string) => {
         at += STEP_MS;
+        // the hand's first card comes once play opens (spec §4)
+        if (completed.length === 0 && trick.seq.length === 0) at = Math.max(at, zvanja?.playOpensAt ?? at);
         const card = choose(player);
         hands[player] = hands[player].filter((held) => cardId(held) !== cardId(card));
         const partner = card.rank === 'KRALJ' ? 'BABA' : card.rank === 'BABA' ? 'KRALJ' : null;
@@ -417,6 +518,8 @@ export function playTable(options: TableOptions = {}): FanOut[] {
         bidders.forEach((id, i) => {
             if (i <= callAt && phase === 'BIDDING') bid(id, i === callAt ? trumpCall : null);
         });
+        // a belot ended the game at the call
+        if (winnerTeamId) break;
         for (let card = 0; card < 32; card++) play(current!);
         if (!windowExpiry()) break;
     }
