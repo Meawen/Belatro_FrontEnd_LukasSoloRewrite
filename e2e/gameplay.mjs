@@ -740,9 +740,18 @@ async function checkTheEnd(pages, handsPlayed) {
     if (reasons.length) throw new Error(`the game was not played out: ${JSON.stringify(reasons)}`);
     const gameId = gameIdOf(pages[0]);
     const token = await pages[0].evaluate(() => localStorage.getItem('authToken'));
-    const response = await fetch(`${API}/matches/${gameId}`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!response.ok) throw new Error(`GET /matches/${gameId} answered ${response.status}`);
-    const { result } = await response.json();
+    // The backend broadcasts the finished game first and writes the match's result to Mongo just after
+    // (BelotGameService.save: the end must not wait on Mongo), so the record may still read null for a
+    // moment after every seat shows the winner: read it until it has one, for at most 10 s.
+    let result = null;
+    const deadline = Date.now() + 10000;
+    for (;;) {
+        const response = await fetch(`${API}/matches/${gameId}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!response.ok) throw new Error(`GET /matches/${gameId} answered ${response.status}`);
+        ({ result } = await response.json());
+        if (result != null || Date.now() > deadline) break;
+        await sleep(250);
+    }
     // "Team A wins 1001–650": the first number is always Team A's, en dash or hyphen
     const parsed = /^Team ([AB]) wins (\d+)\s*[–-]\s*(\d+)$/.exec(result ?? '');
     if (!parsed) throw new Error(`match ${gameId} has the result ${JSON.stringify(result)}, expected "Team X wins A–B"`);

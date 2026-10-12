@@ -2,6 +2,8 @@ import { apiClient } from './api';
 import { gameSocket } from './gameSocket';
 import type {
     User,
+    Ladder,
+    RatingHistory,
     UserDto,
     ChangePasswordRequest,
     ChangeEmailRequest,
@@ -55,6 +57,16 @@ export const userService = {
         if (q) query.set('q', q);
         if (params.sort) query.set('sort', params.sort);
         return apiClient.get<Page<User>>(`/user/findAll?${query.toString()}`);
+    },
+
+    /** The ranked ladder for the Leaderboard's chart (ranks spec §7); 404 on a backend before team Elo. */
+    async getLadder(): Promise<Ladder> {
+        return apiClient.get<Ladder>('/user/ladder');
+    },
+
+    /** A player's rating over their ranked games, for the Profile's climb (ranks spec §8); 404 likewise. */
+    async getRatingHistory(id: string): Promise<RatingHistory> {
+        return apiClient.get<RatingHistory>(`/user/${id}/rating-history`);
     },
 
     async getUserHistorySummary(

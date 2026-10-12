@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useEnhancedRanked } from '../../hooks/useEnhancedRanked';
 import { useUser } from '../../hooks/useUser';
+import { RankChip } from '../rank/RankChip';
 import { Banner, Panel, SuitIcon } from '../ui';
 import type { Boja } from '../../types/game';
 import { PlayButton } from './PlayButton';
@@ -56,6 +57,8 @@ export const PlayPage: React.FC = () => {
                     <p className="flex items-baseline gap-2">
                         <span className="t-callout text-text-2">Elo</span>
                         <span className="t-score tabular-nums">{elo}</span>
+                        {/* ranks spec §6.4: beside your Elo */}
+                        <RankChip rank={profile?.rank} className="self-center" />
                     </p>
                     <PlayButton />
                     <QueueStatus />

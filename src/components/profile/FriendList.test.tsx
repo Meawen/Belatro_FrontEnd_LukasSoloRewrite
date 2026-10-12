@@ -2,6 +2,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { rank } from '../../test/fixtures/ranks'
 import { FriendsList } from './FriendList'
 import { useFriends } from '../../hooks/useFriends'
 import { ApiError } from '../../services/api'
@@ -136,5 +137,19 @@ describe('Friends (spec §4.11)', () => {
         expect(screen.getByText('Start adding friends to see them here!')).toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Open the Leaderboard' }))
         expect(screen.getByText('at /users')).toBeInTheDocument()
+    })
+})
+
+// ranks spec §6.3: the rank tag between the Elo and the level
+describe('FriendsList ranks', () => {
+    test("a friend's rank tag sits between the Elo and the level; without a rank the line reads as before", () => {
+        mockFriends([
+            { id: 'f1', fromUser: { ...bob, rank: rank('FAKIN') }, toUser: ana, status: 'ACCEPTED', createdAt: null },
+            { id: 'f2', fromUser: cy, toUser: ana, status: 'ACCEPTED', createdAt: null },
+        ])
+        renderFriends()
+        const line = screen.getByText('Fakin').closest('p')!
+        expect(line).toHaveTextContent(/^Elo 1250 Fakin · Level 1$/)
+        expect(screen.getByText('Elo 1200 · Level 1')).toBeInTheDocument()
     })
 })

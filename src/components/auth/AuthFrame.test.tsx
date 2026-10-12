@@ -38,6 +38,7 @@ describe('AuthFrame (spec §4.2, X-1)', () => {
         renderFrame()
         const footer = screen.getByRole('contentinfo')
         expect(footer).toHaveTextContent(`© ${new Date().getFullYear()} Stiglja`)
+        expect(footer).toHaveTextContent('Card art by Maks Markovic')
         for (const [name, href] of [
             ['Rules', '/rules'],
             ['Privacy', '/privacy'],

@@ -44,4 +44,6 @@ export default [
     { name: 'home-in-game', path: '/dashboard', viewports: BOTH, user: PLAYER, api: ['player.json', IN_GAME] },
     // a new player: "—" for the unknown numbers, Level 1, "No matches yet"
     { name: 'home-new-player', path: '/dashboard', viewports: BOTH, user: PLAYER, api: ['player.json', NEW_PLAYER] },
+    // ranks spec §6.4: your rank under the Elo in the stats strip (the team-Elo backend)
+    { name: 'home-ranked', path: '/dashboard', viewports: BOTH, user: PLAYER, api: ['player-ranked.json', RECENT] },
 ];

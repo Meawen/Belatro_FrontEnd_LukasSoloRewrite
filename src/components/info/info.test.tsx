@@ -14,7 +14,8 @@ vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAuthenticated: false
 
 describe('Rules, Privacy and Terms (spec §4.15)', () => {
     test.each([
-        ['Rules', RulesPage, 'Cards'],
+        // ranks spec §9: the Rules page opens with its visual guide
+        ['Rules', RulesPage, 'How to play'],
         ['Privacy notice', PrivacyPage, 'Who runs Stiglja'],
         ['Terms of use', TermsPage, 'The service'],
     ] as [string, FC, string][])('%s: the display title, headline sections, token colours only', (title, Page, firstSection) => {

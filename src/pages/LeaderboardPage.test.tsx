@@ -1,8 +1,10 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { LeaderboardPage } from './LeaderboardPage'
+import { userService } from '../services/userService'
+import { LADDER, rankedUser } from '../test/fixtures/ranks'
 
 const auth = vi.hoisted(() => ({ isAuthenticated: true }))
 vi.mock('../hooks/useAuth', () => ({
@@ -57,5 +59,27 @@ describe('/users, the leaderboard (spec §4.12)', () => {
         expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Login' }))
         expect(screen.getByRole('heading', { name: 'Sign-in page' })).toBeInTheDocument()
+    })
+})
+
+// ranks spec §7.1: the ladder panel above the list, signed in only
+describe('/users: the ladder', () => {
+    afterEach(() => vi.restoreAllMocks())
+
+    test('signed in, the ladder sits above the list', async () => {
+        vi.spyOn(userService, 'getLadder').mockResolvedValue(LADDER)
+        vi.spyOn(userService, 'getUserById').mockResolvedValue(rankedUser({ key: 'PAJDAS', eloRating: 1290 }))
+        renderUsers()
+        const heading = await screen.findByRole('heading', { level: 2, name: 'The ladder' })
+        const list = screen.getByText('the players')
+        expect(heading.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    test('signed out, the prompt as before and no ladder asked for', () => {
+        auth.isAuthenticated = false
+        const getLadder = vi.spyOn(userService, 'getLadder').mockResolvedValue(LADDER)
+        renderUsers()
+        expect(screen.queryByRole('heading', { name: 'The ladder' })).not.toBeInTheDocument()
+        expect(getLadder).not.toHaveBeenCalled()
     })
 })

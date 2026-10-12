@@ -99,4 +99,6 @@ export default [
     { name: 'ranked-declined', path: '/play', viewports: ['375x812'], user: PLAYER, api: ['player.json'], setup: declined },
     // Match found: the full-screen sheet, both teams, you marked, the countdown, Accept Match focused
     { name: 'ranked-match-found', path: '/play', viewports: BOTH, user: PLAYER, api: ['player.json'], setup: matchFound },
+    // ranks spec §6.4: your rank beside the Elo (the team-Elo backend)
+    { name: 'ranked-ranked', path: '/play', viewports: BOTH, user: PLAYER, api: ['player-ranked.json'] },
 ];

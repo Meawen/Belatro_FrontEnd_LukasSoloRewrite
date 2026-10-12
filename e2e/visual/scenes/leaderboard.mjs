@@ -1,3 +1,4 @@
+import { rank, ranked } from '../fixtures/ranks.mjs';
 // Phase 9's Leaderboard scenes (spec §4.12): the ranked page with my row and the Unranked accounts, a later
 // page, and a search with no match. The harness answers GET /user/findAll whatever its query (page, q,
 // sort=elo). The signed-out prompt is Phase 2's scene `shell-users-signed-out`.
@@ -34,6 +35,13 @@ async function searchNobody(page) {
     await page.getByText("No players match 'zz'").waitFor();
 }
 
+// ranks spec §7, §11.2: the ladder above the list, and a rank tag on every ranked row (the team-Elo backend)
+const RANKED_ROWS = [ranked(mira, 'GOSPON', 118), ranked(luka, 'PAJDAS', 64), ranked(player('u6', 'tomislav_b', 1290, 4, 51), 'PAJDAS', 51), ranked(ana, 'PAJDAS', 42), ranked(player('u3', 'ivo_p', 1187, 2, 17), 'FAKIN', 17), ranked(player('u7', 'petra_v', 1143, 2, 9), 'CUCEK', 9)];
+const UNRANKED_ROWS = UNRANKED.map((user) => ranked(user, 'CUCEK', 0));
+const FIRST_RANKED = { 'GET /user/findAll': { json: { content: [...RANKED_ROWS, ...UNRANKED_ROWS], totalElements: 8, totalPages: 1, number: 0, size: 20 } } };
+const ME_PLACING = { 'GET /user/u1': { json: { ...ana, eloRating: 1236, gamesPlayed: 3, rankedGamesPlayed: 3, rank: rank('CUCEK') } } };
+const FEW = { 'GET /user/ladder': { json: { players: 4, binSize: 100, bins: [{ from: 1200, count: 4 }], ranks: [['CUCEK', 'Cucek', null, 2], ['DECEC', 'Dečec', null, 0], ['FAKIN', 'Fakin', 1000, 0], ['PAJDAS', 'Pajdaš', 1200, 4], ['GOSPON', 'Gospon', 1400, 0], ['MAJSTER', 'Majster', 1600, 0], ['KAJKAVAC', 'Kajkavac', 1800, 0]].map(([key, name, minRating, count]) => ({ key, name, minRating, count })) } } };
+
 export default [
     // ranks for the players, my row in the accent with "You", Unranked last; Add Friend, Pending, Accept/Decline, Remove
     { name: 'leaderboard', path: '/users', viewports: BOTH, user: PLAYER, api: ['player.json', FIRST, FRIENDS] },
@@ -41,4 +49,10 @@ export default [
     { name: 'leaderboard-page-2', path: '/users', viewports: BOTH, user: PLAYER, api: ['player.json', SECOND, FRIENDS] },
     // a search with no match: the term and Clear Search
     { name: 'leaderboard-no-match', path: '/users', viewports: BOTH, user: PLAYER, api: ['player.json', EMPTY, FRIENDS], setup: searchNobody },
+    // the ladder (412 placed players) with you marked, rank tags on the rows, Unranked accounts as before
+    { name: 'leaderboard-ladder', path: '/users', viewports: BOTH, user: PLAYER, api: ['player-ranked.json', 'ladder.json', FIRST_RANKED, FRIENDS] },
+    // you still in placement: no marker, "Play 7 more ranked games to join the ladder."
+    { name: 'leaderboard-ladder-cucek', path: '/users', viewports: BOTH, user: PLAYER, api: ['player-ranked.json', 'ladder.json', ME_PLACING, FIRST_RANKED, FRIENDS] },
+    // fewer than five placed players: the ladder is filling in
+    { name: 'leaderboard-ladder-few', path: '/users', viewports: BOTH, user: PLAYER, api: ['player-ranked.json', FEW, FIRST_RANKED, FRIENDS] },
 ];

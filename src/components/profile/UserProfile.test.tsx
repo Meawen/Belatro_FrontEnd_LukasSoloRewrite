@@ -5,6 +5,8 @@ import { MemoryRouter } from 'react-router-dom'
 import { UserProfile } from './UserProfile'
 import { useUser, useMe, useUserHistorySummary } from '../../hooks/useUser'
 import { useFriends } from '../../hooks/useFriends'
+import { useLadder, useRatingHistory } from '../../hooks/useRatings'
+import { LADDER, history, rankedUser } from '../../test/fixtures/ranks'
 import { ApiError } from '../../services/api'
 import type { PlayerMatchSummaryDTO } from '../../types/user'
 
@@ -21,6 +23,11 @@ vi.mock('../../hooks/useUser', async (importOriginal) => ({
     useUserHistorySummary: vi.fn(),
 }))
 vi.mock('../../hooks/useFriends', () => ({ useFriends: vi.fn() }))
+vi.mock('../../hooks/useRatings', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../../hooks/useRatings')>()),
+    useLadder: vi.fn(),
+    useRatingHistory: vi.fn(),
+}))
 
 const ana = { id: 'u1', username: 'ana', eloRating: 1450, level: 3, gamesPlayed: 42 }
 const bob = { id: 'u2', username: 'bob', eloRating: 1250, level: 1, gamesPlayed: 3 }
@@ -44,6 +51,9 @@ beforeEach(() => {
     mockPlayer(ana)
     vi.mocked(useMe).mockImplementation((enabled = true) => ({ data: enabled ? meBase : null, isLoading: false, error: null, refetch: vi.fn() }) as never)
     vi.mocked(useUserHistorySummary).mockReturnValue({ data: { content: [] }, isLoading: false, error: null } as never)
+    // a backend before team Elo by default: both chart routes answer 404
+    vi.mocked(useLadder).mockReturnValue({ data: null, isLoading: false, error: new ApiError({ message: 'Not Found', status: 404 }), refetch: vi.fn() } as never)
+    vi.mocked(useRatingHistory).mockReturnValue({ data: null, isLoading: false, error: new ApiError({ message: 'Not Found', status: 404 }), refetch: vi.fn() } as never)
     vi.mocked(useFriends).mockReturnValue({
         friendships: [], sendFriendRequest, acceptFriendRequest: vi.fn(), rejectFriendRequest: vi.fn(),
         cancelFriendRequest: vi.fn(), removeFriend: vi.fn(),
@@ -172,5 +182,54 @@ describe('UserProfile (spec §4.10)', () => {
         expect(screen.queryByText(/Internal Server Error/)).not.toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Try Again' }))
         expect(refetch).toHaveBeenCalledTimes(1)
+    })
+})
+
+// ranks spec §6.1: the rank under the name, on your own profile and on another's
+describe('UserProfile rank', () => {
+    test.each([['your own', undefined], ["another player's", 'u2']])('on %s profile the rank block sits under the name, with the next name from the ladder', (_, userId) => {
+        mockPlayer(rankedUser({ id: userId ?? 'u1', username: userId ? 'bob' : 'ana', key: 'PAJDAS', eloRating: 1290 }))
+        vi.mocked(useLadder).mockReturnValue({ data: LADDER, isLoading: false, error: null, refetch: vi.fn() } as never)
+        renderProfile(userId)
+        const heading = screen.getByRole('heading', { level: 1 })
+        const chip = screen.getByText('Pajdaš').closest('.ui-chip')!
+        // under the name: after the h1 in document order, inside the same column
+        expect(heading.compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(screen.getByText('110 to Gospon')).toBeInTheDocument()
+    })
+
+    test('without the ladder the block still shows, with "the next rank"', () => {
+        mockPlayer(rankedUser({ key: 'PAJDAS', eloRating: 1290 }))
+        renderProfile()
+        expect(screen.getByText('110 to the next rank')).toBeInTheDocument()
+    })
+
+    test('no rank (a backend before team Elo): no chip, no progress', () => {
+        renderProfile()
+        expect(document.querySelector('[data-rank]')).toBeNull()
+        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    })
+})
+
+// ranks spec §8.1: your climb between the header and Recent matches, on your own profile only
+describe('UserProfile climb', () => {
+    test('your own profile: "Your climb" sits between the header and Recent matches', () => {
+        mockPlayer(rankedUser({ key: 'GOSPON', eloRating: 1452 }))
+        vi.mocked(useLadder).mockReturnValue({ data: LADDER, isLoading: false, error: null, refetch: vi.fn() } as never)
+        vi.mocked(useRatingHistory).mockReturnValue({ data: history(), isLoading: false, error: null, refetch: vi.fn() } as never)
+        renderProfile()
+        const name = screen.getByRole('heading', { level: 1 })
+        const climb = screen.getByRole('heading', { level: 2, name: 'Your climb' })
+        const recent = screen.getByRole('heading', { level: 2, name: 'Recent matches' })
+        expect(name.compareDocumentPosition(climb) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(climb.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(useRatingHistory).toHaveBeenCalledWith('u1')
+    })
+
+    test("another player's profile asks for no rating history and shows no climb (C-8)", () => {
+        mockPlayer(rankedUser({ id: 'u2', username: 'bob', key: 'GOSPON', eloRating: 1452 }))
+        renderProfile('u2')
+        expect(useRatingHistory).not.toHaveBeenCalled()
+        expect(screen.queryByRole('heading', { name: 'Your climb' })).not.toBeInTheDocument()
     })
 })

@@ -28,4 +28,6 @@ export default [
     { name: 'shell-404-signed-out', path: '/no/such/page', viewports: BOTH, user: null },
     // the leaderboard's prompt, signed out (M-13)
     { name: 'shell-users-signed-out', path: '/users', viewports: BOTH, user: null },
+    // ranks spec §6.5: your rank under your name in the labelled sidebar; nothing in the icon-only one
+    { name: 'shell-sidebar-ranked', path: '/dashboard', viewports: ['1440x900', '800x1000'], user: PLAYER, api: ['player-ranked.json'] },
 ];

@@ -66,6 +66,15 @@
         --suit-pik: #4b692f;
         --suit-tref: #df7126;
 
+        /* ranks (ranks spec §3): one violet hue, lightness rising with rank, validated with the dataviz skill's
+           ordinal check against --surface (dark). Chip text: --text on Dečec, --ink on the rest. Cucek is neutral. */
+        --rank-decec: #7a4aba;
+        --rank-fakin: #a376e9;
+        --rank-pajdas: #b78aff;
+        --rank-gospon: #c7a8fe;
+        --rank-majster: #d7c3ff;
+        --rank-kajkavac: #e9dffe;
+
         /* the table: the neutral felt (a 4-px dither pair), the wooden rim, a felt per season (§5.7) */
         --felt-a: #1b6b4c;
         --felt-b: #1a6449;
@@ -169,6 +178,12 @@
     --color-suit-karo: var(--suit-karo);
     --color-suit-pik: var(--suit-pik);
     --color-suit-tref: var(--suit-tref);
+    --color-rank-decec: var(--rank-decec);
+    --color-rank-fakin: var(--rank-fakin);
+    --color-rank-pajdas: var(--rank-pajdas);
+    --color-rank-gospon: var(--rank-gospon);
+    --color-rank-majster: var(--rank-majster);
+    --color-rank-kajkavac: var(--rank-kajkavac);
     --color-felt-a: var(--felt-a);
     --color-felt-b: var(--felt-b);
     --color-rim: var(--rim);

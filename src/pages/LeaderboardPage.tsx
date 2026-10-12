@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { UserList } from '../components/profile/UserList';
+import { LadderPanel } from '../components/rank/LadderPanel';
 import { AppShell } from '../components/layout/AppShell';
 import { Page } from '../components/layout/Page';
 import { PublicFrame } from '../components/layout/PublicFrame';
@@ -40,7 +41,11 @@ export function LeaderboardPage() {
     return (
         <AppShell>
             <Page title={TITLE}>
-                <UserList />
+                {/* ranks spec §7.1: the ladder in a panel above the list */}
+                <div className="flex flex-col gap-6">
+                    <LadderPanel />
+                    <UserList />
+                </div>
             </Page>
         </AppShell>
     );

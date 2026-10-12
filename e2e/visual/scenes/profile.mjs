@@ -1,3 +1,4 @@
+import { climb, rank, ranked } from '../fixtures/ranks.mjs';
 // Phase 9's Profile scenes (spec §4.10): your own and another player's profile, and a missing one. The scene
 // format is documented at the top of e2e/visual.mjs. Dates are fixed (more than a week back), so every run
 // draws the same day labels.
@@ -39,6 +40,18 @@ const MISSING = {
     'GET /friendship/getAllByUserId/u1': { json: [] },
 };
 
+// ranks spec §6.1, §8, §11.2: the rank under the name and your climb (the team-Elo backend)
+const CLIMBER = (key, eloRating, games) => ({ 'GET /user/u1': { json: { ...ana, eloRating, gamesPlayed: games + 6, rankedGamesPlayed: games, rank: rank(key) } } });
+const HISTORY = (answer) => ({ 'GET /user/u1/rating-history': { json: answer } });
+const GOSPON = [CLIMBER('GOSPON', 1452, 57), HISTORY(climb({ games: 57, end: 1452, step: 31, pace: 4.2 }))];
+const PLACING = [CLIMBER('CUCEK', 1256, 3), HISTORY(climb({ games: 3, end: 1256, step: 53, pace: null }))];
+const TOP = [CLIMBER('KAJKAVAC', 1846, 80), HISTORY(climb({ games: 80, end: 1846, step: 21, pace: 3, seed: 11 }))];
+const FRESH = [CLIMBER('CUCEK', 1200, 0), HISTORY(climb({ games: 0, end: 1200, step: 56, pace: null }))];
+async function toClimb(page) {
+    await page.getByRole('heading', { name: 'Your climb' }).evaluate((heading) => heading.scrollIntoView({ block: 'start' }));
+}
+const OTHER_RANKED = { ...OTHER, 'GET /user/u2': { json: ranked({ ...luka, eloRating: 1650 }, 'MAJSTER', 64) } };
+
 export default [
     // your own: the accent avatar, the role chips, Elo / Games / Level once, the last five matches
     { name: 'profile', path: '/profile', viewports: BOTH, user: PLAYER, api: ['player.json', OWN] },
@@ -48,4 +61,16 @@ export default [
     { name: 'profile-other-request', path: '/profile/u2', viewports: BOTH, user: PLAYER, api: ['player.json', REQUEST] },
     // a player who is not there (404)
     { name: 'profile-not-found', path: '/profile/u404', viewports: BOTH, user: PLAYER, api: ['player.json', MISSING] },
+    // your climb: Gospon 1452 after 57 ranked games, rising: "At this pace: Majster in about 36 games"; also landscape
+    { name: 'profile-climb', path: '/profile', viewports: BOTH, user: PLAYER, api: ['player.json', 'ladder.json', OWN, ...GOSPON] },
+    // the same, a phone turned to landscape, scrolled to the chart (review focus 5: nothing overflows)
+    { name: 'profile-climb-landscape', path: '/profile', viewports: ['812x375'], user: PLAYER, api: ['player.json', 'ladder.json', OWN, ...GOSPON], setup: toClimb },
+    // in placement: three games, their dots, no forecast
+    { name: 'profile-climb-cucek', path: '/profile', viewports: BOTH, user: PLAYER, api: ['player.json', 'ladder.json', OWN, ...PLACING] },
+    // the top rank: "Top rank", the forecast still drawn
+    { name: 'profile-climb-kajkavac', path: '/profile', viewports: BOTH, user: PLAYER, api: ['player.json', 'ladder.json', OWN, ...TOP] },
+    // no ranked game yet
+    { name: 'profile-climb-none', path: '/profile', viewports: BOTH, user: PLAYER, api: ['player.json', 'ladder.json', OWN, ...FRESH] },
+    // another player's: the rank chip and progress, no chart
+    { name: 'profile-other-ranked', path: '/profile/u2', viewports: BOTH, user: PLAYER, api: ['player.json', 'ladder.json', OTHER_RANKED] },
 ];

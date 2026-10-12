@@ -1,3 +1,4 @@
+import { rank } from '../fixtures/ranks.mjs';
 // Phase 9's Friends scenes (spec §4.11): friends, the requests tab, the remove sheet and an empty list.
 // The scene format is documented at the top of e2e/visual.mjs. Dates are fixed.
 
@@ -33,6 +34,16 @@ async function removeFirst(page) {
     await page.getByRole('dialog', { name: 'Remove luka_m?' }).waitFor();
 }
 
+// ranks spec §6.3: a rank tag between the Elo and the level (the team-Elo backend)
+const RANKED_FRIENDSHIPS = Object.fromEntries(Object.entries(FRIENDSHIPS).map(([route, answer]) => [route, {
+    json: answer.json.map((f) => ({ ...f, fromUser: withRank(f.fromUser), toUser: withRank(f.toUser) })),
+}]));
+function withRank(user) {
+    if (!user) return user;
+    const key = !user.gamesPlayed ? 'CUCEK' : user.eloRating >= 1400 ? 'GOSPON' : user.eloRating >= 1200 ? 'PAJDAS' : 'FAKIN';
+    return { ...user, rankedGamesPlayed: user.gamesPlayed, rank: rank(key) };
+}
+
 export default [
     // the Friends tab: avatar, name, "Elo n · Level n", since when, View profile, Remove
     { name: 'friends', path: '/friends', viewports: BOTH, user: PLAYER, api: ['player.json', FRIENDSHIPS] },
@@ -42,4 +53,6 @@ export default [
     { name: 'friends-remove', path: '/friends', viewports: BOTH, user: PLAYER, api: ['player.json', FRIENDSHIPS], setup: removeFirst },
     // nobody yet: the way to the Leaderboard
     { name: 'friends-empty', path: '/friends', viewports: BOTH, user: PLAYER, api: ['player.json', NONE] },
+    // ranks spec §6.3: the friends with their rank tags
+    { name: 'friends-ranked', path: '/friends', viewports: BOTH, user: PLAYER, api: ['player-ranked.json', RANKED_FRIENDSHIPS] },
 ];

@@ -8,7 +8,7 @@ import { viewport } from '../../test/viewport'
 vi.mock('../../hooks/useAuth', () => ({
     useAuth: () => ({ user: { id: 'u1', username: 'ana' }, logout: vi.fn(), isAuthenticated: true }),
 }))
-vi.mock('../../hooks/useUser', () => ({ useMe: () => ({ data: { roles: ['ROLE_USER'] } }) }))
+vi.mock('../../hooks/useUser', () => ({ useMe: () => ({ data: { roles: ['ROLE_USER'] } }), useUser: () => ({ user: null }) }))
 vi.mock('./ActiveGameBanner', () => ({
     ActiveGameBanner: () => <div role="region" aria-label="Game in progress">You have a game in progress.</div>,
 }))
@@ -83,6 +83,7 @@ describe('AppShell on a wider screen (spec §4.1, X-9)', () => {
         const footer = screen.getByRole('contentinfo')
         expect(banner.compareDocumentPosition(page) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         expect(page.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(footer).toHaveTextContent('Card art by Maks Markovic')
         expect(screen.getByRole('main')).toContainElement(banner)
     })
 })

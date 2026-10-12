@@ -5,6 +5,10 @@ import { FriendActions } from './FriendActions';
 import { useUser, useMe, useUserHistorySummary } from '../../hooks/useUser';
 import { useAuth } from '../../hooks/useAuth';
 import { useFriends } from '../../hooks/useFriends';
+import { useLadder } from '../../hooks/useRatings';
+import { ClimbPanel } from '../rank/ClimbPanel';
+import { RankBlock } from '../rank/RankBlock';
+import { nextRankName } from '../rank/rankNames';
 
 /** How many of the player's newest matches the profile lists (spec §4.10: size=5). */
 export const PROFILE_RECENT_MATCHES = 5;
@@ -47,6 +51,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
     const friends = useFriends(isOwnProfile ? undefined : currentUser?.id || undefined);
     const recent = useUserHistorySummary(targetUserId ?? '', { page: 0, size: PROFILE_RECENT_MATCHES });
     const recentId = useId();
+    // the next rank's name and every rank's start come from the ladder (ranks spec R-3, R-8)
+    const ladder = useLadder(!!targetUserId);
 
     if (!targetUserId || error?.status === 404) {
         return (
@@ -111,6 +117,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                     <Avatar initial={name} tone={isOwnProfile ? 'accent' : 'neutral'} size="xl" />
                     <div className="flex min-w-0 flex-col gap-2">
                         <h1 className="t-display break-words">{name}</h1>
+                        <RankBlock player={player} nextName={nextRankName(player.rank, ladder.data)} />
                         {isOwnProfile && me?.roles && me.roles.length > 0 && (
                             <ul aria-label="Roles" className="flex flex-wrap gap-1.5">
                                 {me.roles.map((role) => (
@@ -130,6 +137,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                     <Stat label="Level" value={player.level || 1} />
                 </dl>
             </div>
+
+            {/* ranks spec §8.1: your climb, on your own profile only, between the header and Recent matches */}
+            {isOwnProfile && <ClimbPanel userId={targetUserId} rank={player.rank} ladder={ladder.data} />}
 
             <section aria-labelledby={recentId} className="flex flex-col gap-3">
                 <h2 id={recentId} className="t-title">

@@ -1,0 +1,40 @@
+{
+    "GET /user/me": {
+        "json": {
+            "id": "u1",
+            "username": "ana_k",
+            "email": "ana@example.test",
+            "pendingEmail": null,
+            "emailVerified": true,
+            "roles": [
+                "ROLE_USER"
+            ],
+            "deletionRequested": false
+        }
+    },
+    "GET /user/u1": {
+        "json": {
+            "id": "u1",
+            "username": "ana_k",
+            "eloRating": 1290,
+            "level": 3,
+            "gamesPlayed": 48,
+            "rankedGamesPlayed": 42,
+            "rank": {
+                "key": "PAJDAS",
+                "name": "Pajdaš",
+                "tagline": "Dober pajdaš.",
+                "minRating": 1200,
+                "nextMinRating": 1400
+            }
+        }
+    },
+    "GET /user/me/active-game": {
+        "status": 204
+    },
+    "GET /user/u1/history/summary": {
+        "json": {
+            "content": []
+        }
+    }
+}

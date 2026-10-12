@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar, Button, EmptyState, ErrorState, Input, Loader, Panel, PixelIcon, Segmented } from '../ui';
+import { RankChip } from '../rank/RankChip';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { RemoveFriendSheet } from './RemoveFriendSheet';
 import { useFriends } from '../../hooks/useFriends';
@@ -41,7 +42,15 @@ function FriendRow({ friendship, other, tab, busy, onAccept, onReject, onCancel,
             <div className="min-w-40 flex-1">
                 <p className="t-headline break-words">{name}</p>
                 <p className="t-footnote text-text-2">
-                    Elo {other.eloRating ?? '—'} · Level {other.level || 1}
+                    Elo {other.eloRating ?? '—'}
+                    {/* ranks spec §6.3: the rank between the Elo and the level */}
+                    {other.rank && (
+                        <>
+                            {' '}
+                            <RankChip rank={other.rank} className="align-middle" />
+                        </>
+                    )}{' '}
+                    · Level {other.level || 1}
                 </p>
                 {friendship.createdAt && (
                     <p className="t-footnote text-text-3">

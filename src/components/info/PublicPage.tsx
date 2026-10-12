@@ -14,10 +14,13 @@ export const PublicPage: React.FC<PublicPageProps> = ({ title, children }) => (
     </PublicFrame>
 );
 
-/** One titled part of a public page. */
-export const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <section className="space-y-3">
-        <h2 className="t-headline text-text">{title}</h2>
-        {children}
-    </section>
-);
+/** One titled part of a public page: an h2, or an h3 inside a larger part (the Rules page's full rules). */
+export const Section: React.FC<{ title: string; level?: 2 | 3; id?: string; children: React.ReactNode }> = ({ title, level = 2, id, children }) => {
+    const Heading = level === 3 ? 'h3' : 'h2';
+    return (
+        <section id={id} className="scroll-mt-6 space-y-3">
+            <Heading className="t-headline text-text">{title}</Heading>
+            {children}
+        </section>
+    );
+};
