@@ -12,7 +12,7 @@ export type BoardEvent =
     | { type: 'Bid'; playerId: string; call: 'PASS' | Boja }
     /** Trump called: the season changes, the badge flies from the caller, +2 cards per seat from the dealer. */
     | { type: 'TrumpCalled'; suit: Boja; playerId: string | null; dealerId: string | null }
-    /** Zvanja appeared at these seats. */
+    /** The declarations were revealed with a winner (zvanja.winnerTeam set): the seats that scored, or the belot's holder. */
     | { type: 'Declared'; playerIds: string[] }
     /** A card reached the trick: an opponent's flies in from their seat, mine from my hand. `recovered`:
      *  a 4th card the board never saw on the table, rebuilt from lastTrick. */
@@ -108,8 +108,11 @@ export function diffBoard(prev: BoardModel | null, next: BoardModel): BoardEvent
         if (!prev.trump && next.trump) {
             events.push({ type: 'TrumpCalled', suit: next.trump.suit, playerId: next.trump.callerId, dealerId: next.dealerId });
         }
-        const zvanja = (model: BoardModel) => model.seats.filter((seat) => seat.zvanja.length > 0).map((seat) => seat.id);
-        if (zvanja(prev).length === 0 && zvanja(next).length > 0) events.push({ type: 'Declared', playerIds: zvanja(next) });
+        const zvanja = next.zvanja;
+        if (!prev.zvanja?.winnerTeam && zvanja?.winnerTeam) {
+            const scored = zvanja.seats.filter((seat) => seat.declarations.length > 0).map((seat) => seat.playerId);
+            events.push({ type: 'Declared', playerIds: zvanja.belot ? [zvanja.belot.playerId] : scored });
+        }
         if (!trickEvents(prev, next, events)) return null;
         if (!next.finished) {
             // my hand: only the +2 of the trump call arrive, and only a card I played (now on the table) leaves

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { AnimatePresence, LazyMotion, domMax } from 'motion/react';
 import { hold } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
@@ -11,6 +11,7 @@ import { Arena } from './Arena';
 import { BelaPrompt } from './BelaPrompt';
 import { BidPanel } from './BidPanel';
 import { BlokColumn, BlokTable, BLOK_HINT } from './BelaBlok';
+import { DeclarationMoment } from './DeclarationMoment';
 import { EndSheet } from './EndSheet';
 import { GameMenu } from './GameMenu';
 import { HandResult } from './HandResult';
@@ -23,7 +24,8 @@ import { Seats } from './Seats';
 import { Summary } from './Summary';
 import { announce, seatName, toastFor } from './announce';
 import { cardTargets, layoutFor, type Layout, type Targets } from './model/cardTargets';
-import { answerBela, pendingUntil, pressBid, pressCard, unlock, type InputResult, type Move } from './model/input';
+import { BELOT_HOLD_MS, momentKey, momentSrLine } from './model/declarationMoment';
+import { answerBela, pendingUntil, pressBid, pressCard, unlock, waitingForDeclarations, type InputResult, type Move } from './model/input';
 import { dropLeaving, emptyStage, landTrick, settleStage, shownPiles, stepStage, sweepHeld, tableTrick, withInput, type Stage } from './stage';
 import { useBoardViewport } from './useBoardViewport';
 import type { BoardState } from './model/accept';
@@ -163,6 +165,18 @@ function Backs({ stage, model, targets, reduced }: { stage: Stage; model: BoardM
     );
 }
 
+/**
+ * The declaration moment as this screen keeps it, per hand (momentKey): it came from a snapshot (its end state,
+ * no belot hold), a tap hid it here, when it first showed, and its one line for the live region.
+ */
+interface MomentLocal {
+    key: string;
+    snapshot: boolean;
+    skipped: boolean;
+    since: number;
+    line: string | null;
+}
+
 /** "Your turn" over my hand (spec §5.3.3 `your-turn`): only while I can bid or play, never in HAND_COMPLETE. */
 function YourTurn({ model, targets, layout }: { model: BoardModel; targets: Targets; layout: Layout }) {
     if (!model.yourTurn) return null;
@@ -270,6 +284,39 @@ export function Board(props: BoardProps) {
     const piles = shownPiles(current);
     const called = current.events?.find((event) => event.type === 'TrumpCalled');
 
+    // the declaration moment (gameplay rules §6): a new hand's starts afresh; a snapshot during it shows its end state
+    const now = Date.now();
+    const key = momentKey(model.zvanja, model.playOpensAt);
+    const [kept, setMoment] = useState<MomentLocal | null>(null);
+    let moment = kept;
+    if ((kept?.key ?? null) !== key || (kept && instant && !kept.snapshot)) {
+        moment = key === null ? null
+            : kept?.key === key ? { ...kept, snapshot: true }
+                : { key, snapshot: instant, skipped: false, since: now, line: momentSrLine(model.zvanja, me, now + model.skew, instant) };
+        setMoment(moment);
+    }
+    const skip = () => setMoment((was) => (was ? { ...was, skipped: true } : was));
+    // the moment's one polite line, once per hand, after the step's own lines (spec §5.8)
+    const momentLine = moment?.line ?? null;
+    useEffect(() => {
+        if (momentLine) setSaid((s) => ({ seq: s.seq, lines: [...s.lines, momentLine] }));
+    }, [moment?.key, momentLine]);
+
+    // no card before playOpensAt (my cards look disabled); a live belot holds the end sheet a while (a tap opens it)
+    const waiting = waitingForDeclarations(model, now);
+    const belot = model.zvanja?.belot != null;
+    const holdEnds = belot && moment && !moment.snapshot && !moment.skipped ? moment.since + BELOT_HOLD_MS : null;
+    const holding = holdEnds !== null && now < holdEnds;
+    // no frame comes when play opens or the hold ends: wake then (as the 2-s lift does)
+    const [wakes, wake] = useReducer((n: number) => n + 1, 0);
+    const wakeAt = waiting ? model.playOpensAt! - model.skew : holding ? holdEnds : null;
+    useEffect(() => {
+        if (wakeAt === null) return;
+        const timer = window.setTimeout(wake, Math.max(0, wakeAt - Date.now()));
+        return () => window.clearTimeout(timer);
+    }, [wakeAt, wakes]);
+    const hand = waiting ? model.hand.map((card) => (card.enabled ? { ...card, enabled: false } : card)) : model.hand;
+
     return (
         <LazyMotion features={domMax}>
             <section
@@ -277,6 +324,7 @@ export function Board(props: BoardProps) {
                 className={cx('board', viewport ? 'board--framed' : 'board--screen')}
                 data-layout={layout.kind}
                 data-phase={model.phase}
+                data-waiting={waiting || undefined}
                 style={viewport ? { width: viewport.width, height: viewport.height } : undefined}
             >
                 <Arena season={model.season} burst={current.calls} instant={instant} calm={model.finished} />
@@ -285,14 +333,17 @@ export function Board(props: BoardProps) {
                         <Backs stage={current} model={model} targets={targets} reduced={reduced} />
                         {piles && <Piles counts={piles} targets={targets} myTeam={model.myTeam ?? 'A'} onTap={onPile} />}
                         <TrickRegion stage={current} model={model} targets={targets} reduced={reduced} />
-                        <Hand cards={model.hand} targets={targets} deal={current.deal} entrances={current.entrances} instant={instant} reduced={reduced} onPress={onCard} />
-                        <Seats model={model} targets={targets} layout={layout} instant={instant} />
+                        <Hand cards={hand} targets={targets} deal={current.deal} entrances={current.entrances} instant={instant} reduced={reduced} onPress={onCard} />
+                        <Seats model={model} targets={targets} layout={layout} instant={instant} playOpen={!waiting} />
                         <YourTurn model={model} targets={targets} layout={layout} />
                         <BidPanel model={model} onBid={onBid} />
                         {model.belaPrompt && targets.cards[model.belaPrompt.id] && (
                             <BelaPrompt card={model.belaPrompt} target={targets.cards[model.belaPrompt.id]} onAnswer={onBela} onDismiss={closeBela} />
                         )}
                         <SweepLayer stage={current} model={model} layout={layout} targets={targets} reduced={reduced} />
+                        {moment && !moment.skipped && (waiting || belot) && (
+                            <DeclarationMoment key={moment.key} model={model} layout={layout} targets={targets} snapshot={moment.snapshot} reduced={reduced} onSkip={skip} />
+                        )}
                         <Hud model={model} instant={instant} calledBy={called?.type === 'TrumpCalled' ? called.playerId : null} calls={current.calls} onChallenge={actions.challenge}
                             resultOpen={model.handComplete && current.held === null} onMenu={() => setPanel('menu')} onBlok={layout.blok ? null : () => open('blok')} />
                         {error && <div className="board-error"><ErrorAlert message={error} /></div>}
@@ -302,7 +353,7 @@ export function Board(props: BoardProps) {
                 <Summary model={model} />
                 {/* both rise once the last trick has left the table (spec §5.3.4 HandCompleted, Ended) */}
                 <HandResult model={model} open={model.handComplete && current.held === null} hands={hands} delta={current.handDelta} onChallenge={actions.challenge} />
-                <EndSheet model={model} open={model.end !== null && current.held === null} rematch={rematch} onLeave={onLeave} />
+                <EndSheet model={model} open={model.end !== null && current.held === null && !holding} rematch={rematch} onLeave={onLeave} />
                 <GameMenu model={model} open={panel === 'menu'} onClose={() => setPanel(null)} onBlok={layout.blok ? null : () => open('blok')} />
                 <Sheet open={panel === 'blok' && !layout.blok} onClose={() => setPanel(null)} title="Bela Blok" showClose data-testid="bela-blok">
                     <BlokTable model={model} hands={hands} />

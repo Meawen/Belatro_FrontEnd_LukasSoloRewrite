@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { MOMENT_MS, SAY_GAP_MS, belotLine, momentAt, summaryChips } from './declarationMoment'
+import { BELOT_HOLD_MS, MOMENT_MS, SAY_GAP_MS, belotLine, momentAt, momentKey, momentSrLine, summaryChips } from './declarationMoment'
 import type { DeclarationView, Rank, ZvanjaSeatView, ZvanjaView } from '../../../types/game'
 
 const OPENS = 1_000_000
@@ -193,5 +193,27 @@ describe('belotLine', () => {
     test('null without a belot', () => {
         expect(belotLine(null, 'me')).toBeNull()
         expect(belotLine(tied, 'me')).toBeNull()
+    })
+})
+
+describe('the board\'s moment per hand: momentKey, momentSrLine', () => {
+    const belot = zvanja([seat('ivo', null), seat('me', null)], { total: 0, belot: { playerId: 'ivo', suit: 'PIK' }, playOpensAt: null })
+
+    test('a key per wait (its playOpensAt) or per belot; none without either', () => {
+        expect(momentKey(tied, OPENS)).toBe(`opens:${OPENS}`)
+        expect(momentKey(tied, OPENS + 1)).not.toBe(momentKey(tied, OPENS))
+        // the model's playOpensAt is null outside PLAYING: no moment
+        expect(momentKey(tied, null)).toBeNull()
+        expect(momentKey(null, null)).toBeNull()
+        expect(momentKey(belot, null)).toBe('belot:ivo:PIK')
+        expect(BELOT_HOLD_MS).toBe(4000)
+    })
+
+    test('the live region\'s line: the whole moment while it runs (or from a snapshot), the belot line; nothing once closed', () => {
+        expect(momentSrLine(tied, 'me', T0, false)).toBe(TIED_SR)
+        expect(momentSrLine(tied, 'me', OPENS - 1, true)).toBe(TIED_SR)
+        expect(momentSrLine(tied, 'me', OPENS, true)).toBeNull()
+        expect(momentSrLine(null, 'me', T0, false)).toBeNull()
+        expect(momentSrLine(belot, 'me', T0, true)).toBe('Belot! ivo holds all eight Pik')
     })
 })

@@ -2,6 +2,7 @@
 import { vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { MotionProvider } from '../../motion/MotionProvider';
 import { Toaster } from '../ui/Toast';
 import { Board, type BoardProps } from './Board';
 import type { BoardState } from './model/accept';
@@ -66,15 +67,19 @@ export function actions(): { [K in keyof GameActions]: ReturnType<typeof vi.fn> 
     return { bidTrump: vi.fn(() => true), passBid: vi.fn(() => true), play: vi.fn(() => true), challenge: vi.fn(() => true) };
 }
 
-/** Renders the board (in a router, with the toast layer) for `me`; rerender with a newer state. */
-export function renderBoard(props: Partial<BoardProps> & { state: BoardState }) {
+/**
+ * Renders the board (in a router, with the toast layer) for `me`; rerender with a newer state.
+ * `reducedMotion: 'always'` puts it under the app's MotionProvider with reduced motion forced.
+ */
+export function renderBoard(props: Partial<BoardProps> & { state: BoardState }, options: { reducedMotion?: 'always' } = {}) {
     const all: BoardProps = { me: 'carol', actions: actions(), error: null, isConnected: true, onLeave: vi.fn(), ...props };
-    const ui = (p: BoardProps) => (
+    const board = (p: BoardProps) => (
         <MemoryRouter>
             <Board {...p} />
             <Toaster />
         </MemoryRouter>
     );
+    const ui = (p: BoardProps) => (options.reducedMotion ? <MotionProvider reducedMotion={options.reducedMotion}>{board(p)}</MotionProvider> : board(p));
     const result = render(ui(all));
     return {
         ...result,

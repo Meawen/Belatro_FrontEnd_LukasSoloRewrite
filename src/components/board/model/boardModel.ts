@@ -3,7 +3,7 @@ import { cardId, type CardId } from './rules';
 import { completedTrick, displayedTrick, type SeatPosition, type Team, type TrickModel } from './trick';
 import type { BoardState } from './accept';
 import {
-    PHASE_LABEL, SUIT_LABEL, cardLabel, declarationLines, endSentence, isBelaCard, rematchOffered, seatsFromMe, teamOf, trumpOf, zvanjaOf,
+    PHASE_LABEL, SUIT_LABEL, cardLabel, declarationLines, endSentence, isBelaCard, rematchOffered, seatsFromMe, teamOf, trumpOf,
 } from '../../game/gameView';
 import { isBot } from '../../lobby/lobbyModel';
 import type { Boja, GameBid, GameCard, GamePhase, LastChallengeView, ZvanjaView } from '../../../types/game';
@@ -58,10 +58,8 @@ export interface SeatModel {
     dealer: boolean;
     /** Its bid chip while bidding ('PASS' or the suit called); null once trump is called. */
     bid: 'PASS' | Boja | null;
-    /** Bela declared this hand (a "Bela" chip). */
+    /** Bela declared this hand (a "Bela" chip). Its zvanja chip comes from `zvanja` (summaryChips). */
     bela: boolean;
-    /** Its scored zvanja chips, e.g. "sequence 50 (Herc)". */
-    zvanja: string[];
     /** Its challenge is gone for the rest of the game (challengeUsedByPlayer). */
     challengeUsed: boolean;
 }
@@ -219,7 +217,6 @@ export function boardModel(state: BoardState, me: string, local: BoardLocal): Bo
             dealer: seat.id === dealerId,
             bid: bid ? (bid.action === 'CALL_TRUMP' && bid.selectedTrump ? bid.selectedTrump : 'PASS') : null,
             bela: view.belaDeclaredByPlayer?.[seat.id] === true,
-            zvanja: zvanjaOf(view.declarations?.[seat.id]),
             challengeUsed: view.challengeUsedByPlayer?.[seat.id] === true || (seat.id === me && priv?.challengeUsed === true),
         };
     });

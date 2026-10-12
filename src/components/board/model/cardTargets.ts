@@ -106,6 +106,12 @@ export function tilt(id: string): number {
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
 
+/** The middle of the trick's cross (spec §5.6), in board coordinates: where the declaration moment is said too. */
+export function trickCentre(layout: Layout): { x: number; y: number } {
+    const { w, h } = layout.board;
+    return { x: w / 2, y: layout.kind === 'landscape' ? h / 2 : h * 0.44 };
+}
+
 /** Where every card goes for this model and layout (spec §5.6). Pure: the board animates elements here. */
 export function cardTargets(model: BoardModel, layout: Layout): Targets {
     const { w: W, h: H } = layout.board;
@@ -117,7 +123,7 @@ export function cardTargets(model: BoardModel, layout: Layout): Targets {
     const maxStep = landscape ? 52 : desktop ? (hs.w < 120 ? 64 : 84) : 36;
     const sideInset = desktop ? 70 : 30;
     const fanStep = desktop ? 16 : 10;
-    const trickY = landscape ? H / 2 : H * 0.44;
+    const trickY = trickCentre(layout).y;
     const slot = landscape ? { x: 0.7, y: 0.45 } : { x: 0.84, y: 0.58 };
     const cards: Record<CardId, Target> = {};
     const anchors: Targets['anchors'] = {};

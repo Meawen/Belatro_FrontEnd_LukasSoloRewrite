@@ -80,15 +80,30 @@ describe('boardModel: HUD', () => {
         expect(model(state(view()), 'zoe').summary.yourTeam).toBeNull()
     })
 
-    test('the summary: one line per bid in today\'s format, and the declaration lines', () => {
+    test('the summary: one line per bid in today\'s format, and the declaration lines: each winning seat\'s values (zvanja), then bela', () => {
+        const nothing = { said: null, kind: null, height: null, declarations: [], cards: [] }
+        const zvanja: ZvanjaView = {
+            seats: [
+                { playerId: 'alice', said: 50, kind: null, height: null, cards: [],
+                    declarations: [{ kind: 'RUN', points: 50, suit: 'HERC', top: 'AS' }, { kind: 'RUN', points: 20, suit: 'PIK', top: 'BABA' }] },
+                { ...nothing, playerId: 'bob', said: 20 },
+                { ...nothing, playerId: 'carol' },
+                { ...nothing, playerId: 'dave' },
+            ],
+            winnerTeam: 'A', total: 70, decidedBy: 'VALUE', belot: null, playOpensAt: null,
+        }
+        // the older `declarations` field no longer makes lines
+        const old = { alice: { bela: false, sequencesBySuit: { HERC: 50 }, fourOfAKindPoints: 0, bestSequencePoints: 50 } }
         const m = model(state(view({
             gameState: 'PLAYING',
             bids: [{ playerId: 'alice', action: 'PASS', selectedTrump: null }, { playerId: 'bob', action: 'CALL_TRUMP', selectedTrump: 'HERC' }],
-            declarations: { alice: { bela: false, sequencesBySuit: { HERC: 50 }, fourOfAKindPoints: 0, bestSequencePoints: 50 } },
+            declarations: old,
+            zvanja,
             belaDeclaredByPlayer: { bob: true },
         })))
         expect(m.summary.bids).toEqual(['alice: Pass', 'bob: Herc'])
-        expect(m.summary.declarations).toEqual(['alice: sequence 50 (Herc)', 'bob: bela 20'])
+        expect(m.summary.declarations).toEqual(['alice: 50 + 20', 'bob: bela 20'])
+        expect(model(state(view({ gameState: 'PLAYING', declarations: old, belaDeclaredByPlayer: { bob: true } }))).summary.declarations).toEqual(['bob: bela 20'])
     })
 })
 
@@ -205,14 +220,10 @@ describe('boardModel: bidding controls, declarations, challenge, window, end', (
         expect(inFlight).toMatchObject({ canBid: true, bidsEnabled: false, passEnabled: false })
     })
 
-    test('zvanja chips and the bela marker at the seats', () => {
-        const m = model(state(view({
-            gameState: 'PLAYING',
-            declarations: { carol: { bela: false, sequencesBySuit: {}, fourOfAKindPoints: 100, bestSequencePoints: 0 } },
-            belaDeclaredByPlayer: { dave: true },
-        })))
-        expect(m.seats.find((s) => s.id === 'carol')!.zvanja).toEqual(['four of a kind 100'])
+    test('the bela marker at the seats (the zvanja chips come from summaryChips: Board.declarations.test)', () => {
+        const m = model(state(view({ gameState: 'PLAYING', belaDeclaredByPlayer: { dave: true } })))
         expect(m.seats.filter((s) => s.bela).map((s) => s.id)).toEqual(['dave'])
+        expect(m.seats[0]).not.toHaveProperty('zvanja')
     })
 
     test('Challenge while playing and in HAND_COMPLETE, until it is used', () => {

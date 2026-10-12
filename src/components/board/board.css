@@ -276,6 +276,16 @@
     flex-wrap: wrap;
     gap: 4px;
 }
+/* the winners' declared cards (gameplay rules §6), small and overlapping, until the first trick is down; mine
+   over my plate, which sits low by my pile */
+.board-seat__declared {
+    display: flex;
+}
+.board-seat__declared--above {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 4px);
+}
 .board-your-turn {
     position: absolute;
     left: 50%;
@@ -421,6 +431,66 @@
 .board-bid__suit.bg-suit-karo:focus-visible,
 .board-bid__suit.bg-suit-tref:focus-visible {
     outline-color: var(--ink);
+}
+
+/* The declaration moment (gameplay rules §6): a bubble by each seat's plate and a panel where the trick goes,
+   above the trick and below the sheets (layer 50, free once bidding ends). The overlay takes no taps
+   (board-region); only the panel does, a button in the middle of the felt that skips the moment. */
+.board-moment {
+    z-index: var(--z-bid);
+}
+.board-moment__spot {
+    position: absolute;
+    display: flex;
+}
+.board-moment__bubble {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 8px;
+    background: var(--material-ink);
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.board-moment__bubble[data-nothing] {
+    color: var(--text-2);
+}
+.board-moment__bubble[data-won] {
+    background: var(--accent);
+    color: var(--ink);
+}
+.board-moment__panel {
+    position: absolute;
+    translate: -50% -50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: max-content;
+    max-width: min(320px, calc(100% - 128px));
+    padding: 10px 14px 12px;
+    border: 0;
+    background: var(--material-ink);
+    color: var(--text);
+    text-align: center;
+    text-wrap: balance;
+    white-space: normal;
+    box-shadow: inset 0 -3px 0 var(--accent-ledge);
+    pointer-events: auto;
+    cursor: pointer;
+}
+.board-moment__line {
+    color: var(--accent);
+}
+.board-moment__cards {
+    display: flex;
+    margin-top: 4px;
+}
+/* while the declarations are said my cards can't be played: their art dims (not the button, whose 3-D flip
+   layers a filter would flatten) */
+.board[data-waiting] .board-hand-card .ui-card {
+    filter: drop-shadow(0 3px 0 rgb(0 0 0 / 0.35)) brightness(0.66) saturate(0.75);
 }
 
 /* Challenge (§5.3.3): in the HUD while playing, in the hand-result sheet in HAND_COMPLETE */

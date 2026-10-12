@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
-import { cardLabel, isBelaCard, seatsFromMe, trumpOf, zvanjaOf } from './gameView'
-import type { GameCard, PublicGameView } from '../../types/game'
+import { cardLabel, declarationLines, isBelaCard, seatsFromMe, trumpOf } from './gameView'
+import type { GameCard, PublicGameView, ZvanjaSeatView, ZvanjaView } from '../../types/game'
 
 const seats = ['alice', 'bob', 'carol', 'dave'].map((id) => ({ id, cardsLeft: 8 }))
 
@@ -69,11 +69,27 @@ describe('cardLabel', () => {
     })
 })
 
-describe('zvanjaOf', () => {
-    test("one player's scored zvanja, worded as the declaration lines word them", () => {
-        expect(zvanjaOf({ bela: false, sequencesBySuit: { KARA: 100 }, fourOfAKindPoints: 200, bestSequencePoints: 100 }))
-            .toEqual(['sequence 100 (Karo)', 'four of a kind 200'])
-        expect(zvanjaOf(undefined)).toEqual([])
+describe('declarationLines (R-31, gameplay rules §6)', () => {
+    const seat = (playerId: string, points: number[] = []): ZvanjaSeatView => ({
+        playerId, said: points[0] ?? null, kind: null, height: null, cards: [],
+        declarations: points.map((p) => ({ kind: 'RUN', points: p, suit: 'HERC', top: 'AS' })),
+    })
+    const base = { declarations: {}, belaDeclaredByPlayer: {} } as unknown as PublicGameView
+
+    test('one line per winning seat with all its values, in turn order; then bela', () => {
+        const zvanja: ZvanjaView = {
+            seats: [seat('ivo', [50, 20]), seat('mara'), seat('lana', [20]), seat('me')],
+            winnerTeam: 'B', total: 90, decidedBy: 'VALUE', belot: null, playOpensAt: null,
+        }
+        expect(declarationLines({ ...base, zvanja, belaDeclaredByPlayer: { mara: true, me: false } })).toEqual(['ivo: 50 + 20', 'lana: 20', 'mara: bela 20'])
+    })
+
+    test('nobody declared, no zvanja yet, or an older view: only bela; the older declarations field makes none', () => {
+        const old = { ivo: { bela: false, sequencesBySuit: { KARA: 100 }, fourOfAKindPoints: 200, bestSequencePoints: 100 } }
+        expect(declarationLines({ ...base, declarations: old })).toEqual([])
+        expect(declarationLines({ ...base, zvanja: null, belaDeclaredByPlayer: { ivo: true } })).toEqual(['ivo: bela 20'])
+        const nobody: ZvanjaView = { seats: [seat('ivo'), seat('mara')], winnerTeam: null, total: 0, decidedBy: null, belot: null, playOpensAt: null }
+        expect(declarationLines({ ...base, zvanja: nobody })).toEqual([])
     })
 })
 

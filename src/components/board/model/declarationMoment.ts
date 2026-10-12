@@ -1,4 +1,4 @@
-import { RANK_LABEL, SUIT_LABEL } from '../../game/gameView';
+import { RANK_LABEL, SUIT_LABEL, declaredPoints } from '../../game/gameView';
 import type { Rank, ZvanjaSeatView, ZvanjaView } from '../../../types/game';
 
 /** The moment's length before playOpensAt (the server's default pause, game.declaration-pause-ms). */
@@ -34,9 +34,6 @@ function heightText(seat: ZvanjaSeatView): string | null {
     if (seat.height === null) return null;
     return seat.kind === 'FOUR' ? `four ${FOUR_LABEL[seat.height] ?? RANK_LABEL[seat.height]}` : `up to ${RANK_LABEL[seat.height]}`;
 }
-
-/** "50 + 20": a winning seat's declarations, strongest first (the view's order). */
-const points = (seat: ZvanjaSeatView) => seat.declarations.map((declaration) => declaration.points).join(' + ');
 
 /**
  * "Team B scores 70", with why when nobody won by value: "ivo's is higher", "ivo's four beats the run" or
@@ -85,7 +82,7 @@ export function momentAt(zvanja: ZvanjaView | null, me: string, now: number, sna
         if (step === 'closed' || (step === 'saying' && now < t0 + index * SAY_GAP_MS)) return null;
         const said = seat.said === null ? '–' : String(seat.said);
         if (step === 'saying') return said;
-        if (step === 'winner' && seat.declarations.length > 1) return points(seat);
+        if (step === 'winner' && seat.declarations.length > 1) return declaredPoints(seat);
         const height = heightText(seat);
         return height ? `${said} · ${height}` : said;
     };
@@ -102,7 +99,7 @@ export function momentAt(zvanja: ZvanjaView | null, me: string, now: number, sna
 /** Each winning seat's chip for the rest of the hand, e.g. { ivo: 'Zvanja 50 + 20' }; {} when nobody won. */
 export function summaryChips(zvanja: ZvanjaView | null): Record<string, string> {
     const winners = (zvanja?.seats ?? []).filter((seat) => seat.declarations.length > 0);
-    return Object.fromEntries(winners.map((seat) => [seat.playerId, `Zvanja ${points(seat)}`]));
+    return Object.fromEntries(winners.map((seat) => [seat.playerId, `Zvanja ${declaredPoints(seat)}`]));
 }
 
 /** "Belot! Ivo holds all eight Pik" ("Belot! You hold all eight Pik" for `me`), or null without a belot. */
@@ -110,4 +107,27 @@ export function belotLine(zvanja: ZvanjaView | null, me: string): string | null 
     if (!zvanja?.belot) return null;
     const { playerId, suit } = zvanja.belot;
     return `Belot! ${playerId === me ? 'You hold' : `${playerId} holds`} all eight ${SUIT_LABEL[suit]}`;
+}
+
+/** The end sheet waits this long after a belot is said live; a tap or a snapshot opens it at once. */
+export const BELOT_HOLD_MS = 4000;
+
+/**
+ * Which hand's moment the board shows, or null when there is none: play waits for `playOpensAt` (the model's,
+ * null outside PLAYING), or a belot ended the game. A new key starts the board's moment afresh (not skipped).
+ */
+export function momentKey(zvanja: ZvanjaView | null, playOpensAt: number | null): string | null {
+    if (zvanja?.belot) return `belot:${zvanja.belot.playerId}:${zvanja.belot.suit}`;
+    return playOpensAt === null ? null : `opens:${playOpensAt}`;
+}
+
+/**
+ * The one polite line for the live region when the board's moment first shows at server time `now`: the belot
+ * line, or the moment's srLine while it runs; null once closed (a snapshot after the wait says nothing).
+ */
+export function momentSrLine(zvanja: ZvanjaView | null, me: string, now: number, snapshot: boolean): string | null {
+    const belot = belotLine(zvanja, me);
+    if (belot) return belot;
+    const moment = momentAt(zvanja, me, now, snapshot);
+    return moment && moment.step !== 'closed' ? moment.srLine : null;
 }

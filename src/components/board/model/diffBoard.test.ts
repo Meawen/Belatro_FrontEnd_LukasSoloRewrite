@@ -56,9 +56,23 @@ describe('diffBoard (spec §5.3.4)', () => {
             { type: 'Bid', playerId: 'dave', call: 'HERC' },
             { type: 'TrumpCalled', suit: 'HERC', playerId: 'dave', dealerId: 'dave' },
         ])
-        const declared = all[i].seats.filter((s) => s.zvanja.length > 0).map((s) => s.id)
-        if (declared.length) expect(events).toContainEqual({ type: 'Declared', playerIds: declared })
+        // dave's 20 alone wins: the declarations are revealed with a winner
+        expect(events).toContainEqual({ type: 'Declared', playerIds: ['dave'] })
         expect(all[i].hand).toHaveLength(8)
+        // its later frames carry the same zvanja: nothing new is declared
+        expect(diffBoard(all[i], all[i + 1])!.map((e) => e.type)).not.toContain('Declared')
+    })
+
+    test('Declared names the seats that scored, both partners; none when nobody declared; the holder of a belot', () => {
+        const callOf = (t: FanOut[]) => {
+            const i = indexOf(t, 'call:')
+            const [before, call] = models(t.slice(i - 1, i + 1))
+            return diffBoard(before, call)!.filter((e) => e.type === 'Declared')
+        }
+        // seed 234: alice's two runs win; carol, her partner, scores her 20 too; bob's 20 doesn't count
+        expect(callOf(playTable({ seed: 234 }))).toEqual([{ type: 'Declared', playerIds: ['alice', 'carol'] }])
+        expect(callOf(playTable({ seed: 3 }))).toEqual([])
+        expect(callOf(playTable({ belot: { player: 'bob', suit: 'PIK' } }))).toEqual([{ type: 'Declared', playerIds: ['bob'] }])
     })
 
     test("an opponent's card and my card: CardPlayed, mine only for my own", () => {

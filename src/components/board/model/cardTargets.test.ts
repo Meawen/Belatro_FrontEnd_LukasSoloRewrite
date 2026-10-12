@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { cardSize, cardTargets, layoutFor, tilt, type Target, type Targets, type Viewport } from './cardTargets'
+import { cardSize, cardTargets, layoutFor, tilt, trickCentre, type Target, type Targets, type Viewport } from './cardTargets'
 import { EMPTY_LOCAL, boardModel, type BoardModel } from './boardModel'
 import { indexOf, playTable } from '../../../test/fixtures/views/table'
 
@@ -160,5 +160,25 @@ describe('cardTargets: places', () => {
         const left = hand[0].left
         const right = hand[5].left + hand[5].width
         expect(left + right).toBeCloseTo(375)
+    })
+})
+
+describe('trickCentre (spec §5.6; gameplay rules §6: the declaration moment is said there)', () => {
+    test('the middle of the trick\'s cross: 44% down, the middle in landscape', () => {
+        const model = busyModel()
+        for (const viewport of [{ width: 1440, height: 900, dpr: 1 }, { width: 375, height: 812, dpr: 3 }, { width: 812, height: 375, dpr: 3 }]) {
+            const layout = layoutFor(viewport)
+            const centre = trickCentre(layout)
+            const t = cardTargets(model, layout)
+            const slots = model.trick!.plays.map((play) => t.cards[play.id])
+            const middle = (slot: Target) => ({ x: slot.left + slot.width / 2, y: slot.top + slot.height / 2 })
+            // the cross's opposite slots sit symmetric about it
+            const xs = slots.map((slot) => middle(slot).x - centre.x)
+            const ys = slots.map((slot) => middle(slot).y - centre.y)
+            expect(Math.min(...xs) + Math.max(...xs), `${viewport.width}`).toBeCloseTo(0)
+            expect(centre.x).toBe(layout.board.w / 2)
+            expect(centre.y).toBe(layout.kind === 'landscape' ? layout.board.h / 2 : layout.board.h * 0.44)
+            expect(Math.max(...ys.map(Math.abs))).toBeLessThan(layout.trick.h)
+        }
     })
 })

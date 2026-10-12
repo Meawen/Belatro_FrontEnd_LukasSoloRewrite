@@ -1,4 +1,4 @@
-import type { Boja, DeclarationsView, GameCard, GamePhase, PlayerPublicInfo, PublicGameView, Rank } from '../../types/game';
+import type { Boja, GameCard, GamePhase, PlayerPublicInfo, PublicGameView, Rank, ZvanjaSeatView } from '../../types/game';
 
 /** Bid buttons, in this order. */
 export const BOJE: Boja[] = ['HERC', 'KARA', 'PIK', 'TREF'];
@@ -72,27 +72,19 @@ export function teamOf(view: PublicGameView, me: string): 'A' | 'B' | null {
     return null;
 }
 
-/** One player's scored zvanja (the board's chips at the seat): "sequence 50 (Herc)", "four of a kind 100". */
-export function zvanjaOf(scored: DeclarationsView | undefined): string[] {
-    if (!scored) return [];
-    const zvanja: string[] = [];
-    const [suit] = Object.keys(scored.sequencesBySuit ?? {}) as Boja[];
-    if (scored.bestSequencePoints) {
-        zvanja.push(`sequence ${scored.bestSequencePoints}${suit ? ` (${SUIT_LABEL[suit]})` : ''}`);
-    }
-    if (scored.fourOfAKindPoints) zvanja.push(`four of a kind ${scored.fourOfAKindPoints}`);
-    return zvanja;
+/** A seat's scored declarations as values, strongest first (the view's order): "50 + 20". */
+export function declaredPoints(seat: ZvanjaSeatView): string {
+    return seat.declarations.map((declaration) => declaration.points).join(' + ');
 }
 
 /**
- * The scored declarations, one line each (R-31). The server lists only the zvanja that counted, and
- * only once trump is called (ScoredDeclarations): a player's best sequence and four of a kind.
+ * The scored declarations (R-31, gameplay rules §6): one line per winning seat, in turn order, with all its
+ * values ("ivo: 50 + 20"), from `zvanja` once trump is called; the older `declarations` field makes none.
  */
 export function declarationLines(view: PublicGameView): string[] {
-    const lines: string[] = [];
-    Object.entries(view.declarations ?? {}).forEach(([player, scored]) => {
-        zvanjaOf(scored).forEach((zvanje) => lines.push(`${player}: ${zvanje}`));
-    });
+    const lines = (view.zvanja?.seats ?? [])
+        .filter((seat) => seat.declarations.length > 0)
+        .map((seat) => `${seat.playerId}: ${declaredPoints(seat)}`);
     // R-32: bela once declared, from belaDeclaredByPlayer (a declarations entry never carries it)
     Object.entries(view.belaDeclaredByPlayer ?? {}).forEach(([player, declared]) => {
         if (declared) lines.push(`${player}: bela 20`);
