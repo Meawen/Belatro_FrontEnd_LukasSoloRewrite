@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { announce, seatName, toastFor } from './announce'
+import { announce, seatName } from './announce'
 import { EMPTY_LOCAL, boardModel, type BoardModel } from './model/boardModel'
 import { find, playTable } from '../../test/fixtures/views/table'
 
@@ -45,14 +45,22 @@ describe('announce (spec §5.8)', () => {
         expect(announce([{ type: 'HandCompleted', delta: null }], model, 2)).toEqual(['Hand 2'])
     })
 
-    test('challenge results are announced and toasted, mine and another seat’s (O-4)', () => {
+    test('a challenge the view tells: the banner\'s words, once, with "You" for mine (gameplay rules §6)', () => {
         const model = modelAt('play:alice:PIK-SEDMICA')
-        expect(toastFor({ type: 'ChallengeFailed', playerId: 'carol', mine: true })).toBe('No foul found')
-        expect(toastFor({ type: 'ChallengeFailed', playerId: 'bob', mine: false })).toBe('bob challenged: no foul found')
-        expect(toastFor({ type: 'ChallengeUpheld', team: 'A' })).toBe('Challenge upheld: Team A takes the hand')
-        expect(toastFor({ type: 'Turn', playerId: 'bob' })).toBeNull()
-        expect(announce([{ type: 'ChallengeUpheld', team: 'B' }, { type: 'ChallengeFailed', playerId: 'bob', mine: false }], model, null))
-            .toEqual(['Challenge upheld: Team B takes the hand', 'bob challenged: no foul found'])
+        expect(announce([{ type: 'Challenged', number: 1, playerId: 'bob', team: 'B', foulFound: true, mine: false }], model, null))
+            .toEqual(['bob challenges! Foul found: Team B takes the hand'])
+        expect(announce([{ type: 'Challenged', number: 2, playerId: 'carol', team: 'A', foulFound: false, mine: true }], model, null))
+            .toEqual(['You challenge! No foul: you have no challenge left'])
+    })
+
+    test("an older backend's inferred challenges keep their lines", () => {
+        const model = modelAt('play:alice:PIK-SEDMICA')
+        expect(announce([
+            { type: 'ChallengeUpheld', team: 'B' },
+            { type: 'ChallengeUpheld', team: null },
+            { type: 'ChallengeFailed', playerId: 'bob', mine: false },
+            { type: 'ChallengeFailed', playerId: 'carol', mine: true },
+        ], model, null)).toEqual(['Challenge upheld: Team B takes the hand', 'Challenge upheld', 'bob challenged: no foul found', 'No foul found'])
     })
 
     test('the end says why it ended, else who won', () => {
@@ -60,5 +68,13 @@ describe('announce (spec §5.8)', () => {
         const f = find(over, 'game-over')
         const model = boardModel({ publicView: f.private.carol.publicPart, privateView: f.private.carol, receivedAt: f.at, skew: 0, source: 'live' }, 'carol', EMPTY_LOCAL)
         expect(announce([{ type: 'Ended', phase: 'COMPLETED' }], model, null)).toEqual(['Team B wins'])
+    })
+
+    test('a belot\'s end says the belot once, then who won (gameplay rules §3, §6)', () => {
+        const belot = playTable({ belot: { player: 'bob', suit: 'PIK' } })
+        const f = belot[belot.length - 1]
+        const as = (me: string) => boardModel({ publicView: f.private[me].publicPart, privateView: f.private[me], receivedAt: f.at, skew: 0, source: 'live' }, me, EMPTY_LOCAL)
+        expect(announce([{ type: 'Ended', phase: 'COMPLETED' }], as('carol'), null)).toEqual(['Belot! bob holds all eight Pik', 'Team B wins by belot'])
+        expect(announce([{ type: 'Ended', phase: 'COMPLETED' }], as('bob'), null)).toEqual(['Belot! You hold all eight Pik', 'Team B wins by belot'])
     })
 })

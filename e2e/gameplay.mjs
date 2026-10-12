@@ -570,6 +570,10 @@ async function playFirstHandBids(pages, mobile) {
 async function playOneCard(page, label, stats) {
     const cards = page.getByTestId('hand-card');
     const belaPrompt = page.getByRole('button', { name: 'Play + Bela', exact: true });
+    // Gameplay rules §4: after a trump call with declarations the lead's turn already shows, but every
+    // card stays disabled until play opens (about 5 s): wait for a playable card, or for the turn to pass.
+    await waitUntil(async () => (await page.locator('[data-testid="hand-card"]:enabled').count()) > 0 || !(await myTurn(page)),
+        10000, `${label} has a playable card`).catch(() => {});
     const count = await cards.count();
     for (let i = 0; i < count; i++) {
         const card = cards.nth(i);

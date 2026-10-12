@@ -21,7 +21,8 @@ function renderRules(path = '/rules') {
 const ownText = (text: string) => (_: string, element: Element | null) =>
     !!element && [...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join('').replace(/\s+/g, ' ').trim() === text
 
-// Every sentence of the full rules, word for word: today's page with the primer's three edits (ranks spec §9.2)
+// Every sentence of the full rules, word for word: today's page with the primer's three edits (ranks spec §9.2); the
+// Declarations and Challenge sections' new words are checked below (gameplay rules spec §6)
 const KEPT = [
     'Stiglja is Belot for four players in two teams of two, Team A and Team B; partners sit opposite each other. The first team to reach 1001 points wins.',
     'Belot uses 32 cards: 7, 8, 9, 10, Decko (jack), Baba (queen), Kralj (king) and As (ace), in four suits: Herc (hearts), Karo (diamonds), Pik (spades) and Tref (clubs).',
@@ -41,10 +42,6 @@ const KEPT = [
     'If trump was led, you must play a higher trump than the best one on the table if you can.',
     'If you have no card of the suit that was led, you must play a trump: a higher trump than any already in the trick, if you can.',
     'If you have neither, play any card.',
-    'Declarations are counted for you when trump is named; you do not announce them.',
-    'A sequence is three or more cards in a row of one suit, in the order 7, 8, 9, 10, Decko, Baba, Kralj, As. Three in a row score 20, four score 50, five or more score 100. Each player counts only their best sequence.',
-    'Four of a kind: four jacks score 200, four 9s 150, and four aces, tens, kings or queens 100. Four 7s or four 8s score nothing.',
-    'Only one team scores its sequences: the team holding the best one. A sequence worth more beats one worth less; between sequences worth the same, the higher top card wins (7 lowest, As highest); with the same top card, the one in trump wins; if they are still equal, the player who comes first after the dealer wins. Four of a kind is compared separately: jacks beat 9s, which beat the 100-point fours, and among those As beats 10, 10 beats Kralj and Kralj beats Baba. The winning team scores all its declarations of that kind.',
     'A team that wins no trick in a hand loses its declarations and its bela for that hand.',
     'Bela is the Kralj and the Baba of trump in one hand, worth 20. It is not counted for you: when you play the first of the two, choose Play + Bela.',
     'Each team adds up the card points of the tricks it won, its declarations and its bela.',
@@ -52,9 +49,6 @@ const KEPT = [
     'A team that wins all eight tricks (capot) gets 90 more points.',
     "When a hand ends with a team at 1001 points or more, the team with more points wins once the hand's 10 seconds for challenges are over. If both are level, another hand is played.",
     'The game does not stop you from playing a card the rules forbid; it notes it as a foul. If you think an opponent played an illegal card this hand, press Challenge, during the hand or in the 10 seconds after it ends. That includes the hand that takes a team past 1001: the game ends only when its 10 seconds are over.',
-    "If the other team fouled this hand (even if yours did too), the challenge succeeds: your team wins the whole hand, 162 points plus your team's declarations and bela, and the other team scores nothing for it. A new hand is dealt, unless the new score ends the game.",
-    'If nobody fouled, or only your own team did, the challenge fails and the score does not change.',
-    'Each player has one challenge per hand; a wrong challenge uses it up for that hand.',
     'Which cards were illegal shows in Match Details only once the game has finished with a winner.',
     'Casual: create or join a lobby (a private lobby needs its password), pick teams, and the host starts the game. Casual games never change your rating.',
     'Each turn has 30 seconds. If a player does not act in time, the server plays for them: it passes in the bidding (or names a random trump for a dealer who must call), or plays a legal card.',
@@ -133,6 +127,46 @@ describe('the full rules (ranks spec §9.2)', () => {
     })
 })
 
+/** A section's paragraphs and list items, in order, whitespace collapsed. */
+const said = (id: string) =>
+    [...document.getElementById(id)!.querySelectorAll(':scope > p, :scope > ul > li')].map((el) => el.textContent!.replace(/\s+/g, ' ').trim())
+
+describe('the full rules say the new declaration and challenge rules (gameplay rules spec §1–§3, §6 "Texts")', () => {
+    test('declarations: said out loud, every one counts, belot, one contest, a four over a run, no trump step; then the no-trick rule and bela, unchanged', () => {
+        renderRules()
+        expect(said('rules-declarations')).toEqual([
+            'Declarations are found for you when trump is named. Before the first card the table says them out loud, in turn order from the player after the dealer, and play waits a few seconds while they are said.',
+            'A sequence is three or more cards in a row of one suit, in the order 7, 8, 9, 10, Decko, Baba, Kralj, As. Three in a row score 20, four score 50, five, six or seven score 100. Every sequence you hold counts, two in one suit too.',
+            'Four of a kind: four jacks score 200, four 9s 150, and four aces, tens, kings or queens 100. Four 7s or four 8s score nothing. A card can count in a sequence and in a four of a kind.',
+            'Belot: all eight cards of one suit. The game ends at once and that team wins, with its score raised to 1001.',
+            'Only one team scores declarations: the team holding the single best one. It scores every declaration of both its players; the other team scores none.',
+            'The best is the one worth more. Between two worth the same, four of a kind beats a sequence; then the higher top card wins (7 lowest, As highest), and among fours As beats 10, 10 beats Kralj and Kralj beats Baba. If they are still equal, the player who comes first after the dealer wins. Trump makes no difference.',
+            'Each player says their best value. When values are equal between the two teams, those players also say how high they go ("up to Baba"); partners don\'t need to. The winning team\'s declared cards are shown beside their seats until the first trick is taken; the other team\'s stay hidden.',
+            'A team that wins no trick in a hand loses its declarations and its bela for that hand.',
+            'Bela is the Kralj and the Baba of trump in one hand, worth 20. It is not counted for you: when you play the first of the two, choose Play + Bela.',
+        ])
+    })
+
+    test('the challenge: right or wrong, one per game that a right one keeps, from the first card; the opening and the Match Details rule kept', () => {
+        renderRules()
+        expect(said('rules-challenge')).toEqual([
+            'The game does not stop you from playing a card the rules forbid; it notes it as a foul. If you think an opponent played an illegal card this hand, press Challenge, during the hand or in the 10 seconds after it ends. That includes the hand that takes a team past 1001: the game ends only when its 10 seconds are over.',
+            "If the other team fouled this hand (even if yours did too), the challenge is right: your team wins the whole hand, 162 points plus your team's declarations and bela, and the other team scores nothing for it. The hand ends as usual, with its 10 seconds, and you keep your challenge.",
+            'If nobody fouled, or only your own team did, the challenge is wrong: the score does not change, but you have no challenge left for the rest of the game. Everyone at the table sees it.',
+            'Each player has one challenge per game. A right challenge keeps it; a wrong one uses it up.',
+            "You can challenge once the hand's first card is down, until the hand's 10 seconds are over.",
+            'Which cards were illegal shows in Match Details only once the game has finished with a winner.',
+        ])
+    })
+
+    test('the old rules are gone: silent declarations, best sequence only, the trump step, one challenge per hand', () => {
+        const { container } = renderRules()
+        for (const old of ['you do not announce them', 'Each player counts only their best sequence', 'the one in trump wins', 'one challenge per hand', 'A new hand is dealt']) {
+            expect(container.textContent, old).not.toContain(old)
+        }
+    })
+})
+
 describe('the visual guide (ranks spec §9.1)', () => {
     test('"How to play" and its eight steps, signed out, with no API request (G-1)', () => {
         const fetch = vi.fn()
@@ -186,6 +220,14 @@ describe('the visual guide (ranks spec §9.1)', () => {
         }
         await user.click(links[7])
         expect((document.getElementById('full-rules') as HTMLDetailsElement).open).toBe(true)
+    })
+
+    test('steps 5 and 7 say the new rules: declarations said out loud, belot, the best team scores its own; one challenge per game (gameplay rules §6)', () => {
+        renderRules()
+        const guide = screen.getByRole('list', { name: 'How to play' })
+        const text = (title: string) => within(guide).getByRole('heading', { level: 3, name: title }).closest('li')!.querySelector('p.t-callout')!.textContent
+        expect(text('Declarations and bela')).toBe('Said out loud when trump is named, before the first card: 3 in a row 20, 4 in a row 50, 5 to 7 in a row 100; all eight of a suit wins the game. The team with the best one scores all of its own. Bela you declare with Play + Bela.')
+        expect(text('Challenge a foul')).toBe("Illegal cards aren't blocked. Press Challenge during the hand or in the 10 seconds after: if the other team fouled, your team wins the hand. A wrong challenge costs no points, but you lose your challenge for the rest of the game.")
     })
 
     test('the ranks step shows the seven ranks in order', () => {

@@ -99,7 +99,10 @@ function FinalScore({ team, score, decl }: { team: 'A' | 'B'; score: number; dec
     );
 }
 
-/** Item 4: the final scores from `result` (R-36) with the match's declarations; a forfeit says so. */
+/** A game won by belot: "Team A wins 1001–420 by belot" (gameplay rules §3). */
+const BY_BELOT = /\bby belot\b/i;
+
+/** Item 4: the final scores from `result` (R-36) with the match's declarations; a forfeit or a belot says so. */
 function MatchSummary({ result, hands }: { result: string; hands: HandDTO[] | null }) {
     const scores = parseMatchResult(result);
     const decl = (team: 'A' | 'B') =>
@@ -114,10 +117,18 @@ function MatchSummary({ result, hands }: { result: string; hands: HandDTO[] | nu
             </div>
         );
     } else if (scores) {
+        const resultLine = <p className="t-callout max-w-40 text-text-2">{result}</p>;
         body = (
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
                 <FinalScore team="A" score={scores.teamAScore} decl={decl('A')} />
-                <p className="t-callout max-w-40 text-text-2">{result}</p>
+                {BY_BELOT.test(result) ? (
+                    <div>
+                        <p className="t-headline">Won by belot</p>
+                        {resultLine}
+                    </div>
+                ) : (
+                    resultLine
+                )}
                 <FinalScore team="B" score={scores.teamBScore} decl={decl('B')} />
             </div>
         );

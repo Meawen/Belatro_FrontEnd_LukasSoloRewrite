@@ -1,4 +1,4 @@
-import type { Boja, DeclarationsView, GameCard, GamePhase, PlayerPublicInfo, PublicGameView, Rank } from '../../types/game';
+import type { Boja, GameCard, GamePhase, PlayerPublicInfo, PublicGameView, Rank, ZvanjaSeatView } from '../../types/game';
 
 /** Bid buttons, in this order. */
 export const BOJE: Boja[] = ['HERC', 'KARA', 'PIK', 'TREF'];
@@ -53,12 +53,12 @@ export const PHASE_LABEL: Record<GamePhase, string> = {
     SCORING: 'Scoring',
 };
 
-/**
- * By the Challenge button while it is offered (R-31). The quota resets every hand
- * (BelotGame.resetHandState clears challengeUsed), hence "for this hand".
- */
+/** By the Challenge button while it is available (R-31): one challenge per player per game (gameplay rules §1, §6). */
 export const CHALLENGE_HINT =
-    'Think an opponent played an illegal card this hand? Challenge to win the whole hand. A wrong challenge costs your challenge for this hand';
+    "Think an opponent played an illegal card this hand? Challenge to win the whole hand. If you're wrong it costs no points, but you lose your challenge for the rest of the game.";
+
+/** By the greyed "Challenge used" once my challenge is gone (gameplay rules §6, D-7). */
+export const CHALLENGE_USED_INFO = "Your challenge was wrong, so it's gone for the rest of the game.";
 
 /** A declined ranked match (R-25): the end sentence, and the notice /play shows after it. */
 export const DECLINED_NOTICE = "A player declined — you're back in the queue";
@@ -72,27 +72,34 @@ export function teamOf(view: PublicGameView, me: string): 'A' | 'B' | null {
     return null;
 }
 
-/** One player's scored zvanja (the board's chips at the seat): "sequence 50 (Herc)", "four of a kind 100". */
-export function zvanjaOf(scored: DeclarationsView | undefined): string[] {
-    if (!scored) return [];
-    const zvanja: string[] = [];
-    const [suit] = Object.keys(scored.sequencesBySuit ?? {}) as Boja[];
-    if (scored.bestSequencePoints) {
-        zvanja.push(`sequence ${scored.bestSequencePoints}${suit ? ` (${SUIT_LABEL[suit]})` : ''}`);
-    }
-    if (scored.fourOfAKindPoints) zvanja.push(`four of a kind ${scored.fourOfAKindPoints}`);
-    return zvanja;
+/** A four's rank in the plural ("four Asovi"); sevens and eights never make a four that scores. */
+const FOUR_LABEL: Partial<Record<Rank, string>> = {
+    DECKO: 'Decki', DEVETKA: 'Devetke', AS: 'Asovi', DESETKA: 'Desetke', KRALJ: 'Kralji', BABA: 'Babe',
+};
+
+/**
+ * "up to Baba" (a run) or "four Asovi" (a four) for a seat tied at the top value with an opponent (D-20; the view's
+ * kind and height); null for any other seat. The board's declaration moment and the hand history (gameplay rules §7)
+ * say it the same way: it lives here so the hand history doesn't pull the moment's module into every page.
+ */
+export function heightText(seat: ZvanjaSeatView): string | null {
+    if (seat.height === null) return null;
+    return seat.kind === 'FOUR' ? `four ${FOUR_LABEL[seat.height] ?? RANK_LABEL[seat.height]}` : `up to ${RANK_LABEL[seat.height]}`;
+}
+
+/** A seat's scored declarations as values, strongest first (the view's order): "50 + 20". */
+export function declaredPoints(seat: ZvanjaSeatView): string {
+    return seat.declarations.map((declaration) => declaration.points).join(' + ');
 }
 
 /**
- * The scored declarations, one line each (R-31). The server lists only the zvanja that counted, and
- * only once trump is called (ScoredDeclarations): a player's best sequence and four of a kind.
+ * The scored declarations (R-31, gameplay rules §6): one line per winning seat, in turn order, with all its
+ * values ("ivo: 50 + 20"), from `zvanja` once trump is called; the older `declarations` field makes none.
  */
 export function declarationLines(view: PublicGameView): string[] {
-    const lines: string[] = [];
-    Object.entries(view.declarations ?? {}).forEach(([player, scored]) => {
-        zvanjaOf(scored).forEach((zvanje) => lines.push(`${player}: ${zvanje}`));
-    });
+    const lines = (view.zvanja?.seats ?? [])
+        .filter((seat) => seat.declarations.length > 0)
+        .map((seat) => `${seat.playerId}: ${declaredPoints(seat)}`);
     // R-32: bela once declared, from belaDeclaredByPlayer (a declarations entry never carries it)
     Object.entries(view.belaDeclaredByPlayer ?? {}).forEach(([player, declared]) => {
         if (declared) lines.push(`${player}: bela 20`);
@@ -100,10 +107,20 @@ export function declarationLines(view: PublicGameView): string[] {
     return lines;
 }
 
+/** A belot in words, e.g. "ivo held all eight Pik" (gameplay rules §3): the end sheet's reason and the hand history's line. */
+export function heldAllEight(name: string, suit: Boja): string {
+    return `${name} held all eight ${SUIT_LABEL[suit]}`;
+}
+
 /** Why a game ended other than by being played out (R-31); null for a game played to its end. */
 export function endSentence(view: PublicGameView): string | null {
     const team = view.forfeitTeamId;
     switch (view.endReason) {
+        case 'BELOT': {
+            // who held it comes from zvanja (gameplay rules §3); a view without it says nothing more than the winner line
+            const belot = view.zvanja?.belot;
+            return belot ? heldAllEight(belot.playerId, belot.suit) : null;
+        }
         case 'FORFEIT':
             return team ? `Team ${team} forfeited — Team ${OTHER_TEAM[team]} wins` : null;
         case 'ABANDONED':

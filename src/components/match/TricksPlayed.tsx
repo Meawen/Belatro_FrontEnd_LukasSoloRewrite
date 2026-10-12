@@ -11,7 +11,7 @@ import './trickGrid.css';
 const TINT = { A: 'mh-team-a', B: 'mh-team-b' } as const;
 // a trump's ring around the card, in its suit's colour (spec §3.2 suit tokens)
 const SUIT_RING: Record<Boja, string> = { HERC: 'var(--suit-herc)', KARA: 'var(--suit-karo)', PIK: 'var(--suit-pik)', TREF: 'var(--suit-tref)' };
-const ILLEGAL_HINT = 'This play violated rules; points only awarded if challenge succeeds.';
+const ILLEGAL_HINT = 'This card broke the rules. It stood unless a challenge caught it.';
 
 /** A column's head: the avatar, the name, "YOU · TEAM A" / "TEAM B", tinted with the team's top edge. */
 function ColumnHead({ column }: { column: ReplayColumn }) {

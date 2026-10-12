@@ -84,18 +84,29 @@ describe('Board: seats, phase, team and trick (GameTable cases, R-31)', () => {
         expect(screen.getByTestId('your-team')).toHaveTextContent('Your team: B')
     })
 
-    test('the scored declarations are listed', () => {
+    test('the scored declarations are listed: one line per winning seat with its values', () => {
+        const nothing = { said: null, kind: null, height: null, declarations: [], cards: [] }
         board(view({
             gameState: 'PLAYING',
-            declarations: {
-                alice: { bela: false, sequencesBySuit: { HERC: 50 }, fourOfAKindPoints: 0, bestSequencePoints: 50 },
-                carol: { bela: false, sequencesBySuit: {}, fourOfAKindPoints: 100, bestSequencePoints: 0 },
+            zvanja: {
+                seats: [
+                    { playerId: 'alice', said: 50, kind: null, height: null, cards: [],
+                        declarations: [{ kind: 'RUN', points: 50, suit: 'HERC', top: 'AS' }, { kind: 'RUN', points: 20, suit: 'PIK', top: 'BABA' }] },
+                    { ...nothing, playerId: 'bob', said: 20 },
+                    { playerId: 'carol', said: 100, kind: null, height: null, cards: [], declarations: [{ kind: 'FOUR', points: 100, suit: null, top: 'KRALJ' }] },
+                    { ...nothing, playerId: 'dave' },
+                ],
+                winnerTeam: 'A', total: 170, decidedBy: 'VALUE', belot: null, playOpensAt: null,
             },
         }))
         expect(screen.getAllByTestId('declaration').map((el) => el.textContent)).toEqual([
-            'alice: sequence 50 (Herc)',
-            'carol: four of a kind 100',
+            'alice: 50 + 20',
+            'carol: 100',
         ])
+        // the seats' chips say the same
+        expect(within(screen.getByTestId('seat-alice')).getByText('Zvanja 50 + 20')).toBeInTheDocument()
+        expect(within(screen.getByTestId('seat-carol')).getByText('Zvanja 100')).toBeInTheDocument()
+        expect(screen.getByTestId('seat-bob')).not.toHaveTextContent('Zvanja')
     })
 
     test('phases are shown in words; the raw state stays in data-phase', () => {

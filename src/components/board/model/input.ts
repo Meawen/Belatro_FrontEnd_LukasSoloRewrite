@@ -16,27 +16,43 @@ export interface InputResult {
     move: Move | null;
 }
 
-const sentFrom = (model: BoardModel) => ({ version: model.version, receivedAt: model.receivedAt });
+/** The state a move was sent from, which a newer state answers. */
+type SentFrom = { version: number | null; receivedAt: number };
+
+const sentFrom = (model: BoardModel): SentFrom => ({ version: model.version, receivedAt: model.receivedAt });
+
+/** A state newer than the one a move was sent from: a higher stateVersion; without versions, any later state. */
+const answered = (sent: SentFrom, model: BoardModel) => (sent.version !== null && model.version !== null
+    ? model.version > sent.version
+    : model.receivedAt > sent.receivedAt);
+
+/**
+ * The declarations are being said (gameplay rules spec §4): no card may be played before
+ * `playOpensAt`, on the server's clock (Date.now() + skew, as secondsLeft counts).
+ */
+export function waitingForDeclarations(model: BoardModel, now: number): boolean {
+    return model.playOpensAt !== null && now + model.skew < model.playOpensAt;
+}
 
 const cardPending = (model: BoardModel, cardId: CardId, now: number): Pending =>
     ({ kind: 'card', cardId, at: now, lifted: true, ...sentFrom(model) });
 
 /**
  * A click on a hand card (spec §5.3.5 #2, #5). It acts only on a card the newest model shows as mine
- * and enabled (my turn, nothing in flight): a bela card opens the prompt; any other card is sent and
- * becomes pending, which locks the rest of the hand.
+ * and enabled (my turn, nothing in flight), once the declarations are said: a bela card opens the
+ * prompt; any other card is sent and becomes pending, which locks the rest of the hand.
  */
 export function pressCard(model: BoardModel, input: InputState, cardId: CardId, now: number): InputResult {
     const card = model.hand.find((held) => held.id === cardId);
-    if (!card || !card.enabled) return { input, move: null };
+    if (!card || !card.enabled || waitingForDeclarations(model, now)) return { input, move: null };
     if (card.bela) return { input: { ...input, belaCardId: card.id }, move: null };
     return { input: { pending: cardPending(model, cardId, now), belaCardId: null }, move: { kind: 'play', card: card.card, declareBela: false } };
 }
 
-/** "Play" (false) or "Play + Bela" (true) in the bela prompt (R-32). */
+/** "Play" (false) or "Play + Bela" (true) in the bela prompt (R-32); nothing while the declarations are said. */
 export function answerBela(model: BoardModel, input: InputState, declareBela: boolean, now: number): InputResult {
     const card = model.belaPrompt;
-    if (!card || !card.enabled) return { input, move: null };
+    if (!card || !card.enabled || waitingForDeclarations(model, now)) return { input, move: null };
     return { input: { pending: cardPending(model, card.id, now), belaCardId: null }, move: { kind: 'play', card: card.card, declareBela } };
 }
 
@@ -67,9 +83,7 @@ export function unlock(input: InputState): InputState {
 export function settleInput(input: InputState, model: BoardModel, now: number): InputState {
     let { pending, belaCardId } = input;
     if (pending) {
-        const newer = pending.version !== null && model.version !== null
-            ? model.version > pending.version
-            : model.receivedAt > pending.receivedAt;
+        const newer = answered(pending, model);
         const stillMyTurn = pending.kind === 'card' ? model.canPlay : model.canBid;
         if (newer || !stillMyTurn) pending = null;
         else if (pending.kind === 'card' && pending.lifted && now - pending.at >= PENDING_MS) pending = { ...pending, lifted: false };
@@ -81,4 +95,23 @@ export function settleInput(input: InputState, model: BoardModel, now: number): 
 /** When a lifted card drops back (epoch ms), for the board's timer; null when nothing is lifted. */
 export function pendingUntil(input: InputState): number | null {
     return input.pending?.kind === 'card' && input.pending.lifted ? input.pending.at + PENDING_MS : null;
+}
+
+/** A challenge sent and not yet answered (gameplay rules §6): the state it was sent from. */
+export type ChallengeSent = SentFrom;
+
+/**
+ * The challenge in flight is still waiting for the server: no state newer than the one it was sent from yet. A refused
+ * press changes no state, so the error that answers it clears `sent` (the Board), as a reconnect or a lost send does.
+ */
+export function challengePending(sent: ChallengeSent | null, model: BoardModel): boolean {
+    return sent !== null && !answered(sent, model);
+}
+
+/**
+ * A press on Challenge: one tap, no confirm (D-4). It goes out only while Challenge is available and no challenge is in
+ * flight, so a double tap sends once. Returns what to keep while it waits, or null when nothing is sent.
+ */
+export function pressChallenge(model: BoardModel, sent: ChallengeSent | null): ChallengeSent | null {
+    return model.challenge === 'available' && !challengePending(sent, model) ? sentFrom(model) : null;
 }

@@ -1,5 +1,7 @@
 import { SUIT_LABEL, cardLabel } from '../game/gameView';
-import type { BoardModel, Team } from './model/boardModel';
+import { challengeSrLine } from './model/challengeMoment';
+import { belotLine } from './model/declarationMoment';
+import type { BoardModel } from './model/boardModel';
 import type { BoardEvent } from './model/diffBoard';
 
 /** The name the board gives a seat: "You" for me, otherwise the player id (the username). */
@@ -9,18 +11,6 @@ export function seatName(model: BoardModel, playerId: string): string {
 
 /** A bot's seat (the server's flag, SeatModel.bot). */
 const isBotSeat = (model: BoardModel, playerId: string) => model.seats.some((seat) => seat.id === playerId && seat.bot);
-
-const upheld = (team: Team | null) => (team ? `Challenge upheld: Team ${team} takes the hand` : 'Challenge upheld');
-
-/**
- * The toast an event raises (spec §5.3.4, O-4): every challenge result, mine or another seat's; null
- * for every other event.
- */
-export function toastFor(event: BoardEvent): string | null {
-    if (event.type === 'ChallengeFailed') return event.mine ? 'No foul found' : `${event.playerId} challenged: no foul found`;
-    if (event.type === 'ChallengeUpheld') return upheld(event.team);
-    return null;
-}
 
 /**
  * One polite live-region message per event that a player needs to hear (spec §5.8). `handNo` is the
@@ -61,13 +51,26 @@ export function announce(events: readonly BoardEvent[], model: BoardModel, handN
                 messages.push(`${title}: Mi ${mi}, Vi ${vi}`);
                 break;
             }
+            case 'Challenged':
+                // the banner's words, once (gameplay rules §6): the banner itself is for the eye
+                messages.push(challengeSrLine({ ...event, name: seatName(model, event.playerId) }));
+                break;
+            // an older backend's inferred challenges; no toast for any challenge any more (the banner replaced O-4's)
             case 'ChallengeUpheld':
+                messages.push(event.team ? `Challenge upheld: Team ${event.team} takes the hand` : 'Challenge upheld');
+                break;
             case 'ChallengeFailed':
-                messages.push(toastFor(event)!);
+                messages.push(event.mine ? 'No foul found' : `${event.playerId} challenged: no foul found`);
                 break;
-            case 'Ended':
-                if (model.end) messages.push(model.end.reason ?? model.end.winnerLine ?? model.end.title);
+            case 'Ended': {
+                if (!model.end) break;
+                // a belot: said once ("Belot! Ivo holds all eight Pik"), then who won; its reason would say it again
+                const belot = belotLine(model.zvanja, model.me);
+                if (belot && model.end.winnerLine) messages.push(belot, model.end.winnerLine);
+                // the winner, then why (a forfeit's reason names the winner itself)
+                else messages.push([model.end.winnerLine, model.end.reason].filter(Boolean).join('. ') || model.end.title);
                 break;
+            }
             default:
                 break;
         }

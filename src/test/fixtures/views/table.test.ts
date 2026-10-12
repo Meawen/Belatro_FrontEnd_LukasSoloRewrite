@@ -105,9 +105,9 @@ describe('playTable: one hand as the server sends it', () => {
 })
 
 describe('playTable options', () => {
-    test('without the §6.1 fields no view carries them', () => {
+    test('without the §6.1 fields (and the gameplay rules\' zvanja and lastChallenge) no view carries them', () => {
         const views = playTable({ fields: false }).flatMap((f) => [f.public, f.private.alice.publicPart])
-        for (const key of ['stateVersion', 'lastTrick', 'tricksWonA', 'tricksWonB', 'dealerId', 'serverNow']) {
+        for (const key of ['stateVersion', 'lastTrick', 'tricksWonA', 'tricksWonB', 'dealerId', 'serverNow', 'zvanja', 'lastChallenge']) {
             expect(views.some((v) => key in v)).toBe(false)
         }
     })

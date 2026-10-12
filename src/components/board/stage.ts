@@ -19,7 +19,7 @@ export interface Entrance {
 /**
  * A trick on its way off the table: the sweep layer (spec §5.10). `table`: still on its slots while a
  * recovered 4th card lands; `pile`: flying to the winner's pile, then fading; `fade`: fading where it
- * lies (a successful challenge ended the hand).
+ * lies (a right challenge ended the hand).
  */
 export interface Leaving {
     key: string;
@@ -53,6 +53,11 @@ export interface Stage {
     calls: number;
     /** The finished trick held on the table until its sweep (hold.trick). */
     held: { key: string; trick: TrickModel } | null;
+    /**
+     * A partial trick a right challenge took off the table: it stays on its slots while the banner says who, even if
+     * the view no longer carries it, and fades at the outcome (fadeKept), at a deal, or goes with a snapshot.
+     */
+    kept: { key: string; trick: TrickModel } | null;
     /** Tricks already swept or faded: the trick region no longer shows them, though the view still may. */
     cleared: readonly string[];
     leaving: readonly Leaving[];
@@ -65,7 +70,7 @@ export interface Stage {
 export function emptyStage(me: string): Stage {
     return {
         me, state: null, model: null, local: EMPTY_LOCAL, events: null, seq: 0, deal: 0, calls: 0,
-        held: null, cleared: [], leaving: [], entrances: {}, handDelta: null,
+        held: null, kept: null, cleared: [], leaving: [], entrances: {}, handDelta: null,
     };
 }
 
@@ -97,12 +102,14 @@ export function stepStage(stage: Stage, state: BoardState, now: number): Stage {
     const model = step.model;
     const base = { ...stage, state, model, local: step.local, events: step.events, seq: stage.seq + 1 };
     if (step.events === null) {
-        // a snap: every element at its target; a finished trick counts as gone, a trick in progress shows as is
+        // a snap: every element at its target; a finished trick counts as gone, a trick in progress shows as is,
+        // unless the hand is over (a right challenge ended it with cards still held: gameplay rules §1)
         const shown = model.trick;
-        return { ...base, held: null, leaving: [], cleared: shown?.complete ? [trickKey(shown)] : [], entrances: {} };
+        const gone = shown && (shown.complete || model.handComplete);
+        return { ...base, held: null, kept: null, leaving: [], cleared: gone ? [trickKey(shown)] : [], entrances: {} };
     }
 
-    let { deal, calls, held, handDelta } = stage;
+    let { deal, calls, held, kept, handDelta } = stage;
     let cleared = [...stage.cleared];
     const leaving = [...stage.leaving];
     const entrances: Record<string, Entrance> = {};
@@ -110,11 +117,21 @@ export function stepStage(stage: Stage, state: BoardState, now: number): Stage {
 
     for (const event of step.events) {
         switch (event.type) {
+            case 'Challenged':
             case 'ChallengeUpheld': {
+                // a right challenge ends the hand: a partial trick leaves the table where it lies (a wrong one changes nothing)
+                if (event.type === 'Challenged' && !event.foulFound) break;
+                // in the window it takes the hand's award back and gives its own: the hand's change moves with the scores
+                if (event.type === 'Challenged' && prev?.handComplete && handDelta) {
+                    handDelta = { a: handDelta.a + model.scores.a - prev.scores.a, b: handDelta.b + model.scores.b - prev.scores.b };
+                }
                 const partial = prev?.trick;
                 if (partial && !partial.complete && partial.plays.length > 0 && !cleared.includes(trickKey(partial))) {
-                    leaving.push({ key: trickKey(partial), deal, trick: partial, team: null, at: 'fade', enter: null });
-                    cleared.push(trickKey(partial));
+                    const key = trickKey(partial);
+                    cleared.push(key);
+                    // told: kept while the banner says who, then it fades (fadeKept); inferred (an older backend): at once
+                    if (event.type === 'Challenged') kept = { key, trick: partial };
+                    else leaving.push({ key, deal, trick: partial, team: null, at: 'fade', enter: null });
                 }
                 break;
             }
@@ -143,6 +160,8 @@ export function stepStage(stage: Stage, state: BoardState, now: number): Stage {
                 }
                 break;
             case 'Dealt': {
+                if (kept) leaving.push({ ...kept, deal, team: null, at: 'fade', enter: null });
+                kept = null;
                 deal += 1;
                 cleared = [];
                 held = null;
@@ -170,7 +189,14 @@ export function stepStage(stage: Stage, state: BoardState, now: number): Stage {
                 break;
         }
     }
-    return { ...base, deal, calls, held, cleared, leaving, entrances, handDelta };
+    return { ...base, deal, calls, held, kept, cleared, leaving, entrances, handDelta };
+}
+
+/** The challenge banner reached its outcome, or is gone: a kept partial trick fades where it lies. */
+export function fadeKept(stage: Stage): Stage {
+    const kept = stage.kept;
+    if (!kept) return stage;
+    return { ...stage, kept: null, leaving: [...stage.leaving, { ...kept, deal: stage.deal, team: null, at: 'fade', enter: null }] };
 }
 
 /** The hold is over (hold.trick): the held trick flies to its winner's pile. */
@@ -210,8 +236,9 @@ export function settleStage(stage: Stage, now: number): Stage {
     return withInput(stage, settleInput(stage.local.input, stage.model, now));
 }
 
-/** The trick the trick region shows: the model's, unless it has already left the table. */
+/** The trick the trick region shows: a kept partial trick, else the model's unless it has already left the table. */
 export function tableTrick(stage: Stage): TrickModel | null {
+    if (stage.kept) return stage.kept.trick;
     const trick = stage.model?.trick ?? null;
     return trick && !stage.cleared.includes(trickKey(trick)) ? trick : null;
 }

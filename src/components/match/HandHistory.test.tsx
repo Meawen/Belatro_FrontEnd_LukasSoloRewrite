@@ -1,8 +1,9 @@
 import { describe, test, expect } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HandHistory } from './HandHistory'
 import type { HandDTO, HandSummary, MatchDTO, MoveDTO, TrickDTO } from '../../types/match'
+import type { Rank, ZvanjaKind, ZvanjaSeatView, ZvanjaView } from '../../types/game'
 
 // Tailwind's own colour scale (bg-emerald-900, text-red-300, …): the design uses tokens only (spec §3.2)
 const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange|teal|pink)-\d/
@@ -150,5 +151,64 @@ describe('An open hand’s declarations and challenges (spec §4.9 item 6)', () 
         expect(screen.getByRole('region', { name: 'Hand summary' })).toBeInTheDocument()
         expect(screen.queryByRole('region', { name: 'Trump declarations' })).not.toBeInTheDocument()
         expect(screen.queryByRole('region', { name: 'Challenges' })).not.toBeInTheDocument()
+    })
+})
+
+describe('An open hand’s declarations line: what the table heard (gameplay rules spec §7)', () => {
+    /** A seat as END_HAND stores it: what it said, its height when tied with an opponent (D-20), no cards. */
+    const seat = (playerId: string, said: number | null, kind: ZvanjaKind | null = null, height: Rank | null = null, scored: number[] = []): ZvanjaSeatView => ({
+        playerId, said, kind, height, cards: [],
+        declarations: scored.map((points) => ({ kind: kind ?? 'RUN', points, suit: kind === 'FOUR' ? null : 'PIK', top: height ?? 'AS' })),
+    })
+    const zvanja = (seats: ZvanjaSeatView[], over: Partial<ZvanjaView> = {}): ZvanjaView => ({
+        seats, winnerTeam: null, total: 0, decidedBy: null, belot: null, playOpensAt: null, ...over,
+    })
+    const said = async (hand: HandDTO) => {
+        renderHands([hand])
+        await userEvent.setup().click(handRow(hand.handNo!))
+        return screen.queryByRole('region', { name: 'Declarations' })
+    }
+
+    test('the owner’s example: each seat in turn order, its value and height or a dash, me as You; then the team and the total said', async () => {
+        const tied = zvanja(
+            [seat('ivo', 20, 'RUN', 'BABA', [20]), seat('mara', null), seat('lana', null), seat('ana', 20, 'RUN', 'BABA')],
+            { winnerTeam: 'B', total: 20, decidedBy: 'ORDER' },
+        )
+        const line = await said({ ...CAPOT, zvanja: tied })
+        expect(line).toHaveTextContent(/^Declarations: ivo 20 \(up to Baba\), mara –, lana –, You 20 \(up to Baba\)\. Team B scores 20\.$/)
+        // under the hand summary, whose points stay as scored (the total is what was said, not the hand's points)
+        const summary = screen.getByRole('region', { name: 'Hand summary' })
+        expect(summary.nextElementSibling).toBe(line)
+        expect(within(summary).getByText('Team A: 252 pts (20 decl)')).toBeInTheDocument()
+        expect(line!.innerHTML).not.toMatch(RAW_PALETTE)
+    })
+
+    test('a four of a kind’s height: "four Asovi"; values without a tie say no height', async () => {
+        const fours = zvanja(
+            [seat('ana', 50), seat('cy', 100, 'FOUR', 'AS', [100]), seat('bob', 100, 'RUN', 'KRALJ'), seat('dan', null)],
+            { winnerTeam: 'B', total: 100, decidedBy: 'FOUR' },
+        )
+        expect(await said({ ...CAPOT, zvanja: fours })).toHaveTextContent(/^Declarations: You 50, cy 100 \(four Asovi\), bob 100 \(up to Kralj\), dan –\. Team B scores 100\.$/)
+    })
+
+    test('nobody declared: "Declarations: none."', async () => {
+        const nobody = zvanja([seat('ana', null), seat('cy', null), seat('bob', null), seat('dan', null)])
+        expect(await said({ ...CAPOT, zvanja: nobody })).toHaveTextContent(/^Declarations: none\.$/)
+    })
+
+    test('a belot: who held all eight of which suit ("You held" for me)', async () => {
+        const belot = (playerId: string) => zvanja([seat('ana', null), seat('cy', null), seat('bob', null), seat('dan', null)], {
+            winnerTeam: playerId === 'cy' ? 'B' : 'A', belot: { playerId, suit: 'PIK' },
+        })
+        const hand: HandDTO = { ...CAPOT, tricks: [], zvanja: belot('cy') }
+        expect(await said(hand)).toHaveTextContent(/^Belot: cy held all eight Pik\.$/)
+        cleanup()
+        expect(await said({ ...hand, zvanja: belot('ana') })).toHaveTextContent(/^Belot: You held all eight Pik\.$/)
+    })
+
+    test('a hand without zvanja (an older match) has no line', async () => {
+        expect(await said(CAPOT)).toBeNull()
+        cleanup()
+        expect(await said({ ...FELL, zvanja: null })).toBeNull()
     })
 })

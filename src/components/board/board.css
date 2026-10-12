@@ -38,6 +38,10 @@
     -webkit-user-select: none;
     user-select: none;
 }
+/* focus that lands on the table itself (the moment's button went with it): the ring inside the edge, on screen */
+.board:focus-visible {
+    outline-offset: -4px;
+}
 .board--screen {
     position: fixed;
     left: 0;
@@ -276,6 +280,29 @@
     flex-wrap: wrap;
     gap: 4px;
 }
+/* the right seat's plate ends at the right edge (seatSpot): its chips and declared cards line up under it there, so a
+   long name never pulls them across the felt onto my hand (the left seat's start at the left edge, as every column) */
+.board-seat[data-position="right"] {
+    align-items: flex-end;
+}
+.board-seat[data-position="right"] .board-seat__chips {
+    justify-content: flex-end;
+}
+/* the winners' declared cards (gameplay rules §6), small and overlapping, until the first trick is down */
+.board-seat__declared {
+    display: flex;
+}
+/* mine over my plate, which sits low by my pile: my declared cards, and in landscape (my plate beside my hand) my
+   chips under them, closest to the plate, so that none covers my hand */
+.board-seat__above {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 4px);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
 .board-your-turn {
     position: absolute;
     left: 50%;
@@ -311,6 +338,11 @@
 .board-hud__group:last-child {
     flex: none;
     justify-content: flex-end;
+}
+/* landscape: the left group stops short of my partner's fan in the middle (its left edge about 52 px left of it), so
+   a wide Challenge goes to a second line instead of over the fan (gameplay rules §6) */
+.board[data-layout="landscape"] .board-hud__group:first-child {
+    max-width: calc(50% - 58px);
 }
 .board-hud__chip {
     display: inline-flex;
@@ -423,6 +455,94 @@
     outline-color: var(--ink);
 }
 
+/* The declaration moment (gameplay rules §6): a bubble by each seat's plate and a panel where the trick goes,
+   above the trick and below the sheets (layer 50, free once bidding ends). The overlay takes no taps
+   (board-region); only the panel does, a button in the middle of the felt that skips the moment. */
+.board-moment {
+    z-index: var(--z-bid);
+}
+.board-moment__spot {
+    position: absolute;
+    display: flex;
+}
+.board-moment__bubble {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 8px;
+    background: var(--material-ink);
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.board-moment__bubble[data-nothing] {
+    color: var(--text-2);
+}
+.board-moment__bubble[data-won] {
+    background: var(--accent);
+    color: var(--ink);
+}
+.board-moment__panel {
+    position: absolute;
+    translate: -50% -50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: max-content;
+    max-width: min(320px, calc(100% - 128px));
+    padding: 10px 14px 12px;
+    border: 0;
+    background: var(--material-ink);
+    color: var(--text);
+    text-align: center;
+    text-wrap: balance;
+    white-space: normal;
+    box-shadow: inset 0 -3px 0 var(--accent-ledge);
+    pointer-events: auto;
+    cursor: pointer;
+}
+.board-moment__line {
+    color: var(--accent);
+}
+.board-moment__cards {
+    display: flex;
+    margin-top: 4px;
+}
+/* while the declarations are said my cards can't be played: their art dims (not the button, whose 3-D flip
+   layers a filter would flatten) */
+.board[data-waiting] .board-hand-card .ui-card {
+    filter: drop-shadow(0 3px 0 rgb(0 0 0 / 0.35)) brightness(0.66) saturate(0.75);
+}
+
+/* The challenge, out loud (gameplay rules §6): a banner where the trick goes, on every screen, above the trick and a
+   trick fading off the table (layer 60, after the sweep layer) and below the sheets. It takes no taps (board-region). */
+.board-banner {
+    z-index: var(--z-sweep);
+}
+.board-banner__panel {
+    position: absolute;
+    translate: -50% -50%;
+    width: max-content;
+    max-width: min(320px, calc(100% - 128px));
+    margin: 0;
+    padding: 10px 14px 12px;
+    background: var(--material-ink);
+    color: var(--text);
+    text-align: center;
+    text-wrap: balance;
+    box-shadow: inset 0 -3px 0 var(--accent-ledge);
+}
+.board-banner__panel[data-step="outcome"][data-foul] {
+    color: var(--accent);
+}
+/* on a short landscape screen with the hand result docked (bannerSpot): its top edge under the HUD, above the sheet,
+   opaque, since it lies over my partner's plate and the opponents' pile there */
+.board-banner__panel[data-place="top"] {
+    translate: -50% 0;
+    background: var(--ink);
+}
+
 /* Challenge (§5.3.3): in the HUD while playing, in the hand-result sheet in HAND_COMPLETE */
 .board-challenge {
     position: relative;
@@ -436,10 +556,40 @@
     align-items: center;
     gap: 2px;
 }
+.board-challenge__main {
+    display: inline-flex;
+}
 .board-challenge--hud .board-challenge__buttons {
     padding-right: 2px;
     background: var(--material-ink);
     clip-path: var(--notch);
+}
+/* a portrait phone: Challenge over its info button, on a line of its own, so the group stays in
+   the felt's left column under the HUD, clear of my partner's fan and plate in the middle (side by side, or beside
+   Blok, it runs into them); the line takes no taps, only its buttons and hint do */
+.board[data-layout="portrait"] .board-challenge--hud {
+    flex-basis: 100%;
+    align-items: flex-start;
+    pointer-events: none;
+}
+.board[data-layout="portrait"] .board-challenge--hud > * {
+    pointer-events: auto;
+}
+.board[data-layout="portrait"] .board-challenge--hud .board-challenge__buttons {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding-right: 0;
+    background: none;
+    clip-path: none;
+}
+/* each on its own ink chip, as Blok is: the button's panel stays opaque behind it when a spent challenge greys it */
+.board[data-layout="portrait"] .board-challenge--hud .board-challenge__main {
+    background: var(--material-ink);
+    clip-path: var(--notch);
+}
+.board[data-layout="portrait"] .board-challenge--hud .ui-btn--icon {
+    --btn-bg: var(--material-ink);
 }
 .board-challenge__hint {
     width: min(300px, calc(100vw - 32px));

@@ -127,25 +127,41 @@ export const RulesPage: React.FC = () => {
                 </Section>
 
                 <Section title="Declarations (zvanja) and bela" level={3} id="rules-declarations">
-                    <p>Declarations are counted for you when trump is named; you do not announce them.</p>
+                    <p>
+                        Declarations are found for you when trump is named. Before the first card the table says
+                        them out loud, in turn order from the player after the dealer, and play waits a few seconds
+                        while they are said.
+                    </p>
                     <ul className="list-disc pl-6 space-y-2">
                         <li>
                             A sequence is three or more cards in a row of one suit, in the order 7, 8, 9, 10, Decko,
-                            Baba, Kralj, As. Three in a row score 20, four score 50, five or more score 100. Each
-                            player counts only their best sequence.
+                            Baba, Kralj, As. Three in a row score 20, four score 50, five, six or seven score 100.
+                            Every sequence you hold counts, two in one suit too.
                         </li>
                         <li>
                             Four of a kind: four jacks score 200, four 9s 150, and four aces, tens, kings or queens
-                            100. Four 7s or four 8s score nothing.
+                            100. Four 7s or four 8s score nothing. A card can count in a sequence and in a four of a
+                            kind.
                         </li>
                         <li>
-                            Only one team scores its sequences: the team holding the best one. A sequence worth more
-                            beats one worth less; between sequences worth the same, the higher top card wins (7
-                            lowest, As highest); with the same top card, the one in trump wins; if they are still
-                            equal, the player who comes first after the dealer wins. Four of a kind is compared
-                            separately: jacks beat 9s, which beat the 100-point fours, and among those As beats 10,
-                            10 beats Kralj and Kralj beats Baba. The winning team scores all its declarations of
-                            that kind.
+                            Belot: all eight cards of one suit. The game ends at once and that team wins, with its
+                            score raised to 1001.
+                        </li>
+                        <li>
+                            Only one team scores declarations: the team holding the single best one. It scores every
+                            declaration of both its players; the other team scores none.
+                        </li>
+                        <li>
+                            The best is the one worth more. Between two worth the same, four of a kind beats a
+                            sequence; then the higher top card wins (7 lowest, As highest), and among fours As beats
+                            10, 10 beats Kralj and Kralj beats Baba. If they are still equal, the player who comes
+                            first after the dealer wins. Trump makes no difference.
+                        </li>
+                        <li>
+                            Each player says their best value. When values are equal between the two teams, those
+                            players also say how high they go ("up to Baba"); partners don't need to. The winning team's
+                            declared cards are shown beside their seats until the first trick is taken; the other
+                            team's stay hidden.
                         </li>
                         <li>A team that wins no trick in a hand loses its declarations and its bela for that hand.</li>
                         <li>
@@ -180,13 +196,18 @@ export const RulesPage: React.FC = () => {
                     </p>
                     <ul className="list-disc pl-6 space-y-2">
                         <li>
-                            If the other team fouled this hand (even if yours did too), the challenge succeeds: your
+                            If the other team fouled this hand (even if yours did too), the challenge is right: your
                             team wins the whole hand, 162 points plus your team's declarations and bela, and the
-                            other team scores nothing for it. A new hand is dealt, unless the new score ends the
-                            game.
+                            other team scores nothing for it. The hand ends as usual, with its 10 seconds, and you
+                            keep your challenge.
                         </li>
-                        <li>If nobody fouled, or only your own team did, the challenge fails and the score does not change.</li>
-                        <li>Each player has one challenge per hand; a wrong challenge uses it up for that hand.</li>
+                        <li>
+                            If nobody fouled, or only your own team did, the challenge is wrong: the score does not
+                            change, but you have no challenge left for the rest of the game. Everyone at the table
+                            sees it.
+                        </li>
+                        <li>Each player has one challenge per game. A right challenge keeps it; a wrong one uses it up.</li>
+                        <li>You can challenge once the hand's first card is down, until the hand's 10 seconds are over.</li>
                         <li>Which cards were illegal shows in Match Details only once the game has finished with a winner.</li>
                     </ul>
                 </Section>

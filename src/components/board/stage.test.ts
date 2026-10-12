@@ -1,10 +1,11 @@
 import { describe, test, expect } from 'vitest'
-import { dropLeaving, emptyStage, landTrick, settleStage, shownPiles, stepStage, sweepHeld, tableTrick, trickKey, withInput, type Stage } from './stage'
+import { dropLeaving, emptyStage, fadeKept, landTrick, settleStage, shownPiles, stepStage, sweepHeld, tableTrick, trickKey, withInput, type Stage } from './stage'
 import { pressCard, PENDING_MS } from './model/input'
 import type { BoardState } from './model/accept'
 import { indexOf, playTable, type FanOut } from '../../test/fixtures/views/table'
 
-const table = playTable()
+// no wait for the declarations: the press below comes at a small `now`
+const table = playTable({ pauseMs: 0 })
 const stateOf = (f: FanOut, source: BoardState['source'] = 'live', me = 'carol'): BoardState =>
     ({ publicView: f.private[me].publicPart, privateView: f.private[me], receivedAt: f.at, skew: 0, source })
 
@@ -77,14 +78,94 @@ describe('the stage: holds, sweeps and entrances (spec §5.3.4, §5.5)', () => {
         expect(landTrick(after, recovered.key).leaving[0].at).toBe('pile')
     })
 
-    test('a successful challenge mid-trick: the partial trick fades, then a new deal', () => {
+    test("an older backend's successful challenge mid-trick: the partial trick fades, then a new deal", () => {
         const midTrick = run(at('play:bob:PIK-BABA'))
         const partial = midTrick.model!.trick!
-        const after = stepStage(midTrick, stateOf(table[at('next-deal')]), 0)
+        const next = structuredClone(table[at('next-deal')])
+        delete next.private.carol.publicPart.lastChallenge
+        const after = stepStage(midTrick, stateOf(next), 0)
         expect(after.events!.map((e) => e.type)).toContain('ChallengeUpheld')
         expect(after.leaving).toEqual([expect.objectContaining({ key: trickKey(partial), team: null, at: 'fade', deal: 1 })])
         expect(after.deal).toBe(2)
         expect(after.cleared).toEqual([])
+    })
+
+    /** bob's card as carol sees it right after dave's right challenge: HAND_COMPLETE with the cards still held (gameplay rules §1). */
+    function decided(): FanOut {
+        const f = structuredClone(table[at('play:bob:PIK-BABA')])
+        const pub = f.private.carol.publicPart
+        Object.assign(pub, {
+            gameState: 'HAND_COMPLETE', teamBScore: pub.teamBScore + 162, currentPlayerId: null, turnExpiresAt: null,
+            stateVersion: pub.stateVersion! + 1, lastChallenge: { number: 1, playerId: 'dave', team: 'B', foulFound: true, thisHand: true },
+        })
+        f.private.carol.yourTurn = false
+        return f
+    }
+
+    test('a right challenge mid-trick (gameplay rules §6): the partial trick stays on the table while the banner says who, then fades (fadeKept); nothing is held; the cards stay in hand', () => {
+        const midTrick = run(at('play:bob:PIK-BABA'))
+        const partial = midTrick.model!.trick!
+        expect(partial.plays).toHaveLength(2)
+        const after = stepStage(midTrick, stateOf(decided()), 0)
+        expect(after.events!.map((e) => e.type)).toEqual(['Challenged', 'HandCompleted', 'Scored', 'Turn'])
+        expect(after.kept).toEqual({ key: trickKey(partial), trick: partial })
+        expect(after.leaving).toEqual([])
+        expect(tableTrick(after)).toEqual(partial)
+        expect(after.held).toBeNull()
+        expect(after.handDelta).toEqual({ a: 0, b: 162 })
+        expect(after.model!.hand).toHaveLength(midTrick.model!.hand.length)
+        // the banner's outcome: it fades where it lies
+        const faded = fadeKept(after)
+        expect(faded.kept).toBeNull()
+        expect(faded.leaving).toEqual([expect.objectContaining({ key: trickKey(partial), team: null, at: 'fade', deal: 1 })])
+        expect(tableTrick(faded)).toBeNull()
+        expect(fadeKept(faded)).toBe(faded)
+    })
+
+    test('the kept trick shows even when the view takes it off the table; a snapshot or a deal ends it', () => {
+        const midTrick = run(at('play:bob:PIK-BABA'))
+        const partial = midTrick.model!.trick!
+        const gone = decided()
+        gone.private.carol.publicPart.currentTrick = { leadPlayerId: '_NO_LEAD_', trump: null, plays: {} }
+        const after = stepStage(midTrick, stateOf(gone), 0)
+        expect(after.model!.trick?.plays ?? []).toHaveLength(0)
+        expect(tableTrick(after)).toEqual(partial)
+        // a snapshot (a reconnect) shows the decided hand as it is
+        expect(stepStage(after, stateOf(decided(), 'snapshot'), 0).kept).toBeNull()
+        // the next deal: it fades, if the banner never reached its outcome
+        const dealt = stepStage(after, stateOf(table[at('next-deal')]), 0)
+        expect(dealt.kept).toBeNull()
+        expect(dealt.leaving).toEqual([expect.objectContaining({ key: trickKey(partial), at: 'fade', deal: 1 })])
+    })
+
+    test('a right challenge in the window: the hand\'s change follows the scores (the award taken back, the challengers\' given)', () => {
+        const open = run(at('window-open'))
+        const delta = open.handDelta!
+        expect(delta).toEqual(open.model!.scores)
+        const f = structuredClone(table[at('window-open')])
+        Object.assign(f.private.carol.publicPart, {
+            teamAScore: 0, teamBScore: 162, stateVersion: f.version + 1,
+            lastChallenge: { number: 1, playerId: 'dave', team: 'B', foulFound: true, thisHand: true },
+        })
+        const after = stepStage(open, stateOf(f), 0)
+        expect(after.events!.map((e) => e.type)).toEqual(['Challenged', 'Scored'])
+        expect(after.handDelta).toEqual({ a: 0, b: 162 })
+        // the 8th trick has gone already: nothing more leaves the table
+        expect(after.leaving).toEqual(open.leaving)
+    })
+
+    test('a wrong challenge leaves the trick where it is; a snapshot of a decided hand shows no partial trick', () => {
+        const midTrick = run(at('play:bob:PIK-BABA'))
+        const wrong = structuredClone(table[at('play:bob:PIK-BABA')])
+        Object.assign(wrong.private.carol.publicPart, { lastChallenge: { number: 1, playerId: 'dave', team: 'B', foulFound: false, thisHand: true } })
+        wrong.private.carol.publicPart.challengeUsedByPlayer.dave = true
+        const after = stepStage(midTrick, stateOf(wrong), 0)
+        expect(after.events!.map((e) => e.type)).toEqual(['Challenged'])
+        expect(after.leaving).toEqual([])
+        expect(tableTrick(after)!.plays).toHaveLength(2)
+        const snap = stepStage(midTrick, stateOf(decided(), 'snapshot'), 0)
+        expect(snap.events).toBeNull()
+        expect(tableTrick(snap)).toBeNull()
     })
 
     test('the trump call brings two cards per seat from the dealer, and only the new ones of mine', () => {

@@ -138,11 +138,11 @@ describe('Privacy and Terms (R-40)', () => {
 })
 
 describe('Rules (R-41)', () => {
-    test('/rules is readable signed out and says a challenge is per hand', () => {
+    test('/rules is readable signed out and says a challenge is per game (gameplay rules §1)', () => {
         auth.isAuthenticated = false
         renderAt('/rules')
         expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
-        expect(screen.getByText('Each player has one challenge per hand; a wrong challenge uses it up for that hand.')).toBeInTheDocument()
+        expect(screen.getByText('Each player has one challenge per game. A right challenge keeps it; a wrong one uses it up.')).toBeInTheDocument()
     })
 
     // owner 2026-10-11: Rules sits in the shell, with the sidebar, like every other signed-in page

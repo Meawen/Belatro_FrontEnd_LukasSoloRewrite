@@ -3,6 +3,19 @@ import type { CardId } from './rules';
 import type { Boja, GameCard } from '../../../types/game';
 
 /**
+ * A challenge the view tells (gameplay rules §5, §6): its lastChallenge.number rose. Every screen says it in the middle
+ * of the table; a right one (`foulFound`) ended the hand for `team`, the challenger's.
+ */
+export interface Challenged {
+    type: 'Challenged';
+    number: number;
+    playerId: string;
+    team: Team;
+    foulFound: boolean;
+    mine: boolean;
+}
+
+/**
  * What changed between two rendered states (spec §5.3.4). The board maps each to motion; positions
  * always come from cardTargets, so events only choose origins, holds and announcements.
  */
@@ -12,7 +25,7 @@ export type BoardEvent =
     | { type: 'Bid'; playerId: string; call: 'PASS' | Boja }
     /** Trump called: the season changes, the badge flies from the caller, +2 cards per seat from the dealer. */
     | { type: 'TrumpCalled'; suit: Boja; playerId: string | null; dealerId: string | null }
-    /** Zvanja appeared at these seats. */
+    /** The declarations were revealed with a winner (zvanja.winnerTeam set): the seats that scored, or the belot's holder. */
     | { type: 'Declared'; playerIds: string[] }
     /** A card reached the trick: an opponent's flies in from their seat, mine from my hand. `recovered`:
      *  a 4th card the board never saw on the table, rebuilt from lastTrick. */
@@ -26,9 +39,10 @@ export type BoardEvent =
     | { type: 'Bela'; playerId: string }
     | { type: 'Scored'; from: { a: number; b: number }; to: { a: number; b: number } }
     | { type: 'Turn'; playerId: string | null }
-    /** A successful challenge: the hand ended early, or HAND_COMPLETE scores changed. `team` takes the hand. */
+    | Challenged
+    /** An older backend's (no lastChallenge) successful challenge: the hand ended early, or HAND_COMPLETE scores changed. `team` takes the hand. */
     | { type: 'ChallengeUpheld'; team: Team | null }
-    /** A seat's challenge flag flipped and nothing else changed: "No foul found" (mine), "{name} challenged: no foul found". */
+    /** An older backend's failed challenge: a seat's challenge flag flipped and nothing else changed. */
     | { type: 'ChallengeFailed'; playerId: string; mine: boolean }
     | { type: 'Ended'; phase: 'COMPLETED' | 'CANCELLED' };
 
@@ -86,8 +100,17 @@ export function diffBoard(prev: BoardModel | null, next: BoardModel): BoardEvent
 
     const events: BoardEvent[] = [];
     const scoresChanged = prev.scores.a !== next.scores.a || prev.scores.b !== next.scores.b;
-    const endedEarly = prev.playing && (next.bidding || next.phase === 'COMPLETED') && prev.seats.some((seat) => seat.cardsLeft > 0);
-    if (endedEarly || (prev.handComplete && next.handComplete && scoresChanged)) {
+    // a view with lastChallenge tells each challenge by its number (gameplay rules §6); an older one's are inferred below
+    const told = next.tellsChallenges;
+    const challenge = next.lastChallenge;
+    const challenged = challenge !== null && challenge.number > (prev.lastChallenge?.number ?? 0) ? challenge : null;
+    if (challenged) {
+        const { number, playerId, team, foulFound } = challenged;
+        events.push({ type: 'Challenged', number, playerId, team, foulFound, mine: playerId === next.me });
+    }
+    // an older backend deals the next hand at once after a right challenge; a told one ends the hand as any hand
+    const endedEarly = !told && prev.playing && (next.bidding || next.phase === 'COMPLETED') && prev.seats.some((seat) => seat.cardsLeft > 0);
+    if (endedEarly || (!told && prev.handComplete && next.handComplete && scoresChanged)) {
         const gainA = next.scores.a - prev.scores.a;
         const gainB = next.scores.b - prev.scores.b;
         events.push({ type: 'ChallengeUpheld', team: gainA > gainB ? 'A' : gainB > gainA ? 'B' : null });
@@ -108,9 +131,14 @@ export function diffBoard(prev: BoardModel | null, next: BoardModel): BoardEvent
         if (!prev.trump && next.trump) {
             events.push({ type: 'TrumpCalled', suit: next.trump.suit, playerId: next.trump.callerId, dealerId: next.dealerId });
         }
-        const zvanja = (model: BoardModel) => model.seats.filter((seat) => seat.zvanja.length > 0).map((seat) => seat.id);
-        if (zvanja(prev).length === 0 && zvanja(next).length > 0) events.push({ type: 'Declared', playerIds: zvanja(next) });
-        if (!trickEvents(prev, next, events)) return null;
+        const zvanja = next.zvanja;
+        if (!prev.zvanja?.winnerTeam && zvanja?.winnerTeam) {
+            const scored = zvanja.seats.filter((seat) => seat.declarations.length > 0).map((seat) => seat.playerId);
+            events.push({ type: 'Declared', playerIds: zvanja.belot ? [zvanja.belot.playerId] : scored });
+        }
+        // a right challenge ends the hand with cards still held (gameplay rules §1): its partial trick may leave with it
+        const cutShort = challenged?.foulFound === true && prev.playing && next.handComplete;
+        if (!trickEvents(prev, next, events) && !cutShort) return null;
         if (!next.finished) {
             // my hand: only the +2 of the trump call arrive, and only a card I played (now on the table) leaves
             const before = new Set(handIds(prev));
@@ -129,7 +157,7 @@ export function diffBoard(prev: BoardModel | null, next: BoardModel): BoardEvent
     next.seats.forEach((seat, i) => {
         if (seat.bela && !prev.seats[i].bela) events.push({ type: 'Bela', playerId: seat.id });
     });
-    if (events.length === 0 && !scoresChanged && prev.phase === next.phase) {
+    if (!told && events.length === 0 && !scoresChanged && prev.phase === next.phase) {
         next.seats.forEach((seat, i) => {
             if (seat.challengeUsed && !prev.seats[i].challengeUsed) events.push({ type: 'ChallengeFailed', playerId: seat.id, mine: seat.isMe });
         });

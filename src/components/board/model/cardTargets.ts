@@ -1,3 +1,4 @@
+import { crispCardWidth } from '../../ui/cardWidth';
 import type { BoardModel, SeatPosition, Team } from './boardModel';
 import type { CardId } from './rules';
 
@@ -106,6 +107,45 @@ export function tilt(id: string): number {
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
 
+/** How far apart an opponent's backs are fanned (spec §5.6). */
+export function fanStepOf(layout: Layout): number {
+    return layout.kind === 'desktop' ? 16 : 10;
+}
+
+/** The middle of the trick's cross (spec §5.6), in board coordinates: where the declaration moment is said too. */
+export function trickCentre(layout: Layout): { x: number; y: number } {
+    const { w, h } = layout.board;
+    return { x: w / 2, y: layout.kind === 'landscape' ? h / 2 : h * 0.44 };
+}
+
+/**
+ * Where the challenge banner goes (gameplay rules §6): centred where the trick goes. On a short landscape screen
+ * the docked hand result covers the middle of the felt, so while it is open (a right challenge in the window) the
+ * banner's top edge sits under the HUD instead (`top`), above the sheet and still above the trick.
+ */
+export function bannerSpot(layout: Layout, sheetOpen: boolean): { x: number; y: number; top: boolean } {
+    const centre = trickCentre(layout);
+    return sheetOpen && layout.kind === 'landscape' ? { x: centre.x, y: layout.hud + 8, top: true } : { ...centre, top: false };
+}
+
+/** The declaration panel's content box at its widest (board.css `.board-moment__panel`: max-width min(320px, 100% − 128px), 14 px each side). */
+const PANEL = { max: 320, margin: 128, padding: 14 };
+/** A belot's cards are two-thirds of a trick card, each 45 % under the next where the panel has the room. */
+const BELOT_SCALE = 0.66;
+const BELOT_OVERLAP = 0.45;
+
+/**
+ * A belot's `count` cards in a row in the declaration panel (gameplay rules §6): each `width` wide, crisp as
+ * PlayingCard draws it, and `step` from one card's left edge to the next's: 45 % under the next, or closer where
+ * the row would overflow the panel (a retina desktop, whose crisp card rounds up to a whole 71 px).
+ */
+export function belotRow(layout: Layout, count = 8): { width: number; step: number } {
+    const width = crispCardWidth(layout.trick.w * BELOT_SCALE, layout.viewport.dpr);
+    const room = Math.min(PANEL.max, layout.board.w - PANEL.margin) - 2 * PANEL.padding;
+    const step = count > 1 ? Math.max(0, Math.min(width * (1 - BELOT_OVERLAP), (room - width) / (count - 1))) : 0;
+    return { width, step };
+}
+
 /** Where every card goes for this model and layout (spec §5.6). Pure: the board animates elements here. */
 export function cardTargets(model: BoardModel, layout: Layout): Targets {
     const { w: W, h: H } = layout.board;
@@ -116,8 +156,8 @@ export function cardTargets(model: BoardModel, layout: Layout): Targets {
     const below = landscape ? 0.25 : 0.2;
     const maxStep = landscape ? 52 : desktop ? (hs.w < 120 ? 64 : 84) : 36;
     const sideInset = desktop ? 70 : 30;
-    const fanStep = desktop ? 16 : 10;
-    const trickY = landscape ? H / 2 : H * 0.44;
+    const fanStep = fanStepOf(layout);
+    const trickY = trickCentre(layout).y;
     const slot = landscape ? { x: 0.7, y: 0.45 } : { x: 0.84, y: 0.58 };
     const cards: Record<CardId, Target> = {};
     const anchors: Targets['anchors'] = {};

@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest'
-import { cardLabel, isBelaCard, seatsFromMe, trumpOf, zvanjaOf } from './gameView'
-import type { GameCard, PublicGameView } from '../../types/game'
+import { cardLabel, declarationLines, endSentence, heightText, isBelaCard, seatsFromMe, trumpOf } from './gameView'
+import { shippedSources } from '../../test/sourceFiles'
+import type { GameCard, PublicGameView, ZvanjaSeatView, ZvanjaView } from '../../types/game'
 
 const seats = ['alice', 'bob', 'carol', 'dave'].map((id) => ({ id, cardsLeft: 8 }))
 
@@ -69,11 +70,43 @@ describe('cardLabel', () => {
     })
 })
 
-describe('zvanjaOf', () => {
-    test("one player's scored zvanja, worded as the declaration lines word them", () => {
-        expect(zvanjaOf({ bela: false, sequencesBySuit: { KARA: 100 }, fourOfAKindPoints: 200, bestSequencePoints: 100 }))
-            .toEqual(['sequence 100 (Karo)', 'four of a kind 200'])
-        expect(zvanjaOf(undefined)).toEqual([])
+describe('declarationLines (R-31, gameplay rules §6)', () => {
+    const seat = (playerId: string, points: number[] = []): ZvanjaSeatView => ({
+        playerId, said: points[0] ?? null, kind: null, height: null, cards: [],
+        declarations: points.map((p) => ({ kind: 'RUN', points: p, suit: 'HERC', top: 'AS' })),
+    })
+    const base = { declarations: {}, belaDeclaredByPlayer: {} } as unknown as PublicGameView
+
+    test('one line per winning seat with all its values, in turn order; then bela', () => {
+        const zvanja: ZvanjaView = {
+            seats: [seat('ivo', [50, 20]), seat('mara'), seat('lana', [20]), seat('me')],
+            winnerTeam: 'B', total: 90, decidedBy: 'VALUE', belot: null, playOpensAt: null,
+        }
+        expect(declarationLines({ ...base, zvanja, belaDeclaredByPlayer: { mara: true, me: false } })).toEqual(['ivo: 50 + 20', 'lana: 20', 'mara: bela 20'])
+    })
+
+    test('nobody declared, no zvanja yet, or an older view: only bela; the older declarations field makes none', () => {
+        const old = { ivo: { bela: false, sequencesBySuit: { KARA: 100 }, fourOfAKindPoints: 200, bestSequencePoints: 100 } }
+        expect(declarationLines({ ...base, declarations: old })).toEqual([])
+        expect(declarationLines({ ...base, zvanja: null, belaDeclaredByPlayer: { ivo: true } })).toEqual(['ivo: bela 20'])
+        const nobody: ZvanjaView = { seats: [seat('ivo'), seat('mara')], winnerTeam: null, total: 0, decidedBy: null, belot: null, playOpensAt: null }
+        expect(declarationLines({ ...base, zvanja: nobody })).toEqual([])
+    })
+})
+
+describe('endSentence for a belot (gameplay rules §3)', () => {
+    const ended = { gameState: 'COMPLETED', winnerTeamId: 'B', endReason: 'BELOT', forfeitTeamId: null } as unknown as PublicGameView
+    const belot: ZvanjaView = { seats: [], winnerTeam: 'B', total: 0, decidedBy: null, belot: { playerId: 'ivo', suit: 'PIK' }, playOpensAt: null }
+
+    test('who held all eight of which suit', () => {
+        expect(endSentence({ ...ended, zvanja: belot })).toBe('ivo held all eight Pik')
+        expect(endSentence({ ...ended, zvanja: { ...belot, belot: { playerId: 'mara', suit: 'KARA' } } })).toBe('mara held all eight Karo')
+    })
+
+    test('null without zvanja, or a zvanja without its belot', () => {
+        expect(endSentence(ended)).toBeNull()
+        expect(endSentence({ ...ended, zvanja: null })).toBeNull()
+        expect(endSentence({ ...ended, zvanja: { ...belot, belot: null } })).toBeNull()
     })
 })
 
@@ -87,5 +120,26 @@ describe('isBelaCard (R-32)', () => {
         expect(isBelaCard({ boja: 'HERC', rank: 'BABA' }, hand, 'HERC')).toBe(false)
         expect(isBelaCard({ boja: 'PIK', rank: 'AS' }, hand, 'PIK')).toBe(false)
         expect(isBelaCard({ boja: 'PIK', rank: 'KRALJ' }, hand, null)).toBe(false)
+    })
+})
+
+describe('heightText: a tied seat\'s height, said the same on the board and in the hand history (gameplay rules §6, §7, D-20)', () => {
+    const tied = (kind: ZvanjaSeatView['kind'], height: ZvanjaSeatView['height']): ZvanjaSeatView =>
+        ({ playerId: 'ivo', said: kind === 'FOUR' ? 100 : 20, kind, height, declarations: [], cards: [] })
+
+    test('"up to Baba" for a run, "four Asovi" for a four, its rank\'s label for a four with no plural; null when not tied with an opponent', () => {
+        expect(heightText(tied('RUN', 'BABA'))).toBe('up to Baba')
+        expect(heightText(tied('FOUR', 'AS'))).toBe('four Asovi')
+        expect(heightText(tied('FOUR', 'DECKO'))).toBe('four Decki')
+        expect(heightText(tied('FOUR', 'OSMICA'))).toBe('four 8')
+        expect(heightText(tied(null, null))).toBeNull()
+    })
+
+    test('the board\'s moment module stays in the game page\'s chunk: nothing outside the board imports it (the every-page JS)', () => {
+        const hits = shippedSources()
+            .filter(({ path }) => !path.startsWith('src/components/board/'))
+            .filter(({ text }) => /from\s+['"][^'"]*board\/model\/declarationMoment['"]/.test(text))
+            .map(({ path }) => path)
+        expect(hits).toEqual([])
     })
 })
