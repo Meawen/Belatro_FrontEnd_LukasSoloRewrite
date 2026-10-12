@@ -89,6 +89,8 @@ describe('Board: the declaration moment in the middle of the table (gameplay rul
         const plain = () => cards().find((card) => !/^(Kralj|Baba) Herc$/.test(card.getAttribute('aria-label')!))!
         cards().forEach((card) => expect(card).toBeDisabled())
         expect(table).toHaveAttribute('data-waiting', 'true')
+        // the lead's turn shows through the wait (the controller's ruling; e2e/gameplay.mjs's myTurn reads it)
+        expect(screen.getByTestId('your-turn')).toBeInTheDocument()
         act(() => { plain().click() })
         expect(moves.play).not.toHaveBeenCalled()
         after(4999)
@@ -96,6 +98,7 @@ describe('Board: the declaration moment in the middle of the table (gameplay rul
         after(1)
         cards().forEach((card) => expect(card).toBeEnabled())
         expect(table).not.toHaveAttribute('data-waiting')
+        expect(screen.getByTestId('your-turn')).toBeInTheDocument()
         act(() => { plain().click() })
         expect(moves.play).toHaveBeenCalledTimes(1)
     })
