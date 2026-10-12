@@ -255,7 +255,7 @@ export function RulesGuide({ onOpenRule }: RulesGuideProps) {
                 <Step n={4} title="Follow suit" rule="rules-playing" text="Follow suit and beat the best card if you can. No card of that suit? Play a trump, higher if you can. Neither? Play anything." {...step}>
                     <FollowSuit />
                 </Step>
-                <Step n={5} title="Declarations and bela" rule="rules-declarations" text="Said out loud when play starts: 3 in a row 20, 4 in a row 50, 5 to 7 in a row 100; all eight of a suit wins the game. The team with the best one scores all of its own. Bela you declare with Play + Bela." {...step}>
+                <Step n={5} title="Declarations and bela" rule="rules-declarations" text="Said out loud when trump is named, before the first card: 3 in a row 20, 4 in a row 50, 5 to 7 in a row 100; all eight of a suit wins the game. The team with the best one scores all of its own. Bela you declare with Play + Bela." {...step}>
                     <Declarations />
                 </Step>
                 <Step n={6} title="Win the hand" rule="rules-scoring" text="The team that named trump must score more, or it falls and the other team takes the whole hand. All eight tricks: 90 more." {...step}>

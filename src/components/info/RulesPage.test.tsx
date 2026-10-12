@@ -141,7 +141,7 @@ describe('the full rules say the new declaration and challenge rules (gameplay r
             'Belot: all eight cards of one suit. The game ends at once and that team wins, with its score raised to 1001.',
             'Only one team scores declarations: the team holding the single best one. It scores every declaration of both its players; the other team scores none.',
             'The best is the one worth more. Between two worth the same, four of a kind beats a sequence; then the higher top card wins (7 lowest, As highest), and among fours As beats 10, 10 beats Kralj and Kralj beats Baba. If they are still equal, the player who comes first after the dealer wins. Trump makes no difference.',
-            'Each player says their best value. When values are equal, those players also say how high they go ("up to Baba"). The winning team\'s declared cards are shown on the first trick; the other team\'s stay hidden.',
+            'Each player says their best value. When values are equal between the two teams, those players also say how high they go ("up to Baba"); partners don\'t need to. The winning team\'s declared cards are shown beside their seats until the first trick is taken; the other team\'s stay hidden.',
             'A team that wins no trick in a hand loses its declarations and its bela for that hand.',
             'Bela is the Kralj and the Baba of trump in one hand, worth 20. It is not counted for you: when you play the first of the two, choose Play + Bela.',
         ])
@@ -226,7 +226,7 @@ describe('the visual guide (ranks spec §9.1)', () => {
         renderRules()
         const guide = screen.getByRole('list', { name: 'How to play' })
         const text = (title: string) => within(guide).getByRole('heading', { level: 3, name: title }).closest('li')!.querySelector('p.t-callout')!.textContent
-        expect(text('Declarations and bela')).toBe('Said out loud when play starts: 3 in a row 20, 4 in a row 50, 5 to 7 in a row 100; all eight of a suit wins the game. The team with the best one scores all of its own. Bela you declare with Play + Bela.')
+        expect(text('Declarations and bela')).toBe('Said out loud when trump is named, before the first card: 3 in a row 20, 4 in a row 50, 5 to 7 in a row 100; all eight of a suit wins the game. The team with the best one scores all of its own. Bela you declare with Play + Bela.')
         expect(text('Challenge a foul')).toBe("Illegal cards aren't blocked. Press Challenge during the hand or in the 10 seconds after: if the other team fouled, your team wins the hand. A wrong challenge costs no points, but you lose your challenge for the rest of the game.")
     })
 

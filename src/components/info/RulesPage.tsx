@@ -158,9 +158,10 @@ export const RulesPage: React.FC = () => {
                             first after the dealer wins. Trump makes no difference.
                         </li>
                         <li>
-                            Each player says their best value. When values are equal, those players also say how
-                            high they go ("up to Baba"). The winning team's declared cards are shown on the first
-                            trick; the other team's stay hidden.
+                            Each player says their best value. When values are equal between the two teams, those
+                            players also say how high they go ("up to Baba"); partners don't need to. The winning team's
+                            declared cards are shown beside their seats until the first trick is taken; the other
+                            team's stay hidden.
                         </li>
                         <li>A team that wins no trick in a hand loses its declarations and its bela for that hand.</li>
                         <li>
