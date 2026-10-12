@@ -138,7 +138,8 @@ describe('playTable: belot (gameplay rules §3)', () => {
             expect(Object.values(f.private).some((p) => p.yourTurn)).toBe(false)
         }
         const z = t[i].public.zvanja!
-        expect(z).toMatchObject({ belot: { playerId: 'carol', suit: 'PIK' }, total: 0, decidedBy: null, playOpensAt: null })
+        expect(z).toMatchObject({ belot: { playerId: 'carol', suit: 'PIK' }, winnerTeam: 'A', total: 0, decidedBy: null, playOpensAt: null })
+        expect(z.seats.every((s) => s.said === null && s.kind === null && s.height === null)).toBe(true)
         expect(z.seats.map((s) => [s.playerId, s.declarations, ids(s.cards)])).toEqual([
             ['alice', [], []], ['bob', [], []], ['carol', [], PIK], ['dave', [], []],
         ])
@@ -147,5 +148,6 @@ describe('playTable: belot (gameplay rules §3)', () => {
     test('the belot team goes one above the other when the other is past 1001 (R-7)', () => {
         const t = playTable({ belot: { player: 'bob', suit: 'KARA' }, scores: [1100, 1050] })
         expect(t[t.length - 1].public).toMatchObject({ teamAScore: 1100, teamBScore: 1101, winnerTeamId: 'B', endReason: 'BELOT' })
+        expect(t[t.length - 1].public.zvanja).toMatchObject({ belot: { playerId: 'bob', suit: 'KARA' }, winnerTeam: 'B' })
     })
 })

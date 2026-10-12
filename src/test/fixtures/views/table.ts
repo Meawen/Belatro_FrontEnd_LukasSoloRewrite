@@ -164,8 +164,8 @@ function declarationsOf(hand: readonly GameCard[]): Declared[] {
 /**
  * The one contest at the trump call (spec §2, §5), `order` from the player after the dealer: the single
  * best declaration wins, a full tie going to the first in order, and its team scores every declaration
- * of both its players. A belot (the first in order holding all eight of a suit) ends the game instead,
- * and nothing scores. `playOpensAt` is left null.
+ * of both its players. A belot (the first in order holding all eight of a suit) ends the game instead:
+ * nothing scores and `winnerTeam` is the holder's team. `playOpensAt` is left null.
  */
 function contest(hands: Record<string, GameCard[]>, order: readonly string[]): ZvanjaView {
     const holder = order.find((id) => belotSuit(hands[id]));
@@ -176,7 +176,7 @@ function contest(hands: Record<string, GameCard[]>, order: readonly string[]): Z
                 playerId, said: null, kind: null, height: null, declarations: [],
                 cards: playerId === holder ? RANKS.map((rank) => ({ boja: suit, rank })) : [],
             })),
-            winnerTeam: null, total: 0, decidedBy: null, belot: { playerId: holder, suit }, playOpensAt: null,
+            winnerTeam: teamOf(holder), total: 0, decidedBy: null, belot: { playerId: holder, suit }, playOpensAt: null,
         };
     }
     const all = order.map((id) => ({ id, found: declarationsOf(hands[id]) }));

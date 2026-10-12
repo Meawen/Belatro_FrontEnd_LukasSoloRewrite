@@ -94,6 +94,7 @@ export interface ZvanjaSeatView {
 /** The declarations said at the trump call (gameplay rules spec §5). */
 export interface ZvanjaView {
     seats: ZvanjaSeatView[];
+    /** The team whose declarations scored, or the belot holder's team; null when nobody declared. */
     winnerTeam: 'A' | 'B' | null;
     /** The winning team's declaration points, without bela. */
     total: number;
