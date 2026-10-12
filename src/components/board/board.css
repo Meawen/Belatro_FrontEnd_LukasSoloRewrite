@@ -259,6 +259,12 @@
     background: var(--ink);
     color: var(--accent);
 }
+/* the trump caller's badge (owner, 2026-10-12): the suit's icon on the suit's colour, as the dealer's D */
+.board-seat__caller {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 2px;
+}
 .board-seat__seconds {
     font-variant-numeric: tabular-nums;
 }
