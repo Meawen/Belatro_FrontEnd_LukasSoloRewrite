@@ -321,10 +321,10 @@ export function Board(props: BoardProps) {
         setMoment(moment);
     }
     const skip = () => setMoment((was) => (was ? { ...was, skipped: true } : was));
-    // the moment's one polite line, once per hand, after the step's own lines (spec §5.8)
+    // the moment's one polite line, once per hand, after the step's own lines (spec §5.8); a live belot's end says it
     const momentLine = moment?.line ?? null;
     useEffect(() => {
-        if (momentLine) setSaid((s) => ({ seq: s.seq, lines: [...s.lines, momentLine] }));
+        if (momentLine) setSaid((s) => (s.lines.includes(momentLine) ? s : { seq: s.seq, lines: [...s.lines, momentLine] }));
     }, [moment?.key, momentLine]);
 
     // no card before playOpensAt (my cards look disabled); a live belot holds the end sheet a while (a tap opens it),

@@ -1,5 +1,6 @@
 import { SUIT_LABEL, cardLabel } from '../game/gameView';
 import { challengeSrLine } from './model/challengeMoment';
+import { belotLine } from './model/declarationMoment';
 import type { BoardModel } from './model/boardModel';
 import type { BoardEvent } from './model/diffBoard';
 
@@ -61,10 +62,15 @@ export function announce(events: readonly BoardEvent[], model: BoardModel, handN
             case 'ChallengeFailed':
                 messages.push(event.mine ? 'No foul found' : `${event.playerId} challenged: no foul found`);
                 break;
-            case 'Ended':
-                // the winner, then why (a belot has both; a forfeit's reason names the winner itself)
-                if (model.end) messages.push([model.end.winnerLine, model.end.reason].filter(Boolean).join('. ') || model.end.title);
+            case 'Ended': {
+                if (!model.end) break;
+                // a belot: said once ("Belot! Ivo holds all eight Pik"), then who won; its reason would say it again
+                const belot = belotLine(model.zvanja, model.me);
+                if (belot && model.end.winnerLine) messages.push(belot, model.end.winnerLine);
+                // the winner, then why (a forfeit's reason names the winner itself)
+                else messages.push([model.end.winnerLine, model.end.reason].filter(Boolean).join('. ') || model.end.title);
                 break;
+            }
             default:
                 break;
         }
