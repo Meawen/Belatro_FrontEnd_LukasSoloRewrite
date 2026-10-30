@@ -1,11 +1,12 @@
 import { describe, test, expect } from 'vitest'
 import {
-    bandBottom, bannerSpot, belotRow, cardSize, cardTargets, fanPlaces, fanStepOf, handPlaces, layoutAt, layoutFor, tilt, trickCentre, trickSlots,
-    type Layout, type LayoutKind, type Target, type Targets, type Viewport,
+    bandBottom, bannerSpot, belotRow, cardSize, cardTargets, fanPlaces, fanStepOf, handPlaces, hudBoxes, layoutAt, layoutFor, tableTargets, tilt, trickCentre,
+    trickSlots, type Layout, type Target, type Targets, type Viewport,
 } from './cardTargets'
 import { crispCardWidth } from '../../ui/cardWidth'
 import { EMPTY_LOCAL, boardModel, type BoardModel, type SeatPosition } from './boardModel'
 import { indexOf, playTable } from '../../../test/fixtures/views/table'
+import { at, box, nameOf, overlap, seven, type Box } from '../../../test/fixtures/layouts'
 
 /** The busiest table: my 8 cards, a 3-card trick, 8 backs at every other seat. */
 function busyModel(me = 'carol'): BoardModel {
@@ -19,19 +20,6 @@ function busyModel(me = 'carol'): BoardModel {
 }
 
 const rad = (deg: number) => (deg * Math.PI) / 180
-/** The on-screen bounding box of a rotated, scaled card. */
-function box(t: Target) {
-    const cx = t.left + t.width / 2
-    const cy = t.top + t.height / 2
-    const w = t.width * t.scale
-    const h = t.height * t.scale
-    const r = rad(t.rotate)
-    const hw = (Math.abs(Math.cos(r)) * w + Math.abs(Math.sin(r)) * h) / 2
-    const hh = (Math.abs(Math.sin(r)) * w + Math.abs(Math.cos(r)) * h) / 2
-    return { x0: cx - hw, x1: cx + hw, y0: cy - hh, y1: cy + hh }
-}
-type Box = ReturnType<typeof box>
-const overlap = (a: Box, b: Box) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1
 
 function checkFit(viewport: Viewport, minVisible: number) {
     const model = busyModel()
@@ -102,27 +90,6 @@ describe('layoutFor (spec §5.6, §3.6)', () => {
         expect(cardSize(71, 1.25).w * 1.25).toBeCloseTo(71)
     })
 })
-
-/** A layout at the sizes board-fit spec §3 names for a window (Ruling A: before Task 4 layoutFor keeps today's). */
-function at(width: number, height: number, dpr: number, kind: LayoutKind, trick: number, hand = trick): Layout {
-    return layoutAt({ width, height, dpr }, kind, cardSize(trick, dpr), cardSize(hand, dpr))
-}
-
-/**
- * The §7 windows at their sizes: phones upright 94.67 at 390×664 @3 and the step nearest 71 elsewhere, sideways the
- * step nearest 71, wide windows §3.3's examples. 1440×900 @2 takes 1440×789 @2's pair; 1280×720 @1, which §3.3
- * names no size for, takes both pairs around it.
- */
-const seven = (): Layout[] => [
-    at(375, 553, 2, 'portrait', 71), at(390, 664, 3, 'portrait', 94.67), at(375, 812, 2, 'portrait', 71), at(430, 739, 3, 'portrait', 71),
-    at(667, 323, 2, 'landscape', 71), at(844, 340, 3, 'landscape', 71), at(812, 375, 2, 'landscape', 71),
-    at(960, 980, 1, 'tablet', 142, 213),
-    at(1280, 720, 1, 'desktop', 71, 142), at(1280, 720, 1, 'desktop', 142, 213), at(1366, 641, 1, 'desktop', 71, 142),
-    at(1440, 900, 1, 'desktop', 142, 213), at(1440, 900, 2, 'desktop', 142, 213), at(1440, 789, 2, 'desktop', 142, 213),
-    at(1536, 730, 1.25, 'desktop', 113.6, 170.4), at(1280, 600, 1.5, 'desktop', 94.67, 142),
-    at(1920, 1080, 1, 'desktop', 142, 213), at(2560, 1300, 1, 'desktop', 213, 284),
-]
-const nameOf = (layout: Layout) => `${layout.viewport.width}x${layout.viewport.height}@${layout.viewport.dpr} ${layout.trick.w.toFixed(2)}/${layout.hand.w.toFixed(2)}`
 
 describe('layoutAt: the whole layout at given card sizes (board-fit spec §3)', () => {
     test('2560×1300 @1 at 213/284: the board 1100 × 284/142 = 2200 wide, centred left of Bela Blok\'s column; the backs drawn at half the trick (§3.3)', () => {
@@ -471,5 +438,38 @@ describe('bannerSpot (gameplay rules §6): the challenge banner where the trick 
                 ? { x: layout.board.w / 2, y: layout.hud + 8, top: true }
                 : { ...trickCentre(layout), top: false })
         }
+    })
+})
+
+describe('tableTargets: a full table from the layout alone (seatBoxes, fits)', () => {
+    test('my 8 hand cards, 8 backs at every other seat, the four trick slots, the anchors and piles as cardTargets makes them; seat ids are the positions, my team A', () => {
+        const busy = busyModel()
+        for (const layout of [at(390, 664, 3, 'portrait', 94.67), at(812, 375, 2, 'landscape', 71), at(1440, 900, 1, 'desktop', 142, 213)]) {
+            const t = tableTargets(layout)
+            const where = nameOf(layout)
+            expect(Object.keys(t.cards), where).toHaveLength(8 + 3 * 8 + 4)
+            expect(Array.from({ length: 8 }, (_, i) => t.cards[`hand:${i}`]), where).toEqual(handPlaces(layout, 8))
+            for (const position of ['right', 'partner', 'left'] as const) {
+                expect(Array.from({ length: 8 }, (_, i) => t.cards[`back:${position}:${i}`]), `${where} ${position}`).toEqual(fanPlaces(layout, position, 8))
+            }
+            expect(t.cards['back:me:0'], where).toBeUndefined()
+            const slots = trickSlots(layout)
+            for (const position of ['me', 'right', 'partner', 'left'] as const) expect(t.cards[`trick:${position}`], `${where} ${position}`).toEqual(slots[position])
+            // the busy table (carol me, dave right, alice partner, bob left; 8 cards in hand, my team A) has the same anchors and piles
+            const real = cardTargets(busy, layout)
+            expect(t.anchors, where).toEqual({ me: real.anchors.carol, right: real.anchors.dave, partner: real.anchors.alice, left: real.anchors.bob })
+            expect(t.piles, where).toEqual(real.piles)
+        }
+    })
+})
+
+describe('hudBoxes: what the HUD holds on the felt (board-fit spec G2)', () => {
+    test('the HUD\'s band; on a portrait phone also the Challenge column under it on the left (board.css: Challenge over its info button, each 44 tall, 6 apart, from 8 + 44 + 6)', () => {
+        expect(hudBoxes(at(375, 553, 2, 'portrait', 71))).toEqual([{ x: 0, y: 0, w: 375, h: 52 }, { x: 8, y: 58, w: 120, h: 94 }])
+        expect(hudBoxes(at(390, 664, 3, 'portrait', 94.67))).toEqual([{ x: 0, y: 0, w: 390, h: 52 }, { x: 8, y: 58, w: 120, h: 94 }])
+        expect(hudBoxes(at(812, 375, 2, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 812, h: 44 }])
+        // the tablet keeps Challenge on the HUD's line (the stacking rule is data-layout="portrait" only)
+        expect(hudBoxes(at(960, 980, 1, 'tablet', 142, 213))).toEqual([{ x: 0, y: 0, w: 960, h: 52 }])
+        expect(hudBoxes(at(1440, 900, 1, 'desktop', 142, 213))).toEqual([{ x: 0, y: 0, w: 1120, h: 52 }])
     })
 })

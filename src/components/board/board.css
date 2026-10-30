@@ -286,20 +286,46 @@
     flex-wrap: wrap;
     gap: 4px;
 }
-/* the right seat's plate ends at the right edge (seatSpot): its chips and declared cards line up under it there, so a
-   long name never pulls them across the felt onto my hand (the left seat's start at the left edge, as every column) */
+/* the right seat's plate ends at the right edge (seatSpot): its chips and declared cards line up under its fan there,
+   so a long name never pulls them across the felt onto my hand (the left seat's start at the left edge, as every column) */
 .board-seat[data-position="right"] {
     align-items: flex-end;
 }
 .board-seat[data-position="right"] .board-seat__chips {
     justify-content: flex-end;
 }
+/* a side seat's chips and declared cards (board-fit spec §4): under its fan, placed from the plate's top (seatSpot's
+   under), as wide as they are up to the seat's maxWidth, never as narrow as a short plate */
+.board-seat__under {
+    position: absolute;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    width: max-content;
+}
+.board-seat[data-position="right"] .board-seat__under {
+    left: auto;
+    right: 0;
+    align-items: flex-end;
+}
+/* landscape: my partner's plate beside the fan, its chips and declared cards on the plate's row, wrapping within the
+   seat's width (board-fit spec §4.2); the turn timer bar under the whole row */
+.board[data-layout="landscape"] .board-seat[data-position="partner"] {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+.board[data-layout="landscape"] .board-seat[data-position="partner"] .board-seat__timer {
+    order: 1;
+    flex-basis: 100%;
+}
 /* the winners' declared cards (gameplay rules §6), small and overlapping, until the first trick is down */
 .board-seat__declared {
     display: flex;
 }
 /* mine over my plate, which sits low by my pile: my declared cards, and in landscape (my plate beside my hand) my
-   chips under them, closest to the plate, so that none covers my hand */
+   chips under them, closest to the plate, so that none covers my hand; as wide as they are, up to the seat's maxWidth */
 .board-seat__above {
     position: absolute;
     left: 0;
@@ -308,6 +334,7 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
+    width: max-content;
 }
 .board-your-turn {
     position: absolute;

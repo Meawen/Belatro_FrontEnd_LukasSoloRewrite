@@ -158,7 +158,7 @@ export function fanStepOf(layout: Layout): number {
 }
 
 /** A target's on-screen bounding box, rotated and scaled about its centre. */
-function boundsOf(t: Target): { x0: number; x1: number; y0: number; y1: number } {
+export function boundsOf(t: Target): { x0: number; x1: number; y0: number; y1: number } {
     const cx = t.left + t.width / 2;
     const cy = t.top + t.height / 2;
     const w = t.width * t.scale;
@@ -282,21 +282,40 @@ export function belotRow(layout: Layout, count = 8): { width: number; step: numb
     return { width, step };
 }
 
-/** Where every card goes for this model and layout (spec §5.6). Pure: the board animates elements here. */
-export function cardTargets(model: BoardModel, layout: Layout): Targets {
+/**
+ * The piles (spec §5.6) with `n` cards in my hand: mine bottom-left (above the hand, or beside it in landscape), the
+ * opponents' top-right.
+ */
+function pilePlaces(layout: Layout, n: number, myTeam: Team): Record<Team, Target> {
     const { w: W } = layout.board;
     const { hand: hs, trick: ts, back: bs, backScale, hud } = layout;
     const landscape = layout.kind === 'landscape';
     const sideInset = sideInsetOf(layout);
+    const { step, mid, lowestTop } = handArc(layout, n);
+    const handTop = lowestTop - HAND_ARC * mid * mid;
+    const handLeft = W / 2 - mid * step - hs.w / 2;
+    const pile = { w: ts.w / 2, h: ts.h / 2 };
+    const mine = landscape
+        ? { x: Math.max(sideInset + (bs.h * backScale) / 2 + MARGIN + pile.w / 2, handLeft - MARGIN - pile.w / 2), y: layout.board.h - MARGIN - pile.h / 2 }
+        : { x: MARGIN + pile.w / 2, y: handTop - MARGIN - pile.h / 2 };
+    const theirs = landscape
+        ? { x: W - mine.x, y: hud + 8 + pile.h / 2 }
+        : { x: W - MARGIN - pile.w / 2, y: hud + 8 + pile.h / 2 };
+    const pileTarget = (p: { x: number; y: number }, rotate: number): Target =>
+        ({ left: p.x - ts.w / 2, top: p.y - ts.h / 2, width: ts.w, height: ts.h, rotate, scale: 0.5, z: 0 });
+    return myTeam === 'A'
+        ? { A: pileTarget(mine, -8), B: pileTarget(theirs, 8) }
+        : { A: pileTarget(theirs, 8), B: pileTarget(mine, -8) };
+}
+
+/** Where every card goes for this model and layout (spec §5.6). Pure: the board animates elements here. */
+export function cardTargets(model: BoardModel, layout: Layout): Targets {
     const cards: Record<CardId, Target> = {};
     const anchors: Targets['anchors'] = {};
 
     // my hand: an arc fan at the bottom edge
     const hand = handPlaces(layout, model.hand.length);
     model.hand.forEach((card, i) => { cards[card.id] = hand[i]; });
-    const { step, mid, lowestTop } = handArc(layout, model.hand.length);
-    const handTop = lowestTop - HAND_ARC * mid * mid;
-    const handLeft = W / 2 - mid * step - hs.w / 2;
 
     // each seat's hand centre, and the opponents' backs fanned at their seats
     for (const seat of model.seats) {
@@ -311,19 +330,41 @@ export function cardTargets(model: BoardModel, layout: Layout): Targets {
         cards[play.id] = { ...slots[play.position ?? 'me'], rotate: tilt(play.id), z: play.order };
     }
 
-    // the piles: mine bottom-left (above the hand, or beside it in landscape), the opponents' top-right
-    const pile = { w: ts.w / 2, h: ts.h / 2 };
-    const mine = landscape
-        ? { x: Math.max(sideInset + (bs.h * backScale) / 2 + MARGIN + pile.w / 2, handLeft - MARGIN - pile.w / 2), y: layout.board.h - MARGIN - pile.h / 2 }
-        : { x: MARGIN + pile.w / 2, y: handTop - MARGIN - pile.h / 2 };
-    const theirs = landscape
-        ? { x: W - mine.x, y: hud + 8 + pile.h / 2 }
-        : { x: W - MARGIN - pile.w / 2, y: hud + 8 + pile.h / 2 };
-    const myTeam: Team = model.myTeam ?? 'A';
-    const pileTarget = (p: { x: number; y: number }, rotate: number): Target =>
-        ({ left: p.x - ts.w / 2, top: p.y - ts.h / 2, width: ts.w, height: ts.h, rotate, scale: 0.5, z: 0 });
-    const piles = myTeam === 'A'
-        ? { A: pileTarget(mine, -8), B: pileTarget(theirs, 8) }
-        : { A: pileTarget(theirs, 8), B: pileTarget(mine, -8) };
-    return { cards, piles, anchors };
+    return { cards, piles: pilePlaces(layout, model.hand.length, model.myTeam ?? 'A'), anchors };
+}
+
+const POSITIONS: readonly SeatPosition[] = ['me', 'right', 'partner', 'left'];
+
+/**
+ * A full table from the layout alone, without a model (board-fit spec §3.2: what seatBoxes and fits measure): my 8
+ * hand cards (`hand:{i}`), 8 backs at every other seat (`back:{position}:{i}`), the four trick slots unturned
+ * (`trick:{position}`), and the anchors and piles as cardTargets makes them for that table. The seat ids are the
+ * positions; my team is A.
+ */
+export function tableTargets(layout: Layout): Targets {
+    const cards: Record<CardId, Target> = {};
+    const anchors: Targets['anchors'] = {};
+    handPlaces(layout, 8).forEach((card, i) => { cards[`hand:${i}`] = card; });
+    const slots = trickSlots(layout);
+    for (const position of POSITIONS) {
+        const c = seatCentre(layout, position);
+        anchors[position] = { x: c.x, y: c.y, rotate: SEAT_ROTATE[position] };
+        fanPlaces(layout, position, 8).forEach((back, i) => { cards[`back:${position}:${i}`] = back; });
+        cards[`trick:${position}`] = slots[position];
+    }
+    return { cards, piles: pilePlaces(layout, 8, 'A'), anchors };
+}
+
+/**
+ * A portrait phone's Challenge column (board.css `.board[data-layout="portrait"] .board-challenge--hud`, Hud.tsx): a
+ * line of its own under the HUD's first line (top 8, 44 tall, then 6), Challenge (44 tall as a small button's hit
+ * area) over its info button (44), 6 apart; as wide as its widest label, "Challenge used" (about 96 px of 13-px
+ * semibold text and 12 px each side). The hint it opens is a popover, not counted.
+ */
+const CHALLENGE_COLUMN: Rect = { x: 8, y: 8 + 44 + 6, w: 120, h: 44 + 6 + 44 };
+
+/** What the HUD keeps on the felt (board-fit spec G2): its band, and on a portrait phone the Challenge column under it. */
+export function hudBoxes(layout: Layout): Rect[] {
+    const band: Rect = { x: 0, y: 0, w: layout.board.w, h: layout.hud };
+    return layout.kind === 'portrait' ? [band, { ...CHALLENGE_COLUMN }] : [band];
 }

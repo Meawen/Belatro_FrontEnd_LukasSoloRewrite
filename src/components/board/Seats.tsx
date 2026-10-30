@@ -12,7 +12,7 @@ import { cardId } from './model/rules';
 import { secondsLeft, type BoardModel } from './model/boardModel';
 import type { Layout, Targets } from './model/cardTargets';
 import { seatName } from './announce';
-import { seatSpot } from './seatSpot';
+import { declaredStep, seatSpot } from './seatSpot';
 import { useNow } from './useNow';
 import type { Boja } from '../../types/game';
 
@@ -73,14 +73,17 @@ export interface SeatsProps {
  * trick is down; a quiet "No challenge" on every seat whose challenge is gone, for the rest of the game
  * (gameplay rules §6). Mine sit over my plate, which sits low by my pile: my declared cards always, and in
  * landscape, where my plate is beside my hand, my chips too (under it they would cover my hand's first cards).
- * A side seat's line up under its plate on its own edge (`data-position`), so a long name never pulls them across
- * the felt onto my hand.
+ * My partner's sit under its plate, in the column beside its fan (on the plate's row in landscape, board.css). A side
+ * seat's plate sits above its fan and its chips and cards under it (`board-seat__under`, seatSpot's `under`), on its own
+ * edge (`data-position`), so neither reaches the trick or my hand (board-fit spec §4). Everything stays inside
+ * `seat-{id}`. The declared cards are half a trick card (Layout.declared), 45 % under the next, closer where the
+ * seat's column is narrower than they need (declaredStep).
  */
 export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps) {
     const chips = playOpen ? summaryChips(model.zvanja) : {};
     const showCards = playOpen && model.playing && model.lastTrick === null;
-    // small cards, at the size the opponents' backs are drawn
-    const cardWidth = layout.back.w * layout.backScale;
+    // small cards, about half a trick card (board-fit spec §3.5)
+    const cardWidth = layout.declared.w;
     const chipsOver = layout.kind === 'landscape';
     const caller = model.trump?.callerId ?? null;
     return (
@@ -88,6 +91,8 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
             {model.seats.map((seat) => {
                 const turn = seat.current && model.turn?.playerId === seat.id ? model.turn : null;
                 const declared = showCards ? model.zvanja?.seats.find((one) => one.playerId === seat.id && one.declarations.length > 0)?.cards ?? [] : [];
+                const { under, ...spot } = seatSpot(seat, targets, layout);
+                const step = declaredStep(cardWidth, declared.length, spot.maxWidth);
                 const chipRow = (
                     <span className="board-seat__chips">
                         {seat.bid && (
@@ -111,13 +116,13 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                     <span role="group" aria-label={seat.isMe ? 'Your declared cards' : `${seat.id}'s declared cards`} className="board-seat__declared">
                         <Pop instant={instant} delay={0.06}>
                             {declared.map((card, i) => (
-                                <PlayingCard key={cardId(card)} card={card} width={cardWidth} style={i ? { marginLeft: -cardWidth * 0.45 } : undefined} />
+                                <PlayingCard key={cardId(card)} card={card} width={cardWidth} style={i ? { marginLeft: step - cardWidth } : undefined} />
                             ))}
                         </Pop>
                     </span>
                 );
                 return (
-                    <div key={seat.id} data-testid={`seat-${seat.id}`} data-current={seat.current ? 'true' : undefined} data-position={seat.position} className="board-seat" style={seatSpot(seat, targets, layout)}>
+                    <div key={seat.id} data-testid={`seat-${seat.id}`} data-current={seat.current ? 'true' : undefined} data-position={seat.position} className="board-seat" style={spot}>
                         <span className="board-seat__name notch t-footnote font-semibold" data-turn={seat.current || undefined}>
                             <span className={seat.team === 'B' ? 'board-seat__team bg-team-b' : 'board-seat__team bg-team-a'} aria-hidden="true" />
                             {/* a bot: the lobby's robot beside its name, and "(bot)" in its name (casual bots spec §7) */}
@@ -143,8 +148,16 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                             {turn?.expiresAt != null && <Countdown expiresAt={turn.expiresAt} skew={model.skew} />}
                         </span>
                         {turn?.expiresAt != null && <TimerBar key={`${seat.id}:${turn.expiresAt}`} expiresAt={turn.expiresAt} skew={model.skew} />}
-                        {!(seat.isMe && chipsOver) && chipRow}
-                        {seat.isMe ? (cards || chipsOver) && <span className="board-seat__above">{cards}{chipsOver && chipRow}</span> : cards}
+                        {under !== undefined ? (
+                            <span className="board-seat__under" style={{ top: under, maxWidth: spot.maxWidth }}>{chipRow}{cards}</span>
+                        ) : seat.isMe ? (
+                            <>
+                                {!chipsOver && chipRow}
+                                {(cards || chipsOver) && <span className="board-seat__above" style={{ maxWidth: spot.maxWidth }}>{cards}{chipsOver && chipRow}</span>}
+                            </>
+                        ) : (
+                            <>{chipRow}{cards}</>
+                        )}
                     </div>
                 );
             })}
