@@ -1,5 +1,5 @@
 import type { BoardModel, SeatModel, SeatPosition } from './model/boardModel';
-import { boundsOf, fanPlaces, handPlaces, hudBoxes, trickSlots, type Layout, type Rect, type Targets } from './model/cardTargets';
+import { boundsOf, fanPlaces, fanStepOf, handPlaces, hudBoxes, trickSlots, type Layout, type Rect, type Targets } from './model/cardTargets';
 
 /** A seat's place on the board: its plate's top-left corner (or, with `transform`, its top right). */
 export interface SeatSpot {
@@ -64,9 +64,13 @@ interface Box {
 
 const boxOf = (r: Rect): Box => ({ x0: r.x, x1: r.x + r.w, y0: r.y, y1: r.y + r.h });
 
-/** A seat's full fan of eight backs as drawn: from the layout alone, so its tag stays put as the backs go. */
+/**
+ * A seat's full fan of eight backs as drawn: from the layout alone, so its tag stays put as the backs go. Spaced at the
+ * partner's step: on desktops the side fans step closer (cardTargets FAN_STEP), but their columns stay where a fan at
+ * the partner's step would start them, as before.
+ */
 function fanBox(layout: Layout, position: SeatPosition): Box {
-    const backs = fanPlaces(layout, position, 8).map(boundsOf);
+    const backs = fanPlaces(layout, position, 8, fanStepOf(layout, 'partner')).map(boundsOf);
     return {
         x0: Math.min(...backs.map((b) => b.x0)), x1: Math.max(...backs.map((b) => b.x1)),
         y0: Math.min(...backs.map((b) => b.y0)), y1: Math.max(...backs.map((b) => b.y1)),

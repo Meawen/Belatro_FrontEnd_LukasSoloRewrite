@@ -83,8 +83,12 @@ const MARGIN = 16;
  */
 const HAND_STEP = { portrait: 36, tablet: 36, landscape: 52 };
 const DESKTOP_HAND_STEP = 0.59;
-/** A fan's step per 47.5 px of the back as drawn (a 71-wide back at half scale): 10 px, 16 on desktops (spec §5.6). */
-const FAN_STEP = { drawn: 47.5, phone: 10, desktop: 16 };
+/**
+ * A fan's step per 47.5 px of the back as drawn (a 71-wide back at half scale): 10 px; on desktops 16 for the partner and
+ * 12 for the side seats (was 16: shorter side fans stay clear of my pile; seatSpot keeps their columns where a fan at 16
+ * would start them).
+ */
+const FAN_STEP = { drawn: 47.5, phone: 10, desktop: 16, desktopSide: 12 };
 /**
  * At a 71-wide back: the side fans' inset from the edge (§5.6.1: 30), the partner's fan centre under the HUD (46; in
  * landscape 17, Ruling Q: was 23).
@@ -145,10 +149,14 @@ export function tilt(id: string): number {
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
 
-/** How far apart an opponent's backs are fanned (spec §5.6): in proportion to the back as drawn (board-fit spec §3.5). */
-export function fanStepOf(layout: Layout): number {
+/**
+ * How far apart an opponent's backs are fanned (spec §5.6): in proportion to the back as drawn (board-fit spec §3.5); on
+ * desktops the side seats' closer than the partner's.
+ */
+export function fanStepOf(layout: Layout, position: SeatPosition = 'partner'): number {
     const drawn = layout.back.h * layout.backScale;
-    return (drawn * (layout.kind === 'desktop' ? FAN_STEP.desktop : FAN_STEP.phone)) / FAN_STEP.drawn;
+    const per = layout.kind !== 'desktop' ? FAN_STEP.phone : position === 'partner' ? FAN_STEP.desktop : FAN_STEP.desktopSide;
+    return (drawn * per) / FAN_STEP.drawn;
 }
 
 /** A target's on-screen bounding box, rotated and scaled about its centre. */
@@ -203,12 +211,15 @@ function seatCentre(layout: Layout, position: SeatPosition): { x: number; y: num
     return { x: position === 'left' ? sideInsetOf(layout) : W - sideInsetOf(layout), y };
 }
 
-/** An opponent's `n` backs fanned at their seat (spec §5.6): across for the partner, down the side for the others. None for me. */
-export function fanPlaces(layout: Layout, position: SeatPosition, n: number): Target[] {
+/**
+ * An opponent's `n` backs fanned at their seat (spec §5.6): across for the partner, down the side for the others; `step`
+ * px apart where given, else the seat's own step. None for me.
+ */
+export function fanPlaces(layout: Layout, position: SeatPosition, n: number, step?: number): Target[] {
     if (position === 'me') return [];
     const { back: bs, backScale } = layout;
     const c = seatCentre(layout, position);
-    const fanStep = fanStepOf(layout);
+    const fanStep = step ?? fanStepOf(layout, position);
     return Array.from({ length: n }, (_, i) => {
         const o = i - (n - 1) / 2;
         const x = position === 'partner' ? c.x + o * fanStep : c.x;

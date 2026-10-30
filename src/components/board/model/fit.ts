@@ -1,7 +1,7 @@
 import { ART_W } from '../../ui/cardWidth';
 import { seatBoxes } from '../seatSpot';
 import {
-    bandBottom, boundsOf, cardSize, hudBoxes, layoutAt, tableTargets, type Layout, type LayoutKind, type Rect, type Target, type Viewport,
+    bandBottom, boundsOf, cardSize, fanPlaces, hudBoxes, layoutAt, tableTargets, type Layout, type LayoutKind, type Rect, type Target, type Viewport,
 } from './cardTargets';
 import { desktopCandidates, floorPair, phoneCandidates } from './sizes';
 
@@ -68,7 +68,7 @@ export function layoutFor(viewport: Viewport): Layout {
 }
 
 /**
- * Whether the table fits at this layout's sizes (board-fit spec §2 G1 and G2, §3.2, §4; Rulings E, H, J, P), with my 8
+ * Whether the table fits at this layout's sizes (board-fit spec §2 G1 and G2, §3.2, §4; Rulings E, H, J, P, S), with my 8
  * hand cards and 8 backs at every other seat:
  * - every hand card leaves its strip (`STRIP`) and the hand stays within the board's width;
  * - the four trick slots, each at its widest tilt, lie inside the board below the HUD and above `bandBottom`, and meet
@@ -76,6 +76,7 @@ export function layoutFor(viewport: Viewport): Layout {
  * - "Your turn" meets none of the partner's or side slots (my own it may: Ruling E);
  * - where a fine pointer lifts a hovered hand card (tablet, desktop), the lifted card meets none of the partner's or
  *   side slots (my own it may: Ruling P, as Ruling E: the lift shows only on enabled cards, on my turn);
+ * - the piles meet no fan of 7 backs (a pile draws nothing until a trick is taken, and by then a seat holds 7 at most);
  * - the seats' columns (`seatBoxes`, whichever team's declared cards show) meet none of the HUD's boxes, my hand's
  *   exposed strips, nor each other.
  * Not checked, by design (spec §5): the bid panel, the declaration moment's panel, the challenge banner, the Bela
@@ -193,6 +194,19 @@ function walk(layout: Layout, found: string[] | null): boolean {
     for (const { position, box } of slots) {
         for (const other of others) {
             if (meets(box, other.box) && miss(() => `slot ${position} ${show(box)} meets ${other.name} ${show(other.box)} by ${by(box, other.box)}`)) return false;
+        }
+    }
+
+    // the piles off every fan of 7 backs. A pile draws nothing until it holds a trick (Piles.tsx: no cards and
+    // no count at 0), and once a trick is taken every seat holds 7 cards at most: a full fan of 8 never meets a drawn pile
+    for (const team of ['A', 'B'] as const) {
+        const pile = boundsOf(targets.piles[team]);
+        for (const position of OPPONENTS) {
+            const backs = fanPlaces(layout, position, 7);
+            for (let i = 0; i < backs.length; i++) {
+                const back = boundsOf(backs[i]);
+                if (meets(pile, back) && miss(() => `pile ${team} ${show(pile)} meets ${position}'s back ${i} of 7 ${show(back)} by ${by(pile, back)}`)) return false;
+            }
         }
     }
 

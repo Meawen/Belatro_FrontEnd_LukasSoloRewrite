@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renderBoard, tableState } from './testing'
 import { declaredStep } from './seatSpot'
-import { fanPlaces, handPlaces, trickSlots } from './model/cardTargets'
+import { fanPlaces, fanStepOf, handPlaces, trickSlots } from './model/cardTargets'
 import { layoutFor } from './model/fit'
 import { find, indexOf, playTable } from '../../test/fixtures/views/table'
 import { box, hull, overlap } from '../../test/fixtures/layouts'
@@ -95,9 +95,12 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
                     expect(px(dave, 'top') + 33, where).toBeCloseTo(fan.y0 - 6, 9)
                     expect(px(dave, 'top') + px(under, 'top'), where).toBeCloseTo(Math.max(fan.y1, slot.y1) + 6, 9)
                 } else {
-                    // the column beside the fan's inner side from its top: the plate, its timer bar, then the chips and cards
+                    // the column beside the fan's inner side from its top: the plate, its timer bar, then the chips and cards;
+                    // its top where a fan at the partner's step would start (on desktops the side fans step closer, 12 per 71)
+                    const column = hull(fanPlaces(layout, 'right', 8, fanStepOf(layout)).map(box))
                     expect(px(dave, 'left'), where).toBeCloseTo(fan.x0 - 6, 9)
-                    expect(px(dave, 'top'), where).toBeCloseTo(fan.y0, 9)
+                    expect(px(dave, 'top'), where).toBeCloseTo(column.y0, 9)
+                    expect(fan.y0, where).toBeGreaterThanOrEqual(column.y0 - 1e-9)
                     expect(px(under, 'top'), where).toBe(26 + 4 + 3 + 4)
                 }
                 expect(dave.style.transform, where).toBe('translateX(-100%)')

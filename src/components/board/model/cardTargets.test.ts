@@ -161,6 +161,10 @@ describe('distances scale with the card size (board-fit spec §3.3, §3.5)', () 
         const big = at(2560, 1300, 1, 'desktop', 213, 284)
         expect(fanStepOf(big)).toBe(48)
         expect(fanStepOf(at(1440, 900, 1, 'desktop', 71, 142))).toBe(16)
+        // desktop side fans: 12 per 47.5 px drawn, not 16, so they stay clear of my pile; the partner's keeps 16
+        expect(fanStepOf(big, 'left')).toBe(36)
+        expect(fanStepOf(at(1440, 900, 1, 'desktop', 71, 142), 'right')).toBe(12)
+        expect(fanStepOf(at(960, 980, 1, 'tablet', 142, 213), 'left')).toBe(20)
         expect(fanStepOf(at(375, 812, 2, 'portrait', 71))).toBe(10)
         expect(fanStepOf(at(960, 980, 1, 'tablet', 142, 213))).toBe(20)
         // sideways the backs are drawn at .4: 38 px tall, so 8 px apart (today 10)
@@ -292,16 +296,10 @@ describe('cardTargets: everything fits (spec §5.6)', () => {
 })
 
 /**
- * Where a pile meets a fan once the pile holds a trick (every seat then holds 7 backs at most; an empty pile draws
- * nothing): the §7 windows where layoutFor's sizes leave my pile's top-right corner under the left seat's lowest backs,
- * with how far, so a change shows. Open: no ruling covers the piles' or side fans' places on wide windows yet (report).
+ * The piles and the fans (spec §5.6; board-fit spec §3.5). A pile draws nothing until it holds a trick (Piles.tsx), and
+ * once a trick is taken every seat holds 7 cards at most, so a pile is checked against fans of 7. Not a case: a full fan
+ * of 8 over my still-empty pile's place, e.g. 1440×900 @1 and @2 (4.7×7.0 px) and 1536×730 @1.25 (7.0×7.9).
  */
-const PILES_OPEN: Record<string, string[]> = {
-    '1440x900@1 142.00/213.00': ['pile A meets left by 4.2×18.2'],
-    '1440x900@2 142.00/213.00': ['pile A meets left by 4.2×18.2'],
-    '1536x730@1.25 113.60/170.40': ['pile A meets left by 6.6×16.9'],
-}
-
 describe('the piles clear the fans once a trick is taken (spec §5.6; board-fit spec §3.5)', () => {
     /** Each pile against each seat's fan of 7 backs: the widest and tallest overlap, per pile and seat. */
     function pileMeets(layout: Layout): string[] {
@@ -320,12 +318,10 @@ describe('the piles clear the fans once a trick is taken (spec §5.6; board-fit 
         return met
     }
 
-    test('at every §7 window at the sizes layoutFor picks, no pile meets a fan of 7, but for the open ones, which meet exactly what PILES_OPEN lists', () => {
-        for (const layout of seven().filter((one) => nameOf(one) !== '1280x720@1 142.00/213.00')) {
-            expect(pileMeets(layout), nameOf(layout)).toEqual(PILES_OPEN[nameOf(layout)] ?? [])
-        }
-        // only wide windows: every phone's, landscape's and the tablet's piles are clear
-        expect(Object.keys(PILES_OPEN).every((name) => seven().find((one) => nameOf(one) === name)?.kind === 'desktop')).toBe(true)
+    test('at every §7 window at the sizes layoutFor picks, no pile meets a fan of 7 backs (the desktop side fans step 12 per 71 of back, not 16)', () => {
+        for (const layout of seven().filter((one) => nameOf(one) !== '1280x720@1 142.00/213.00')) expect(pileMeets(layout), nameOf(layout)).toEqual([])
+        // with the side fans at 16 the left one met my pile there by 4.2×18.2 (1440×900) and 6.6×16.9 (1536×730)
+        expect(fanStepOf(at(1440, 900, 1, 'desktop', 142, 213), 'left')).toBe(24)
     })
 })
 

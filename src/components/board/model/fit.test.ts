@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import { fits, handStrips, kindOf, layoutFor, misfits } from './fit'
-import { bandBottom, cardSize, fanPlaces, handPlaces, layoutAt, trickSlots, type Layout, type Viewport } from './cardTargets'
+import { bandBottom, cardSize, fanPlaces, handPlaces, layoutAt, tableTargets, trickSlots, type Layout, type Viewport } from './cardTargets'
 import { desktopCandidates, floorPair, phoneCandidates } from './sizes'
 import { at, box, hull, nameOf, overlap, seven } from '../../../test/fixtures/layouts'
 
@@ -189,6 +189,19 @@ describe('fits: the trick, my hand and the seat columns at a candidate size (boa
         strips.forEach((strip) => expect(strip.y1).toBeLessThanOrEqual(664))
         expect(strips[7].x1 - strips[7].x0).toBeGreaterThan(strips[0].x1 - strips[0].x0)
         expect(strips[0].x0).toBeCloseTo(box(hand[0]).x0, 0)
+    })
+
+    test('the piles meet no fan of 7 backs (a pile draws nothing until a trick is taken, by then 7 cards a seat; a full fan of 8 over an empty pile is no case)', () => {
+        // 1024×520 @1 at 142/213: my pile under the left seat's top back of 7, among its other misses
+        const tight = at(1024, 520, 1, 'desktop', 142, 213)
+        expect(misfits(tight)).toEqual(expect.arrayContaining([expect.stringMatching(/^pile A .* meets left's back 0 of 7 .* by 4\.2×40\.2$/)]))
+        expect(fits(tight)).toBe(false)
+        // 1440×900 @1 at 142/213: the left fan of 8 would reach my pile's place by 4.7×7.0, but the pile is empty then
+        const wide = at(1440, 900, 1, 'desktop', 142, 213)
+        const pile = box(tableTargets(wide).piles.A)
+        expect(fanPlaces(wide, 'left', 8).some((back) => overlap(pile, box(back)))).toBe(true)
+        expect(fanPlaces(wide, 'left', 7).some((back) => overlap(pile, box(back)))).toBe(false)
+        expect(fits(wide)).toBe(true)
     })
 
     test('"Your turn" ([W/2 − 60, my hand\'s top − 40, 120, 26]) may meet my own slot, never the partner\'s or a side one (Ruling E)', () => {

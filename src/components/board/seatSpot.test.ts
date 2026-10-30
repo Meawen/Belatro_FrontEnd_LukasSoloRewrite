@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import { bubbleSpot, declaredStep, seatBoxes, seatSpot, type SeatSpot } from './seatSpot'
 import { EMPTY_LOCAL, boardModel, type SeatModel, type SeatPosition } from './model/boardModel'
-import { cardTargets, fanPlaces, handPlaces, hudBoxes, tableTargets, trickSlots, type Layout } from './model/cardTargets'
+import { cardTargets, fanPlaces, fanStepOf, handPlaces, hudBoxes, tableTargets, trickSlots, type Layout } from './model/cardTargets'
 import { layoutFor } from './model/fit'
 import { indexOf, playTable } from '../../test/fixtures/views/table'
 import { at, box, boxOf, hull, nameOf, overlap, seven, type Box } from '../../test/fixtures/layouts'
@@ -138,10 +138,13 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
         for (const layout of seven().filter((one) => one.kind !== 'portrait')) {
             const W = layout.board.w
             for (const position of ['left', 'right'] as const) {
-                const fan = fanOf(layout, position)
+                // the column starts where a fan at the partner's step would: on desktops the side fans step closer (12 per 71
+                // of back, not 16), so the drawn fan starts lower, still beside the column, and the column stays put
+                const fan = hull(fanPlaces(layout, position, 8, fanStepOf(layout)).map(box))
                 const spot = spotAt(layout, position)
                 const where = `${nameOf(layout)} ${position}`
                 expect(spot.top, where).toBeCloseTo(fan.y0, 9)
+                expect(fanOf(layout, position).y0, where).toBeGreaterThanOrEqual(spot.top - 1e-9)
                 expect(spot.under, where).toBe(26 + 4 + 3 + 4)
                 if (position === 'left') {
                     expect(spot.left, where).toBeCloseTo(fan.x1 + 6, 9)
