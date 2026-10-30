@@ -2,6 +2,7 @@ import type { Ladder, PlayerRank, RankKey, RatingHistory } from '../../types/use
 import { FORECAST_GAMES } from './forecastText';
 import { CAPTION_CHAR_PX, WIDE_CHART } from './ladderGeometry';
 import { placedRanks } from './rankNames';
+import { cat } from '../../i18n/t';
 
 export { FORECAST_GAMES };
 
@@ -57,8 +58,15 @@ export interface ClimbGeometry {
     labelsX: { text: string; x: number; anchor: 'start' | 'middle' | 'end'; left: number; right: number }[];
 }
 
-/** Your climb's geometry at a container width (ranks spec §8.3). `history.points` must not be empty. */
-export function climbGeometry(history: RatingHistory, width: number, { bands, nextMinRating }: { bands: ClimbBand[]; nextMinRating: number | null }): ClimbGeometry {
+/**
+ * Your climb's geometry at a container width (ranks spec §8.3). `history.points` must not be empty. `gameLabel` words an
+ * x label ("Game 57"); the labels are measured, so it must be the text shown (the catalog's at call time by default).
+ */
+export function climbGeometry(
+    history: RatingHistory,
+    width: number,
+    { bands, nextMinRating, gameLabel = (game) => cat().rank.climb.game(game) }: { bands: ClimbBand[]; nextMinRating: number | null; gameLabel?: (game: number) => string },
+): ClimbGeometry {
     const { points, pace, step, rating } = history;
     const plot = {
         left: CLIMB_PAD.left,
@@ -119,9 +127,9 @@ export function climbGeometry(history: RatingHistory, width: number, { bands, ne
         const left = anchor === 'start' ? at : anchor === 'middle' ? at - w / 2 : at - w;
         return { text, x: at, anchor, left, right: left + w };
     };
-    const currentLabel = label(`Game ${last}`, x(last), pace === null ? 'end' : 'middle');
+    const currentLabel = label(gameLabel(last), x(last), pace === null ? 'end' : 'middle');
     const labelsX: ClimbGeometry['labelsX'] = [];
-    const firstLabel = label(`Game ${g0 + 1}`, x(g0 + 1), 'start');
+    const firstLabel = label(gameLabel(g0 + 1), x(g0 + 1), 'start');
     if (g0 + 1 !== last && firstLabel.right + LABEL_GAP_PX <= currentLabel.left) labelsX.push(firstLabel);
     labelsX.push(currentLabel);
     const endLabel = label(`+${FORECAST_GAMES}`, x(gN), 'end');

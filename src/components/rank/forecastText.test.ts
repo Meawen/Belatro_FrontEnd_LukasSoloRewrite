@@ -1,6 +1,7 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, afterEach } from 'vitest'
 import { forecastLines } from './forecastText'
 import { history, rank } from '../../test/fixtures/ranks'
+import { setLang } from '../../i18n/lang'
 
 const primaryText = (lines: ReturnType<typeof forecastLines>) => (lines.primary ? lines.primary.join('') : null)
 
@@ -56,5 +57,27 @@ describe('forecastLines', () => {
 
     test('no rank (the profile has none): no target line', () => {
         expect(forecastLines(history(), undefined, null).primary).toBeNull()
+    })
+})
+
+describe('forecastLines in Croatian (open beta §1.1; rank names stay in the nominative)', () => {
+    afterEach(() => setLang('en'))
+
+    test('the lines in Croatian', () => {
+        setLang('hr')
+        const gap = forecastLines(history({ rating: 1452, pace: -2, step: 31 }), rank('GOSPON'), 'Majster')
+        expect(primaryText(gap)).toBe('148 bodova do cilja: Majster. Otprilike 5 pobjeda više nego poraza.')
+        expect(gap.primary![1]).toBe('Majster')
+        expect(primaryText(forecastLines(history({ rating: 1580, pace: -1, step: 31 }), rank('GOSPON'), 'Majster')))
+            .toBe('20 bodova do cilja: Majster. Otprilike 1 pobjeda više nego poraza.')
+        expect(primaryText(forecastLines(history({ rating: 1597, pace: 4.2 }), rank('GOSPON'), 'Majster'))).toBe('Ovim tempom: Majster za otprilike 1 partiju')
+        const pace = forecastLines(history({ rating: 1452, pace: 4.2, step: 31 }), rank('GOSPON'), 'Majster')
+        expect(primaryText(pace)).toBe('Ovim tempom: Majster za otprilike 36 partija')
+        expect(pace.primary![1]).toBe('Majster')
+        expect(pace.luck).toBe('Sama sreća može te pomaknuti za otprilike ±139 bodova kroz 20 partija.')
+        expect(primaryText(forecastLines(history({ rating: 1452, pace: 0.5 }), rank('GOSPON'), 'Majster'))).toBe('Ovim tempom Majster je dalje od 100 partija.')
+        expect(primaryText(forecastLines(history({ rating: 1846, pace: 3 }), rank('KAJKAVAC'), null))).toBe('Kajkavac: najviši rang.')
+        expect(primaryText(forecastLines(history({ games: 3, rating: 1256, pace: null, paceGames: 0 }), rank('CUCEK'), null)))
+            .toBe('Svrstavanje: 3 od 10 rangiranih partija')
     })
 })

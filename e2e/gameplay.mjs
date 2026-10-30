@@ -5,8 +5,8 @@
 // Four isolated browser contexts sign up with the invite code and optionally confirm their
 // email address from the mail in Mailpit; the fourth seat then signs out and in again through
 // the login form. Each tab checks that /play opens exactly one STOMP socket. The host creates the
-// lobby ("Create lobby", then the sheet's "Create") and lands in it, seated in Team A. Each guest
-// opens the lobby's row on /lobbies, presses the quick-look's "Join lobby" and lands in the lobby,
+// lobby ("Create table", then the sheet's "Create") and lands in it, seated in Team A. Each guest
+// opens the lobby's row on /lobbies, presses the quick-look's "Join table" and lands in the lobby,
 // then sits down: guest 1 at "Sit here, team A", guests 2 and 3 at the first "Sit here, team B",
 // each waiting until its own seat ("{username} (you), team A|B") shows and no seat is busy. The
 // host presses "Start match"; the three guests are never sent to /game by URL: they follow the
@@ -432,7 +432,7 @@ async function checkLobbiesFit(pages, mobile) {
     if (!VIEWPORT) return;
     await Promise.all(pages.map(async (page) => {
         await page.goto(`${SPA}/lobbies`);
-        await page.getByRole('button', { name: 'Create lobby', exact: true }).waitFor({ timeout: 15000 });
+        await page.getByRole('button', { name: 'Create table', exact: true }).waitFor({ timeout: 15000 });
     }));
     await assertFits(pages, 'lobbies', mobile);
 }
@@ -441,9 +441,9 @@ async function formLobby(pages) {
     const [host, ...guests] = pages;
     const name = `e2e-${RUN}`;
     await host.goto(`${SPA}/lobbies`);
-    await host.getByRole('button', { name: 'Create lobby', exact: true }).click();
-    const sheet = host.getByRole('dialog', { name: 'Create lobby', exact: true });
-    await sheet.getByLabel('Lobby name', { exact: true }).fill(name);
+    await host.getByRole('button', { name: 'Create table', exact: true }).click();
+    const sheet = host.getByRole('dialog', { name: 'Create table', exact: true });
+    await sheet.getByLabel('Table name', { exact: true }).fill(name);
     await sheet.getByRole('button', { name: 'Create', exact: true }).click();
     // X-5: the host lands in the new lobby, seated in Team A
     await host.waitForURL('**/lobby/**', { timeout: 15000 });
@@ -453,7 +453,7 @@ async function formLobby(pages) {
         await guest.goto(`${SPA}/lobbies`);
         // a row is a button named "{lobby}, host {host}, {n} of 4"
         await guest.getByRole('button', { name: new RegExp(`^${escapeRegExp(name)}, host `) }).click({ timeout: 15000 });
-        await guest.getByRole('dialog', { name, exact: true }).getByRole('button', { name: 'Join lobby', exact: true }).click();
+        await guest.getByRole('dialog', { name, exact: true }).getByRole('button', { name: 'Join table', exact: true }).click();
         // D-19: the join lands in the lobby itself; leaving earlier would abort the request
         await guest.waitForURL('**/lobby/**', { timeout: 15000 });
         // the host sits in A: guest 1 takes A's other seat, guests 2 and 3 the first open B seat
@@ -856,6 +856,15 @@ async function main() {
     const browser = await chromium.launch({ headless: process.env.HEADLESS !== '0' });
     const leaks = [];
     const contexts = await Promise.all(PLAYERS.map(() => browser.newContext(VIEWPORT ? { viewport: VIEWPORT } : {})));
+    // Outside vitest the SPA opens in Croatian (open beta §1.1); this harness reads the English, so every page starts
+    // with the language stored as English (also after logInAgain clears the storage).
+    await Promise.all(contexts.map((context) => context.addInitScript(() => {
+        try {
+            localStorage.setItem('stiglja:lang', 'en');
+        } catch {
+            // about:blank has no storage
+        }
+    })));
     if (XHR) {
         // SockJS takes its websocket transport whenever the browser has WebSocket; without it,
         // xhr-streaming comes next (spec R-28: both must work across origins).

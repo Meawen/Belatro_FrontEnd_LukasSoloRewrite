@@ -1,8 +1,9 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
+import { act, render, screen } from '@testing-library/react'
 import { PlayButton } from './PlayButton'
 import { useEnhancedRanked } from '../../hooks/useEnhancedRanked'
 import { ApiError } from '../../services/api'
+import { setLang } from '../../i18n/lang'
 
 vi.mock('../../hooks/useEnhancedRanked', () => ({ useEnhancedRanked: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAuthenticated: true }) }))
@@ -57,5 +58,21 @@ describe('PlayButton', () => {
         rerender(<PlayButton />)
         expect(screen.getByRole('button', { name: 'Leave Queue' })).toHaveClass('ui-btn--secondary')
         expect(screen.getByRole('button', { name: 'Leave Queue' })).toBeEnabled()
+    })
+})
+
+describe('PlayButton in Croatian (open beta §1.1, §1.4)', () => {
+    afterEach(() => setLang('en'))
+
+    test('in Croatian: the button follows the switch', () => {
+        ranked(null)
+        const { unmount } = render(<PlayButton />)
+        const button = screen.getByRole('button', { name: 'Find Match' })
+        act(() => setLang('hr'))
+        expect(button).toHaveAccessibleName('Igraj rangirano')
+        unmount()
+        ranked(new ApiError({ status: 500, message: 'Internal Server Error' }))
+        render(<PlayButton />)
+        expect(screen.getByText('Pogreška: Nešto je pošlo po zlu. Pokušaj ponovno.')).toBeInTheDocument()
     })
 })

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { TricksPlayed } from './TricksPlayed'
 import { HandHistory } from './HandHistory'
 import type { HandDTO, MatchDTO, MoveDTO, TrickDTO } from '../../types/match'
+import { setLang } from '../../i18n/lang'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -132,5 +133,28 @@ describe('Tricks played in the game history (spec §4.9 item 6)', () => {
         await userEvent.setup().click(screen.getByRole('button', { name: /^Hand 3(,|$)/ }))
         const regions = screen.getAllByRole('region').map((region) => region.getAttribute('aria-label'))
         expect(regions).toEqual(['Game history', 'Trump declarations', 'Tricks played'])
+    })
+})
+
+describe('Tricks played in Croatian (open beta §1.1)', () => {
+    afterEach(() => setLang('en'))
+
+    test('tricks in Croatian', () => {
+        setLang('hr')
+        const { container } = renderReplay()
+        const replay = screen.getByRole('region', { name: 'Odigrani štihovi' })
+        expect(within(replay).getByText('Adut: Tref')).toBeInTheDocument()
+        expect([...container.querySelectorAll('.mh-cols > *')].map((header) => header.textContent)).toEqual(
+            ['AanaTI · EKIPA A', 'CcyEKIPA B', 'BbobEKIPA A', 'DdanEKIPA B'])
+        const first = screen.getByRole('group', { name: 'Štih 1' })
+        expect(within(first).getByText('(4 karte)')).toBeInTheDocument()
+        expect(within(first).getAllByTitle('Redoslijed bacanja')).toHaveLength(4)
+        expect(within(first).getByRole('img', { name: 'Nosi štih' })).toBeInTheDocument()
+        expect(within(first).getByText('ADUT')).toBeInTheDocument()
+        const last = screen.getByRole('group', { name: 'Štih 3' })
+        expect(within(last).getByText('(2 karte)')).toBeInTheDocument()
+        expect(within(last).getByText('NEPOTPUN ŠTIH (DIJELJENJE JE GOTOVO)')).toBeInTheDocument()
+        const illegal = within(screen.getByRole('group', { name: 'Štih 2' })).getByText('PREKRŠAJ')
+        expect(illegal.closest('.ui-tag')).toHaveAttribute('title', 'Ova je karta prekršila pravila. Vrijedila je ako je nitko nije prijavio.')
     })
 })

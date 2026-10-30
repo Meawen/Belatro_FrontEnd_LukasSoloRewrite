@@ -7,6 +7,7 @@ import { MatchHistory } from './MatchHistory'
 import { MatchDetailsPage } from '../../pages/MatchDetailsPage'
 import { apiClient, ApiError } from '../../services/api'
 import type { HandDTO, HandSummary, MatchDTO } from '../../types/match'
+import { setLang } from '../../i18n/lang'
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', username: 'ana' } }) }))
 
@@ -147,7 +148,7 @@ describe('Match details (spec §4.9 items 1–4, 8, 9)', () => {
         expect(within(hero).getByText('Players').parentElement).toHaveTextContent('4 Players')
         expect(document.title).toBe('Match details · Stiglja')
         // opened without a list page in its state: back to page 1
-        expect(screen.getByRole('link', { name: 'Match History' })).toHaveAttribute('href', '/matches')
+        expect(screen.getByRole('link', { name: 'Matches' })).toHaveAttribute('href', '/matches')
         expect(container.innerHTML).not.toMatch(RAW_PALETTE)
     })
 
@@ -206,7 +207,7 @@ describe('Match details (spec §4.9 items 1–4, 8, 9)', () => {
         serve({})
         renderAt(MATCH_URL)
         expect(await screen.findByText('Match data is not available')).toBeInTheDocument()
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Back to Match History' }))
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Back to Matches' }))
         expect(screen.getByTestId('where')).toHaveTextContent(/^\/matches null$/)
     })
 
@@ -219,13 +220,13 @@ describe('Match details (spec §4.9 items 1–4, 8, 9)', () => {
         const user = userEvent.setup()
         await user.click(await screen.findByRole('link', { name: /Victory/ }))
         await screen.findByTestId('final-a')
-        expect(screen.getByRole('link', { name: 'Match History' })).toHaveAttribute('href', '/matches?page=2')
-        await user.click(screen.getByRole('link', { name: 'Match History' }))
+        expect(screen.getByRole('link', { name: 'Matches' })).toHaveAttribute('href', '/matches?page=2')
+        await user.click(screen.getByRole('link', { name: 'Matches' }))
         expect(await screen.findByText('Page 2')).toBeInTheDocument()
         expect(screen.getByTestId('where')).toHaveTextContent('/matches?page=2')
 
         await user.click(await screen.findByRole('link', { name: /Victory/ }))
-        await user.click(await screen.findByRole('button', { name: 'Back to Match History' }))
+        await user.click(await screen.findByRole('button', { name: 'Back to Matches' }))
         expect(await screen.findByText('Page 2')).toBeInTheDocument()
         expect(screen.getByTestId('where')).toHaveTextContent('/matches?page=2')
     })
@@ -265,5 +266,53 @@ describe('Match details hands (spec §4.9 items 5, 7, States)', () => {
         await userEvent.setup().click(within(alert).getByRole('button', { name: 'Try again' }))
         expect(await screen.findByRole('heading', { name: 'Game history (2 hands)' })).toBeInTheDocument()
         expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+})
+
+describe('Match details in Croatian (open beta §1.1, §1.4)', () => {
+    afterEach(() => setLang('en'))
+
+    test('the match in Croatian, its result rebuilt from the parse', async () => {
+        setLang('hr')
+        serve(details('Team B wins 870–1001'))
+        renderAt(MATCH_URL)
+        await screen.findByTestId('final-a')
+        const h1 = screen.getByRole('heading', { level: 1 })
+        expect(h1).toHaveTextContent(/^PORAZ$/)
+        expect(document.title).toBe('Detalji partije · Stiglja')
+        const hero = h1.closest('section')!
+        expect(within(hero).getByText('ID partije: f70ffc4dfa74')).toBeInTheDocument()
+        expect(within(hero).getByText('RANGIRANO')).toBeInTheDocument()
+        expect(within(hero).getByText('igrača').parentElement).toHaveTextContent('4 igrača')
+        const tile = (label: string) => screen.getByText(label, { selector: 'dt' }).nextElementSibling
+        expect(tile('Trajanje')).toHaveTextContent(/^40:00$/)
+        expect(tile('Vrsta')).toHaveTextContent(/^RANGIRANO$/)
+        expect(tile('Dijeljenja')).toHaveTextContent(/^2$/)
+        expect(tile('Štihovi')).toHaveTextContent(/^13$/)
+        const teamA = screen.getByRole('region', { name: 'Ekipa A' })
+        expect(within(teamA).getByText('2 člana')).toBeInTheDocument()
+        expect(within(teamA).getByText('ana').parentElement).toHaveTextContent('TI')
+        const panel = screen.getByRole('region', { name: 'Sažetak partije' })
+        expect(within(panel).getByText('Ekipa B je pobijedila 870–1001')).toBeInTheDocument()
+        expect(within(panel).queryByText(/Team B wins/)).not.toBeInTheDocument()
+        expect(within(panel).getByText('Ekipa A ukupno')).toBeInTheDocument()
+        expect(within(panel).getByText('40 od zvanja')).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Zapisnik' })).toHaveAttribute('href', '/matches')
+        expect(screen.getByRole('button', { name: 'Natrag u Zapisnik' })).toBeInTheDocument()
+    })
+
+    test('a belot and a forfeit in Croatian', async () => {
+        setLang('hr')
+        serve(details('Team A wins 1001–420 by belot'))
+        const { unmount } = renderAt(MATCH_URL)
+        await screen.findByTestId('final-a')
+        const note = within(screen.getByRole('region', { name: 'Sažetak partije' })).getByText('Pobjeda belotom')
+        expect(note.nextElementSibling).toHaveTextContent(/^Ekipa A je pobijedila 1001–420 belotom$/)
+        unmount()
+
+        serve(details('Team B wins by forfeit'))
+        renderAt(MATCH_URL)
+        expect(await screen.findByText('Pobjeda predajom')).toBeInTheDocument()
+        expect(screen.getByText('Ekipa B je pobijedila predajom')).toBeInTheDocument()
     })
 })

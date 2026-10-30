@@ -1,8 +1,9 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { RecentForm } from './RecentForm'
 import { formLine, recentForm } from './recentFormModel'
 import type { PlayerMatchSummaryDTO } from '../../types/user'
+import { setLang } from '../../i18n/lang'
 
 // Tailwind's own colour scale (bg-emerald-900, text-red-300, …): the design uses tokens only (spec §3.2)
 const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange|teal|pink)-\d/
@@ -47,5 +48,23 @@ describe('RecentForm (spec §4.9; D-30)', () => {
     test('a page without a known outcome shows no strip', () => {
         const { container } = render(<RecentForm summaries={page(null)} />)
         expect(container).toBeEmptyDOMElement()
+    })
+})
+
+describe('RecentForm in Croatian (open beta §1.1)', () => {
+    afterEach(() => setLang('en'))
+
+    test('formLine in Croatian, three forms', () => {
+        setLang('hr')
+        expect(formLine(recentForm(page('WIN', 'WIN', 'LOSS')))).toBe('2 pobjede · 1 poraz na ovoj stranici · niz: 2 pobjede')
+        expect(formLine(recentForm(page('LOSS', 'WIN', 'WIN', 'LOSS')))).toBe('2 pobjede · 2 poraza na ovoj stranici · niz: 1 poraz')
+        expect(formLine(recentForm(page('DRAW', 'WIN')))).toBe('1 pobjeda · 0 poraza na ovoj stranici')
+        expect(formLine(recentForm(page('WIN', 'WIN', 'WIN', 'WIN', 'WIN')))).toBe('5 pobjeda · 0 poraza na ovoj stranici · niz: 5 pobjeda')
+
+        render(<RecentForm summaries={page('LOSS', 'WIN', 'DRAW', 'WIN')} />)
+        const strip = screen.getByRole('region', { name: 'Zadnji rezultati' })
+        const squares = within(strip).getAllByRole('listitem')
+        expect(squares.map((square) => square.textContent)).toEqual(['I', 'P', 'N', 'P'])
+        expect(squares.map((square) => square.title)).toEqual(['Poraz', 'Pobjeda', 'Neriješeno', 'Pobjeda'])
     })
 })

@@ -4,6 +4,7 @@ import { ChartTooltip } from './ChartTooltip';
 import { climbGeometry, type ClimbBand } from './climbGeometry';
 import { rankColour } from './rankNames';
 import { useElementWidth } from './useElementWidth';
+import { useT } from '../../i18n/t';
 
 export interface ClimbChartProps {
     /** At least one point. */
@@ -20,7 +21,9 @@ export interface ClimbChartProps {
 export function ClimbChart({ history, bands, nextMinRating }: ClimbChartProps) {
     const ref = useRef<HTMLDivElement>(null);
     const width = useElementWidth(ref);
-    const g = useMemo(() => climbGeometry(history, width, { bands, nextMinRating }), [history, width, bands, nextMinRating]);
+    const t = useT();
+    const gameLabel = t.rank.climb.game;
+    const g = useMemo(() => climbGeometry(history, width, { bands, nextMinRating, gameLabel }), [history, width, bands, nextMinRating, gameLabel]);
     const [active, setActive] = useState<number | null>(null);
     const baseline = g.plot.top + g.plot.height;
 
@@ -28,14 +31,14 @@ export function ClimbChart({ history, bands, nextMinRating }: ClimbChartProps) {
     if (active !== null) {
         if (active <= g.last) {
             const point = g.line.find((p) => p.game === active) ?? g.line[0];
-            const label = active === g.g0 ? (g.g0 === 0 ? 'Start' : `Game ${g.g0}`) : `Game ${active}`;
+            const label = active === g.g0 ? (g.g0 === 0 ? t.rank.climb.start : gameLabel(g.g0)) : gameLabel(active);
             readout = { value: `${point.rating}`, label, x: point.x, y: point.y };
         } else if (history.pace !== null) {
             const m = active - g.last;
             const centre = history.rating + history.pace * m;
             readout = {
-                value: `about ${Math.round(centre)} ± ${Math.round(history.step * Math.sqrt(m))}`,
-                label: m === 1 ? 'In 1 game' : `In ${m} games`,
+                value: t.rank.climb.about(Math.round(centre), Math.round(history.step * Math.sqrt(m))),
+                label: t.rank.climb.inGames(m),
                 x: g.x(active),
                 y: g.y(centre),
             };
@@ -68,7 +71,7 @@ export function ClimbChart({ history, bands, nextMinRating }: ClimbChartProps) {
         <div ref={ref} className="relative w-full">
             <div
                 role="group"
-                aria-label="Your climb: rating over your ranked games"
+                aria-label={t.rank.climb.chart}
                 tabIndex={0}
                 onKeyDown={onKeyDown}
                 onBlur={() => setActive(null)}
@@ -145,17 +148,17 @@ export function ClimbChart({ history, bands, nextMinRating }: ClimbChartProps) {
                 {readout ? `${readout.label}: ${readout.value}` : ''}
             </p>
             <table className="sr-only">
-                <caption>Your rating after each ranked game</caption>
+                <caption>{t.rank.climb.caption}</caption>
                 <thead>
                     <tr>
-                        <th scope="col">Game</th>
-                        <th scope="col">Rating</th>
+                        <th scope="col">{t.rank.climb.gameColumn}</th>
+                        <th scope="col">{t.rank.rating}</th>
                     </tr>
                 </thead>
                 <tbody>
                     {history.points.map((point) => (
                         <tr key={point.game}>
-                            <td>Game {point.game}</td>
+                            <td>{gameLabel(point.game)}</td>
                             <td>{point.rating}</td>
                         </tr>
                     ))}

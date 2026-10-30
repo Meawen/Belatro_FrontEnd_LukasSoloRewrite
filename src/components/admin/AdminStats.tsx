@@ -4,6 +4,8 @@ import { useAllMatches } from '../../hooks/useMatch';
 import { useLobbies } from '../../hooks/useLobby';
 import { useAdmin } from '../../hooks/useAdmin';
 import type { UserDto } from '../../types/user';
+import { useT } from '../../i18n/t';
+import { formatNumber } from '../../i18n/format';
 
 export const AdminStats: React.FC = () => {
     const { matches, isLoading: matchesLoading } = useAllMatches();
@@ -11,9 +13,10 @@ export const AdminStats: React.FC = () => {
     // X-7: the open lobbies (GET /lobbies/open); the hook's `lobbies` is the all-lobbies query, which never runs here
     const { openLobbies, isLoading: lobbiesLoading } = useLobbies();
     const headingId = useId();
+    const t = useT();
 
     if (matchesLoading || adminUsersLoading || lobbiesLoading) {
-        return <Loader text="Loading statistics..." />;
+        return <Loader text={t.admin.stats.loading} />;
     }
 
     // matches for game stats, adminUsers for admin-specific stats
@@ -26,16 +29,16 @@ export const AdminStats: React.FC = () => {
     const totalMatches = Array.isArray(matches) ? matches.length : 0;
 
     const stats: { label: string; value: number; icon: IconName }[] = [
-        { label: 'Total Users', value: totalUsers, icon: 'people' },
-        { label: 'Total Matches', value: totalMatches, icon: 'cards' },
-        { label: 'Active Lobbies', value: activeLobbies, icon: 'list' },
-        { label: 'Pending Deletions', value: pendingDeletions, icon: 'trash' },
+        { label: t.admin.stats.users, value: totalUsers, icon: 'people' },
+        { label: t.admin.stats.matches, value: totalMatches, icon: 'cards' },
+        { label: t.admin.stats.tables, value: activeLobbies, icon: 'list' },
+        { label: t.admin.stats.deletions, value: pendingDeletions, icon: 'trash' },
     ];
 
     return (
         <section aria-labelledby={headingId} className="flex flex-col gap-3">
             <h2 id={headingId} className="t-title">
-                System Statistics
+                {t.admin.stats.title}
             </h2>
             <dl className="grid grid-cols-2 gap-2 lg:grid-cols-4">
                 {stats.map((stat) => (
@@ -43,7 +46,7 @@ export const AdminStats: React.FC = () => {
                         <PixelIcon name={stat.icon} scale={3} className="shrink-0 text-text-3" />
                         <div className="flex min-w-0 flex-col-reverse">
                             <dt className="t-caption text-text-2">{stat.label}</dt>
-                            <dd className="t-score tabular-nums">{stat.value.toLocaleString()}</dd>
+                            <dd className="t-score tabular-nums">{formatNumber(stat.value)}</dd>
                         </div>
                     </Panel>
                 ))}

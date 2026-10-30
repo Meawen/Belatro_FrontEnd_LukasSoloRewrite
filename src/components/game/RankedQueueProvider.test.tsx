@@ -9,6 +9,7 @@ import { QueueStatus } from './QueueStatus'
 import { rankedService } from '../../services/rankedService'
 import { ApiError } from '../../services/api'
 import { captureConsole } from '../../test/captureConsole'
+import { setLang } from '../../i18n/lang'
 
 // The tab's socket, faked: frames are delivered by hand and holders are counted.
 const socket = vi.hoisted(() => {
@@ -267,5 +268,22 @@ describe('Match found sheet (spec §4.5; X-4; US-21)', () => {
         })
         expect(screen.getByText('Auto-accepting in 10 seconds...')).toBeInTheDocument()
         expect(bar).toHaveStyle({ transform: `scaleX(${10 / 15})` })
+    })
+})
+
+describe('Match found in Croatian (open beta §1.1)', () => {
+    afterEach(() => setLang('en'))
+
+    test('the sheet in Croatian: both teams, you marked, the countdown, Accept and Decline', () => {
+        setLang('hr')
+        renderApp('/profile')
+        act(() => socket.deliver(MATCH_FOUND, match('m1')))
+        const dialog = screen.getByRole('dialog', { name: 'Partija je pronađena' })
+        expect(within(dialog).getByRole('region', { name: 'Ekipa A' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('region', { name: 'Ekipa B' })).toBeInTheDocument()
+        expect(within(dialog).getAllByText('TI')).toHaveLength(1)
+        expect(within(dialog).getByText('Automatski prihvaćamo za 15 sekundi…')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Prihvati partiju' })).toHaveFocus()
+        expect(within(dialog).getByRole('button', { name: 'Odbij' })).toBeInTheDocument()
     })
 })

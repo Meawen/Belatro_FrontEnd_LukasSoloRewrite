@@ -64,6 +64,22 @@ export const en = {
             pageOf: (page: number, count: number) => `Page ${page} of ${count}`,
             page: (page: number) => `Page ${page}`,
         },
+        // a retry after a failed load: Tables, a table, Matches, a match's hands, your climb, the ladder
+        retry: 'Try again',
+        // any missing value: a name, a mode, a result, a date, a duration
+        unknown: 'Unknown',
+        // a missing match id or email address
+        notAvailable: 'N/A',
+        // the label of a list's order: Tables, the admin's users
+        sortBy: 'Sort by',
+        // you, as a tag or a name: your seat, the ladder's marker, your row in the admin list, a declarations line
+        you: 'You',
+        // you, in the upper-case tags: Match found, a match's teams and tricks
+        youCaps: 'YOU',
+        // a team's name: "Team A"
+        team: (team: string) => `Team ${team}`,
+        // a team's name in the upper-case tags: "TEAM A"
+        teamCaps: (team: string) => `TEAM ${team}`,
     },
     // the main navigation: the sidebar and the phone tab bar (each destination's name is its page title, titles.*)
     nav: {
@@ -396,16 +412,492 @@ export const en = {
         // the Log out panel at the bottom of the page
         signedInAs: (username: string) => `Signed in as ${username}`,
     },
-    // a table's room (/lobby/:id); S4 extends it
+    // Tables (/lobbies): the list of open tables, a row's quick-look, and the Create table sheet
+    tables: {
+        // the page's line under its title
+        open: (n: number) => `${n} ${plural(n, { one: 'table', other: 'tables' }, 'en')} open`,
+        // the page's button and the create sheet's title
+        create: 'Create table',
+        loadFailed: "Couldn't load the tables",
+        loading: 'Loading tables…',
+        // the search box's name
+        search: 'Search tables',
+        // the "Sort by" choices
+        sort: {
+            newest: 'Newest',
+            name: 'Name',
+            players: 'Most players',
+        },
+        // a failed poll while the last good list stays on screen
+        pollFailed: "Couldn't refresh — showing the last list",
+        // no open table, and a search that finds none
+        empty: 'No open tables.',
+        emptyBody: 'Create one and invite friends.',
+        noMatch: 'No tables match your search.',
+        // the list's name, for screen readers
+        list: 'Open tables',
+        // a row's host line, also in its spoken name: "host mira_z"
+        host: (name: string) => `host ${name}`,
+        // a host without a username
+        unknownHost: 'unknown',
+        // the lock tag on a row, the quick-look's privacy line, the room's chip
+        private: 'Private',
+        // a row's tags
+        full: 'Full',
+        youreIn: "You're in",
+        // how a row's spoken name ends: "…, private, you're in"
+        rowPrivate: 'private',
+        rowYoureIn: "you're in",
+        // people of the cap: "2 of 4"
+        count: (people: number, cap: number) => `${people} of ${cap}`,
+        // the bots after the count: "2 of 4 · 2 bots"
+        bots: (n: number) => `${n} ${plural(n, { one: 'bot', other: 'bots' }, 'en')}`,
+        // a table without a name
+        unnamed: 'Unnamed Table',
+        // the quick-look: the table has left the list since it opened
+        gone: 'This table is no longer open',
+        // the quick-look's host line, and the host's tag on a seat
+        hostLabel: 'Host',
+        // the quick-look's age line: "Created 5 minutes ago"
+        created: (ago: string) => `Created ${ago}`,
+        public: 'Public',
+        // the quick-look's way in for a member
+        enter: 'Go to table',
+        // the quick-look's disabled button at a table of four people
+        fullButton: 'Table full',
+        // the create sheet's switch, and the title of the password sheet in a table's room
+        privateTable: 'Private table',
+        // the Create table sheet (CreateLobbySheet)
+        form: {
+            nameLabel: 'Table name',
+            namePlaceholder: 'Enter table name...',
+            nameRequired: 'Table name is required',
+            casual: "Table games are casual: they don't change your rating.",
+            // under the private switch
+            privateHelper: 'Private tables require a password to join',
+            passwordRequired: 'Password is required for private tables',
+            passwordPlaceholder: 'Enter table password...',
+            submit: 'Create',
+            // a refusal without a reason
+            failed: 'Failed to create table',
+        },
+    },
+    // a table's room (/lobby/:id): its seats, its sheets and its action bar
     table: {
         // a failed refresh while the last good table stays on screen
         refreshFailed: (reason: string) => `Could not refresh the table: ${reason}`,
         // the reason when there is none
         unknownError: 'unknown error',
+        // a bot request with no usable answer (no answer, or a 5xx)
+        botsUnavailable: "Bots aren't available right now. Try again later.",
+        // a member following the started match into the game, when that fails
+        followFailed: (reason: string) => `Could not open the match: ${reason}`,
+        loading: 'Loading table...',
+        // the end of a table for you: closed, or the host removed you
+        closed: 'This table was closed.',
+        removed: 'You were removed from this table.',
+        // a failed first load, and its reason when there is none
+        loadFailed: "Couldn't load this table",
+        loadFailedBody: 'Failed to load table',
+        // the way back to the list
+        backToTables: 'Back to tables',
+        // the invite link: the toast after a copy, and its buttons (the header's and the host's options)
+        inviteCopied: 'Invite link copied',
+        copyInvite: 'Copy invite link',
+        // the host's button under the table
+        fill: 'Fill with bots',
+        // what a seat says while its request runs
+        busy: {
+            joining: 'Joining…',
+            switching: 'Switching…',
+            adding: 'Adding…',
+            filling: 'Filling with bots…',
+            removing: 'Removing…',
+        },
+        // a request at the table that failed without a reason of its own
+        failed: {
+            switch: 'Failed to switch team',
+            addBot: 'Failed to add a bot',
+            fill: 'Failed to fill with bots',
+            removeBot: 'Failed to remove the bot',
+            join: 'Failed to join table',
+            start: 'Failed to start match',
+            leave: 'Failed to leave table',
+            kick: 'Failed to kick player',
+            close: 'Failed to delete table',
+        },
+        // the question before you leave
+        leaveTitle: 'Leave this table?',
+        leaveBody: 'Your seat opens for someone else.',
+        leave: 'Leave table',
+        stay: 'Stay',
+        // the host's question before removing a person
+        removeTitle: (name: string) => `Remove ${name}?`,
+        removeBody: 'They leave the table at once and can join again from the list.',
+        removeConfirm: (name: string) => `Remove ${name}`,
+        // the host's question before closing the table
+        closeTitle: 'Close this table?',
+        closeBody: 'Everyone goes back to the list.',
+        close: 'Close table',
+        // the mode chip under the title
+        ranked: 'Ranked',
+        casual: 'Casual',
+        // the members without a seat, and your own chip's suffix (" · you")
+        notSeated: 'Not seated',
+        youSuffix: 'you',
+        // the action bar: its name for screen readers, a member following the match, and its buttons
+        actions: 'Table actions',
+        opening: 'Opening the match…',
+        options: 'Table options',
+        start: 'Start match',
+        leaveShort: 'Leave',
+        join: 'Join table',
+        // your own seat's sheet (SeatSheet)
+        seatSheet: {
+            title: 'Your seat',
+            // a member, who may also leave; the host only stands up
+            bodyLeave: 'Stand up to free the seat, or leave the table.',
+            body: 'Stand up to free the seat.',
+            standUp: 'Stand up',
+        },
+        // the host's options sheet, under its title
+        optionsBody: 'Only you can see these.',
+        // an outsider's password sheet at a private table: its line and its submit
+        passwordBody: 'Enter the password the host gave you.',
+        passwordSubmit: 'Join',
+        // a seat's name for screen readers: "Sit here, team B", "ana (you), team A", "Remove Bot-Ana, team A, bot"
+        seat: {
+            team: (team: string) => `team ${team}`,
+            // an empty seat: one you can take, or not; also the seat's name plate
+            sitHere: 'Sit here',
+            open: 'Open seat',
+            you: '(you)',
+            bot: 'bot',
+            host: 'host',
+            // the host's tap on a bot's seat removes it
+            remove: (name: string) => `Remove ${name}`,
+            // a bot's tag under its name plate
+            tagBot: (team: string) => `Bot · Team ${team}`,
+        },
+        // the host's "+ Bot" chip under an empty seat: its name for screen readers, and its text
+        addBot: (team: string) => `Add a bot to team ${team}`,
+        botChip: 'Bot',
+        // the table's centre: the quick-look's "players" (and " · 1 bot"), the room's "Ready to deal" or "seated"
+        players: 'players',
+        readyToDeal: 'Ready to deal',
+        seated: 'seated',
+        // the host's reason line in the action bar
+        waitingFor: (n: number) => `Waiting for ${n} more ${plural(n, { one: 'player', other: 'players' }, 'en')}.`,
+        notSeatedYet: (name: string) => `${name} hasn't taken a seat yet.`,
+        // a member without a username
+        someone: 'Someone',
+        everyoneSeated: 'Everyone is seated.',
+        // the hint under the table
+        hint: {
+            outsider: 'You are looking at this table. Join to play.',
+            unseated: 'Pick a seat. Partners sit opposite each other.',
+            seated: 'The host starts the match when all four seats are taken.',
+            // the host's, at a public table with a bot
+            host: "Anyone who joins takes a bot's seat. To play alone, create a private table.",
+        },
+        // a member's status line in the action bar
+        onTeam: (team: string) => `You're on Team ${team}.`,
+        tapSeat: 'Tap an open seat.',
     },
-    // a match's details (/matches/:id); S4 extends it
+    // Ranked (/play): the queue, and the Match found sheet over any page
+    ranked: {
+        // the banner when a declined match sends the other three back here, still queued
+        declined: 'Match declined',
+        // the panel's eyebrow (the release gate's harness waits for the English)
+        eyebrow: 'RANKED',
+        // the panel's h1, also its name for screen readers
+        heading: 'Find a match',
+        // the queue button, by state
+        connecting: 'Connecting...',
+        joining: 'Joining Queue...',
+        leaving: 'Leaving Queue...',
+        leave: 'Leave Queue',
+        find: 'Find Match',
+        // above the button while the game socket connects, and when it fails
+        connectingServer: 'Connecting to game server...',
+        connectionError: (reason: string) => `Connection error: ${reason}`,
+        // a failure to join or leave the queue
+        error: (reason: string) => `Error: ${reason}`,
+        // while queued (QueueStatus): the line and the three tiles
+        searching: 'Finding players…',
+        inQueue: 'Players in queue',
+        wait: 'Estimated wait',
+        timeInQueue: 'Time in queue',
+        // the estimated wait: none yet, then seconds, minutes, or both
+        calculating: 'Calculating...',
+        seconds: (s: number) => `${s}s`,
+        minutes: (m: number) => `${m}m`,
+        minutesSeconds: (m: number, s: number) => `${m}m ${s}s`,
+        // the Match found sheet (MatchFoundModal); its teams are common.team
+        found: {
+            title: 'Match found',
+            autoAccept: (n: number) => `Auto-accepting in ${n} ${plural(n, { one: 'second', other: 'seconds' }, 'en')}...`,
+            accept: 'Accept Match',
+            decline: 'Decline',
+            // a refused decline without a reason
+            declineFailed: 'Could not decline the match',
+        },
+    },
+    // Matches (/matches): the list, its rows (also on Home and Profile) and the Recent form strip
+    matches: {
+        // the page's line under its title
+        count: (n: number) => `${n} ${plural(n, { one: 'match', other: 'matches' }, 'en')}`,
+        loadFailed: 'Unable to load match history',
+        loadFailedBody: 'Something went wrong while fetching your matches',
+        loading: 'Loading your match history...',
+        // a page past the last one
+        noMore: 'No more matches',
+        // no match yet, and the way to play one
+        empty: 'No matches yet',
+        emptyBody: 'Play a game and it shows up here.',
+        findGame: 'Find a game',
+        // a refresh while the list stays on screen
+        refreshing: 'Loading matches...',
+        // the pager's note on a full page: "· 10 matches per page"
+        perPage: (n: number) => `${n} ${plural(n, { one: 'match', other: 'matches' }, 'en')} per page`,
+        // your result: a row's word, a strip square's name
+        outcome: {
+            win: 'Victory',
+            loss: 'Defeat',
+            draw: 'Draw',
+        },
+        // a strip square's letter
+        letter: {
+            win: 'W',
+            loss: 'L',
+            draw: 'D',
+        },
+        // the game mode's tag; any other mode shows as the server wrote it
+        mode: {
+            RANKED: 'RANKED',
+            CASUAL: 'CASUAL',
+        },
+        // a row's score when the match was forfeited
+        forfeit: 'Forfeit',
+        // a row's date: today with its time, yesterday, days ago; after a week the day and month
+        today: (time: string) => `Today ${time}`,
+        yesterday: 'Yesterday',
+        daysAgo: (n: number) => `${n}d ago`,
+        // the Recent form strip (RecentForm)
+        form: {
+            // its name for screen readers, and its heading
+            label: 'Recent form',
+            // the squares, for screen readers
+            order: 'Most recent first',
+            // "2 wins · 1 loss on this page", then " · won the last 2"
+            line: (wins: number, losses: number) =>
+                `${wins} ${plural(wins, { one: 'win', other: 'wins' }, 'en')} · ${losses} ${plural(losses, { one: 'loss', other: 'losses' }, 'en')} on this page`,
+            won: (n: number) => `won the last ${n}`,
+            lost: (n: number) => `lost the last ${n}`,
+        },
+    },
+    // a match's details (/matches/:id), its hands and their tricks
     matchDetails: {
         handsLoadFailed: "Couldn't load the hands",
+        // the hero's h1: your result, when the match names your team
+        you: {
+            win: 'WIN',
+            loss: 'LOSS',
+        },
+        // the h1 of a match without a result
+        unknownResult: 'Unknown Result',
+        // a result rebuilt from the server's (spec §1.1): the English is the server's own sentence; a result that
+        // doesn't parse shows as the server wrote it
+        result: {
+            wins: (team: string, a: number, b: number) => `Team ${team} wins ${a}–${b}`,
+            byBelot: (team: string, a: number, b: number) => `Team ${team} wins ${a}–${b} by belot`,
+            byForfeit: (team: string) => `Team ${team} wins by forfeit`,
+        },
+        // the hero's id line, and the word beside its count of players
+        matchId: (id: string) => `Match ID: ${id}`,
+        players: (n: number) => plural(n, { one: 'Player', other: 'Players' }, 'en'),
+        // the stat tiles
+        tile: {
+            duration: 'Duration',
+            mode: 'Mode',
+            hands: 'Hands',
+            tricks: 'Tricks',
+        },
+        // a team's panel, under its name
+        members: (n: number) => `${n} ${plural(n, { one: 'member', other: 'members' }, 'en')}`,
+        // the Match summary: each team's final score and its declarations ("40 decl"), a forfeit or a belot
+        final: (team: string) => `Team ${team} Final`,
+        decl: (n: number) => `${n} decl`,
+        wonByForfeit: 'Won by forfeit',
+        wonByBelot: 'Won by belot',
+        summary: 'Match summary',
+        // the raw moves of a match without structured hands: its name, its heading and its columns
+        movesLabel: 'Game moves',
+        moves: (n: number) => `Game moves (${n})`,
+        order: 'Order',
+        player: 'Player',
+        card: 'Card',
+        // the hands: their section's name, and its heading "Game history (2 hands)"
+        history: 'Game history',
+        handCount: (n: number) => `${n} ${plural(n, { one: 'hand', other: 'hands' }, 'en')}`,
+        // the page's states and its way back
+        loading: 'Loading match…',
+        loadFailed: "Couldn't load this match",
+        notAvailable: 'Match data is not available',
+        backToList: 'Back to Matches',
+        // a passed bid's chip (§1.4 Dalje)
+        pass: 'PASS',
+        // an open hand's summary: its name and heading, each team's points, the counts, and its tags
+        handSummary: 'Hand summary',
+        teamPoints: (team: string, points: number) => `Team ${team}: ${points} pts`,
+        tricksCount: (n: number) => `Tricks: ${n}`,
+        callsCount: (n: number) => `Trump calls: ${n}`,
+        capot: 'CAPOT',
+        awarded: 'HAND AWARDED (PADANJE)',
+        // a hand's row: its tags and its name
+        padanje: 'PADANJE',
+        illegal: (n: number) => `${n} ILLEGAL`,
+        hand: (n: number) => `Hand ${n}`,
+        // the declarations line under a hand's summary: its name, then what the table heard
+        zvanja: {
+            label: 'Declarations',
+            none: 'Declarations: none.',
+            // "Declarations: ivo 20 (up to Baba), mara –. Team B scores 20."
+            said: (list: string, team: string, total: number) => `Declarations: ${list}. Team ${team} scores ${total}.`,
+            // "Belot: cy held all eight Pik."
+            belot: (text: string) => `Belot: ${text}.`,
+        },
+        // an open hand's bids, and its challenges with how each went
+        calls: 'Trump declarations',
+        challenges: 'Challenges',
+        challengeBy: 'Challenge by',
+        challengeHeld: 'SUCCESS',
+        challengeFailed: 'FAIL',
+        // Tricks played (TricksPlayed): an illegal card's tooltip, a cell's badges, the section, its tricks and legend
+        illegalHint: 'This card broke the rules. It stood unless a challenge caught it.',
+        playOrder: 'Play order',
+        wonTrick: 'Won the trick',
+        trumpTag: 'TRUMP',
+        illegalTag: 'ILLEGAL',
+        tricksPlayed: 'Tricks played',
+        trump: (suit: string) => `Trump: ${suit}`,
+        trick: (n: number) => `Trick ${n}`,
+        cardCount: (n: number) => `${n} ${plural(n, { one: 'card', other: 'cards' }, 'en')}`,
+        partial: 'PARTIAL TRICK (HAND ENDED)',
+        legend: 'Columns are players in seat order. The number is the order the card was played; the crown marks the trick’s winner; trumps carry a ring and a chip in the trump suit’s colour.',
+    },
+    // ranks: the profile header's rank (RankBlock), your climb on your Profile, the ladder above the leaderboard;
+    // rank names and taglines are the server's and stay as they are (spec §1.3)
+    rank: {
+        // the next rank when the ladder hasn't named it
+        next: 'the next rank',
+        // a placement rank's count (RankBlock, your climb)
+        placement: (played: number, total: number) => `Placement: ${played} of ${total} ranked games`,
+        // your climb at the top rank, and RankBlock's line there
+        top: (name: string) => `${name}: the top rank.`,
+        topRank: 'Top rank',
+        // RankBlock: "110 to Gospon", and its progress bar's name
+        toNext: (gap: number, next: string) => `${gap} to ${next}`,
+        progressTo: (next: string) => `Progress to ${next}`,
+        // the lines under your climb (the rank's name goes between the pieces, in bold)
+        forecast: {
+            luck: (points: number, games: number) => `Luck alone can move you about ±${points} points over ${games} games.`,
+            far: (next: string, games: number) => `${next} is more than ${games} games away at this pace.`,
+            // "At this pace: **Majster** in about 36 games"
+            atPace: 'At this pace:',
+            inAbout: (n: number) => `in about ${n} ${plural(n, { one: 'game', other: 'games' }, 'en')}`,
+            // "148 points to **Majster**: about 5 more wins than losses."
+            gapBefore: (gap: number) => `${gap} points to`,
+            gapAfter: (wins: number) => `: about ${wins} more ${plural(wins, { one: 'win', other: 'wins' }, 'en')} than losses.`,
+        },
+        // your climb (ClimbPanel, ClimbChart): the section, its states, the chart's name, its readout and its table
+        climb: {
+            title: 'Your climb',
+            loadFailed: "Couldn't load your climb.",
+            loading: 'Loading your climb…',
+            empty: 'Your climb starts with your first ranked game.',
+            chart: 'Your climb: rating over your ranked games',
+            // the readout before the first game
+            start: 'Start',
+            // the readout and the axis: "Game 57"
+            game: (n: number) => `Game ${n}`,
+            // the forecast's readout: "about 1480 ± 38", "In 3 games"
+            about: (centre: number, spread: number) => `about ${centre} ± ${spread}`,
+            inGames: (n: number) => `In ${n} ${plural(n, { one: 'game', other: 'games' }, 'en')}`,
+            // the hidden table for screen readers
+            caption: 'Your rating after each ranked game',
+            gameColumn: 'Game',
+        },
+        // a column of the hidden tables under both charts
+        rating: 'Rating',
+        // the ladder (LadderPanel, LadderChart): the panel, its states, your place, the legend and the chart
+        ladder: {
+            title: 'The ladder',
+            loadFailed: "Couldn't load the ladder.",
+            loading: 'Loading the ladder…',
+            fillsIn: 'The ladder fills in as players finish their first 10 ranked games.',
+            ahead: (percent: number) => `Ahead of ${percent}% of ranked players`,
+            toJoin: (n: number) => `Play ${n} more ranked ${plural(n, { one: 'game', other: 'games' }, 'en')} to join the ladder.`,
+            perRank: 'Players per rank',
+            placing: (n: number) => `${n} ${plural(n, { one: 'player still placing', other: 'players still placing' }, 'en')}`,
+            // beside the title
+            players: (n: number) => `${n} ${plural(n, { one: 'ranked player', other: 'ranked players' }, 'en')}`,
+            chart: 'The ladder: players by rating',
+            // a bar's readout
+            playerCount: (n: number) => `${n} ${plural(n, { one: 'player', other: 'players' }, 'en')}`,
+            // the hidden tables for screen readers
+            byRating: 'Players by rating',
+            playersColumn: 'Players',
+            byRank: 'Players by rank',
+            rankColumn: 'Rank',
+        },
+    },
+    // Admin (/admin): the permission check, the statistics and the user management
+    admin: {
+        checking: 'Checking permissions...',
+        denied: 'Access Denied',
+        deniedBody: "You don't have permission to access the admin panel.",
+        // the statistics (AdminStats)
+        stats: {
+            loading: 'Loading statistics...',
+            title: 'System Statistics',
+            users: 'Total Users',
+            matches: 'Total Matches',
+            tables: 'Active Tables',
+            deletions: 'Pending Deletions',
+        },
+        // the user management (UserManagement): the list, its columns and tags, and the delete dialog
+        users: {
+            title: 'User Management',
+            found: (n: number) => `${n} ${plural(n, { one: 'user', other: 'users' }, 'en')} found`,
+            loading: 'Loading users...',
+            loadFailed: 'Error Loading Users',
+            loadFailedBody: 'Failed to load user management',
+            view: 'View',
+            delete: 'Delete',
+            // the first column, and the role of a user without one
+            user: 'User',
+            role: 'Role',
+            status: 'Status',
+            actions: 'Actions',
+            // the status tags
+            deletionRequested: 'Deletion Requested',
+            active: 'Active',
+            empty: 'No Users Found',
+            noMatch: 'No users match your search criteria.',
+            none: 'No users available.',
+            // the search box's name, for screen readers, and its placeholder
+            search: 'Search users',
+            searchPlaceholder: 'Search by username, email, or ID...',
+            failedDelete: 'Failed to delete the user',
+            // the delete dialog: "{deleteBefore} **bob**{deleteAfter}"
+            confirmTitle: 'Confirm User Deletion',
+            warning: 'Warning',
+            deleteBefore: 'Delete the account of',
+            deleteAfter: '? This cannot be undone.',
+            deleteScope: 'Deletes the user record; friendships, match history and rank history remain.',
+            deleteUser: 'Delete User',
+        },
     },
     // relative times ("5 minutes ago"), wherever a time is shown
     time: {

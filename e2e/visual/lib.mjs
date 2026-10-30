@@ -149,6 +149,8 @@ export async function openScene(browser, origin, scene, viewport, { context: ext
             window.__visualSkipAnimations = skip;
             try {
                 localStorage.setItem('stiglja:table-effects', 'off');
+                // the scenes are English: outside vitest the SPA opens in Croatian (open beta §1.1)
+                localStorage.setItem('stiglja:lang', 'en');
                 if (token) {
                     localStorage.setItem('authToken', token);
                     localStorage.setItem('user', JSON.stringify(user));

@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { lobbyService } from '../../services/lobbyService';
 import type { LobbyDTO } from '../../types/lobby';
 import { errorMessage } from '../../utils/errorMessage';
+import { cat, useT } from '../../i18n/t';
 import { LobbyTable } from './LobbyTable';
 import { createdAgo, isFull, isMember, lobbyName } from './lobbyModel';
 
@@ -33,17 +34,18 @@ function QuickLookBody({ lobby, gone, onClose }: { lobby: LobbyDTO; gone: boolea
     const [password, setPassword] = useState('');
     const [joining, setJoining] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const t = useT();
 
     const close = (
         <Button variant="quiet" onClick={onClose}>
-            Close
+            {t.common.close}
         </Button>
     );
 
     if (gone) {
         return (
             <div className="flex flex-col gap-4">
-                <p className="t-body text-text-2">This lobby is no longer open</p>
+                <p className="t-body text-text-2">{t.tables.gone}</p>
                 <div className="flex justify-end">{close}</div>
             </div>
         );
@@ -63,7 +65,7 @@ function QuickLookBody({ lobby, gone, onClose }: { lobby: LobbyDTO; gone: boolea
             await lobbyService.joinLobby(lobby.id, { lobbyId: lobby.id, password: lobby.privateLobby ? password : null });
             navigate(`/lobby/${lobby.id}`);
         } catch (e) {
-            setError(errorMessage(e, 'Failed to join lobby'));
+            setError(errorMessage(e, cat().table.failed.join));
             if (lobby.privateLobby) setPassword('');
             setJoining(false);
         }
@@ -75,36 +77,36 @@ function QuickLookBody({ lobby, gone, onClose }: { lobby: LobbyDTO; gone: boolea
             <ul className="t-callout flex flex-col gap-1 text-text-2">
                 <li className="flex items-center gap-2">
                     <PixelIcon name="crown" className="text-accent" />
-                    <span>Host</span>
-                    <strong className="font-semibold text-text">{lobby.hostUser?.username ?? 'Unknown'}</strong>
+                    <span>{t.tables.hostLabel}</span>
+                    <strong className="font-semibold text-text">{lobby.hostUser?.username ?? t.common.unknown}</strong>
                 </li>
-                {created && <li>{`Created ${created}`}</li>}
+                {created && <li>{t.tables.created(created)}</li>}
                 <li className="flex items-center gap-2">
                     {lobby.privateLobby && <PixelIcon name="lock" />}
-                    <span>{lobby.privateLobby ? 'Private' : 'Public'}</span>
+                    <span>{lobby.privateLobby ? t.tables.private : t.tables.public}</span>
                 </li>
             </ul>
 
             {member ? (
                 <div className="flex justify-end gap-2">
                     {close}
-                    <Button onClick={() => navigate(`/lobby/${lobby.id}`)}>Enter lobby</Button>
+                    <Button onClick={() => navigate(`/lobby/${lobby.id}`)}>{t.tables.enter}</Button>
                 </div>
             ) : isFull(lobby) ? (
                 <div className="flex justify-end gap-2">
                     {close}
-                    <Button disabled>Lobby full</Button>
+                    <Button disabled>{t.tables.fullButton}</Button>
                 </div>
             ) : (
                 <form onSubmit={join} className="flex flex-col gap-4">
                     {lobby.privateLobby && (
-                        <Input label="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="off" />
+                        <Input label={t.forms.password} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="off" />
                     )}
                     <ErrorAlert message={error} />
                     <div className="flex justify-end gap-2">
                         {close}
                         <Button type="submit" loading={joining} leftIcon={lobby.privateLobby ? <PixelIcon name="lock" /> : undefined}>
-                            Join lobby
+                            {t.table.join}
                         </Button>
                     </div>
                 </form>

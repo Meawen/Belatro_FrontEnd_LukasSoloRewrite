@@ -1,7 +1,8 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { RankBlock } from './RankBlock'
 import { rankedUser } from '../../test/fixtures/ranks'
+import { setLang } from '../../i18n/lang'
 
 // ranks spec §6.1: under the name, the chip, the tagline and the way to the next rank
 describe('RankBlock', () => {
@@ -58,5 +59,22 @@ describe('RankBlock', () => {
         const { container } = render(<RankBlock player={player} nextName="Gospon" />)
         expect(container.firstElementChild).toHaveClass('min-w-0')
         expect(screen.getByText(/Dober pajdaš, ki zna/)).toHaveClass('break-words')
+    })
+})
+
+describe('RankBlock in Croatian (open beta §1.1; rank names stay in the nominative)', () => {
+    afterEach(() => setLang('en'))
+
+    test('in Croatian', () => {
+        setLang('hr')
+        const first = render(<RankBlock player={rankedUser({ key: 'GOSPON', eloRating: 1400 })} nextName="Majster" />)
+        expect(screen.getByRole('progressbar', { name: 'Napredak prema cilju: Majster' })).toBeInTheDocument()
+        expect(screen.getByText('200 do cilja: Majster')).toBeInTheDocument()
+        first.unmount()
+        const second = render(<RankBlock player={rankedUser({ key: 'CUCEK', eloRating: 1236, rankedGamesPlayed: 3 })} nextName={null} />)
+        expect(screen.getByText('Svrstavanje: 3 od 10 rangiranih partija')).toBeInTheDocument()
+        second.unmount()
+        render(<RankBlock player={rankedUser({ key: 'KAJKAVAC', eloRating: 1846 })} nextName={null} />)
+        expect(screen.getByText('Najviši rang')).toBeInTheDocument()
     })
 })

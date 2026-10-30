@@ -1,6 +1,7 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, afterEach } from 'vitest'
 import { botCount, countLabel, countLine, createdAgo, filterLobbies, isBot, isFull, isMember, lobbyName, lobbyRowLabel, memberCount, membersOf, peopleCount, sortLobbies } from './lobbyModel'
 import type { LobbyDTO } from '../../types/lobby'
+import { setLang } from '../../i18n/lang'
 
 const mira = { id: 'u9', username: 'mira_z' }
 const luka = { id: 'u2', username: 'luka' }
@@ -106,7 +107,7 @@ describe('lobbyModel (spec §4.6)', () => {
         expect(ids(filterLobbies([kod, petak], 'MIRE'))).toEqual(['kod'])
         expect(ids(filterLobbies([kod, petak], 'luk'))).toEqual(['petak'])
         expect(ids(filterLobbies([kod, petak], '  '))).toEqual(['kod', 'petak'])
-        expect(lobbyName(lobby({ name: null }))).toBe('Unnamed Lobby')
+        expect(lobbyName(lobby({ name: null }))).toBe('Unnamed Table')
     })
 
     test('a row is named by its lobby, host, people and bots and privacy, and says when you are in (AC 6)', () => {
@@ -124,6 +125,26 @@ describe('lobbyModel (spec §4.6)', () => {
         expect(createdAgo('2026-10-09T19:55:00Z', now)).toBe('5 minutes ago')
         expect(createdAgo('2026-10-09T18:00:00Z', now)).toBe('2 hours ago')
         expect(createdAgo('2026-10-08T19:00:00Z', now)).toBe('1 day ago')
+        expect(createdAgo(null, now)).toBeNull()
+        expect(createdAgo('not a date', now)).toBeNull()
+    })
+})
+
+describe('lobbyModel in Croatian (open beta §1.1)', () => {
+    afterEach(() => setLang('en'))
+
+    test('in Croatian: counts, the row\'s name, an unnamed table, how long ago', () => {
+        setLang('hr')
+        expect(countLine(lobby({ teamAPlayers: [mira, ana] }))).toBe('1 od 4 · 1 bot')
+        expect(countLine(lobby({ teamAPlayers: [mira, ana], teamBPlayers: [luka, tin] }))).toBe('2 od 4 · 2 bota')
+        expect(countLine(lobby({ teamAPlayers: [mira, ana], teamBPlayers: [tin, nika] }))).toBe('1 od 4 · 3 bota')
+        expect(countLabel(lobby({ teamAPlayers: [mira, ana], teamBPlayers: [tin, nika] }))).toBe('1 od 4, 3 bota')
+        const l = lobby({ teamAPlayers: [mira, luka], teamBPlayers: [ivo], privateLobby: true })
+        expect(lobbyRowLabel(l, 'u2')).toBe('Kod Mire, domaćin mira_z, 3 od 4, za ekipu, tu si')
+        expect(lobbyName(lobby({ name: null }))).toBe('Stol bez imena')
+        const now = Date.parse('2026-10-09T20:00:00Z')
+        expect(createdAgo('2026-10-09T19:55:00Z', now)).toBe('prije 5 minuta')
+        expect(createdAgo('2026-10-09T19:59:30Z', now)).toBe('maloprije')
         expect(createdAgo(null, now)).toBeNull()
         expect(createdAgo('not a date', now)).toBeNull()
     })

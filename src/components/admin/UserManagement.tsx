@@ -7,24 +7,22 @@ import { useAdmin } from '../../hooks/useAdmin';
 import { useAuth } from '../../hooks/useAuth';
 import type { UserDto } from '../../types/user';
 import { errorMessage } from '../../utils/errorMessage';
+import { cat, useT } from '../../i18n/t';
 
 /** Phones get one panel per user instead of the table (spec §4.14). */
 export const USER_ROWS_QUERY = '(max-width: 767.98px)';
 
 type SortBy = 'username' | 'email';
 
-const SORT_OPTIONS: { value: SortBy; label: string }[] = [
-    { value: 'username', label: 'Username' },
-    { value: 'email', label: 'Email' },
-];
-
-const getRoleDisplay = (roles: string[] | null) => {
-    if (!roles || roles.length === 0) return 'User';
+const getRoleDisplay = (roles: string[] | null, fallback: string) => {
+    if (!roles || roles.length === 0) return fallback;
     return roles.map(role => role.replace('ROLE_', '')).join(', ');
 };
 
-const StatusTag = ({ user }: { user: UserDto }) =>
-    user.deletionRequested ? <Tag tone="bad">Deletion Requested</Tag> : <Tag>Active</Tag>;
+const StatusTag = ({ user }: { user: UserDto }) => {
+    const t = useT();
+    return user.deletionRequested ? <Tag tone="bad">{t.admin.users.deletionRequested}</Tag> : <Tag>{t.admin.users.active}</Tag>;
+};
 
 export const UserManagement: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -38,6 +36,11 @@ export const UserManagement: React.FC = () => {
     const { user: currentUser } = useAuth();
     const navigate = useNavigate();
     const asPanels = useMediaQuery(USER_ROWS_QUERY);
+    const t = useT();
+    const sortOptions: { value: SortBy; label: string }[] = [
+        { value: 'username', label: t.forms.username },
+        { value: 'email', label: t.forms.email },
+    ];
 
     // Filter and sort users
     const filteredUsers = React.useMemo(() => {
@@ -81,24 +84,24 @@ export const UserManagement: React.FC = () => {
             setConfirming(false);
         } catch (failure) {
             // X-7: a failed delete says so (it only reached the console), and the dialog stays open
-            setDeleteError(errorMessage(failure, 'Failed to delete the user'));
+            setDeleteError(errorMessage(failure, cat().admin.users.failedDelete));
         }
     };
 
     // the refetch after a delete keeps the list (and the dialog) on screen: the loader is for the first load only
     if (isLoading && users.length === 0) {
-        return <Loader text="Loading users..." />;
+        return <Loader text={t.admin.users.loading} />;
     }
 
     if (error && users.length === 0) {
         return (
             <Panel>
                 <ErrorState
-                    title="Error Loading Users"
-                    body="Failed to load user management"
+                    title={t.admin.users.loadFailed}
+                    body={t.admin.users.loadFailedBody}
                     action={
                         <Button variant="secondary" onClick={() => refetch().catch(() => {})}>
-                            Try Again
+                            {t.common.tryAgain}
                         </Button>
                     }
                 />
@@ -109,11 +112,11 @@ export const UserManagement: React.FC = () => {
     const actions = (user: UserDto) => (
         <div className="flex flex-wrap gap-2">
             <Button variant="secondary" size="sm" onClick={() => navigate(`/profile/${user.id}`)}>
-                View
+                {t.admin.users.view}
             </Button>
             {user.id !== currentUser?.id && (
                 <Button variant="danger" size="sm" disabled={isForgettingUser} onClick={() => askToDelete(user)}>
-                    Delete
+                    {t.admin.users.delete}
                 </Button>
             )}
         </div>
@@ -126,8 +129,8 @@ export const UserManagement: React.FC = () => {
                 <Avatar size="sm" initial={user.username || '?'} tone={isMe ? 'accent' : 'neutral'} />
                 <div className="min-w-0">
                     <div className="t-headline flex flex-wrap items-center gap-2 break-words">
-                        {user.username || 'Unknown'}
-                        {isMe && <Tag tone="you">You</Tag>}
+                        {user.username || t.common.unknown}
+                        {isMe && <Tag tone="you">{t.common.you}</Tag>}
                     </div>
                     <div className="t-footnote break-all text-text-3">ID: {user.id}</div>
                 </div>
@@ -141,8 +144,8 @@ export const UserManagement: React.FC = () => {
             <Panel>
                 <EmptyState
                     icon="people"
-                    title="No Users Found"
-                    body={searchTerm ? 'No users match your search criteria.' : 'No users available.'}
+                    title={t.admin.users.empty}
+                    body={searchTerm ? t.admin.users.noMatch : t.admin.users.none}
                 />
             </Panel>
         );
@@ -153,9 +156,9 @@ export const UserManagement: React.FC = () => {
                     <li key={user.id}>
                         <Panel className="flex flex-col gap-3">
                             {identity(user)}
-                            <p className="t-footnote break-all text-text-2">{user.email || 'N/A'}</p>
+                            <p className="t-footnote break-all text-text-2">{user.email || t.common.notAvailable}</p>
                             <div className="flex flex-wrap gap-2">
-                                <Tag>{getRoleDisplay(user.roles)}</Tag>
+                                <Tag>{getRoleDisplay(user.roles, t.admin.users.user)}</Tag>
                                 <StatusTag user={user} />
                             </div>
                             {actions(user)}
@@ -170,20 +173,20 @@ export const UserManagement: React.FC = () => {
                 <table className="w-full text-left">
                     <thead>
                         <tr className="t-caption text-text-2">
-                            <th scope="col" className="px-4 py-3">User</th>
-                            <th scope="col" className="px-4 py-3">Email</th>
-                            <th scope="col" className="px-4 py-3">Role</th>
-                            <th scope="col" className="px-4 py-3">Status</th>
-                            <th scope="col" className="px-4 py-3">Actions</th>
+                            <th scope="col" className="px-4 py-3">{t.admin.users.user}</th>
+                            <th scope="col" className="px-4 py-3">{t.forms.email}</th>
+                            <th scope="col" className="px-4 py-3">{t.admin.users.role}</th>
+                            <th scope="col" className="px-4 py-3">{t.admin.users.status}</th>
+                            <th scope="col" className="px-4 py-3">{t.admin.users.actions}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {filteredUsers.map((user: UserDto) => (
                             <tr key={user.id} className="border-t-2 border-edge align-middle">
                                 <td className="px-4 py-3">{identity(user)}</td>
-                                <td className="t-callout break-all px-4 py-3 text-text-2">{user.email || 'N/A'}</td>
+                                <td className="t-callout break-all px-4 py-3 text-text-2">{user.email || t.common.notAvailable}</td>
                                 <td className="px-4 py-3">
-                                    <Tag>{getRoleDisplay(user.roles)}</Tag>
+                                    <Tag>{getRoleDisplay(user.roles, t.admin.users.user)}</Tag>
                                 </td>
                                 <td className="px-4 py-3">
                                     <StatusTag user={user} />
@@ -202,58 +205,55 @@ export const UserManagement: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h2 id={headingId} className="t-title">
-                        User Management
+                        {t.admin.users.title}
                     </h2>
-                    <p className="t-callout mt-1 text-text-2">
-                        {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found
-                    </p>
+                    <p className="t-callout mt-1 text-text-2">{t.admin.users.found(filteredUsers.length)}</p>
                 </div>
                 <Button variant="secondary" size="sm" leftIcon={<PixelIcon name="refresh" />} onClick={() => refetch().catch(() => {})}>
-                    Refresh
+                    {t.common.refresh}
                 </Button>
             </div>
 
             <div className="flex flex-col gap-3 md:flex-row md:items-end">
                 <Input
                     className="flex-1"
-                    label="Search users"
+                    label={t.admin.users.search}
                     hideLabel
                     type="text"
-                    placeholder="Search by username, email, or ID..."
+                    placeholder={t.admin.users.searchPlaceholder}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
-                <Segmented label="Sort by" options={SORT_OPTIONS} value={sortBy} onChange={setSortBy} />
+                <Segmented label={t.common.sortBy} options={sortOptions} value={sortBy} onChange={setSortBy} />
             </div>
 
             {list}
 
-            <Sheet open={confirming} onClose={() => setConfirming(false)} title="Confirm User Deletion" dismissible={!isForgettingUser}>
+            <Sheet open={confirming} onClose={() => setConfirming(false)} title={t.admin.users.confirmTitle} dismissible={!isForgettingUser}>
                 {selectedUser && (
                     <div className="flex flex-col gap-4">
                         <div className="notch bg-surface-2 px-4 py-3 shadow-[inset_3px_0_0_var(--danger)]">
                             <p className="t-headline flex items-center gap-2 text-danger-text">
                                 <PixelIcon name="warning" />
-                                Warning
+                                {t.admin.users.warning}
                             </p>
                             <p className="t-callout mt-2">
-                                Delete the account of{' '}
-                                <strong>{selectedUser.username}</strong>? This cannot be undone.
+                                {t.admin.users.deleteBefore}{' '}
+                                <strong>{selectedUser.username}</strong>
+                                {t.admin.users.deleteAfter}
                             </p>
                             {/* What AdminService.forgetUser removes (R-40); the rest is the owner's manual 30-day process */}
-                            <p className="t-callout mt-2">
-                                Deletes the user record; friendships, match history and rank history remain.
-                            </p>
+                            <p className="t-callout mt-2">{t.admin.users.deleteScope}</p>
                         </div>
 
                         <ErrorAlert message={deleteError} />
 
                         <div className="flex flex-wrap justify-end gap-2">
                             <Button variant="secondary" onClick={() => setConfirming(false)} disabled={isForgettingUser}>
-                                Cancel
+                                {t.common.cancel}
                             </Button>
                             <Button variant="danger" onClick={handleForgetUser} loading={isForgettingUser}>
-                                Delete User
+                                {t.admin.users.deleteUser}
                             </Button>
                         </div>
                     </div>

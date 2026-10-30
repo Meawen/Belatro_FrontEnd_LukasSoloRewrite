@@ -1,9 +1,10 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, afterEach } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HandHistory } from './HandHistory'
 import type { HandDTO, HandSummary, MatchDTO, MoveDTO, TrickDTO } from '../../types/match'
 import type { Rank, ZvanjaKind, ZvanjaSeatView, ZvanjaView } from '../../types/game'
+import { setLang } from '../../i18n/lang'
 
 // Tailwind's own colour scale (bg-emerald-900, text-red-300, …): the design uses tokens only (spec §3.2)
 const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange|teal|pink)-\d/
@@ -210,5 +211,45 @@ describe('An open hand’s declarations line: what the table heard (gameplay rul
         expect(await said(CAPOT)).toBeNull()
         cleanup()
         expect(await said({ ...FELL, zvanja: null })).toBeNull()
+    })
+})
+
+describe('Game history in Croatian (open beta §1.1, §1.4)', () => {
+    afterEach(() => setLang('en'))
+
+    test('a hand in Croatian', async () => {
+        setLang('hr')
+        const quiet = (playerId: string): ZvanjaSeatView => ({ playerId, said: null, kind: null, height: null, cards: [], declarations: [] })
+        const tied: ZvanjaView = {
+            seats: [
+                { playerId: 'ivo', said: 20, kind: 'RUN', height: 'BABA', cards: [], declarations: [{ kind: 'RUN', points: 20, suit: 'PIK', top: 'BABA' }] },
+                quiet('mara'),
+                quiet('lana'),
+                { playerId: 'ana', said: 20, kind: 'RUN', height: 'BABA', cards: [], declarations: [] },
+            ],
+            winnerTeam: 'B', total: 20, decidedBy: 'ORDER', belot: null, playOpensAt: null,
+        }
+        const challenged = [{ order: 1, player: 'dan', success: true }, { order: 2, player: 'ana', success: false }]
+        renderHands([FELL, { ...CAPOT, zvanja: tied, challenges: challenged }])
+        expect(screen.getByRole('heading', { name: 'Tijek partije (2 dijeljenja)' })).toBeInTheDocument()
+        const fell = screen.getByRole('button', { name: /^Dijeljenje 1(,|$)/ })
+        expect(within(fell).getByText('PADANJE')).toBeInTheDocument()
+        expect(within(fell).getByText('2 PREKRŠAJA')).toBeInTheDocument()
+        expect(within(fell).getAllByText('DALJE')).toHaveLength(2)
+
+        await userEvent.setup().click(screen.getByRole('button', { name: /^Dijeljenje 2(,|$)/ }))
+        const summary = screen.getByRole('region', { name: 'Sažetak dijeljenja' })
+        expect(within(summary).getByText('Ekipa A: 252 boda (20 od zvanja)')).toBeInTheDocument()
+        expect(within(summary).getByText('Ekipa B: 0 bodova')).toBeInTheDocument()
+        expect(within(summary).getByText('Štihovi: 1')).toBeInTheDocument()
+        expect(within(summary).getByText('Javljanja za adut: 1')).toBeInTheDocument()
+        expect(within(summary).getByText('ŠTIGLJA')).toBeInTheDocument()
+        // heightText's "(up to Baba)" is S5's: not pinned here
+        expect(screen.getByRole('region', { name: 'Zvanja' })).toHaveTextContent(/^Zvanja: .*Ti 20.*\. Ekipa B piše 20\.$/)
+        expect(screen.getByRole('region', { name: 'Licitacija' })).toBeInTheDocument()
+        const challenges = screen.getByRole('region', { name: 'Prijave prekršaja' })
+        expect(within(challenges).getAllByText('Prijava:')).toHaveLength(2)
+        expect(within(challenges).getByText('USPJELA')).toBeInTheDocument()
+        expect(within(challenges).getByText('NEUSPJELA')).toBeInTheDocument()
     })
 })

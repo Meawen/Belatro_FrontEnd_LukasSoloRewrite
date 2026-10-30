@@ -5,6 +5,7 @@ import { ErrorAlert } from '../common/ErrorAlert';
 import { useMediaQuery } from '../layout/useMediaQuery';
 import { useAuth } from '../../hooks/useAuth';
 import type { LobbyDTO } from '../../types/lobby';
+import { useT } from '../../i18n/t';
 import { LobbyQuickLook } from './LobbyQuickLook';
 import {
     countLine,
@@ -14,7 +15,7 @@ import {
     isMember,
     lobbyName,
     lobbyRowLabel,
-    SORT_OPTIONS,
+    SORTS,
     sortLobbies,
     type LobbySort,
 } from './lobbyModel';
@@ -56,21 +57,22 @@ export function LobbyList({ lobbies, failed, pollFailed, onRetry }: LobbyListPro
 
     const all = lobbies ?? NO_LOBBIES;
     const rows = useSteadyOrder(all, sort, term, pointerDown.current || selected !== null);
+    const t = useT();
 
     if (lobbies === null) {
         if (failed) {
             return (
                 <ErrorState
-                    title="Couldn't load the lobbies"
+                    title={t.tables.loadFailed}
                     action={
                         <Button variant="secondary" onClick={onRetry}>
-                            Try again
+                            {t.common.retry}
                         </Button>
                     }
                 />
             );
         }
-        return <Loader text="Loading lobbies…" />;
+        return <Loader text={t.tables.loading} />;
     }
 
     // the quick-look follows its lobby by id; when a poll no longer lists it, it says so
@@ -79,19 +81,24 @@ export function LobbyList({ lobbies, failed, pollFailed, onRetry }: LobbyListPro
     return (
         <div className="flex flex-col gap-4">
             <div className="grid gap-3 md:grid-cols-[1fr_220px]">
-                <Input label="Search lobbies" type="search" value={term} onChange={(event) => setTerm(event.target.value)} autoComplete="off" />
-                <Select label="Sort by" value={sort} onChange={(value) => setSort(value as LobbySort)} options={SORT_OPTIONS} />
+                <Input label={t.tables.search} type="search" value={term} onChange={(event) => setTerm(event.target.value)} autoComplete="off" />
+                <Select
+                    label={t.common.sortBy}
+                    value={sort}
+                    onChange={(value) => setSort(value as LobbySort)}
+                    options={SORTS.map((value) => ({ value, label: t.tables.sort[value] }))}
+                />
             </div>
 
-            {pollFailed && <ErrorAlert message="Couldn't refresh — showing the last list" />}
+            {pollFailed && <ErrorAlert message={t.tables.pollFailed} />}
 
             {all.length === 0 ? (
-                <EmptyState icon="cards" title="No open lobbies." body="Create one and invite friends." />
+                <EmptyState icon="cards" title={t.tables.empty} body={t.tables.emptyBody} />
             ) : rows.length === 0 ? (
-                <EmptyState icon="search" title="No lobbies match your search." />
+                <EmptyState icon="search" title={t.tables.noMatch} />
             ) : (
                 <ul
-                    aria-label="Open lobbies"
+                    aria-label={t.tables.list}
                     className="flex flex-col gap-2"
                     onPointerDown={() => {
                         pointerDown.current = true;
@@ -138,7 +145,8 @@ function useSteadyOrder(lobbies: LobbyDTO[], sort: LobbySort, term: string, froz
 }
 
 function LobbyRow({ lobby, me, wide, onOpen }: { lobby: LobbyDTO; me: string | null; wide: boolean; onOpen: (lobby: LobbyDTO) => void }) {
-    const host = `host ${lobby.hostUser?.username ?? 'unknown'}`;
+    const t = useT();
+    const host = t.tables.host(lobby.hostUser?.username ?? t.tables.unknownHost);
     const facts = <RowFacts lobby={lobby} me={me} />;
     return (
         <ListRow
@@ -151,7 +159,7 @@ function LobbyRow({ lobby, me, wide, onOpen }: { lobby: LobbyDTO; me: string | n
                     {lobby.privateLobby && (
                         <span className="t-footnote inline-flex shrink-0 items-center gap-1 text-text-2">
                             <PixelIcon name="lock" />
-                            Private
+                            {t.tables.private}
                         </span>
                     )}
                 </span>
@@ -172,13 +180,14 @@ function LobbyRow({ lobby, me, wide, onOpen }: { lobby: LobbyDTO; me: string | n
 }
 
 function RowFacts({ lobby, me }: { lobby: LobbyDTO; me: string | null }) {
+    const t = useT();
     return (
         <span className="inline-flex items-center gap-2">
             <SeatSquares lobby={lobby} />
             {/* people of the cap, then the bots: "1 of 4 · 3 bots"; Full counts people too (isFull) */}
             <span className="t-footnote tabular-nums text-text">{countLine(lobby)}</span>
-            {isFull(lobby) && <Tag tone="warn">Full</Tag>}
-            {isMember(lobby, me) && <Tag tone="you">You're in</Tag>}
+            {isFull(lobby) && <Tag tone="warn">{t.tables.full}</Tag>}
+            {isMember(lobby, me) && <Tag tone="you">{t.tables.youreIn}</Tag>}
         </span>
     );
 }

@@ -192,4 +192,13 @@ describe("server errors in the site's language (spec §1.1, §8)", () => {
         expect(localiseStompError('The dealer must call trump')).toBe('Mus! Moraš zvati.')
         expect(localiseStompError('Something the server never says')).toBe(GENERIC_HR)
     })
+
+    test('the table lines name Birtija and „Ajmo još jednu!” (carried)', async () => {
+        const { localiseApiError, localiseStompError, ApiError, setLang } = await load()
+        setLang('hr')
+        expect(localiseApiError(new ApiError({ status: 400, message: 'x', code: 'LOBBY_ID_REQUIRED' })))
+            .toBe('Poveznica stola nije ispravna. Otvori stol ponovno iz Birtije.')
+        expect(localiseStompError('Rematch is not available for game g1'))
+            .toBe('„Ajmo još jednu!” za ovu partiju više nije moguće. Vrati se u Birtiju i sjedni za novi stol.')
+    })
 })

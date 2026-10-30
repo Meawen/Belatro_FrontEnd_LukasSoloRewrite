@@ -5,6 +5,7 @@ import { ChartTooltip } from './ChartTooltip';
 import { ladderGeometry } from './ladderGeometry';
 import { rankColour } from './rankNames';
 import { useElementWidth } from './useElementWidth';
+import { useT } from '../../i18n/t';
 
 export interface LadderChartProps {
     ladder: Ladder;
@@ -13,7 +14,6 @@ export interface LadderChartProps {
 }
 
 const range = (from: number, size: number) => `${from}–${from + size - 1}`;
-const players = (count: number) => (count === 1 ? '1 player' : `${count} players`);
 
 /**
  * The ladder (ranks spec §7.3–7.6): placed players per rating band, each bar in its rank's colour over the rank
@@ -22,6 +22,7 @@ const players = (count: number) => (count === 1 ? '1 player' : `${count} players
 export function LadderChart({ ladder, you }: LadderChartProps) {
     const ref = useRef<HTMLDivElement>(null);
     const width = useElementWidth(ref);
+    const t = useT();
     const g = useMemo(() => ladderGeometry(ladder, width, { you }), [ladder, width, you]);
     const [active, setActive] = useState<number | null>(null);
     const bar = active === null ? null : (g.bars[active] ?? null);
@@ -46,7 +47,7 @@ export function LadderChart({ ladder, you }: LadderChartProps) {
         <div ref={ref} className="relative w-full">
             <div
                 role="group"
-                aria-label="The ladder: players by rating"
+                aria-label={t.rank.ladder.chart}
                 tabIndex={0}
                 onKeyDown={onKeyDown}
                 onBlur={() => setActive(null)}
@@ -109,20 +110,20 @@ export function LadderChart({ ladder, you }: LadderChartProps) {
                 </svg>
                 {g.you && (
                     <span className="pointer-events-none absolute top-0.5 -translate-x-1/2" style={{ left: Math.min(Math.max(g.you.x, 20), g.width - 20) }}>
-                        <Tag tone="you">You</Tag>
+                        <Tag tone="you">{t.common.you}</Tag>
                     </span>
                 )}
-                {bar && <ChartTooltip x={bar.x + bar.w / 2} y={bar.y} width={g.width} value={players(bar.count)} label={range(bar.from, ladder.binSize)} />}
+                {bar && <ChartTooltip x={bar.x + bar.w / 2} y={bar.y} width={g.width} value={t.rank.ladder.playerCount(bar.count)} label={range(bar.from, ladder.binSize)} />}
             </div>
             <p data-testid="chart-live" className="sr-only" aria-live="polite">
-                {bar ? `${range(bar.from, ladder.binSize)}: ${players(bar.count)}` : ''}
+                {bar ? `${range(bar.from, ladder.binSize)}: ${t.rank.ladder.playerCount(bar.count)}` : ''}
             </p>
             <table className="sr-only">
-                <caption>Players by rating</caption>
+                <caption>{t.rank.ladder.byRating}</caption>
                 <thead>
                     <tr>
-                        <th scope="col">Rating</th>
-                        <th scope="col">Players</th>
+                        <th scope="col">{t.rank.rating}</th>
+                        <th scope="col">{t.rank.ladder.playersColumn}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -135,11 +136,11 @@ export function LadderChart({ ladder, you }: LadderChartProps) {
                 </tbody>
             </table>
             <table className="sr-only">
-                <caption>Players by rank</caption>
+                <caption>{t.rank.ladder.byRank}</caption>
                 <thead>
                     <tr>
-                        <th scope="col">Rank</th>
-                        <th scope="col">Players</th>
+                        <th scope="col">{t.rank.ladder.rankColumn}</th>
+                        <th scope="col">{t.rank.ladder.playersColumn}</th>
                     </tr>
                 </thead>
                 <tbody>

@@ -4,7 +4,8 @@ import type { IconName } from '../ui';
 import { cx } from '../ui/cx';
 import type { PlayerMatchSummaryDTO } from '../../types/user';
 import { parseMatchResult } from './matchResult';
-import { matchOutcome, outcomeWord, relativeMatchDate, type MatchOutcome } from './matchOutcome';
+import { matchOutcome, modeWord, outcomeWord, relativeMatchDate, type MatchOutcome } from './matchOutcome';
+import { useT } from '../../i18n/t';
 
 // The result colour on the stripe, the icon tile and the word (spec §4.9); text pairs on --surface
 const TONE: Record<MatchOutcome, { stripe: 'success' | 'danger' | 'accent'; tile: string; word: string; icon: IconName }> = {
@@ -27,6 +28,7 @@ export interface MatchRowProps {
  */
 export function MatchRow({ summary, state }: MatchRowProps) {
     const { matchId, endTime, result, yourOutcome, gameMode } = summary;
+    const t = useT();
     const outcome = matchOutcome(yourOutcome);
     const tone = outcome ? TONE[outcome] : null;
     const score = result ? parseMatchResult(result) : null;
@@ -40,17 +42,17 @@ export function MatchRow({ summary, state }: MatchRowProps) {
         // wraps instead of cutting the chip off in a narrow row (ListRow truncates by default)
         <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 whitespace-normal">
             <span className={tone?.word ?? 'text-text'}>{outcomeWord(yourOutcome)}</span>
-            <Tag tone={gameMode === 'RANKED' ? 'mode' : 'neutral'}>{gameMode || 'Unknown'}</Tag>
+            <Tag tone={gameMode === 'RANKED' ? 'mode' : 'neutral'}>{modeWord(gameMode)}</Tag>
         </span>
     );
     const meta = (
         <span className="whitespace-normal">
-            <span>{relativeMatchDate(endTime)}</span> · <span className="font-mono text-text-3">#{matchId?.slice(-6) || 'N/A'}</span>
+            <span>{relativeMatchDate(endTime)}</span> · <span className="font-mono text-text-3">#{matchId?.slice(-6) || t.common.notAvailable}</span>
         </span>
     );
     let trailing: ReactNode;
     if (score === 'forfeit') {
-        trailing = <span className="t-callout font-semibold">Forfeit</span>;
+        trailing = <span className="t-callout font-semibold">{t.matches.forfeit}</span>;
     } else if (score) {
         trailing = (
             <span className="flex flex-col items-end">
@@ -59,7 +61,7 @@ export function MatchRow({ summary, state }: MatchRowProps) {
                     <span className="text-text-3"> : </span>
                     {score.teamBScore}
                 </span>
-                <span className="t-caption text-text-3">TEAM A · TEAM B</span>
+                <span className="t-caption text-text-3">{`${t.common.teamCaps('A')} · ${t.common.teamCaps('B')}`}</span>
             </span>
         );
     }

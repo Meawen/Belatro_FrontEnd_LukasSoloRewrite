@@ -4,6 +4,7 @@ import type { User } from '../../types/user';
 import { spring } from '../../motion/tokens';
 import { RankChip } from './RankChip';
 import { PLACEMENT_GAMES, rankColour } from './rankNames';
+import { useT } from '../../i18n/t';
 
 export interface RankBlockProps {
     player: User;
@@ -16,22 +17,21 @@ export interface RankBlockProps {
  * when the rank has a start and an end, else a line of text. Nothing without a rank.
  */
 export function RankBlock({ player, nextName }: RankBlockProps) {
+    const t = useT();
     const rank = player.rank;
     if (!rank) return null;
     const elo = player.eloRating;
-    const next = nextName ?? 'the next rank';
+    const next = nextName ?? t.rank.next;
 
     let progress: ReactNode = null;
     if (rank.key === 'CUCEK') {
-        progress = <p className="t-footnote text-text-2">Placement: {player.rankedGamesPlayed ?? 0} of {PLACEMENT_GAMES} ranked games</p>;
+        progress = <p className="t-footnote text-text-2">{t.rank.placement(player.rankedGamesPlayed ?? 0, PLACEMENT_GAMES)}</p>;
     } else if (rank.nextMinRating === null) {
-        progress = <p className="t-footnote text-text-2">Top rank</p>;
+        progress = <p className="t-footnote text-text-2">{t.rank.topRank}</p>;
     } else if (elo !== null) {
         const gap = rank.nextMinRating - elo;
         const text = (
-            <p className="t-footnote text-text-2 tabular-nums">
-                {gap} to {next}
-            </p>
+            <p className="t-footnote text-text-2 tabular-nums">{t.rank.toNext(gap, next)}</p>
         );
         if (rank.minRating === null) {
             progress = text;
@@ -42,7 +42,7 @@ export function RankBlock({ player, nextName }: RankBlockProps) {
                 <>
                     <div
                         role="progressbar"
-                        aria-label={`Progress to ${next}`}
+                        aria-label={t.rank.progressTo(next)}
                         aria-valuemin={rank.minRating}
                         aria-valuemax={rank.nextMinRating}
                         aria-valuenow={elo}

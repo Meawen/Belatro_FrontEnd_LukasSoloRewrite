@@ -1,5 +1,6 @@
-import { describe, test, expect } from 'vitest'
-import { parseMatchResult, resultWinner, teamOfUser, yourResult } from './matchResult'
+import { describe, test, expect, afterEach } from 'vitest'
+import { byBelot, parseMatchResult, resultText, resultWinner, teamOfUser, yourResult } from './matchResult'
+import { setLang } from '../../i18n/lang'
 
 describe('parseMatchResult (R-36)', () => {
     test("Team A's points come first even when Team B wins (en dash, as the backend writes it)", () => {
@@ -65,5 +66,29 @@ describe('resultWinner and yourResult (spec §4.9; R-36)', () => {
         expect(yourResult(match('Match abandoned'), 'u1')).toBe('Match abandoned')
         expect(yourResult(match('Team A wins 1001–650'), 'u9')).toBe('Team A wins 1001–650')
         expect(yourResult(match(null), 'u1')).toBeNull()
+    })
+})
+
+describe('resultText (spec §1.1: rebuilt from the parse, never the server\'s sentence translated)', () => {
+    afterEach(() => setLang('en'))
+    const RESULTS = ['Team A wins 1001–650', 'Team B wins 870–1001', 'Team A wins 1001–420 by belot', 'Team B wins by forfeit']
+
+    test("in English it is the server's sentence, byte for byte", () => {
+        expect(RESULTS.map(resultText)).toEqual(RESULTS)
+        expect(resultText('Abandoned')).toBe('Abandoned')
+        expect(resultText('1001–650')).toBe('1001–650')
+        expect(RESULTS.map(byBelot)).toEqual([false, false, true, false])
+    })
+
+    test('in Croatian it is rebuilt; a result that does not parse stays as the server wrote it', () => {
+        setLang('hr')
+        expect(RESULTS.map(resultText)).toEqual([
+            'Ekipa A je pobijedila 1001–650',
+            'Ekipa B je pobijedila 870–1001',
+            'Ekipa A je pobijedila 1001–420 belotom',
+            'Ekipa B je pobijedila predajom',
+        ])
+        expect(resultText('Abandoned')).toBe('Abandoned')
+        expect(resultText('1001–650')).toBe('1001–650')
     })
 })

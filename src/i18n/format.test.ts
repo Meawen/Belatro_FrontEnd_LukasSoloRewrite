@@ -65,4 +65,18 @@ describe('format: dates, relative times and numbers follow the language (spec §
         expect(formatDate(NaN)).toBe('')
         expect(formatRelative('garbage', now)).toBe('')
     })
+
+    test('times and short dates follow the language', async () => {
+        const { formatTime, formatDayMonth, setLang } = await load()
+        const at = new Date(2026, 9, 2, 14, 5)
+        expect(formatTime(at)).toBe('02:05 PM')
+        expect(formatDayMonth(at)).toBe('Oct 2')
+        expect(formatTime('not a date')).toBe('')
+        expect(formatDayMonth('not a date')).toBe('')
+        setLang('hr')
+        expect(formatTime(at)).toBe('14:05')
+        expect(formatDayMonth(at)).toBe('2. listopada')
+        expect(formatTime('not a date')).toBe('')
+        expect(formatDayMonth('not a date')).toBe('')
+    })
 })

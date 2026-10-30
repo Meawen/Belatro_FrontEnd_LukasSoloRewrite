@@ -1,3 +1,6 @@
+import { cat } from '../../i18n/t';
+import { formatDayMonth, formatTime } from '../../i18n/format';
+
 /** The player's result in a match, read from the summary's `yourOutcome` ("WIN", "LOSS", …). */
 export type MatchOutcome = 'win' | 'loss' | 'draw';
 
@@ -10,21 +13,32 @@ export function matchOutcome(yourOutcome: string | null | undefined): MatchOutco
     return null;
 }
 
-const WORD: Record<MatchOutcome, string> = { win: 'Victory', loss: 'Defeat', draw: 'Draw' };
-
 /** "Victory", "Defeat" or "Draw"; any other outcome as the server wrote it; "Unknown" without one. */
 export function outcomeWord(yourOutcome: string | null | undefined): string {
+    const c = cat();
     const outcome = matchOutcome(yourOutcome);
-    return outcome ? WORD[outcome] : yourOutcome || 'Unknown';
+    return outcome ? c.matches.outcome[outcome] : yourOutcome || c.common.unknown;
 }
 
-/** MatchSummaryCard's dates: "Today hh:mm" within 24 h, "Yesterday", "{d}d ago" within a week, then "Oct 2". */
+/** A game mode in words: RANKED and CASUAL from the catalog, any other as the server wrote it; "Unknown" without one. */
+export function modeWord(mode: string | null | undefined): string {
+    const c = cat();
+    return mode === 'RANKED' || mode === 'CASUAL' ? c.matches.mode[mode] : mode || c.common.unknown;
+}
+
+/**
+ * MatchSummaryCard's dates, in the site's language: "Today hh:mm" (hr "Danas u 14:05") within 24 h, "Yesterday",
+ * "{d}d ago" (hr "prije 3 dana") within a week, then the day and month ("Oct 2", hr "2. listopada"); "Unknown" without
+ * a usable date.
+ */
 export function relativeMatchDate(endTime: unknown, now: Date = new Date()): string {
-    if (!endTime) return 'Unknown';
+    const c = cat();
+    if (!endTime) return c.common.unknown;
     const date = new Date(endTime as string);
+    if (!Number.isFinite(date.getTime())) return c.common.unknown;
     const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) return `Today ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    if (diffDays === 0) return c.matches.today(formatTime(date));
+    if (diffDays === 1) return c.matches.yesterday;
+    if (diffDays < 7) return c.matches.daysAgo(diffDays);
+    return formatDayMonth(date);
 }

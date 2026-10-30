@@ -5,6 +5,7 @@ import { ErrorAlert } from '../common/ErrorAlert';
 import { lobbyService } from '../../services/lobbyService';
 import type { CreateLobbyDTO } from '../../types/lobby';
 import { errorMessage } from '../../utils/errorMessage';
+import { cat, useT } from '../../i18n/t';
 
 export interface CreateLobbySheetProps {
     open: boolean;
@@ -16,8 +17,9 @@ export interface CreateLobbySheetProps {
  * mode to CASUAL, so the host goes straight into the new lobby (X-5).
  */
 export function CreateLobbySheet({ open, onClose }: CreateLobbySheetProps) {
+    const t = useT();
     return (
-        <Sheet open={open} onClose={onClose} title="Create lobby">
+        <Sheet open={open} onClose={onClose} title={t.tables.create}>
             <CreateLobbyForm onCancel={onClose} />
         </Sheet>
     );
@@ -36,12 +38,14 @@ function CreateLobbyForm({ onCancel }: { onCancel: () => void }) {
     const [password, setPassword] = useState('');
     const [errors, setErrors] = useState<FormErrors>({});
     const [creating, setCreating] = useState(false);
+    const t = useT();
 
     const submit = async (event: FormEvent) => {
         event.preventDefault();
+        const c = cat().tables.form;
         const found: FormErrors = {};
-        if (!name.trim()) found.name = 'Lobby name is required';
-        if (privateLobby && !password.trim()) found.password = 'Password is required for private lobbies';
+        if (!name.trim()) found.name = c.nameRequired;
+        if (privateLobby && !password.trim()) found.password = c.passwordRequired;
         setErrors(found);
         if (found.name || found.password) return;
 
@@ -52,7 +56,7 @@ function CreateLobbyForm({ onCancel }: { onCancel: () => void }) {
             const created = await lobbyService.createLobby(lobbyData);
             navigate(`/lobby/${created.id}`);
         } catch (error) {
-            setErrors({ submit: errorMessage(error, 'Failed to create lobby') });
+            setErrors({ submit: errorMessage(error, c.failed) });
             setCreating(false);
         }
     };
@@ -60,26 +64,26 @@ function CreateLobbyForm({ onCancel }: { onCancel: () => void }) {
     return (
         <form onSubmit={submit} className="flex flex-col gap-4">
             <Input
-                label="Lobby name"
+                label={t.tables.form.nameLabel}
                 value={name}
                 onChange={(event) => {
                     setName(event.target.value);
                     setErrors((prev) => ({ ...prev, name: undefined }));
                 }}
                 error={errors.name}
-                placeholder="Enter lobby name..."
+                placeholder={t.tables.form.namePlaceholder}
                 maxLength={50}
                 autoComplete="off"
             />
 
             {/* Game Mode: the server makes every lobby CASUAL; ranked games come from the queue on /play (R-34) */}
-            <p className="t-callout text-text-2">Lobby games are casual: they don't change your rating.</p>
+            <p className="t-callout text-text-2">{t.tables.form.casual}</p>
 
-            <Switch label="Private lobby" checked={privateLobby} onChange={setPrivateLobby} helper="Private lobbies require a password to join" />
+            <Switch label={t.tables.privateTable} checked={privateLobby} onChange={setPrivateLobby} helper={t.tables.form.privateHelper} />
 
             {privateLobby && (
                 <Input
-                    label="Password"
+                    label={t.forms.password}
                     type="password"
                     value={password}
                     onChange={(event) => {
@@ -87,7 +91,7 @@ function CreateLobbyForm({ onCancel }: { onCancel: () => void }) {
                         setErrors((prev) => ({ ...prev, password: undefined }));
                     }}
                     error={errors.password}
-                    placeholder="Enter lobby password..."
+                    placeholder={t.tables.form.passwordPlaceholder}
                     maxLength={20}
                     autoComplete="new-password"
                 />
@@ -97,10 +101,10 @@ function CreateLobbyForm({ onCancel }: { onCancel: () => void }) {
 
             <div className="flex justify-end gap-2 pt-2">
                 <Button variant="quiet" onClick={onCancel} disabled={creating}>
-                    Cancel
+                    {t.common.cancel}
                 </Button>
                 <Button type="submit" loading={creating}>
-                    Create
+                    {t.tables.form.submit}
                 </Button>
             </div>
         </form>

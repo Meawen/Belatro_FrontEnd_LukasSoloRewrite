@@ -7,11 +7,10 @@ import { cx } from '../ui/cx';
 import { aheadPercent } from './ladderGeometry';
 import { LadderChart } from './LadderChart';
 import { PLACEMENT_GAMES, placedRanks, rankTagline } from './rankNames';
+import { useT } from '../../i18n/t';
 
 /** Under this many placed players the ladder says it is filling in instead of drawing (ranks spec §7.2). */
 export const LADDER_MIN_PLAYERS = 5;
-
-const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 
 /** The ladder above the leaderboard (ranks spec §7): everyone placed, by rating, coloured by rank, you marked. */
 export function LadderPanel() {
@@ -19,6 +18,7 @@ export function LadderPanel() {
     const { user } = useAuth();
     const { user: me } = useUser(user?.id ?? undefined);
     const { data: ladder, isLoading, error, refetch } = useLadder();
+    const t = useT();
     // a backend before team Elo has no ladder: no panel at all (§4.2)
     if (isNotFound(error)) return null;
 
@@ -26,26 +26,26 @@ export function LadderPanel() {
     if (!ladder) {
         content = error ? (
             <div className="flex flex-wrap items-center gap-3">
-                <p className="t-callout text-text-2">Couldn't load the ladder.</p>
+                <p className="t-callout text-text-2">{t.rank.ladder.loadFailed}</p>
                 <Button variant="secondary" size="sm" onClick={() => refetch().catch(() => {})}>
-                    Try again
+                    {t.common.retry}
                 </Button>
             </div>
         ) : (
-            <Loader layout="inline" text="Loading the ladder…" className="self-start" />
+            <Loader layout="inline" text={t.rank.ladder.loading} className="self-start" />
         );
     } else if (ladder.players < LADDER_MIN_PLAYERS) {
-        content = <p className="t-callout text-text-2">The ladder fills in as players finish their first 10 ranked games.</p>;
+        content = <p className="t-callout text-text-2">{t.rank.ladder.fillsIn}</p>;
     } else {
         const rank = me?.rank;
         const placed = !!rank && rank.key !== 'CUCEK' && me?.eloRating != null;
         const placing = ladder.ranks.find((r) => r.key === 'CUCEK')?.count ?? 0;
         let yourLine: string | null = null;
         if (placed) {
-            yourLine = `Ahead of ${aheadPercent(ladder, me!.eloRating!)}% of ranked players`;
+            yourLine = t.rank.ladder.ahead(aheadPercent(ladder, me!.eloRating!));
         } else if (rank?.key === 'CUCEK') {
             const left = PLACEMENT_GAMES - (me?.rankedGamesPlayed ?? 0);
-            if (left > 0) yourLine = `Play ${plural(left, 'more ranked game', 'more ranked games')} to join the ladder.`;
+            if (left > 0) yourLine = t.rank.ladder.toJoin(left);
         }
         content = (
             <>
@@ -55,7 +55,7 @@ export function LadderPanel() {
                 </div>
                 {yourLine && <p className="t-callout">{yourLine}</p>}
                 {/* each rank with its tagline under it (owner 2026-10-11): two, three or six to a row, by the panel's width */}
-                <ul aria-label="Players per rank" className="grid grid-cols-2 gap-x-4 gap-y-3 @md:grid-cols-3 @2xl:grid-cols-6">
+                <ul aria-label={t.rank.ladder.perRank} className="grid grid-cols-2 gap-x-4 gap-y-3 @md:grid-cols-3 @2xl:grid-cols-6">
                     {placedRanks(ladder).map((r) => {
                         const tagline = rankTagline(r.key);
                         return (
@@ -71,7 +71,7 @@ export function LadderPanel() {
                         );
                     })}
                 </ul>
-                {placing > 0 && <p className="t-footnote text-text-2">{plural(placing, 'player still placing', 'players still placing')}</p>}
+                {placing > 0 && <p className="t-footnote text-text-2">{t.rank.ladder.placing(placing)}</p>}
             </>
         );
     }
@@ -80,9 +80,9 @@ export function LadderPanel() {
         <Panel as="section" aria-labelledby={titleId} className="@container flex flex-col gap-4">
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <h2 id={titleId} className="t-title">
-                    The ladder
+                    {t.rank.ladder.title}
                 </h2>
-                {ladder && <p className="t-footnote tabular-nums text-text-2">{plural(ladder.players, 'ranked player', 'ranked players')}</p>}
+                {ladder && <p className="t-footnote tabular-nums text-text-2">{t.rank.ladder.players(ladder.players)}</p>}
             </div>
             {content}
         </Panel>

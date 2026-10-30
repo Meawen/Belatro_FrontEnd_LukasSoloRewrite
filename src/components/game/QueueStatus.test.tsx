@@ -6,6 +6,7 @@ import { act, render, screen } from '@testing-library/react'
 import { QueueStatus } from './QueueStatus'
 import { useEnhancedRanked } from '../../hooks/useEnhancedRanked'
 import type { QueueStatusDTO } from '../../types'
+import { setLang } from '../../i18n/lang'
 
 vi.mock('../../hooks/useEnhancedRanked', () => ({ useEnhancedRanked: vi.fn() }))
 
@@ -36,7 +37,7 @@ describe('QueueStatus (spec §4.5; US-20)', () => {
     test('while queued: "Searching for a match", the four squares, players in queue, the wait and the time', () => {
         queue(true, { queueSize: 3, estWaitSeconds: 125 })
         render(<QueueStatus />)
-        expect(screen.getByText('Searching for a match')).toBeInTheDocument()
+        expect(screen.getByText('Finding players…')).toBeInTheDocument()
         expect(document.querySelectorAll('.queue-turn > span')).toHaveLength(4)
         expect(document.querySelector('.queue-turn')).toHaveAttribute('aria-hidden', 'true')
         expect(tile('Players in queue')).toHaveTextContent(/^3$/)
@@ -83,5 +84,26 @@ describe('QueueStatus (spec §4.5; US-20)', () => {
         expect(css).toMatch(/\.queue-turn > span:nth-child\(2\) \{[^}]*background: var\(--suit-karo\);/)
         expect(css).toMatch(/\.queue-turn > span:nth-child\(3\) \{[^}]*background: var\(--suit-pik\);/)
         expect(css).toMatch(/\.queue-turn > span:nth-child\(4\) \{[^}]*background: var\(--suit-tref\);/)
+    })
+})
+
+describe('QueueStatus in Croatian (open beta §1.1, §1.4)', () => {
+    afterEach(() => setLang('en'))
+
+    test('in Croatian: the search line, the tiles and the wait', () => {
+        setLang('hr')
+        queue(true, { queueSize: 3, estWaitSeconds: 125 })
+        const first = render(<QueueStatus />)
+        expect(screen.getByText('Tražimo ti pajdaše…')).toBeInTheDocument()
+        expect(tile('Igrača u potrazi')).toHaveTextContent(/^3$/)
+        expect(tile('Procjena čekanja')).toHaveTextContent(/^2 min 5 s$/)
+        expect(tile('Čekaš već')).toHaveTextContent(/^0:00$/)
+        first.unmount()
+        for (const [estWaitSeconds, shown] of [[45, /^45 s$/], [120, /^2 min$/], [-1, /^Računamo…$/]] as const) {
+            queue(true, { estWaitSeconds })
+            const view = render(<QueueStatus />)
+            expect(tile('Procjena čekanja')).toHaveTextContent(shown)
+            view.unmount()
+        }
     })
 })

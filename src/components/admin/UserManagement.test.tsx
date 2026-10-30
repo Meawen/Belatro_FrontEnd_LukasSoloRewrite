@@ -6,6 +6,7 @@ import { UserManagement } from './UserManagement'
 import { useAdmin } from '../../hooks/useAdmin'
 import { ApiError } from '../../services/api'
 import { viewport } from '../../test/viewport'
+import { setLang } from '../../i18n/lang'
 
 vi.mock('../../hooks/useAdmin', () => ({ useAdmin: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', username: 'ana' } }) }))
@@ -99,5 +100,27 @@ describe('UserManagement (spec §4.14; X-7)', () => {
         expect(bobs).toHaveTextContent('Deletion Requested')
         expect(within(bobs).getByRole('button', { name: 'View' })).toBeInTheDocument()
         expect(within(bobs).getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+    })
+})
+
+describe('UserManagement in Croatian (open beta §1.1)', () => {
+    afterEach(() => setLang('en'))
+
+    test('user management in Croatian', async () => {
+        setLang('hr')
+        mockAdmin([ana, bob])
+        renderManagement()
+        expect(screen.getByRole('heading', { level: 2, name: 'Upravljanje korisnicima' })).toBeInTheDocument()
+        expect(screen.getByText('Pronađena 2 korisnika')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Osvježi' })).toBeInTheDocument()
+        expect(screen.getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Korisnik', 'E-adresa', 'Uloga', 'Status', 'Radnje'])
+        const [, mine, bobs] = screen.getAllByRole('row')
+        expect(mine).toHaveTextContent('Ti')
+        expect(mine).toHaveTextContent('Aktivan')
+        expect(bobs).toHaveTextContent('Traži brisanje')
+        expect(within(bobs).getByRole('button', { name: 'Pogledaj' })).toBeInTheDocument()
+        await userEvent.setup().click(within(bobs).getByRole('button', { name: 'Obriši' }))
+        const dialog = screen.getByRole('dialog', { name: 'Potvrdi brisanje korisnika' })
+        expect(within(dialog).getByText((_, el) => el?.tagName === 'P' && el.textContent === 'Obrisati račun igrača bob? To se ne može poništiti.')).toBeInTheDocument()
     })
 })

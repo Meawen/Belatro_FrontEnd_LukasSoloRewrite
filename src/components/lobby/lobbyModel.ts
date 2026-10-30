@@ -1,5 +1,7 @@
 import type { LobbyDTO } from '../../types/lobby';
 import type { UserSimpleDTO } from '../../types/user';
+import { cat } from '../../i18n/t';
+import { formatRelative } from '../../i18n/format';
 
 /**
  * The server's cap counts people, Unassigned included: a fifth person's join is answered 409 "Lobby is full"
@@ -43,10 +45,11 @@ export function isFull(lobby: LobbyDTO): boolean {
 }
 
 function counted(lobby: LobbyDTO, separator: string): string {
-    const people = `${peopleCount(lobby)} of ${LOBBY_CAP}`;
+    const c = cat().tables;
+    const people = c.count(peopleCount(lobby), LOBBY_CAP);
     const bots = botCount(lobby);
     if (bots === 0) return people;
-    return `${people}${separator}${bots} ${bots === 1 ? 'bot' : 'bots'}`;
+    return `${people}${separator}${c.bots(bots)}`;
 }
 
 /** "2 of 4", or with bots "2 of 4 · 2 bots": people of the cap, then the bots. */
@@ -60,17 +63,13 @@ export function countLabel(lobby: LobbyDTO): string {
 }
 
 export function lobbyName(lobby: LobbyDTO): string {
-    return lobby.name || 'Unnamed Lobby';
+    return lobby.name || cat().tables.unnamed;
 }
 
 export type LobbySort = 'newest' | 'name' | 'players';
 
 /** The "Sort by" choices (spec §4.6). */
-export const SORT_OPTIONS: { value: LobbySort; label: string }[] = [
-    { value: 'newest', label: 'Newest' },
-    { value: 'name', label: 'Name' },
-    { value: 'players', label: 'Most players' },
-];
+export const SORTS: readonly LobbySort[] = ['newest', 'name', 'players'];
 
 const createdTime = (lobby: LobbyDTO) => new Date(lobby.createdAt ?? 0).getTime() || 0;
 
@@ -94,24 +93,17 @@ export function filterLobbies(lobbies: LobbyDTO[], term: string): LobbyDTO[] {
 
 /** A row's accessible name (spec §4.6 AC 6): "Kod Mire, host mira_z, 3 of 4, private". */
 export function lobbyRowLabel(lobby: LobbyDTO, userId: string | null | undefined): string {
-    const parts = [lobbyName(lobby), `host ${lobby.hostUser?.username ?? 'unknown'}`, countLabel(lobby)];
-    if (lobby.privateLobby) parts.push('private');
-    if (isMember(lobby, userId)) parts.push("you're in");
+    const c = cat().tables;
+    const parts = [lobbyName(lobby), c.host(lobby.hostUser?.username ?? c.unknownHost), countLabel(lobby)];
+    if (lobby.privateLobby) parts.push(c.rowPrivate);
+    if (isMember(lobby, userId)) parts.push(c.rowYoureIn);
     return parts.join(', ');
 }
 
-const RELATIVE = new Intl.RelativeTimeFormat('en', { numeric: 'always' });
-
-/** How long ago a lobby was created, in words; null without a usable date. */
+/** How long ago a lobby was created, in words in the site's language; null without a usable date. */
 export function createdAgo(createdAt: string | null, now = Date.now()): string | null {
     if (!createdAt) return null;
     const then = new Date(createdAt).getTime();
     if (Number.isNaN(then)) return null;
-    const seconds = Math.max(0, Math.round((now - then) / 1000));
-    if (seconds < 60) return 'just now';
-    const minutes = Math.round(seconds / 60);
-    if (minutes < 60) return RELATIVE.format(-minutes, 'minute');
-    const hours = Math.round(minutes / 60);
-    if (hours < 24) return RELATIVE.format(-hours, 'hour');
-    return RELATIVE.format(-Math.round(hours / 24), 'day');
+    return formatRelative(then, now);
 }

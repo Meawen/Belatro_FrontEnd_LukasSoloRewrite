@@ -12,6 +12,21 @@ export function formatDate(d: Date | string | number): string {
     return new Intl.DateTimeFormat(getLang()).format(date);
 }
 
+/** en 02:05 PM, hr 14:05; '' for an unparseable date. */
+export function formatTime(d: Date | string | number): string {
+    const date = new Date(d);
+    if (!Number.isFinite(date.getTime())) return '';
+    return new Intl.DateTimeFormat(getLang(), { hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
+/** en Oct 2, hr 2. listopada (the long month: "2. lis" is cryptic); '' for an unparseable date. */
+export function formatDayMonth(d: Date | string | number): string {
+    const date = new Date(d);
+    if (!Number.isFinite(date.getTime())) return '';
+    const lang = getLang();
+    return new Intl.DateTimeFormat(lang, { day: 'numeric', month: lang === 'hr' ? 'long' : 'short' }).format(date);
+}
+
 /** en 1,234,567, hr 1.234.567 */
 export function formatNumber(n: number): string {
     return new Intl.NumberFormat(getLang()).format(n);
