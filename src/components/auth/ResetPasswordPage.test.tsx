@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ResetPasswordPage } from './ResetPasswordPage'
 import { authService } from '../../services/authService'
 import { ApiError } from '../../services/api'
+import { setLang } from '../../i18n/lang'
 
 vi.mock('../../services/authService', () => ({ authService: { resetPassword: vi.fn() } }))
 
@@ -96,6 +97,23 @@ describe('ResetPasswordPage', () => {
         await userEvent.setup().click(button)
         expect(authService.resetPassword).toHaveBeenCalledTimes(2)
         expect(await screen.findByText('Your password has been reset. Sign in with your new password.')).toBeInTheDocument()
+    })
+
+    test('a password the server refuses shows the rule in Croatian on its field', async () => {
+        setLang('hr')
+        try {
+            vi.mocked(authService.resetPassword).mockRejectedValue(new ApiError({
+                status: 400, message: 'Password must be at least 8 characters and at most 72 bytes', code: 'VALIDATION',
+            }))
+            renderAt('/reset-password?token=tok-2')
+            // the page's own labels are still English until S3
+            await submit('brand-new-pass')
+            expect(await screen.findByText('Lozinka mora imati najmanje 8 znakova i najviše 72 bajta.')).toBeInTheDocument()
+            expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Reset password' })).toBeEnabled()
+        } finally {
+            setLang('en')
+        }
     })
 
     test('a rate-limited reset waits instead of offering a new link', async () => {

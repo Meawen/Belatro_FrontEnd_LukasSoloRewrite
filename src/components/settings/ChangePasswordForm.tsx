@@ -8,6 +8,8 @@ import { userService } from '../../services/userService';
 import { ApiError } from '../../services/api';
 import type { ChangePasswordRequest } from '../../types/user';
 import { passwordRuleError } from '../auth/credentialRules';
+import { errorMessage } from '../../utils/errorMessage';
+import { cat } from '../../i18n/t';
 
 export interface ChangePasswordFormProps {
     onSuccess: () => void;
@@ -66,10 +68,10 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSucces
             onSuccess();
         } catch (error) {
             if (error instanceof ApiError && error.status === 401 && !error.invalidToken) {
-                setErrors({ submit: 'Current password is incorrect' });
+                setErrors({ submit: cat().errors.codes.WRONG_PASSWORD });
             } else {
                 setErrors({
-                    submit: error instanceof Error ? error.message : 'Failed to change password'
+                    submit: errorMessage(error, 'Failed to change password')
                 });
             }
         } finally {

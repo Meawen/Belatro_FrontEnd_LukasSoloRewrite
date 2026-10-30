@@ -20,7 +20,7 @@ beforeEach(() => vi.clearAllMocks())
 
 describe('PlayButton', () => {
     test('a ranked 403 explains what to do and offers a resend', () => {
-        ranked(new ApiError({ status: 403, message: 'Verify your email to play ranked' }))
+        ranked(new ApiError({ status: 403, message: 'Verify your email to play ranked', code: 'EMAIL_NOT_VERIFIED' }))
         render(<PlayButton />)
         // no promise of a mail: an address another account holds never gets a link
         expect(screen.getByText(/Verify your email to play ranked/)).toHaveTextContent(

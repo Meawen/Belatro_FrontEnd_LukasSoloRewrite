@@ -4,9 +4,10 @@ import { Button, Input } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { authService } from '../../services/authService';
 import { ApiError } from '../../services/api';
-import { errorMessage, INVALID_LINK, isNetworkOrServerFailure } from '../../utils/errorMessage';
-import { PASSWORD_RULE_MESSAGE, passwordRuleError } from './credentialRules';
+import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
+import { passwordRuleError } from './credentialRules';
 import { AuthFrame, AUTH_LINK } from './AuthFrame';
+import { cat, useT } from '../../i18n/t';
 
 type Outcome =
     | { kind: 'idle' }
@@ -18,6 +19,7 @@ const COULD_NOT_RESET = 'We could not reset your password.';
 
 /** /reset-password?token=... - the link from the reset mail (valid 15 minutes, single use). */
 export function ResetPasswordPage() {
+    const t = useT();
     const [searchParams] = useSearchParams();
     const token = (searchParams.get('token') ?? '').trim();
     const [newPassword, setNewPassword] = useState('');
@@ -55,9 +57,9 @@ export function ResetPasswordPage() {
             setOutcome({ kind: 'done' });
         } catch (error) {
             const status = error instanceof ApiError ? error.status : 0;
-            const message = errorMessage(error, INVALID_LINK);
+            const message = errorMessage(error, cat().errors.codes.LINK_INVALID);
             // the 400 field map {"newPassword": ...}: validation runs before the link is spent, so it is still usable
-            if (status === 400 && message === PASSWORD_RULE_MESSAGE) {
+            if (status === 400 && message === cat().errors.rules.password) {
                 posting.current = false;
                 setErrors({ newPassword: message });
                 setOutcome({ kind: 'idle' });
@@ -78,7 +80,7 @@ export function ResetPasswordPage() {
 
             <div className="mt-6">
                 {!token ? (
-                    <ErrorAlert message={INVALID_LINK} />
+                    <ErrorAlert message={t.errors.codes.LINK_INVALID} />
                 ) : outcome.kind === 'done' ? (
                     <p className="t-body text-center text-success">Your password has been reset. Sign in with your new password.</p>
                 ) : (

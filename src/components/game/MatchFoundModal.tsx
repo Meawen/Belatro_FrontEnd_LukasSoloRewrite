@@ -9,9 +9,7 @@ import { Avatar, Button, Sheet, Tag } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import type { MatchDTO } from '../../types';
 import type { UserSimpleDTO } from '../../types/user';
-
-/** The server's 409 once a match can no longer be declined: a bid was made, or 30 s passed (R-25). */
-export const DECLINE_TOO_LATE = 'This match can no longer be declined';
+import { cat } from '../../i18n/t';
 
 /** A found match is accepted for the player after this many seconds. */
 export const ACCEPT_COUNTDOWN_SECONDS = 15;
@@ -92,7 +90,8 @@ export const MatchFoundModal: React.FC = () => {
             acceptMatch(); // This clears the match state
         } catch (error) {
             setDeclineError(error instanceof ApiError && error.status === 409
-                ? DECLINE_TOO_LATE
+                // The server's 409 once a match can no longer be declined: a bid was made, or 30 s passed (R-25).
+                ? cat().errors.codes.DECLINE_TOO_LATE
                 : errorMessage(error, 'Could not decline the match'));
         } finally {
             decliningRef.current = false;

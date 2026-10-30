@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGameWebSocket } from './useGameWebSocket';
 import { NOTHING_ACCEPTED, acceptFrame, type Accepted, type BoardState, type Frame } from '../components/board/model/accept';
 import type { Boja, GameCard, PrivateGameView, PublicGameView } from '../types/game';
+import { localiseStompError } from '../i18n/serverErrors';
 
 /** How long a page waits for its snapshot before asking again with /refresh (R-35). */
 const SNAPSHOT_WAIT_MS = 3000;
@@ -93,7 +94,7 @@ export function useGameViews(gameId: string, onDisconnect?: () => void): GameVie
                 setNotAvailable(true);
                 return;
             }
-            setError(message);
+            setError(localiseStompError(message));
         },
         // R-31: a cancelled game stays on its end screen, which says why. The backend sends DISCONNECT
         // right behind the CANCELLED view, often before React has rendered it, hence the ref.

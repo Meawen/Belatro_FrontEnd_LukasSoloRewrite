@@ -3,6 +3,8 @@ import { useEnhancedRanked } from '../../hooks/useEnhancedRanked';
 import { Button, Loader } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { ResendConfirmationButton } from '../auth/ResendConfirmationButton';
+import { localiseApiError } from '../../i18n/serverErrors';
+import { errorMessage } from '../../utils/errorMessage';
 
 export const PlayButton: React.FC = () => {
     const {
@@ -66,15 +68,15 @@ export const PlayButton: React.FC = () => {
                 <div className="flex flex-col items-start gap-2">
                     {/* no promise of a mail: an address another account holds never gets a link */}
                     <ErrorAlert
-                        message={`${joinError.message}. Open your confirmation link if you have one, or ask for a new one, then try again.`}
+                        message={localiseApiError(joinError)}
                     />
                     <ResendConfirmationButton />
                 </div>
             ) : joinError?.status === 429 ? (
                 // a declined match's 2-minute cooldown (R-25) or the rate limit: the server says how long
-                <ErrorAlert message={joinError.message} />
+                <ErrorAlert message={localiseApiError(joinError)} />
             ) : (
-                (joinError || leaveError) && <ErrorAlert message={`Error: ${joinError?.message || leaveError?.message}`} />
+                (joinError || leaveError) && <ErrorAlert message={`Error: ${errorMessage(joinError ?? leaveError, '')}`} />
             )}
         </div>
     );

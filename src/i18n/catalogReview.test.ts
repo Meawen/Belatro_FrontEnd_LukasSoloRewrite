@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { renderReview } from '../../scripts/catalog-review.mjs'
+import { renderReview, SAMPLES } from '../../scripts/catalog-review.mjs'
 import { en } from './catalog/en'
 import { hr } from './catalog/hr'
 
@@ -21,6 +21,14 @@ function leaves(node: object, prefix = ''): [string, unknown][] {
 }
 
 const escaped = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+/** What the page shows for a leaf: a string as is; a function once per sample (SAMPLES, else 1, 2 and 5). */
+function shown(path: string, value: unknown): string[] {
+    if (typeof value !== 'function') return [String(value)]
+    const samples = (SAMPLES as Record<string, unknown[][]>)[path] ?? [[1], [2], [5]]
+    return samples.map((args) => `(${JSON.stringify(args).slice(1, -1)}) → ${value(...args)}`)
+}
+
 const headings = (html: string) => [...html.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((match) => match[1])
 
 describe('the catalog review page (spec §1.2: the owner reads every string in context)', () => {
@@ -29,8 +37,7 @@ describe('the catalog review page (spec §1.2: the owner reads every string in c
         const hrLeaves = new Map(leaves(hr))
         for (const [path, value] of leaves(en)) {
             expect(html, path).toContain(`<code>${path}</code>`)
-            expect(html, path).toContain(escaped(String(value)))
-            expect(html, path).toContain(escaped(String(hrLeaves.get(path))))
+            for (const text of [...shown(path, value), ...shown(path, hrLeaves.get(path))]) expect(html, path).toContain(escaped(text))
         }
         expect(headings(html)).toEqual(Object.keys(en))
     })

@@ -103,6 +103,8 @@ class ApiClient {
                     message: errorData.message || errorData.error || firstFieldMessage(errorData) || `HTTP ${response.status}: ${response.statusText}`,
                     status: response.status,
                     invalidToken,
+                    // spec §1.1: the code beside the sentence; a validation map carries "code": "VALIDATION" last (Ruling 16)
+                    code: typeof errorData.code === 'string' ? errorData.code : undefined,
                 });
             }
 
@@ -167,11 +169,15 @@ export class ApiError extends Error {
     status: number;
     /** A 401 caused by the token itself (WWW-Authenticate: Bearer error="invalid_token", or its body). */
     invalidToken: boolean;
+    /** The backend's stable code beside its English sentence (spec §1.1), e.g. "LOBBY_FULL"; undefined when the body has
+     *  none (Boot's own error pages, an older server, no answer). */
+    code: string | undefined;
 
-    constructor({ message, status, invalidToken }: { message: string; status?: number; invalidToken?: boolean }) {
+    constructor({ message, status, invalidToken, code }: { message: string; status?: number; invalidToken?: boolean; code?: string }) {
         super(message);
         this.name = 'ApiError';
         this.status = status || 0;
         this.invalidToken = invalidToken ?? false;
+        this.code = code;
     }
 }

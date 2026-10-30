@@ -4,10 +4,11 @@ import { Button } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { authService } from '../../services/authService';
 import { ApiError } from '../../services/api';
-import { errorMessage, INVALID_LINK, isNetworkOrServerFailure } from '../../utils/errorMessage';
+import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
 import { safeReturnPath } from '../../routing/returnPath';
 import { AuthFrame, AUTH_LINK } from './AuthFrame';
 import { useReturnState } from './returnState';
+import { cat, useT } from '../../i18n/t';
 
 type Outcome =
     | { kind: 'idle' }
@@ -43,6 +44,7 @@ function nextStep(token: string, outcome: Outcome): string | null {
  * scripts) would otherwise spend it before the reader sees the page.
  */
 export function ConfirmEmailPage() {
+    const t = useT();
     const [searchParams] = useSearchParams();
     const token = (searchParams.get('token') ?? '').trim();
     const [outcome, setOutcome] = useState<Outcome>({ kind: 'idle' });
@@ -67,7 +69,7 @@ export function ConfirmEmailPage() {
             setOutcome({
                 kind: 'failed',
                 // their text is the browser's or Spring's ("Failed to fetch", "Internal Server Error")
-                message: isNetworkOrServerFailure(status) ? COULD_NOT_CONFIRM : errorMessage(error, INVALID_LINK),
+                message: isNetworkOrServerFailure(status) ? COULD_NOT_CONFIRM : errorMessage(error, cat().errors.codes.LINK_INVALID),
                 status,
             });
         }
@@ -79,7 +81,7 @@ export function ConfirmEmailPage() {
                 <h1 className="t-title">Confirm your email address</h1>
 
                 {!token ? (
-                    <ErrorAlert message={INVALID_LINK} className="w-full text-left" />
+                    <ErrorAlert message={t.errors.codes.LINK_INVALID} className="w-full text-left" />
                 ) : outcome.kind === 'confirmed' ? (
                     <>
                         <p className="t-body text-success">Your email address is confirmed.</p>

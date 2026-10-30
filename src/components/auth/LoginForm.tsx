@@ -4,7 +4,8 @@ import { Button, Input } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { useAuth } from '../../hooks/useAuth';
 import { ApiError } from '../../services/api';
-import { isNetworkOrServerFailure, SOMETHING_WENT_WRONG } from '../../utils/errorMessage';
+import { errorMessage, isNetworkOrServerFailure, SOMETHING_WENT_WRONG } from '../../utils/errorMessage';
+import { localiseLoginError } from '../../i18n/serverErrors';
 import { AUTH_LINK } from './AuthFrame';
 import { useReturnState } from './returnState';
 
@@ -69,7 +70,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
             // a 500 while the backend's session store is down, or no answer: not the raw text
             const status = error instanceof ApiError ? error.status : 0;
             setErrors({
-                submit: isNetworkOrServerFailure(status) ? SOMETHING_WENT_WRONG : error instanceof Error ? error.message : 'Login failed'
+                submit: isNetworkOrServerFailure(status) ? SOMETHING_WENT_WRONG : error instanceof ApiError ? localiseLoginError(error) : errorMessage(error, 'Login failed')
             });
         }
     };

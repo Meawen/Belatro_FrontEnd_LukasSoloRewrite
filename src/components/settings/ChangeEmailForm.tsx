@@ -9,6 +9,7 @@ import { ApiError } from '../../services/api';
 import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
 import type { ChangeEmailRequest } from '../../types/user';
 import { EMAIL_PATTERN } from '../auth/credentialRules';
+import { cat } from '../../i18n/t';
 
 export interface ChangeEmailFormProps {
     /** The address in force; null when the account has none (the form then adds one). */
@@ -38,7 +39,7 @@ export const ChangeEmailForm: React.FC<ChangeEmailFormProps> = ({ currentEmail, 
         } else if (address.toLowerCase() === currentEmail) {
             // the backend's rule: the new address, trimmed and lower-cased, against the stored one
             // as stored, so a legacy mixed-case address can still be changed to its normalised spelling
-            newErrors.newEmail = 'That is already your email address';
+            newErrors.newEmail = cat().errors.codes.EMAIL_UNCHANGED;
         }
         if (!currentPassword) {
             newErrors.currentPassword = 'Current password is required';
@@ -56,7 +57,7 @@ export const ChangeEmailForm: React.FC<ChangeEmailFormProps> = ({ currentEmail, 
         } catch (error) {
             // sent with keepTokenOn401: a 401 that is not the session's own is the wrong password
             if (error instanceof ApiError && error.status === 401 && !error.invalidToken) {
-                setErrors({ submit: 'Current password is incorrect' });
+                setErrors({ submit: cat().errors.codes.WRONG_PASSWORD });
             } else if (isNetworkOrServerFailure(error instanceof ApiError ? error.status : 0)) {
                 setErrors({ submit: 'We could not change your email address. Try again.' });
             } else {

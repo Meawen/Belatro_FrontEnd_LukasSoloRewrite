@@ -4,7 +4,7 @@ import { Button, Input } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { useAuth } from '../../hooks/useAuth';
 import { ApiError } from '../../services/api';
-import { isNetworkOrServerFailure, SOMETHING_WENT_WRONG } from '../../utils/errorMessage';
+import { errorMessage, isNetworkOrServerFailure, SOMETHING_WENT_WRONG } from '../../utils/errorMessage';
 import { EMAIL_PATTERN, passwordRuleError, usernameRuleError } from './credentialRules';
 import { AUTH_LINK } from './AuthFrame';
 import { useReturnState } from './returnState';
@@ -102,11 +102,11 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
             const status = error instanceof ApiError ? error.status : 0;
             // R-11: signup's only 403 is a missing or wrong invite code ("Invalid invite code")
             if (status === 403) {
-                setErrors({ inviteCode: (error as ApiError).message });
+                setErrors({ inviteCode: errorMessage(error, 'Invalid invite code') });
                 return;
             }
             setErrors({
-                submit: isNetworkOrServerFailure(status) ? SOMETHING_WENT_WRONG : error instanceof Error ? error.message : 'Registration failed'
+                submit: isNetworkOrServerFailure(status) ? SOMETHING_WENT_WRONG : errorMessage(error, 'Registration failed')
             });
         }
     };

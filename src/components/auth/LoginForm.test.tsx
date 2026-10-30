@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { LoginForm } from './LoginForm'
 import { ApiError } from '../../services/api'
 import { captureConsole } from '../../test/captureConsole'
+import { setLang } from '../../i18n/lang'
 
 const auth = vi.hoisted(() => ({ login: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({
@@ -12,6 +13,7 @@ vi.mock('../../hooks/useAuth', () => ({
 }))
 
 beforeEach(() => vi.clearAllMocks())
+afterEach(() => setLang('en'))
 
 /** Where the router is, and the state it carries. */
 function Where() {
@@ -53,6 +55,30 @@ describe('LoginForm', () => {
         await user.type(screen.getByLabelText('Password'), 'long-enough-1')
         await user.click(screen.getByRole('button', { name: /sign in/i }))
         expect(await screen.findByText('Bad credentials')).toBeInTheDocument()
+    })
+
+    test('a translated "Bad credentials" (HTTP_401) reads as a wrong username or password (Ruling 16)', async () => {
+        const user = userEvent.setup()
+        auth.login.mockRejectedValue(new ApiError({ status: 401, message: 'Ungültige Anmeldedaten', code: 'HTTP_401' }))
+        render(<MemoryRouter><LoginForm onSuccess={vi.fn()} /></MemoryRouter>)
+        await user.type(screen.getByLabelText('Username'), 'ana')
+        await user.type(screen.getByLabelText('Password'), 'long-enough-1')
+        await user.click(screen.getByRole('button', { name: /sign in/i }))
+        expect(await screen.findByText('Wrong username or password. Check both and try again.')).toBeInTheDocument()
+        expect(screen.queryByText('Ungültige Anmeldedaten')).not.toBeInTheDocument()
+    })
+
+    test('wrong credentials read in Croatian on a Croatian site', async () => {
+        setLang('hr')
+        const user = userEvent.setup()
+        auth.login.mockRejectedValue(new ApiError({ status: 401, message: 'Bad credentials', code: 'BAD_CREDENTIALS' }))
+        render(<MemoryRouter><LoginForm onSuccess={vi.fn()} /></MemoryRouter>)
+        // the form's own labels are still English until S3
+        await user.type(screen.getByLabelText('Username'), 'ana')
+        await user.type(screen.getByLabelText('Password'), 'long-enough-1')
+        await user.click(screen.getByRole('button', { name: /sign in/i }))
+        expect(await screen.findByText('Pogrešno korisničko ime ili lozinka. Provjeri oboje i pokušaj ponovno.')).toBeInTheDocument()
+        expect(screen.queryByText('Bad credentials')).not.toBeInTheDocument()
     })
 
     test('links to the forgot-password page', () => {

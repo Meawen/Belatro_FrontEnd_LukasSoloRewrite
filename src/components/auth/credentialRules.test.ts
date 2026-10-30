@@ -1,5 +1,10 @@
 import { describe, test, expect } from 'vitest'
-import { passwordRuleError, usernameRuleError, PASSWORD_RULE_MESSAGE, USERNAME_RULE_MESSAGE } from './credentialRules'
+import { passwordRuleError, usernameRuleError } from './credentialRules'
+import { en } from '../../i18n/catalog/en'
+import { setLang } from '../../i18n/lang'
+
+const PASSWORD_RULE_MESSAGE = en.errors.rules.password
+const USERNAME_RULE_MESSAGE = en.errors.rules.username
 
 describe('passwordRuleError (mirrors backend @ValidPassword)', () => {
     test('8 characters is enough, 7 is not', () => {
@@ -39,5 +44,17 @@ describe('usernameRuleError (mirrors SignupRequestDTO @Pattern)', () => {
     })
     test('the message is the backend one, word for word', () => {
         expect(USERNAME_RULE_MESSAGE).toBe('Username must be 3-20 characters: English letters a-z, digits or underscore')
+    })
+})
+
+describe('the rules in Croatian', () => {
+    test("the forms' own check reads in the site's language", () => {
+        setLang('hr')
+        try {
+            expect(passwordRuleError('1234567')).toBe('Lozinka mora imati najmanje 8 znakova i najviše 72 bajta.')
+            expect(usernameRuleError('ab')).toBe('Korisničko ime mora imati 3–20 znakova: slova a–z bez kvačica, brojke ili donju crtu.')
+        } finally {
+            setLang('en')
+        }
     })
 })
