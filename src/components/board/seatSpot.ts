@@ -16,8 +16,11 @@ export interface SeatSpot {
     aside?: { offset: number; room: number };
     /** Mine, upright and on wide windows: how wide my declared cards over my plate may run (give-way 1 within it). */
     above?: number;
-    /** Mine, upright: how wide my chips beside my plate may run (board.css: they wrap upwards within it). */
-    beside?: number;
+    /**
+     * Mine, upright: my chips beside my plate start after it, but no nearer than `from` px from its left edge (past my
+     * declared cards' room, so a line they wrap upwards never lands on those cards), and run `room` px at most.
+     */
+    beside?: { from: number; room: number };
 }
 
 /** The seat column (board.css `.board-seat`): the plate, its gap, and the turn timer bar under the plate. */
@@ -27,6 +30,11 @@ const TIMER = 3;
 const PLATE_ROW = PLATE + GAP + TIMER;
 /** A row of chips: Chip.tsx's Tag is 20 px tall (`h-5`). */
 const CHIP_ROW = 20;
+/**
+ * A portrait side seat's chips under its fan at their common size (Ruling O): its Zvanja chip and "No challenge", about
+ * 203 px, which the room before the me slot (128–162 px) wraps to two lines.
+ */
+const SIDE_CHIPS = 2 * CHIP_ROW + GAP;
 /**
  * A seat column at its common size (board-fit spec §3.2): 132 px wide; in my partner's landscape row, one common chip
  * ("Zvanja 20": caption type, 12 px uppercase, and 6 px each side) about 86 px.
@@ -196,8 +204,9 @@ function sideBoxes(layout: Layout, position: 'left' | 'right'): Box[] {
 /**
  * Where a seat's tag and chips sit (spec §5.6, board-fit spec §4), from the layout alone (its full fans and hand), so
  * they never move during play: my partner, see partnerSpot; the side seats, see sideSpot; me:
- * - portrait: over my pile, and under the left seat's column at its common size; my chips beside my plate, after it,
- *   wrapping upwards within `beside` (never down onto my hand); my declared cards over it within `above`;
+ * - portrait: over my pile, and under the side seats' columns at their common size, but never onto my hand; my chips
+ *   beside my plate, after it and past my declared cards' room, wrapping upwards within `beside` (never down onto my
+ *   hand, never onto my cards); my declared cards over it within `above`;
  * - tablet, desktop: over my pile, as today, my declared cards over it within `above`;
  * - landscape: at the bottom left, beside my hand, my chips and declared cards over the plate, up to my hand's first
  *   card and any trick slot beside them.
@@ -213,9 +222,14 @@ export function seatSpot(seat: SeatModel, targets: Targets, layout: Layout): Sea
     const above = (left: number, top: number) =>
         Math.min(layout.board.w / 2 - CLEAR - left, slotRoom(layout, left, 'left', top - GAP - layout.declared.h, top));
     if (layout.kind === 'portrait') {
+        // under the side seats' columns at their common size (two chip lines and four cards, or two chip lines and my four
+        // cards over my plate), but never down onto my hand: G1 before G2
         const leftSeat = sideSpot(layout, 'left');
-        const top = Math.max(overPile.top, leftSeat.top + leftSeat.under + CHIP_ROW + GAP + layout.declared.h + GAP);
-        return { ...overPile, top, above: above(overPile.left, top), beside: layout.board.w - 8 - (overPile.left + MY_PLATE + GAP) };
+        const clear = leftSeat.top + leftSeat.under + SIDE_CHIPS + GAP + layout.declared.h + GAP;
+        const hand = Math.min(...handPlaces(layout, 8).map((card) => boundsOf(card).y0)) - CLEAR - PLATE_ROW;
+        const top = Math.max(overPile.top, Math.min(clear, hand));
+        const room = above(overPile.left, top);
+        return { ...overPile, top, above: room, beside: { from: room + GAP, room: layout.board.w - 8 - (overPile.left + Math.max(MY_PLATE, room) + GAP) } };
     }
     if (layout.kind !== 'landscape') return { ...overPile, above: above(overPile.left, overPile.top) };
     const top = layout.board.h - 8 - PLATE_ROW;
@@ -251,7 +265,8 @@ function wrap(items: { w: number; h: number }[], room: number): { w: number; h: 
 /**
  * The estimated boxes of each seat's common column (board-fit spec §3.2), for `tableTargets` (seat ids are the
  * positions): the plate 26 tall with its timer bar (4 + 3), one row of chips 20 tall, 4-px gaps, 132 wide (capped by
- * the seat's maxWidth, never under a common chip), and up to four declared cards at 45 % overlap for the seats of
+ * the seat's maxWidth, never under a common chip; two lines under a portrait side fan), and up to four declared cards
+ * at 45 % overlap for the seats of
  * `declaredTeam` only (the winners: never both teams at once). A box holding only declared cards is as wide as their
  * row. A seat may have two boxes: a side seat's plate and its chips and cards; my plate and what sits over it; my
  * partner's row and its cards on the fan's other side.
@@ -275,7 +290,7 @@ export function seatBoxes(layout: Layout, targets: Targets, declaredTeam: 'mine'
                 continue;
             }
             // upright my plate and my chips beside it as far as they may run (one row, bottom-aligned), else my chips under it
-            if (layout.kind === 'portrait') add(spot.left, spot.top, MY_PLATE + GAP + (spot.beside ?? 0), PLATE_ROW);
+            if (layout.kind === 'portrait') add(spot.left, spot.top, layout.board.w - 8 - spot.left, PLATE_ROW);
             else add(spot.left, spot.top, narrow, PLATE_ROW + GAP + CHIP_ROW);
             if (declared) add(spot.left, spot.top - GAP - dh, declaredRow(layout, spot.above), dh);
         } else if (position === 'partner') {
@@ -297,7 +312,7 @@ export function seatBoxes(layout: Layout, targets: Targets, declaredTeam: 'mine'
         } else {
             const x = (width: number) => (position === 'right' ? spot.left - width : spot.left);
             add(x(narrow), spot.top, narrow, PLATE_ROW);
-            add(x(w), spot.top + (spot.under ?? 0), w, CHIP_ROW + cards);
+            add(x(w), spot.top + (spot.under ?? 0), w, (layout.kind === 'portrait' ? SIDE_CHIPS : CHIP_ROW) + cards);
         }
     }
     return boxes;

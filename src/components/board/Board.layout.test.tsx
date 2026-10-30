@@ -141,15 +141,18 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
         }
     })
 
-    test('upright my chips sit beside my plate, after it, bottom-aligned and wrapping upwards within their width, and my plate keeps the countdown\'s width, so they never shift or reach down onto my hand (board-fit spec §3.2, §4.1)', () => {
-        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-seat\[data-position="me"\] > \.board-seat__chips \{[^}]*position: absolute;[^}]*left: calc\(100% \+ 4px\);[^}]*top: 26px;[^}]*translate: 0 -100%;[^}]*flex-wrap: wrap-reverse;[^}]*width: max-content;/)
+    test('upright my chips sit beside my plate, after it and past my declared cards\' room, bottom-aligned and wrapping upwards within their width, and my plate keeps the countdown\'s width, so they never shift or reach down onto my hand or my cards (board-fit spec §3.2, §4.1)', () => {
+        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-seat\[data-position="me"\] > \.board-seat__chips \{[^}]*position: absolute;[^}]*left: max\(calc\(100% \+ 4px\), var\(--chips-from, 0px\)\);[^}]*top: 26px;[^}]*translate: 0 -100%;[^}]*flex-wrap: wrap-reverse;[^}]*width: max-content;/)
         expect(css).toMatch(/\.board-seat__seconds \{[^}]*min-width: 4ch;/)
         // the TS frame of the call: alice is to lead, then my turn comes
         const call = indexOf(table, 'call:')
         withDpr(2, () => {
             renderBoard({ state: tableState(table[call + 1]), viewport: { width: 375, height: 553 } })
             const mine = screen.getByTestId('seat-carol')
-            expect(px(mine.querySelector<HTMLElement>(':scope > .board-seat__chips')!, 'maxWidth')).toBe(375 - 8 - (12 + 140 + 4))
+            const chips = mine.querySelector<HTMLElement>(':scope > .board-seat__chips')!
+            // from my plate at its widest (140) to 8 px before the edge; not before my declared cards' room ends (130.15 + 4)
+            expect(px(chips, 'maxWidth')).toBe(375 - 8 - (12 + 140 + 4))
+            expect(Number.parseFloat(chips.style.getPropertyValue('--chips-from'))).toBeCloseTo(130.150 + 4, 3)
             // not my turn: an empty, hidden place for the countdown on my plate
             const reserve = mine.querySelector('.board-seat__name > .board-seat__seconds')!
             expect(reserve).toHaveAttribute('aria-hidden', 'true')

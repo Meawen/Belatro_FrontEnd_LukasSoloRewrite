@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { MotionConfig, m } from 'motion/react';
 import { fade, spring } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
@@ -97,7 +97,7 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                 const { under, aside, above, beside, ...spot } = seatSpot(seat, targets, layout);
                 const step = declaredStep(cardWidth, declared.length, aside?.room ?? above ?? spot.maxWidth);
                 const chipRow = (
-                    <span className="board-seat__chips" style={beside === undefined ? undefined : { maxWidth: beside }}>
+                    <span className="board-seat__chips" style={beside === undefined ? undefined : ({ '--chips-from': `${beside.from}px`, maxWidth: beside.room } as CSSProperties)}>
                         {seat.bid && (
                             <Pop instant={instant}>
                                 {seat.bid === 'PASS' ? <Tag>Pass</Tag> : <Tag tone="trump" suit={seat.bid}>{SUIT_LABEL[seat.bid]}</Tag>}

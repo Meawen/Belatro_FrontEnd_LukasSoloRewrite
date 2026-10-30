@@ -332,12 +332,13 @@
     display: flex;
     width: max-content;
 }
-/* upright: my chips beside my plate, so my column stays low enough for the left seat's above it (board-fit spec §4.1):
-   right after the plate (which keeps its countdown's width, Seats), bottom-aligned with it, wrapping upwards within
-   their width (seatSpot's beside), never down onto my hand (§3.2) */
+/* upright: my chips beside my plate, so my column stays low enough for the side seats' above it (board-fit spec §4.1):
+   after the plate (which keeps its countdown's width, Seats) but not before my declared cards' room ends (--chips-from),
+   bottom-aligned with it, wrapping upwards within their width (seatSpot's beside): never down onto my hand, never onto
+   my cards (§3.2) */
 .board[data-layout="portrait"] .board-seat[data-position="me"] > .board-seat__chips {
     position: absolute;
-    left: calc(100% + 4px);
+    left: max(calc(100% + 4px), var(--chips-from, 0px));
     top: 26px;
     translate: 0 -100%;
     flex-wrap: wrap-reverse;

@@ -159,7 +159,7 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
         expect(spotAt(at(812, 375, 2, 'landscape', 71), 'left')).toEqual({ left: expect.closeTo(56.589, 3), top: expect.closeTo(150.735, 3), under: 37, maxWidth: expect.closeTo(254.361, 3) })
     })
 
-    test('me: upright over my pile and under the left seat\'s column at its common size; on wide windows over my pile, as today; in landscape at the bottom left, beside my hand (§4.1, §4.2; Ruling I P1)', () => {
+    test('me: upright over my pile and under the side seats\' columns at their common size, but never onto my hand; on wide windows over my pile, as today; in landscape at the bottom left, beside my hand (§4.1, §4.2; Rulings I P1, O)', () => {
         for (const layout of seven()) {
             const targets = tableTargets(layout)
             const spot = seatSpot(seat('me'), targets, layout)
@@ -173,11 +173,14 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
             if (layout.kind === 'tablet' || layout.kind === 'desktop') {
                 expect(spot, where).toEqual({ ...today, above: expect.closeTo(above(today.top), 9) })
             } else if (layout.kind === 'portrait') {
-                // the left seat's chips and four cards (or its chips and my four cards over my plate), then 4 px; my chips
-                // beside my plate from 4 px after its widest (140) to 8 px before the board's edge
+                // the side seat's two chip lines and four cards (or its two lines and my four cards over my plate), then 4 px;
+                // but my plate and its timer bar stay 6 px over my hand's cards
                 const left = spotAt(layout, 'left')
-                const top = Math.max(today.top, left.top + left.under! + 20 + 4 + layout.declared.h + 4)
-                expect(spot, where).toEqual({ left: today.left, top, above: expect.closeTo(above(top), 9), beside: layout.board.w - 8 - (12 + 140 + 4) })
+                const handTop = Math.min(...handPlaces(layout, 8).map((card) => box(card).y0))
+                const top = Math.max(today.top, Math.min(left.top + left.under! + 44 + 4 + layout.declared.h + 4, handTop - 6 - 33))
+                // my chips start past my declared cards' room and run to 8 px before the board's edge from my plate at its widest
+                const room = above(top)
+                expect(spot, where).toEqual({ left: today.left, top, above: expect.closeTo(room, 9), beside: { from: expect.closeTo(room + 4, 9), room: expect.closeTo(layout.board.w - 8 - (12 + Math.max(140, room) + 4), 9) } })
             } else {
                 const top = layout.board.h - 8 - 33
                 const rows: [number, number] = [top - 4 - (20 + 4 + layout.declared.h), top + 33]
@@ -188,9 +191,9 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
         }
         // 812×375 @2: my hand's first card, turned −7.7°, starts at 182.46
         expect(spotAt(at(812, 375, 2, 'landscape', 71), 'me')).toEqual({ left: 12, top: 334, maxWidth: expect.closeTo(164.456, 3) })
-        // 375×553 @2: the left seat's column from 344.27 leaves my plate at 419.77, below my pile's top less 34 (362.35); my
-        // declared cards stop 6 px before the me slot (from 148.15), my chips beside the plate have 211 px
-        expect(spotAt(at(375, 553, 2, 'portrait', 71), 'me')).toEqual({ left: 12, top: expect.closeTo(419.772, 3), above: expect.closeTo(130.150, 3), beside: 211 })
+        // 375×553 @2: the side seats' columns from 344.27 would want my plate at 443.77; my hand (from 459.50) holds it at
+        // 420.50; my declared cards stop 6 px before the me slot (from 148.15), my chips start at 146.15 + 12, 211 px wide
+        expect(spotAt(at(375, 553, 2, 'portrait', 71), 'me')).toEqual({ left: 12, top: expect.closeTo(420.5, 1), above: expect.closeTo(130.150, 3), beside: { from: expect.closeTo(134.150, 3), room: 211 } })
     })
 
     test('at 667×323 @2 my plate and its chips and declared cards meet none of the left seat\'s boxes (seatBoxes), whichever team\'s cards show (§4.2)', () => {
@@ -207,7 +210,7 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
 })
 
 describe('seatBoxes: each seat\'s common column (board-fit spec §3.2): the plate, one row of chips, up to four declared cards', () => {
-    test('375×812 @2: the plate 26 tall with its timer bar (4 + 3), a 20-px chip row (Chip.tsx Tag: h-5), 4-px gaps, 132 wide; four 35.5-px declared cards at 45 % overlap for one team only, alone as wide as their row', () => {
+    test('375×812 @2: the plate 26 tall with its timer bar (4 + 3), a 20-px chip row (Chip.tsx Tag: h-5), two under a portrait side fan, 4-px gaps, 132 wide; four 35.5-px declared cards at 45 % overlap for one team only, alone as wide as their row', () => {
         const layout = at(375, 812, 2, 'portrait', 71)
         const targets = tableTargets(layout)
         const rect = (one: { box: { x: number; y: number; w: number; h: number } }) => [one.box.x, one.box.y, one.box.w, one.box.h].map((n) => Number(n.toFixed(3)))
@@ -222,25 +225,26 @@ describe('seatBoxes: each seat\'s common column (board-fit spec §3.2): the plat
         expect(mine.map((one) => one.id)).toEqual(['me', 'me', 'right', 'right', 'partner', 'left', 'left'])
         expect(mine.map(rect)).toEqual([
             // my plate and its timer, my chips beside it as far as they may run; my declared cards over it, their row wide
-            [12, me.top, 140 + 4 + me.beside!, 33],
+            [12, me.top, 375 - 8 - 12, 33],
             [12, me.top - 4 - 47.5, row, 47.5],
             // the right seat's plate and timer above its fan, its chips under it, right-aligned at its edge
             [right.left - 132, right.top, 132, 33],
-            [right.left - 132, right.top + right.under!, 132, 20],
+            // two chip lines under the fan (Ruling O: its Zvanja chip and "No challenge" don't fit one line before the me slot)
+            [right.left - 132, right.top + right.under!, 132, 44],
             // my partner's column beside the fan: plate, timer, chips, declared cards; as wide as the board leaves
             [partner.left, partner.top, partner.maxWidth!, 33 + 24 + 4 + 47.5],
             [8, left.top, 132, 33],
-            [8, left.top + left.under!, 132, 20],
+            [8, left.top + left.under!, 132, 44],
         ].map(round))
         expect(partner.maxWidth).toBeLessThan(132)
         expect(theirs.map((one) => one.id)).toEqual(['me', 'right', 'right', 'partner', 'left', 'left'])
         expect(theirs.map(rect)).toEqual([
             [12, me.top, 375 - 8 - 12, 33],
             [right.left - 132, right.top, 132, 33],
-            [right.left - 132, right.top + right.under!, 132, 20 + 4 + 47.5],
+            [right.left - 132, right.top + right.under!, 132, 44 + 4 + 47.5],
             [partner.left, partner.top, partner.maxWidth!, 57],
             [8, left.top, 132, 33],
-            [8, left.top + left.under!, 132, 71.5],
+            [8, left.top + left.under!, 132, 95.5],
         ].map(round))
     })
 
