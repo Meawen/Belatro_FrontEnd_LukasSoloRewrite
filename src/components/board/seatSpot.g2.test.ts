@@ -56,13 +56,7 @@ function collisions(layout: Layout): string[] {
  * a change to either shows. Every other §7 layout must meet nothing.
  */
 const OPEN: Record<string, string[]> = {
-    // the HUD's worst case (3-digit scores wrap Blok to a second line, Challenge to a third) reaches the left plate above
-    // its fan: no room between the HUD's column and the fan at the floor size
-    '375x553@2 71.00/71.00': [
-        "375x553@2 71.00/71.00 mine: left#0 [8.0, 183.5, 132.0, 33.0] meets hud#2 [8.0, 108.0, 120.0, 94.0] by 120.0×18.5",
-        "375x553@2 71.00/71.00 theirs: left#0 [8.0, 183.5, 132.0, 33.0] meets hud#2 [8.0, 108.0, 120.0, 94.0] by 120.0×18.5",
-    ],
-    // a pair fits rejects anyway: its partner slot meets the partner's fan (see the last test)
+    // never chosen: fits rejects it (its partner slot meets the partner fan; see the last test)
     '1280x720@1 142.00/213.00': [
         "1280x720@1 142.00/213.00 theirs: right#1 [630.5, 197.6, 132.0, 119.0] meets slot right [520.6, 223.0, 157.4, 201.2] by 47.5×93.6",
         "1280x720@1 142.00/213.00 theirs: left#1 [197.5, 197.6, 132.0, 119.0] meets slot left [282.0, 223.0, 157.4, 201.2] by 47.5×93.6",

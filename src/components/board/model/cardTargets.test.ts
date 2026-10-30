@@ -463,18 +463,23 @@ describe('tableTargets: a full table from the layout alone (seatBoxes, fits)', (
     })
 })
 
-describe('hudBoxes: what the HUD holds on the felt at its worst case (board-fit spec G2; Ruling I c)', () => {
-    test('portrait: with three-digit scores Blok wraps to a second line under the 375-px and 390-px HUD, and the Challenge column (Challenge over its info button, 44 + 6 + 44) a line further; a 430-px HUD keeps them on one line', () => {
-        // the first line needs 8 + 132 (scores) + 6 + 48 (Blok) + 6 + 220 (the longest phase and the menu) + 8 = 428 px
-        expect(hudBoxes(at(375, 553, 2, 'portrait', 71))).toEqual([{ x: 0, y: 0, w: 375, h: 52 }, { x: 8, y: 58, w: 48, h: 44 }, { x: 8, y: 108, w: 120, h: 94 }])
-        expect(hudBoxes(at(390, 664, 3, 'portrait', 94.67))).toEqual([{ x: 0, y: 0, w: 390, h: 52 }, { x: 8, y: 58, w: 48, h: 44 }, { x: 8, y: 108, w: 120, h: 94 }])
-        expect(hudBoxes(at(430, 739, 3, 'portrait', 71))).toEqual([{ x: 0, y: 0, w: 430, h: 52 }, { x: 8, y: 58, w: 120, h: 94 }])
+describe('hudBoxes: what the HUD holds on the felt at its worst case, four-digit scores (board-fit spec G2; Rulings I c, L)', () => {
+    test('portrait under 400 px: with a trump called the phase chip shows only the trump, so the first line holds the scores, Blok and the menu from 360 px (350 needed), and the Challenge column sits right under it', () => {
+        for (const [width, height, dpr] of [[360, 640, 2], [375, 553, 2], [390, 664, 3], [399, 700, 2]]) {
+            expect(hudBoxes(at(width, height, dpr, 'portrait', 71)), `${width}`).toEqual([{ x: 0, y: 0, w: width, h: 52 }, { x: 8, y: 58, w: 120, h: 94 }])
+        }
     })
 
-    test('landscape: Challenge (120 + 2 + 44 + 2) takes a second line where the left group, capped at half the board less 58, can\'t hold it beside the scores and Blok (360 px)', () => {
+    test('portrait from 400 px the phase word shows: the longest ("Hand finished" and the trump) needs 446 px, so at 430 Blok wraps to a second line and the Challenge column a line further', () => {
+        expect(hudBoxes(at(430, 739, 3, 'portrait', 71))).toEqual([{ x: 0, y: 0, w: 430, h: 52 }, { x: 8, y: 58, w: 48, h: 44 }, { x: 8, y: 108, w: 120, h: 94 }])
+        expect(hudBoxes(at(460, 900, 2, 'portrait', 71))).toEqual([{ x: 0, y: 0, w: 460, h: 52 }, { x: 8, y: 58, w: 120, h: 94 }])
+    })
+
+    test('landscape: Challenge (120 + 2 + 44 + 2) takes a second line where the left group, capped at half the board less 58, can\'t hold it beside the scores and Blok (378 px)', () => {
         expect(hudBoxes(at(667, 323, 2, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 667, h: 44 }, { x: 8, y: 58, w: 168, h: 44 }])
         expect(hudBoxes(at(812, 375, 2, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 812, h: 44 }, { x: 8, y: 58, w: 168, h: 44 }])
-        expect(hudBoxes(at(844, 340, 3, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 844, h: 44 }])
+        expect(hudBoxes(at(844, 340, 3, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 844, h: 44 }, { x: 8, y: 58, w: 168, h: 44 }])
+        expect(hudBoxes(at(932, 430, 3, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 932, h: 44 }])
     })
 
     test('tablets and desktops: the band only (Challenge stays on the HUD\'s line)', () => {

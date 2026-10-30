@@ -432,6 +432,22 @@
         display: none;
     }
 }
+/* a portrait HUD under 400 px while a trump is called (the only time Challenge shows): the phase word is read, not shown,
+   so Blok stays on the first line even with four-digit scores and the Challenge column right under it, clear of the
+   left seat's plate (board-fit spec G2) */
+@media (max-width: 399.98px) {
+    .board[data-layout="portrait"] .board-hud__phase--called {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+    }
+}
 .board-error {
     position: absolute;
     top: 52px;

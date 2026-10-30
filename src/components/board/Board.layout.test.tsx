@@ -168,6 +168,21 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
         }
     })
 
+    test('a portrait HUD under 400 px reads the phase word but hides it while a trump is called, so Blok stays on the first line and Challenge right under it (board-fit spec G2; Ruling L)', () => {
+        expect(css).toMatch(/@media \(max-width: 399\.98px\) \{\s*\.board\[data-layout="portrait"\] \.board-hud__phase--called \{[^}]*position: absolute;[^}]*width: 1px;[^}]*height: 1px;[^}]*overflow: hidden;[^}]*clip: rect\(0, 0, 0, 0\);[^}]*white-space: nowrap;/)
+        // a trump called: the phase word carries the class, its text stays for screen readers
+        renderBoard({ state: tableState(find(table, 'play:')), viewport: { width: 375, height: 553 } })
+        const phase = screen.getByTestId('game-phase')
+        expect(screen.getByTestId('trump')).toHaveTextContent('Herc')
+        expect(phase).toHaveClass('board-hud__phase--called')
+        expect(phase).toHaveTextContent('Playing')
+        cleanup()
+        // bidding, no trump: the word shows
+        renderBoard({ state: tableState(find(table, 'bid:bob:PASS')), viewport: { width: 375, height: 553 } })
+        expect(screen.getByTestId('game-phase')).not.toHaveClass('board-hud__phase--called')
+        expect(screen.getByTestId('game-phase')).toHaveTextContent('Bidding')
+    })
+
     test('on a portrait phone the HUD\'s Challenge stacks over its info button, so it stays in the felt\'s left column, clear of my partner\'s fan and plate (gameplay rules §6)', () => {
         expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-challenge--hud \.board-challenge__buttons \{[^}]*flex-direction: column;[^}]*align-items: flex-start;/)
         // each on its own ink chip, as Blok: the button on an opaque panel (a spent, greyed button is see-through), the info button its own
