@@ -83,4 +83,10 @@ describe('floorPair', () => {
     test('the floor trick with the hand nearest 1.5×, a tie of 1× and 2× to the bigger hand', () => {
         expect(pairs([floorPair(1)])).toEqual([[71, 142]])
     })
+
+    test('an in-band hand before the fallback, a tie in the band to the smaller hand, as desktopCandidates orders them', () => {
+        const pair = floorPair(3)
+        expect(pair.trick.w).toBeCloseTo(71)
+        expect(pair.hand.w).toBeCloseTo(94.67, 2)
+    })
 })

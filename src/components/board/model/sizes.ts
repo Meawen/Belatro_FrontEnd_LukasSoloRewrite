@@ -40,20 +40,27 @@ export function phoneCandidates(dpr: number): Size[] {
  */
 export function desktopCandidates(dpr: number): SizePair[] {
     const floor = cardSize(ART_W, dpr);
-    const all = crispSteps(dpr, floor.w, Math.max(floor.w, TRICK_MAX)).flatMap((trick) => pairsFor(trick, dpr));
-    const band = all.filter(inBand).sort(preferring('smaller'));
-    const rest = all.filter((pair) => !inBand(pair)).sort(preferring('bigger'));
-    return [...band, ...rest];
+    return inOrder(crispSteps(dpr, floor.w, Math.max(floor.w, TRICK_MAX)).flatMap((trick) => pairsFor(trick, dpr)));
 }
 
-/** When no pair fits (§3.3): the floor trick (today's step nearest 71) with the hand nearest 1.5×, a tie to the bigger. */
+/**
+ * When no pair fits (§3.3): the floor trick (today's step nearest 71) with the hand `desktopCandidates` would try
+ * first for it, an in-band hand before the rest (so 71/94.67 at dpr 3, 71/142 at dpr 1).
+ */
 export function floorPair(dpr: number): SizePair {
-    return pairsFor(cardSize(ART_W, dpr), dpr).sort(preferring('bigger'))[0];
+    return inOrder(pairsFor(cardSize(ART_W, dpr), dpr))[0];
 }
 
 /** The trick with every crisp hand from its own width to twice it. */
 function pairsFor(trick: Size, dpr: number): SizePair[] {
     return crispSteps(dpr, trick.w, RATIO.max * trick.w).map((hand) => ({ trick, hand }));
+}
+
+/** The in-band pairs first (a tie to the smaller hand), then the rest (a tie to the bigger hand). */
+function inOrder(pairs: SizePair[]): SizePair[] {
+    const band = pairs.filter(inBand).sort(preferring('smaller'));
+    const rest = pairs.filter((pair) => !inBand(pair)).sort(preferring('bigger'));
+    return [...band, ...rest];
 }
 
 const ratioOf = ({ trick, hand }: SizePair) => hand.w / trick.w;
