@@ -64,7 +64,7 @@ const KEPT = [
 ]
 
 const EDITED = [
-    "Ranked: press Find Match on the Ranked page; you need a confirmed email address. Stiglja puts the four closest-rated waiting players together; the longer they wait, the wider the rating gap it accepts, up to 1600 points between the highest and the lowest. Your rating moves with your team's result: a win raises it and a loss lowers it, by more when the other team was rated higher, by more for a bigger final score margin, and by more in your first ranked games. A very narrow win can leave the shown number unchanged.",
+    "Ranked: press Find Match on the Ranked page; you need a confirmed email address. Stiglja puts the four closest-rated waiting players together; the longer they wait, the wider the rating gap it accepts, up to 1600 points between the highest and the lowest. Your rating moves with your team's result: a win raises it and a loss lowers it; beating a higher-rated team gains more, and losing to one costs less. It moves by more for a bigger final score margin, and by more in your first ranked games. A very narrow win can leave the shown number unchanged.",
     "After 5 missed turns in a row by the same player, the game ends. A casual game is abandoned, with no result. In a ranked game the absent player's team loses, the absent player's rating drops as for a 1001–0 defeat, their partner's by half a normal loss, and the winners gain as for a normal win.",
 ]
 
@@ -80,6 +80,8 @@ describe('the full rules (ranks spec §9.2)', () => {
         expect(container.textContent).not.toContain('up to 400 points')
         expect(container.textContent).not.toContain('by at least 1 point')
         expect(container.textContent).not.toContain('ratings change as for any other result')
+        // the server's Elo: a loss to a higher-rated team costs less, not more (EloRatingCalculator, S6 review)
+        expect(container.textContent).not.toContain('by more when the other team was rated higher')
     })
 
     test('a Ranks section right after "Casual and ranked games": seven rows in order, then the placement sentence (F-3)', async () => {
@@ -314,6 +316,13 @@ describe('in Croatian (open beta §1.2, §1.3)', () => {
 
         expect(screen.getByText('Zovi Herc')).toBeInTheDocument()
         expect(screen.getByText('Dalje')).toBeInTheDocument()
+    })
+
+    test('the Croatian rating sentence says what the server does: a higher-rated team is worth more to beat, and costs less to lose to', async () => {
+        setLang('hr')
+        const { container } = await renderRules('/rules', 'Kako se igra')
+        expect(said('rules-modes')[1]).toBe('Rangirano: pritisni „Igraj rangirano” na stranici Rangirano; treba ti potvrđena e-adresa. Stiglja spaja četvero igrača u potrazi s najbližim rejtingom; što dulje čekaju, to veću razliku u rejtingu prihvaća, najviše 1600 bodova između najvišeg i najnižeg. Rejting ti se mijenja s rezultatom ekipe: pobjeda ga podiže, a poraz spušta; pobjeda protiv ekipe s višim rejtingom donosi više, a poraz od nje manje košta. Mijenja se više što je konačna razlika u rezultatu veća i više u tvojim prvim rangiranim partijama. Nakon vrlo tijesne pobjede prikazani broj može ostati isti.')
+        expect(container.textContent).not.toContain('i to više kad je druga ekipa imala viši rejting')
     })
 
     test('the Croatian cards, ranks and challenge read as the code names them', async () => {

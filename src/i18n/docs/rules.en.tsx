@@ -213,9 +213,10 @@ export const doc: RulesDoc = {
                         Ranked: press Find Match on the Ranked page; you need a confirmed email address.
                         Stiglja puts the four closest-rated waiting players together; the longer they wait, the
                         wider the rating gap it accepts, up to 1600 points between the highest and the lowest.
-                        Your rating moves with your team's result: a win raises it and a loss lowers it, by more
-                        when the other team was rated higher, by more for a bigger final score margin, and by more
-                        in your first ranked games. A very narrow win can leave the shown number unchanged.
+                        Your rating moves with your team's result: a win raises it and a loss lowers it; beating a
+                        higher-rated team gains more, and losing to one costs less. It moves by more for a bigger
+                        final score margin, and by more in your first ranked games. A very narrow win can leave the
+                        shown number unchanged.
                     </li>
                 </ul>
             ),

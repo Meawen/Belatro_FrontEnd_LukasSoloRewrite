@@ -181,7 +181,7 @@ export const doc: RulesDoc = {
                         Nerangirano: otvori stol ili sjedni za tuđi (za Stol za ekipu treba lozinka), odaberi ekipu, a domaćin pokreće partiju. Nerangirane partije nikad ne mijenjaju tvoj rejting.
                     </li>
                     <li>
-                        Rangirano: pritisni „Igraj rangirano” na stranici Rangirano; treba ti potvrđena e-adresa. Stiglja spaja četvero igrača u potrazi s najbližim rejtingom; što dulje čekaju, to veću razliku u rejtingu prihvaća, najviše 1600 bodova između najvišeg i najnižeg. Rejting ti se mijenja s rezultatom ekipe: pobjeda ga podiže, a poraz spušta, i to više kad je druga ekipa imala viši rejting, više što je konačna razlika u rezultatu veća i više u tvojim prvim rangiranim partijama. Nakon vrlo tijesne pobjede prikazani broj može ostati isti.
+                        Rangirano: pritisni „Igraj rangirano” na stranici Rangirano; treba ti potvrđena e-adresa. Stiglja spaja četvero igrača u potrazi s najbližim rejtingom; što dulje čekaju, to veću razliku u rejtingu prihvaća, najviše 1600 bodova između najvišeg i najnižeg. Rejting ti se mijenja s rezultatom ekipe: pobjeda ga podiže, a poraz spušta; pobjeda protiv ekipe s višim rejtingom donosi više, a poraz od nje manje košta. Mijenja se više što je konačna razlika u rezultatu veća i više u tvojim prvim rangiranim partijama. Nakon vrlo tijesne pobjede prikazani broj može ostati isti.
                     </li>
                 </ul>
             ),
