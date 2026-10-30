@@ -58,6 +58,9 @@ describe('Rules, Privacy and Terms (spec §4.15)', () => {
             'A waitlist address: deleted if it is not confirmed within 7 days.',
             'Notes of who played on which day, for the counts: 40 days.',
             'To leave the waitlist, write to support@stiglja.com from the address on the list, and we remove it.',
+            // Ruling 28: the waitlist's per-address limit, and every limited action under "Why we use it"
+            "the email address you enter for the waitlist, also kept in the server's memory for up to an hour to limit how often one address can join (at most 3 times an hour);",
+            "To keep Stiglja secure and working (our legitimate interest): limiting how often sign-in, signup, guest play, the waitlist and Bela school's counts can be used, and keeping logs to find faults and abuse.",
         ]) expect(en, text).toContain(text)
         expect(en).not.toMatch(/invite/i)
         cleanup()
@@ -71,6 +74,8 @@ describe('Rules, Privacy and Terms (spec §4.15)', () => {
             'Adresa u Redu za stol: brišemo je ako nije potvrđena u roku od 7 dana.',
             'Zabilješke o tome tko je kojeg dana igrao, za brojeve: 40 dana.',
             'Ako želiš izaći iz Reda za stol, piši na support@stiglja.com s adrese koja je na popisu i uklonit ćemo je.',
+            'e-adresu upisanu u Red za stol, koju također držimo u memoriji poslužitelja do sat vremena da bismo ograničili koliko se često ista adresa može upisati (najviše 3 puta na sat);',
+            'Da Stiglja bude sigurna i da radi (naš legitimni interes): ograničavamo koliko se često mogu koristiti prijava, registracija, igra kao gost, Red za stol i brojanje Škole bele te vodimo zapise kako bismo pronašli pogreške i zlouporabe.',
         ]) expect(hr, text).toContain(text)
         expect(hr).not.toMatch(/pozivn/i)
     })

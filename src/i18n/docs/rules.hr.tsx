@@ -124,7 +124,7 @@ export const doc: RulesDoc = {
                             Zvanja piše samo jedna ekipa: ona koja ima najjače zvanje. Ona piše sva zvanja oba svoja igrača; druga ekipa ne piše nijedno.
                         </li>
                         <li>
-                            Jače je zvanje koje vrijedi više. Ako dva vrijede jednako, četiri iste tuku niz; zatim odlučuje najviša karta zvanja (7 je najniža, As najviša), a među četiri iste As tuče 10, 10 tuče Kralja, a Kralj Babu. Ako su i tada jednaki, pobjeđuje igrač koji je prvi na redu nakon djelitelja. Adut tu ništa ne mijenja.
+                            Jače je zvanje koje vrijedi više. Ako dva vrijede jednako, četiri iste tuku niz; zatim odlučuje najviša karta zvanja (7 je najniža, As najviša), a među četiri iste As tuče 10, 10 tuče Kralja, a Kralj Babu. Ako su zvanja i tada jednaka, pobjeđuje igrač koji je prvi na redu nakon djelitelja. Adut tu ništa ne mijenja.
                         </li>
                         <li>
                             Svaki igrač kaže vrijednost svojeg najjačeg zvanja. Kad su vrijednosti dviju ekipa jednake, ti igrači kažu i do koje karte idu („do Babe”); suigrači ne moraju. Karte iz zvanja ekipe koja je dobila prikazuju se kraj njihovih mjesta dok se ne odnese prvi štih; karte druge ekipe ostaju skrivene.

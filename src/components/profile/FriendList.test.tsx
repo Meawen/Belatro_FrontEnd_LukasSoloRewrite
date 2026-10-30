@@ -140,6 +140,18 @@ describe('Friends (spec §4.11)', () => {
         await userEvent.setup().click(screen.getByRole('button', { name: 'Open the Leaderboard' }))
         expect(screen.getByText('at /users')).toBeInTheDocument()
     })
+
+    test('the search ignores capitals and the marks on č ć š ž đ (spec §1.5)', async () => {
+        const duro = { id: 'u5', username: 'đuro', eloRating: 1200, level: 1, gamesPlayed: 4 }
+        mockFriends([
+            { id: 'f3', fromUser: bob, toUser: ana, status: 'ACCEPTED', createdAt: null },
+            { id: 'f4', fromUser: duro, toUser: ana, status: 'ACCEPTED', createdAt: null },
+        ])
+        renderFriends()
+        await userEvent.setup().type(screen.getByLabelText('Search friends'), 'DURO')
+        expect(screen.getByText('đuro', { selector: 'p' })).toBeInTheDocument()
+        expect(screen.queryByText('bob', { selector: 'p' })).not.toBeInTheDocument()
+    })
 })
 
 // ranks spec §6.3: the rank tag between the Elo and the level

@@ -10,12 +10,12 @@ import type { Boja, GameCard, PlayerPublicInfo, PublicGameView } from '../types/
 import type { HandDTO, TrickDTO } from '../types/match';
 
 export const SEATS = ['alice', 'bob', 'carol', 'dave'] as const;
-/** names=long: every seat named by the longest username the backend allows (20 of [A-Za-z0-9_]), wide letters and narrow. */
+/** names=long: every seat named by the longest username the backend allows (20 of [A-Za-z0-9_čćšžđČĆŠŽĐ]): wide letters, and Croatian ones in both cases (dave). */
 export const LONG_NAMES: Readonly<Record<(typeof SEATS)[number], string>> = {
     alice: 'WWWWWWWWWWWWWWWWWWWW',
     bob: 'MMMMMMMMMMMMMMMMMMMM',
     carol: 'mmmmmmmmmmmmmmmmmmmm',
-    dave: 'aaaaaaaaaaaaaaaaaaaa',
+    dave: 'ŠĐŽČĆšđžčćŠĐŽČĆšđžčć',
 };
 export const LAYOUTS = ['fit', '375x812', '812x375', '1440x900'] as const;
 export type DevLayout = (typeof LAYOUTS)[number];

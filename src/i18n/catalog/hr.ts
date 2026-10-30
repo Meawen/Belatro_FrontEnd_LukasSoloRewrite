@@ -928,7 +928,7 @@ export const hr = {
         },
         rules: {
             password: 'Lozinka mora imati najmanje 8 znakova i najviše 72 bajta.',
-            username: 'Korisničko ime mora imati 3–20 znakova: slova a–z bez kvačica, brojke ili donju crtu.',
+            username: 'Korisničko ime mora imati 3–20 znakova: slova (i č ć š ž đ), brojke ili donju crtu.',
         },
         codes: {
             SESSION_EXPIRED: 'Sesija je istekla. Prijavi se ponovno.',
@@ -939,7 +939,8 @@ export const hr = {
             RATE_LIMITED: 'Previše pokušaja. Pričekaj malo pa pokušaj ponovno.',
             SERVICE_UNAVAILABLE: 'Poslužitelj trenutno ne odgovara. Pokušaj ponovno za minutu.',
             INVITE_CODE_INVALID: 'Pozivni kod nije ispravan. Provjeri ga i pokušaj ponovno.',
-            USERNAME_TAKEN: 'To korisničko ime već je zauzeto. Odaberi drugo.',
+            USERNAME_TAKEN: 'To korisničko ime već je zauzeto. Imena koja se razlikuju samo po velikim slovima ili po č ć š ž đ računaju se kao isto ime. Odaberi drugo.',
+            USERNAME_RESERVED: 'Imena koja počinju s obrisan_ rezervirana su. Odaberi drugo.',
             EMAIL_TAKEN: 'Ta se e-adresa već koristi. Upiši drugu.',
             LINK_INVALID: 'Ova poveznica ne vrijedi ili je istekla.',
             NOTHING_TO_CONFIRM: 'Nema e-adrese koja čeka potvrdu.',

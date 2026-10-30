@@ -10,7 +10,9 @@ import { cat } from '../../i18n/t';
 const MIN_PASSWORD_LENGTH = 8;
 // BCrypt ignores everything after 72 bytes, so the backend refuses longer passwords.
 const MAX_PASSWORD_BYTES = 72;
-const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,20}$/;
+// backend util/Usernames.PATTERN (spec §1.5): č ć š ž đ and their capitals are letters too. The reserved obrisan_
+// prefix is left to the server (USERNAME_RESERVED), which folds the name before it checks.
+const USERNAME_PATTERN = /^[A-Za-z0-9_čćšžđČĆŠŽĐ]{3,20}$/;
 
 /** Not a backend rule: the forms' loose shape check for an address; the backend's @Email decides. */
 export const EMAIL_PATTERN = /\S+@\S+\.\S+/;

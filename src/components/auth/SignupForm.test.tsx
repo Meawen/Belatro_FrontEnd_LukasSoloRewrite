@@ -47,13 +47,19 @@ describe('SignupForm credential rules', () => {
 
     test('a username outside the pattern is refused', async () => {
         await fill('ana.b', 'long-enough-1')
-        expect(screen.getByText('Username must be 3-20 characters: English letters a-z, digits or underscore')).toBeInTheDocument()
+        expect(screen.getByText('Username must be 3–20 characters: letters (including č ć š ž đ), digits or _')).toBeInTheDocument()
         expect(auth.signup).not.toHaveBeenCalled()
     })
 
-    test('a username with Croatian letters is told to use English letters a-z (R-17)', async () => {
-        await fill('mišo', 'long-enough-1')
-        expect(screen.getByText('Username must be 3-20 characters: English letters a-z, digits or underscore')).toBeInTheDocument()
+    test('a username with č ć š ž đ is sent as typed; the server stores it lower-cased (spec §1.5)', async () => {
+        auth.signup.mockResolvedValue({ token: 't', user: { id: 'u1', username: 'matić' }, message: null })
+        await fill('Matić', 'long-enough-1')
+        expect(auth.signup).toHaveBeenCalledWith({ username: 'Matić', email: 'ana@example.com', password: 'long-enough-1' })
+    })
+
+    test('a letter outside the alphabet is refused with the rule that names č ć š ž đ', async () => {
+        await fill('miño', 'long-enough-1')
+        expect(screen.getByText('Username must be 3–20 characters: letters (including č ć š ž đ), digits or _')).toBeInTheDocument()
         expect(auth.signup).not.toHaveBeenCalled()
     })
 
@@ -94,6 +100,13 @@ describe('SignupForm failures', () => {
         auth.signup.mockRejectedValue(new ApiError({ status: 409, message: 'Username is already taken' }))
         await fill('ana', 'long-enough-1')
         expect(await screen.findByText('Username is already taken')).toBeInTheDocument()
+    })
+
+    test("a reserved name is sent, and the server's refusal reads as its line (USERNAME_RESERVED)", async () => {
+        auth.signup.mockRejectedValue(new ApiError({ status: 400, message: 'That username is reserved', code: 'USERNAME_RESERVED' }))
+        await fill('obrisan_x', 'long-enough-1')
+        expect(auth.signup).toHaveBeenCalledTimes(1)
+        expect(await screen.findByText('Names starting with obrisan_ are reserved. Choose another one.')).toBeInTheDocument()
     })
 })
 
@@ -185,9 +198,9 @@ describe('SignupForm invite code (R-11)', () => {
 })
 
 describe('SignupForm in Croatian (open beta §1.1)', () => {
-    async function fillInCroatian(password: string, confirm: string) {
+    async function fillInCroatian(password: string, confirm: string, username = 'ana') {
         const user = userEvent.setup()
-        await user.type(screen.getByLabelText('Korisničko ime'), 'ana')
+        await user.type(screen.getByLabelText('Korisničko ime'), username)
         await user.type(screen.getByLabelText('E-adresa'), 'ana@example.com')
         await user.type(screen.getByLabelText('Lozinka'), password)
         await user.type(screen.getByLabelText('Potvrda lozinke'), confirm)
@@ -215,5 +228,13 @@ describe('SignupForm in Croatian (open beta §1.1)', () => {
         expect(screen.getByText(/poveznica za potvrdu stiže na/)).toHaveTextContent(
             'Ako se ova adresa može koristiti, poveznica za potvrdu stiže na ana@example.com. Provjeri poštu (i neželjenu poštu). Potvrdi adresu za rangirane partije; nerangirane možeš igrati odmah.')
         expect(screen.getByRole('button', { name: 'Nastavi' })).toBeInTheDocument()
+    })
+
+    test('a reserved name in Croatian', async () => {
+        setLang('hr')
+        auth.signup.mockRejectedValue(new ApiError({ status: 400, message: 'That username is reserved', code: 'USERNAME_RESERVED' }))
+        renderForm()
+        await fillInCroatian('long-enough-1', 'long-enough-1', 'obrisan_x')
+        expect(await screen.findByText('Imena koja počinju s obrisan_ rezervirana su. Odaberi drugo.')).toBeInTheDocument()
     })
 })

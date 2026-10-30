@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { rule, uiCss } from './css'
 import { renderBoard, tableState } from '../components/board/testing'
 import { LONG_NAMES, devTable, parseDevOptions, seatId } from '../dev/devTable'
+import { usernameRuleError } from '../components/auth/credentialRules'
 import { indexOf } from './fixtures/views/table'
 
 // Review focus: the longest real names (20-character usernames, 50-character lobby names) never overflow.
@@ -25,12 +26,13 @@ afterEach(() => {
 })
 
 describe('the longest names', () => {
-    test('/dev/board?names=long names every seat by a 20-character name in every frame; the labels stay', () => {
+    test('/dev/board?names=long names every seat by a 20-character name in every frame; the labels stay; one of them in Croatian letters', () => {
         const options = { ...parseDevOptions('?seat=carol&names=long'), hands: 1 }
         const short = devTable({ ...options, names: false }, 0)
         const long = devTable(options, 0)
         expect(seatId(options)).toBe(LONG_NAMES.carol)
-        expect(Object.values(LONG_NAMES).every((name) => /^[A-Za-z0-9_]{20}$/.test(name))).toBe(true)
+        expect(Object.values(LONG_NAMES).every((name) => name.length === 20 && usernameRuleError(name) === null)).toBe(true)
+        expect(Object.values(LONG_NAMES).some((name) => name.includes('ŠĐŽČĆ') && name.includes('šđžčć'))).toBe(true)
         expect(long[0].public.teamA.map((seat) => seat.id)).toEqual([LONG_NAMES.alice, LONG_NAMES.carol])
         expect(Object.keys(long[0].private).sort()).toEqual(Object.values(LONG_NAMES).sort())
         expect(JSON.stringify(long)).not.toMatch(/"(alice|bob|carol|dave)"/)
@@ -47,6 +49,7 @@ describe('the longest names', () => {
         expect(px(right, 'left') - px(right, 'maxWidth')).toBeGreaterThanOrEqual(375 / 2 + 6)
         expect(px(screen.getByTestId(`seat-${LONG_NAMES.alice}`), 'maxWidth')).toBeLessThanOrEqual(375 - 32)
         expect(screen.getByTitle(LONG_NAMES.bob)).toHaveTextContent(LONG_NAMES.bob)
+        expect(screen.getByTitle(LONG_NAMES.dave)).toHaveTextContent(LONG_NAMES.dave)
         expect(boardCss).toMatch(/\.board-seat__name > \.board-seat__label \{\s*flex-shrink: 1;\s*min-width: 0;\s*overflow: hidden;\s*text-overflow: ellipsis;/)
         expect(boardCss).toMatch(/\.board-seat__name \{\s*max-width: 100%;/)
     })

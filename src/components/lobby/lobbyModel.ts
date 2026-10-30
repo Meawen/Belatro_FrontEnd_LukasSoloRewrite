@@ -2,6 +2,7 @@ import type { LobbyDTO } from '../../types/lobby';
 import type { UserSimpleDTO } from '../../types/user';
 import { cat } from '../../i18n/t';
 import { formatRelative } from '../../i18n/format';
+import { fold } from '../../utils/fold';
 
 /**
  * The server's cap counts people, Unassigned included: a fifth person's join is answered 409 "Lobby is full"
@@ -82,12 +83,15 @@ export function sortLobbies(lobbies: LobbyDTO[], sort: LobbySort): LobbyDTO[] {
     });
 }
 
-/** The lobbies whose name or host contains `term`, in any case; a blank term keeps them all. */
+/**
+ * The lobbies whose name or host contains `term`, in any case and with or without the marks on č ć š ž đ (spec §1.5);
+ * a blank term keeps them all.
+ */
 export function filterLobbies(lobbies: LobbyDTO[], term: string): LobbyDTO[] {
-    const wanted = term.trim().toLowerCase();
+    const wanted = fold(term.trim());
     if (!wanted) return lobbies;
     return lobbies.filter(
-        (lobby) => (lobby.name ?? '').toLowerCase().includes(wanted) || (lobby.hostUser?.username ?? '').toLowerCase().includes(wanted),
+        (lobby) => fold(lobby.name ?? '').includes(wanted) || fold(lobby.hostUser?.username ?? '').includes(wanted),
     );
 }
 

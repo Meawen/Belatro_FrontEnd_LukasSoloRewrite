@@ -11,6 +11,7 @@ import type { User } from '../../types/user';
 import { errorMessage } from '../../utils/errorMessage';
 import { formatDate } from '../../i18n/format';
 import { useT } from '../../i18n/t';
+import { fold } from '../../utils/fold';
 
 type Tab = 'friends' | 'pending' | 'sent';
 type Busy = 'accept' | 'reject' | 'cancel' | 'remove';
@@ -116,10 +117,10 @@ export const FriendsList: React.FC = () => {
         });
 
         if (searchTerm) {
-            const term = searchTerm.toLowerCase();
+            const term = fold(searchTerm);
             filtered = filtered.filter((friendship: Friendship) => {
                 const otherUser = friendship.fromUser?.id === currentUser.id ? friendship.toUser : friendship.fromUser;
-                return otherUser?.username?.toLowerCase().includes(term);
+                return fold(otherUser?.username ?? '').includes(term);
             });
         }
 

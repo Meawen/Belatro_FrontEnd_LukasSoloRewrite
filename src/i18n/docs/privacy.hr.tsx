@@ -45,15 +45,17 @@ export const doc: LegalDoc = {
                     <li>
                         <strong>Sigurnosni podaci:</strong> tvoju IP adresu, koju držimo samo u memoriji poslužitelja da bismo
                         ograničili koliko se često mogu koristiti prijava, registracija, igra kao gost, Red za stol i brojanje Škole
-                        bele, i nikad je ne zapisujemo u bazu podataka; te tvoje korisničko ime u zapisima poslužitelja, koji
-                        bilježe što je usluga radila (na primjer prijavu ili događaj u partiji).
+                        bele, i nikad je ne zapisujemo u bazu podataka; e-adresu upisanu u Red za stol, koju također držimo u
+                        memoriji poslužitelja do sat vremena da bismo ograničili koliko se često ista adresa može upisati
+                        (najviše 3 puta na sat); te tvoje korisničko ime u zapisima poslužitelja, koji bilježe što je usluga
+                        radila (na primjer prijavu ili događaj u partiji).
                     </li>
                     <li>
                         <strong>U tvojem pregledniku:</strong> kad se prijaviš, stranica u lokalnoj pohrani preglednika čuva token za
                         prijavu, tvoj korisnički ID i korisničko ime, da prijava ostane aktivna. Odjava ih briše. Ako igraš kao
                         gost, stranica ondje na isti način čuva gosta. Ondje pamti i tvoj jezik i postavku efekata stola. Lozinku
                         Stola za ekipu koji otvoriš čuva u pohrani kartice preglednika dok ne zatvoriš karticu, da se može
-                        podijeliti. Stiglja ne postavlja kolačiće za oglašavanje ni analitiku i ne koristi alate za praćenje.
+                        podijeliti. Stiglja ne postavlja kolačiće za oglašavanje ni za analitiku i ne koristi alate za praćenje.
                     </li>
                     <li>
                         <strong>Jednostavni brojevi:</strong> da vidimo radi li beta, poslužitelj vodi nekoliko dnevnih zbrojeva:
@@ -86,8 +88,9 @@ export const doc: LegalDoc = {
                         </li>
                         <li>Da vidimo radi li beta (naš legitimni interes): jednostavni brojevi opisani gore.</li>
                         <li>
-                            Da Stiglja bude sigurna i da radi (naš legitimni interes): ograničavamo pokušaje prijave i registracije i
-                            vodimo zapise kako bismo pronašli pogreške i zlouporabe.
+                            Da Stiglja bude sigurna i da radi (naš legitimni interes): ograničavamo koliko se često mogu koristiti
+                            prijava, registracija, igra kao gost, Red za stol i brojanje Škole bele te vodimo zapise kako bismo
+                            pronašli pogreške i zlouporabe.
                         </li>
                     </ul>
                     <p>Tvoje podatke ne prodajemo i ne koristimo ih za oglašavanje.</p>

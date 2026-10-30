@@ -47,8 +47,10 @@ export const doc: LegalDoc = {
                     <li>
                         <strong>Security data:</strong> your IP address, kept only in the server's memory to
                         limit how often sign-in, signup, guest play, the waitlist and Bela school's counts can be used,
-                        and never written to our database; and your username in the server's logs, which record what the
-                        service did (for example a sign-in or a game event).
+                        and never written to our database; the email address you enter for the waitlist, also kept in the
+                        server's memory for up to an hour to limit how often one address can join (at most 3 times an
+                        hour); and your username in the server's logs, which record what the service did (for example a
+                        sign-in or a game event).
                     </li>
                     <li>
                         <strong>In your browser:</strong> when you sign in, the site keeps a sign-in token and
@@ -89,8 +91,9 @@ export const doc: LegalDoc = {
                         </li>
                         <li>To see whether the beta works (our legitimate interest): the simple counts described above.</li>
                         <li>
-                            To keep Stiglja secure and working (our legitimate interest): limiting sign-in and
-                            signup attempts, and keeping logs to find faults and abuse.
+                            To keep Stiglja secure and working (our legitimate interest): limiting how often sign-in,
+                            signup, guest play, the waitlist and Bela school's counts can be used, and keeping logs to find
+                            faults and abuse.
                         </li>
                     </ul>
                     <p>We do not sell your data or use it for advertising.</p>

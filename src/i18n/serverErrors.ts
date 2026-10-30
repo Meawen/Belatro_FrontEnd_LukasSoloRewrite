@@ -11,7 +11,7 @@ export type ErrorCode = keyof Catalog['errors']['codes'];
 /** The two credential rules' field messages (backend ValidPassword; SignupRequestDTO.username @Pattern). */
 const RULE_SENTENCES = new Map<string, keyof Catalog['errors']['rules']>([
     ['Password must be at least 8 characters and at most 72 bytes', 'password'],
-    ['Username must be 3-20 characters: English letters a-z, digits or underscore', 'username'],
+    ['Username must be 3–20 characters: letters (including č ć š ž đ), digits or _', 'username'],
 ]);
 
 /**

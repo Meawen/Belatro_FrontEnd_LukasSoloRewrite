@@ -16,11 +16,11 @@ afterEach(() => {
     vi.restoreAllMocks()
 })
 
-// copied from backend exceptions/ErrorCodes.java at 9b572f6; a later task that adds a code adds it here and a line in
-// both catalogs (Ruling 4)
+// copied from backend exceptions/ErrorCodes.java at d187ebd (B3 added USERNAME_RESERVED); a later task that adds a code
+// adds it here and a line in both catalogs (Ruling 4)
 const BACKEND_CODES = [
     'SESSION_EXPIRED', 'UNAUTHENTICATED', 'BAD_CREDENTIALS', 'WRONG_PASSWORD', 'ACCESS_DENIED', 'RATE_LIMITED',
-    'SERVICE_UNAVAILABLE', 'INVITE_CODE_INVALID', 'USERNAME_TAKEN', 'EMAIL_TAKEN', 'LINK_INVALID', 'NOTHING_TO_CONFIRM',
+    'SERVICE_UNAVAILABLE', 'INVITE_CODE_INVALID', 'USERNAME_TAKEN', 'USERNAME_RESERVED', 'EMAIL_TAKEN', 'LINK_INVALID', 'NOTHING_TO_CONFIRM',
     'EMAIL_UNCHANGED', 'PASSWORD_BLANK', 'EMAIL_NOT_VERIFIED', 'PAGE_INVALID', 'SEARCH_INVALID', 'BOT_NOT_DELETABLE',
     'FRIEND_USER_REQUIRED', 'FRIEND_SELF', 'FRIEND_IS_BOT', 'FRIENDSHIP_NOT_YOURS', 'FRIEND_SENDER_ONLY',
     'FRIEND_RECIPIENT_ONLY', 'FRIENDSHIP_FINAL', 'LOBBY_ID_REQUIRED', 'LOBBY_NOT_FOUND', 'HOST_CANNOT_LEAVE',
@@ -44,7 +44,7 @@ const STOMP: [string, ErrorCode][] = [
 
 const GENERIC_HR = 'Nešto je pošlo po zlu. Pokušaj ponovno.'
 const PASSWORD_SENTENCE = 'Password must be at least 8 characters and at most 72 bytes'
-const USERNAME_SENTENCE = 'Username must be 3-20 characters: English letters a-z, digits or underscore'
+const USERNAME_SENTENCE = 'Username must be 3–20 characters: letters (including č ć š ž đ), digits or _'
 
 const load = async () => ({
     ...(await import('./serverErrors')),
@@ -58,7 +58,7 @@ describe("server errors in the site's language (spec §1.1, §8)", () => {
     test('every code the backend sends, and every game refusal, has a line in both catalogs, and nothing else does', async () => {
         const { en, hr } = await load()
         const expected = [...new Set([...BACKEND_CODES, ...STOMP.map(([, code]) => code)])].sort()
-        expect(expected).toHaveLength(59)
+        expect(expected).toHaveLength(60)
         expect(Object.keys(en.errors.codes).sort()).toEqual(expected)
         expect(Object.keys(hr.errors.codes).sort()).toEqual(expected)
     })
@@ -129,7 +129,7 @@ describe("server errors in the site's language (spec §1.1, §8)", () => {
         const { localiseApiError, ApiError, setLang } = await load()
         const rules = [
             [PASSWORD_SENTENCE, 'Lozinka mora imati najmanje 8 znakova i najviše 72 bajta.'],
-            [USERNAME_SENTENCE, 'Korisničko ime mora imati 3–20 znakova: slova a–z bez kvačica, brojke ili donju crtu.'],
+            [USERNAME_SENTENCE, 'Korisničko ime mora imati 3–20 znakova: slova (i č ć š ž đ), brojke ili donju crtu.'],
         ]
         for (const code of ['VALIDATION', undefined]) {
             for (const [sentence] of rules) {

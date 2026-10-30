@@ -110,6 +110,12 @@ describe('lobbyModel (spec §4.6)', () => {
         expect(lobbyName(lobby({ name: null }))).toBe('Unnamed Table')
     })
 
+    test('search ignores the marks on č ć š ž đ, as the player search does (spec §1.5)', () => {
+        const dure = lobby({ id: 'dure', name: 'Kod Đure', hostUser: { id: 'u7', username: 'matić' } })
+        const petak = lobby({ id: 'petak', name: 'Petak', hostUser: luka })
+        for (const q of ['matic', 'MATIĆ', 'kod dure', 'đure']) expect(ids(filterLobbies([dure, petak], q)), q).toEqual(['dure'])
+    })
+
     test('a row is named by its lobby, host, people and bots and privacy, and says when you are in (AC 6)', () => {
         const l = lobby({ teamAPlayers: [mira, luka], teamBPlayers: [ivo], privateLobby: true })
         expect(lobbyRowLabel(l, 'u7')).toBe('Kod Mire, host mira_z, 3 of 4, private')

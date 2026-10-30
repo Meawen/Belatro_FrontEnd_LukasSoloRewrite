@@ -1225,7 +1225,7 @@ export const en = {
         // the credential rules: the forms' own check, and the server's field message for the same rule
         rules: {
             password: 'Password must be at least 8 characters and at most 72 bytes',
-            username: 'Username must be 3-20 characters: English letters a-z, digits or underscore',
+            username: 'Username must be 3–20 characters: letters (including č ć š ž đ), digits or _',
         },
         // one line per code: the REST codes (backend exceptions/ErrorCodes.java) and the game's refusals on
         // /user/queue/errors (matched by their text in serverErrors.ts)
@@ -1239,7 +1239,9 @@ export const en = {
             RATE_LIMITED: 'Too many tries. Wait a little, then try again.',
             SERVICE_UNAVAILABLE: "The server isn't answering right now. Try again in a minute.",
             INVITE_CODE_INVALID: 'Invalid invite code. Check it and try again.',
-            USERNAME_TAKEN: 'Username is already taken. Choose another one.',
+            USERNAME_TAKEN: 'Username is already taken. Names that differ only in capitals or in č ć š ž đ count as the same name. Choose another one.',
+            // sign-up (and later a guest's new name): obrisan_… is the name a removed account gets
+            USERNAME_RESERVED: 'Names starting with obrisan_ are reserved. Choose another one.',
             EMAIL_TAKEN: 'That email address is already in use. Use another one.',
             LINK_INVALID: 'This link is invalid or has expired',
             NOTHING_TO_CONFIRM: "There's no email address waiting to be confirmed.",

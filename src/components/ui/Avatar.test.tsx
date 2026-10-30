@@ -25,6 +25,11 @@ describe('Avatar (spec §3.7; X-12)', () => {
         expect(lg.querySelector('svg')).toHaveAttribute('width', '27')
         expect(sm.querySelector('svg')).toHaveAttribute('width', '18')
     })
+
+    test('a Croatian first letter shows as its capital (spec §1.5)', () => {
+        const { container } = render(<><Avatar initial="šime" /><Avatar initial="đuro" /><Avatar initial="čiko" /></>)
+        expect([...container.querySelectorAll('.ui-avatar')].map((tile) => tile.textContent)).toEqual(['Š', 'Đ', 'Č'])
+    })
 })
 
 describe('Pager (spec §3.7)', () => {

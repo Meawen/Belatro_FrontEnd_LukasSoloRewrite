@@ -76,7 +76,7 @@ export const doc: LegalDoc = {
                         <li>koristiti više od jednog računa ni dopustiti da netko drugi igra na tvojem;</li>
                         <li>koristiti botove, skripte ili bilo što drugo što igra ili čita igru umjesto tebe;</li>
                         <li>iskorištavati pogreške u igri (radije ih prijavi);</li>
-                        <li>vrijeđati, prijetiti ili uznemiravati druge igrače.</li>
+                        <li>vrijeđati druge igrače, prijetiti im ili ih uznemiravati.</li>
                     </ul>
                 </>
             ),
@@ -98,7 +98,7 @@ export const doc: LegalDoc = {
             title: 'Uklanjanje računa',
             body: (
                 <p>
-                    Račun ili gosta koji vara, zlorabi druge igrače ili uslugu ili na drugi način krši ove uvjete možemo
+                    Račun ili gosta koji vara, uznemirava druge igrače, zlorabi uslugu ili na drugi način krši ove uvjete možemo
                     suspendirati ili ukloniti. Stiglju možeš prestati koristiti u bilo kojem trenutku i zatražiti brisanje računa
                     (vidi Obavijest o privatnosti). Uklanjamo i račun čija e-adresa nije potvrđena u roku od 7 dana od
                     registracije te gosta koji se ne koristi 30 dana.
