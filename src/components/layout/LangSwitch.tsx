@@ -1,0 +1,32 @@
+import { cx } from '../ui/cx';
+import { setLang, useLang, type Lang } from '../../i18n/lang';
+import { useT } from '../../i18n/t';
+
+/**
+ * The compact HR · EN switch (spec §1.1) in the signed-in shell's top row. A shell component, not a design-system
+ * one: it knows the language store. The codes read the same in both languages; a 44-px target each.
+ */
+export function LangSwitch() {
+    const lang = useLang();
+    const t = useT();
+    const button = (code: Lang, text: string) => (
+        <button
+            type="button"
+            aria-pressed={lang === code}
+            className={cx('notch focus-inside press min-h-11 px-2', lang === code ? 'font-semibold text-text' : 'text-text-2 hover:text-text')}
+            onClick={() => {
+                // the language already shown: nothing to store or send
+                if (lang !== code) setLang(code);
+            }}
+        >
+            {text}
+        </button>
+    );
+    return (
+        <div role="group" aria-label={t.langSwitch.label} className="t-callout flex items-center">
+            {button('hr', 'HR')}
+            <span aria-hidden="true" className="text-text-3">·</span>
+            {button('en', 'EN')}
+        </div>
+    );
+}

@@ -1,4 +1,5 @@
 import type {Role, Instant} from './common';
+import type { Lang } from '../i18n/lang';
 
 /** A player's rank (UserSummaryDto.rank; ranks spec §4.1). The backend owns the names and the breakpoints. */
 export type RankKey = 'CUCEK' | 'DECEC' | 'FAKIN' | 'PAJDAS' | 'GOSPON' | 'MAJSTER' | 'KAJKAVAC';
@@ -71,6 +72,8 @@ export interface UserDto {
     emailVerified: boolean;
     roles: Role[] | null;
     deletionRequested: boolean | null;
+    /** spec §1.1 (B1); absent from an older server: no account preference. */
+    language?: Lang | null;
 }
 
 export interface ChangeEmailRequest {

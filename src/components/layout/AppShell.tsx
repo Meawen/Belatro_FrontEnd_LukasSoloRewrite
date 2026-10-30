@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { cx } from '../ui/cx';
 import { ActiveGameBanner } from './ActiveGameBanner';
 import { Footer } from './Footer';
+import { LangSwitch } from './LangSwitch';
 import { Sidebar } from './Sidebar';
 import { TabBar } from './TabBar';
 import { UnverifiedEmailBanner } from './UnverifiedEmailBanner';
@@ -26,6 +27,10 @@ export function AppShell({ children }: { children?: ReactNode }) {
             {!tabBar && <Sidebar />}
             <div className={cx('flex min-w-0 flex-1 flex-col', tabBar && 'pb-[calc(64px+var(--safe-bottom))]')}>
                 <main className={cx('flex-1 pt-(--safe-top)', GUTTER)}>
+                    {/* spec §1.1: the HR · EN switch in the signed-in shell */}
+                    <div className="mx-auto flex max-w-[880px] justify-end pt-2">
+                        <LangSwitch />
+                    </div>
                     <div className="mx-auto flex max-w-[880px] flex-col gap-2 pt-4 empty:hidden">
                         <ActiveGameBanner />
                         <UnverifiedEmailBanner />

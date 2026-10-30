@@ -22,11 +22,12 @@ describe('brand (R-39)', () => {
         expect(hits).toEqual([])
     })
 
-    test('index.html names the site, its language, a description and the favicon', () => {
+    test('index.html names the site, its language (Croatian first, open beta §1.1), a description and the favicon', () => {
         const html = readFileSync(repoFile('index.html'), 'utf8')
-        expect(html).toContain('<html lang="en">')
+        expect(html).toContain('<html lang="hr">')
         expect(html).toContain('<title>Stiglja</title>')
         expect(html).toMatch(/<meta name="description" content="[^"]+" \/>/)
+        expect(html).toContain('<meta name="description" content="Stiglja: bela za četvero, online." />')
         expect(html).toContain('<link rel="icon" type="image/svg+xml" href="/favicon.svg" />')
         expect(existsSync(repoFile('public/favicon.svg'))).toBe(true)
     })

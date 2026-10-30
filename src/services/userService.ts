@@ -12,6 +12,7 @@ import type {
     PaginationParams,
     Page,
 } from '../types';
+import type { Lang } from '../i18n/lang';
 
 export const userService = {
     async getUserById(id: string): Promise<User> {
@@ -46,6 +47,11 @@ export const userService = {
 
     async resendEmailConfirmation(): Promise<void> {
         await apiClient.post<void>('/user/me/email/resend');
+    },
+
+    // spec §1.1: the account keeps the site language (PUT → 204)
+    async setLanguage(language: Lang): Promise<void> {
+        await apiClient.put<void>('/user/me/language', { language });
     },
 
     // The server pages, sorts by username and filters on q (case-insensitive substring).

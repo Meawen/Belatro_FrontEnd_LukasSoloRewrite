@@ -87,3 +87,14 @@ describe('AppShell on a wider screen (spec §4.1, X-9)', () => {
         expect(screen.getByRole('main')).toContainElement(banner)
     })
 })
+
+describe('AppShell and the site language (open beta §1.1)', () => {
+    test.each([[375, 812], [1024, 768]])('the HR · EN switch sits at the top of the shell, before the banners, on a phone and on a wide screen (%i×%i)', (width, height) => {
+        viewport(width, height)
+        renderShell()
+        const langSwitch = screen.getByRole('group', { name: 'Site language' })
+        const banner = screen.getByRole('region', { name: 'Game in progress' })
+        expect(screen.getByRole('main')).toContainElement(langSwitch)
+        expect(langSwitch.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+})

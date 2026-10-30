@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { authService } from '../services';
+import { authService, userService } from '../services';
+import { adoptAccountLang, getLang } from '../i18n/lang';
 import { useMutation } from './useApi';
 import type {
     LoginRequestDTO,
@@ -110,6 +111,14 @@ export function useAuth() {
                 localStorage.setItem('user', JSON.stringify(response.user));
             }
 
+            // spec §1.1: after sign-in the account's language wins. The login response carries none
+            // (UserLoginDetailsDTO is {id, username}), so it comes from GET /user/me; best effort.
+            try {
+                adoptAccountLang((await userService.getMe()).language);
+            } catch {
+                // an older server or a failed read: the device's language stays
+            }
+
             setAuthState({
                 user: response.user,
                 isAuthenticated: true,
@@ -133,7 +142,8 @@ export function useAuth() {
         try {
             setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
-            const response = await signupMutation.mutate(userData);
+            // spec §1.1: signup records the language the site was in
+            const response = await signupMutation.mutate({ ...userData, language: userData.language ?? getLang() });
 
             // Store user data in localStorage
             if (response.user) {
