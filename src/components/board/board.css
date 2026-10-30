@@ -286,16 +286,18 @@
     flex-wrap: wrap;
     gap: 4px;
 }
-/* the right seat's plate ends at the right edge (seatSpot): its chips and declared cards line up under its fan there,
-   so a long name never pulls them across the felt onto my hand (the left seat's start at the left edge, as every column) */
+/* the right seat's column ends at its right edge (seatSpot): its chips and declared cards line up there, so a long
+   name never pulls them across the felt onto the trick or my hand (the left seat's start at its left edge, as every
+   column) */
 .board-seat[data-position="right"] {
     align-items: flex-end;
 }
 .board-seat[data-position="right"] .board-seat__chips {
     justify-content: flex-end;
 }
-/* a side seat's chips and declared cards (board-fit spec §4): under its fan, placed from the plate's top (seatSpot's
-   under), as wide as they are up to the seat's maxWidth, never as narrow as a short plate */
+/* a side seat's chips and declared cards (board-fit spec §4): under its fan upright, under its plate beside the fan
+   elsewhere, placed from the plate's top (seatSpot's under), as wide as they are up to the seat's maxWidth, never as
+   narrow as a short plate */
 .board-seat__under {
     position: absolute;
     left: 0;
@@ -317,6 +319,25 @@
     flex-wrap: wrap;
 }
 .board[data-layout="landscape"] .board-seat[data-position="partner"] .board-seat__timer {
+    order: 1;
+    flex-basis: 100%;
+}
+/* landscape, where that row has no room for them: my partner's declared cards on the fan's left side, ending where
+   seatSpot's aside says (a margin from the plate's left edge) */
+.board-seat__aside {
+    position: absolute;
+    top: 0;
+    right: 100%;
+    display: flex;
+    width: max-content;
+}
+/* upright: my chips beside my plate, so my column stays low enough for the left seat's above it (board-fit spec §4.1);
+   the turn timer bar under the row */
+.board[data-layout="portrait"] .board-seat[data-position="me"] {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+.board[data-layout="portrait"] .board-seat[data-position="me"] .board-seat__timer {
     order: 1;
     flex-basis: 100%;
 }

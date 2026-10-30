@@ -73,11 +73,12 @@ export interface SeatsProps {
  * trick is down; a quiet "No challenge" on every seat whose challenge is gone, for the rest of the game
  * (gameplay rules §6). Mine sit over my plate, which sits low by my pile: my declared cards always, and in
  * landscape, where my plate is beside my hand, my chips too (under it they would cover my hand's first cards).
- * My partner's sit under its plate, in the column beside its fan (on the plate's row in landscape, board.css). A side
- * seat's plate sits above its fan and its chips and cards under it (`board-seat__under`, seatSpot's `under`), on its own
- * edge (`data-position`), so neither reaches the trick or my hand (board-fit spec §4). Everything stays inside
- * `seat-{id}`. The declared cards are half a trick card (Layout.declared), 45 % under the next, closer where the
- * seat's column is narrower than they need (declaredStep).
+ * Upright my chips sit beside my plate (board.css). My partner's sit under its plate, in the column beside its fan; in
+ * landscape on the plate's row, its declared cards on the fan's other side where the row has no room
+ * (`board-seat__aside`, seatSpot's `aside`). A side seat's chips and cards sit in `board-seat__under` (seatSpot's
+ * `under`): under its fan upright, under its plate beside the fan elsewhere, on its own side (`data-position`), so none
+ * reaches the trick or my hand (board-fit spec §4). Everything stays inside `seat-{id}`. The declared cards are half a
+ * trick card (Layout.declared), 45 % under the next, closer where their room is narrower than they need (declaredStep).
  */
 export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps) {
     const chips = playOpen ? summaryChips(model.zvanja) : {};
@@ -91,8 +92,8 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
             {model.seats.map((seat) => {
                 const turn = seat.current && model.turn?.playerId === seat.id ? model.turn : null;
                 const declared = showCards ? model.zvanja?.seats.find((one) => one.playerId === seat.id && one.declarations.length > 0)?.cards ?? [] : [];
-                const { under, ...spot } = seatSpot(seat, targets, layout);
-                const step = declaredStep(cardWidth, declared.length, spot.maxWidth);
+                const { under, aside, ...spot } = seatSpot(seat, targets, layout);
+                const step = declaredStep(cardWidth, declared.length, aside?.room ?? spot.maxWidth);
                 const chipRow = (
                     <span className="board-seat__chips">
                         {seat.bid && (
@@ -156,7 +157,10 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                                 {(cards || chipsOver) && <span className="board-seat__above" style={{ maxWidth: spot.maxWidth }}>{cards}{chipsOver && chipRow}</span>}
                             </>
                         ) : (
-                            <>{chipRow}{cards}</>
+                            <>
+                                {chipRow}
+                                {cards && aside ? <span className="board-seat__aside" style={{ marginRight: aside.offset }}>{cards}</span> : cards}
+                            </>
                         )}
                     </div>
                 );

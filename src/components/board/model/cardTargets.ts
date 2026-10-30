@@ -356,15 +356,35 @@ export function tableTargets(layout: Layout): Targets {
 }
 
 /**
- * A portrait phone's Challenge column (board.css `.board[data-layout="portrait"] .board-challenge--hud`, Hud.tsx): a
- * line of its own under the HUD's first line (top 8, 44 tall, then 6), Challenge (44 tall as a small button's hit
- * area) over its info button (44), 6 apart; as wide as its widest label, "Challenge used" (about 96 px of 13-px
- * semibold text and 12 px each side). The hint it opens is a popover, not counted.
+ * The HUD at its widest while Challenge shows (board.css `.board-hud*`, `.board-challenge*`; Hud.tsx, Challenge.tsx),
+ * in CSS px measured on the 375×553 shot: lines 44 tall (the hit areas) from 8 px down, 6 apart, items 6 apart.
+ * - The score chip with three-digit scores: 96 with one digit each, and 9 px a further `t-score` digit (4 of them).
+ * - Blok: 48. The right group with the longest phase ("Hand finished", a trump) and the menu: about 170 + 6 + 44.
+ * - Challenge at its widest label, "Challenge used": 13-px semibold text and 12 px each side, about 120, 44 tall; its
+ *   info button 44; side by side 2 apart with 2 to spare (landscape), stacked 6 apart (portrait).
  */
-const CHALLENGE_COLUMN: Rect = { x: 8, y: 8 + 44 + 6, w: 120, h: 44 + 6 + 44 };
+const HUD = { top: 8, line: 44, gap: 6, score: 96 + 4 * 9, blok: 48, right: 170 + 6 + 44, challenge: 120, info: 44 };
 
-/** What the HUD keeps on the felt (board-fit spec G2): its band, and on a portrait phone the Challenge column under it. */
+/**
+ * What the HUD keeps on the felt (board-fit spec G2), at its worst case: its band, and
+ * - portrait: when the first line can't hold the scores, Blok and the right group, Blok on a second line; then the
+ *   Challenge column on a line of its own (Challenge over its info button), under Blok or under the first line;
+ * - landscape: when the left group (capped at half the board less 58 px) can't hold Challenge too, Challenge's line.
+ * Its hint is a popover, not counted.
+ */
 export function hudBoxes(layout: Layout): Rect[] {
-    const band: Rect = { x: 0, y: 0, w: layout.board.w, h: layout.hud };
-    return layout.kind === 'portrait' ? [band, { ...CHALLENGE_COLUMN }] : [band];
+    const W = layout.board.w;
+    const band: Rect = { x: 0, y: 0, w: W, h: layout.hud };
+    const line = (n: number) => HUD.top + n * (HUD.line + HUD.gap);
+    if (layout.kind === 'portrait') {
+        const wraps = HUD.top + HUD.score + HUD.gap + HUD.blok + HUD.gap + HUD.right + HUD.top > W;
+        const challenge: Rect = { x: HUD.top, y: line(wraps ? 2 : 1), w: HUD.challenge, h: HUD.line + HUD.gap + HUD.line };
+        return wraps ? [band, { x: HUD.top, y: line(1), w: HUD.blok, h: HUD.line }, challenge] : [band, challenge];
+    }
+    if (layout.kind === 'landscape') {
+        const challenge = HUD.challenge + 2 + HUD.info + 2;
+        const wraps = HUD.score + HUD.gap + HUD.blok + HUD.gap + challenge > W / 2 - 58;
+        return wraps ? [band, { x: HUD.top, y: line(1), w: challenge, h: HUD.line }] : [band];
+    }
+    return [band];
 }

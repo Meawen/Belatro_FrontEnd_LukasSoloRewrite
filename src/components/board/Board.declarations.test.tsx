@@ -305,7 +305,7 @@ describe('Board: focus when the moment\'s skip button goes (gameplay rules §6)'
 })
 
 describe('Board: my chips never sit on my hand (gameplay rules §6)', () => {
-    test('in landscape my chips go over my plate with my declared cards, as my bubble did; elsewhere under it; the other seats as before', () => {
+    test('in landscape my chips go over my plate with my declared cards, as my bubble did; elsewhere in my seat\'s column (beside the plate upright, under it on wide windows); the other seats as before', () => {
         // seed 1254, the hand's first card: carol (me) holds Zvanja 100 + 20 and six declared cards, alice 20 and three
         const t = playTable({ seed: 1254 })
         const first = t[indexOf(t, 'play:')]
