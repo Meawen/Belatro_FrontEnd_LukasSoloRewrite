@@ -1,7 +1,8 @@
 import { describe, test, expect } from 'vitest'
 import { bubbleSpot, declaredStep, seatBoxes, seatSpot, type SeatSpot } from './seatSpot'
 import { EMPTY_LOCAL, boardModel, type SeatModel, type SeatPosition } from './model/boardModel'
-import { cardTargets, fanPlaces, handPlaces, hudBoxes, layoutFor, tableTargets, trickSlots, type Layout } from './model/cardTargets'
+import { cardTargets, fanPlaces, handPlaces, hudBoxes, tableTargets, trickSlots, type Layout } from './model/cardTargets'
+import { layoutFor } from './model/fit'
 import { indexOf, playTable } from '../../test/fixtures/views/table'
 import { at, box, boxOf, hull, nameOf, overlap, seven, type Box } from '../../test/fixtures/layouts'
 
@@ -100,9 +101,10 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
             expect(spot.aside.room, where).toBeLessThanOrEqual(roomBefore(huds, end, 'right', spot.top, spot.top + layout.declared.h) + 1e-9)
         }
         // 812×375 @2: 132 + 4 + 86 + 4 + 94.08 = 320.08 fit the 341.59 beside the fan; 667×323 @2 has 269.09, so the cards go
-        // left of the fan, ending at 281.09, 99.09 px of room up to 6 px past the HUD's wrapped Challenge line (ending at 176)
-        expect(spotAt(at(812, 375, 2, 'landscape', 71), 'partner')).toEqual({ left: expect.closeTo(458.410, 3), top: 54, maxWidth: expect.closeTo(341.590, 3) })
-        expect(spotAt(at(667, 323, 2, 'landscape', 71), 'partner')).toEqual({ left: expect.closeTo(385.910, 3), top: 54, maxWidth: expect.closeTo(269.090, 3), aside: { offset: expect.closeTo(104.819, 3), room: expect.closeTo(99.090, 3) } })
+        // left of the fan, ending at 281.09, 99.09 px of room up to 6 px past the HUD's wrapped Challenge line (ending at 176).
+        // The plate's top 48: the fan's middle 17 px under the 44-px HUD (Ruling Q, board-fit spec §4.2: was 23, so 54)
+        expect(spotAt(at(812, 375, 2, 'landscape', 71), 'partner')).toEqual({ left: expect.closeTo(458.410, 3), top: 48, maxWidth: expect.closeTo(341.590, 3) })
+        expect(spotAt(at(667, 323, 2, 'landscape', 71), 'partner')).toEqual({ left: expect.closeTo(385.910, 3), top: 48, maxWidth: expect.closeTo(269.090, 3), aside: { offset: expect.closeTo(104.819, 3), room: expect.closeTo(99.090, 3) } })
     })
 
     test('the side seats upright: the plate and its timer bar above the fan, 6 px clear; the chips and cards 6 px under the fan or the side slot, whichever is lower, at the board\'s edge (§4.1; Ruling I P1)', () => {
@@ -155,8 +157,9 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
                 expect(spot.maxWidth, where).toBeCloseTo(Math.min(middle, Math.max(132, roomBefore(slotBoxes(layout).map((one) => one.box), spot.left, position, ...rows))), 9)
             }
         }
-        // 812×375 @2: the left fan ends at 50.59; its slot, from 316.94, leaves 254.36 px
-        expect(spotAt(at(812, 375, 2, 'landscape', 71), 'left')).toEqual({ left: expect.closeTo(56.589, 3), top: expect.closeTo(150.735, 3), under: 37, maxWidth: expect.closeTo(254.361, 3) })
+        // 812×375 @2: the left fan ends at 50.59; its slot, from 316.94, leaves 254.36 px. The fan's top 147.73: the band
+        // starts 6 px higher with the partner's fan (Ruling Q, §4.2: was 150.73), so the cross and the side fans 3 px higher
+        expect(spotAt(at(812, 375, 2, 'landscape', 71), 'left')).toEqual({ left: expect.closeTo(56.589, 3), top: expect.closeTo(147.735, 3), under: 37, maxWidth: expect.closeTo(254.361, 3) })
     })
 
     test('me: upright over my pile and under the side seats\' columns at their common size, but never onto my hand; on wide windows over my pile, as today; in landscape at the bottom left, beside my hand (§4.1, §4.2; Ruling I P1)', () => {

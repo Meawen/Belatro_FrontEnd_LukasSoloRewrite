@@ -90,9 +90,13 @@ dpr 2, 71, 106.5, 142, 177.5; at dpr 3, 71, 94.7, 118.3.
      trick, the hand nearest 1.5×; a tie goes to the smaller hand);
   2. if none fits, take the biggest trick that fits with the hand nearest 1.5× (between 1× and 2×). A tie between
      1× and 2× goes to the bigger hand.
-  - Examples (rough budgets; the builder's numbers decide). 1366×641 @1: trick 71, hand 142, today's 100 % look.
-    1440×900 @1 and 1920×1080 @1: 142 and 213. 2560×1300 @1: 213 and 284. 1536×730 @1.25: 114 and 170.
-    1280×600 @1.5: 94.7 and 142. A Mac at 1440×789 @2: 142 and 213, bigger than today's 106.5.
+  - Examples (the builder's numbers, what `layoutFor` picks). 1366×641 @1: trick 71, hand 142, today's 100 % look.
+    1440×900 @1 and 1920×1080 @1: 142 and 213. 2560×1300 @1: 213 and 284. 1536×730 @1.25: 113.6 and 170.4.
+    1280×600 @1.5: 94.7 and 94.7. A Mac at 1440×789 @2: 106.5 and 142, the hand bigger than today's 106.5.
+  - Note (builder, after the fit check): on 1280×600 @1.5 and 1440×789 @2 the in-band pairs with a bigger trick or
+    hand (94.7/142; 142/213) don't fit, because the cross is taller than its band between the partner's fan and my
+    hand. So 1280×600 falls to rule 2 and 1440×789 to the 1.33 pair. The band no longer reserves the hover lift (§4.3).
+    Landscape uses a flatter cross (§4.2).
 - **The opponents' backs and fan steps scale with the trick** on these windows (builder's call, from the review): the
   backs drawn at half the trick card's width, as on phones (35.5 against 71). Tags and chips keep today's text size.
 - **Ceiling (builder's call, agreed in the summary):** the trick at most three art sizes (213 px wide on a 1× screen,
@@ -135,7 +139,9 @@ The trick keeps its cross in every layout. Its slots stay relative to the card s
   seat's tag and chips must not meet them (G2).
 
 ### 4.2 Landscape (height 500 px or less)
-- The cross is centred in the band between the partner's fan and the top of the (lowered) hand.
+- The cross is centred in the band between the partner's fan and the top of the (lowered) hand. It is flatter than
+  upright: its slots sit 0.35 of a card's height from its centre (0.45 before), and the partner's fan sits closer under
+  the HUD, so the cross fits 667×323 and 844×340 (builder, after the fit check).
 - The partner's tag stays beside the fan (today's rule), its chips and declared cards beside it, on the same row.
 - The side seats as in §4.1: tags above the fans, chips and declared cards under them.
 - **My tag sits at the bottom left, beside my hand**, low enough that the left seat's column never reaches it.
@@ -147,7 +153,9 @@ The trick keeps its cross in every layout. Its slots stay relative to the card s
   its centre band, the fans and tags placed as today but at distances that follow the card size.
 - The partner's and side seats' chips and declared cards follow §4.1's rule (nothing hangs into the trick), wherever
   today's positions would put them on it at the new sizes.
-- The hover lift (−24 px, ×1.08, §5.6.5) of a hand card must not reach a trick card.
+- The hover lift (−24 px, ×1.08, §5.6.5) of a hand card must not reach the partner's or a side seat's trick card. It
+  may reach my own slot (builder, after the fit check): a card lifts only while it is enabled, on my turn, when my slot
+  is empty, as with "Your turn".
 
 ## 5. Deliberate exceptions to G1
 These cover the trick or hand on purpose, and the checks must allow them:

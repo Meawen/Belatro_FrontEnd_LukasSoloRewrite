@@ -85,15 +85,21 @@ const HAND_STEP = { portrait: 36, tablet: 36, landscape: 52 };
 const DESKTOP_HAND_STEP = 0.59;
 /** A fan's step per 47.5 px of the back as drawn (a 71-wide back at half scale): 10 px, 16 on desktops (spec §5.6). */
 const FAN_STEP = { drawn: 47.5, phone: 10, desktop: 16 };
-/** At a 71-wide back: the side fans' inset from the edge (§5.6.1: 30), the partner's fan centre under the HUD (46). */
+/**
+ * At a 71-wide back: the side fans' inset from the edge (§5.6.1: 30), the partner's fan centre under the HUD (46; in
+ * landscape 17, Ruling Q: was 23).
+ */
 const SIDE_INSET = { phone: 30, desktop: 70 };
-const PARTNER_DROP: Record<LayoutKind, number> = { portrait: 46, tablet: 46, landscape: 23, desktop: 56 };
-/** The trick's cross: each slot's offset from its centre, in card widths (x) and heights (y) (spec §5.6.1, §5.6.2). */
+const PARTNER_DROP: Record<LayoutKind, number> = { portrait: 46, tablet: 46, landscape: 17, desktop: 56 };
+/**
+ * The trick's cross: each slot's offset from its centre, in card widths (x) and heights (y) (spec §5.6.1, §5.6.2). In
+ * landscape a flatter cross (y 0.35, Ruling Q: was 0.45), so it fits the short band between the partner's fan and the
+ * lowered hand.
+ */
 const SLOT = { x: 0.84, y: 0.58 };
-const LANDSCAPE_SLOT = { x: 0.7, y: 0.45 };
-/** Kept clear between the trick's band and my hand's top; on desktop the hover lift too (§5.6.5: −24 px, ×1.08 about the centre). */
+const LANDSCAPE_SLOT = { x: 0.7, y: 0.35 };
+/** Kept clear between the trick's band and my hand's top. */
 const BAND_GAP = 8;
-const HOVER = { lift: 24, grow: 0.04 };
 
 /** A card `intended` CSS px wide, sized to a whole number of device pixels per art pixel (spec §3.6). */
 export function cardSize(intended: number, dpr: number): Size {
@@ -128,18 +134,6 @@ function declaredSize(trick: Size, backs: number, dpr: number): Size {
     if (nearest.w >= backs) return nearest;
     const s = Math.ceil((backs * dpr) / ART.w);
     return { w: (ART.w * s) / dpr, h: (ART.h * s) / dpr };
-}
-
-/** The layout of spec §5.6 for a viewport, at today's card sizes (§3.6). */
-export function layoutFor(viewport: Viewport): Layout {
-    const { width, height, dpr } = viewport;
-    const phone = cardSize(ART.w, dpr);
-    if (width > height && height <= 500) return layoutAt(viewport, 'landscape', phone, phone);
-    if (width >= 1024) {
-        const retina = dpr >= 2;
-        return layoutAt(viewport, 'desktop', cardSize(retina ? 106.5 : 71, dpr), cardSize(retina ? 106.5 : 142, dpr));
-    }
-    return layoutAt(viewport, width >= 768 ? 'tablet' : 'portrait', phone, phone);
 }
 
 /** A stable tilt of −4.8…+4.8° from the card id (spec §5.6.1), never random per render. */
@@ -224,13 +218,12 @@ export function fanPlaces(layout: Layout, position: SeatPosition, n: number): Ta
 }
 
 /**
- * The bottom of the trick's band (board-fit spec §4): 8 px over the top of my full hand of 8; on desktop also over the
- * hover lift, which raises a card 24 px and grows it ×1.08 about its centre (4 % of its height).
+ * The bottom of the trick's band (board-fit spec §4): 8 px over the top of my full hand of 8. It reserves neither
+ * "Your turn" (Ruling E) nor the hover lift (Ruling P): both show only on my turn, when my slot is empty, so they may
+ * meet my own slot; `fits` keeps them off the others.
  */
 export function bandBottom(layout: Layout): number {
-    const handTop = Math.min(...handPlaces(layout, 8).map((card) => card.top));
-    const lift = layout.kind === 'desktop' ? HOVER.lift + HOVER.grow * layout.hand.h : 0;
-    return handTop - BAND_GAP - lift;
+    return Math.min(...handPlaces(layout, 8).map((card) => card.top)) - BAND_GAP;
 }
 
 /**
@@ -269,15 +262,23 @@ const PANEL = { max: 320, margin: 128, padding: 14 };
 /** A belot's cards are two-thirds of a trick card, each 45 % under the next where the panel has the room. */
 const BELOT_SCALE = 0.66;
 const BELOT_OVERLAP = 0.45;
+/** The most a belot's eight cards ever hide of each other: each keeps its corner index, 30 % of its width, in view. */
+const BELOT_SHOWN = 0.3;
 
 /**
  * A belot's `count` cards in a row in the declaration panel (gameplay rules §6): each `width` wide, crisp as
  * PlayingCard draws it, and `step` from one card's left edge to the next's: 45 % under the next, or closer where
- * the row would overflow the panel (a retina desktop, whose crisp card rounds up to a whole 71 px).
+ * the row would overflow the panel (a retina desktop, whose crisp card rounds up to a whole 71 px). On a table whose
+ * trick cards are too big for the panel's 320 px (board-fit spec §3.5), the cards are the biggest crisp size at which
+ * eight in a row still show each one's corner index.
  */
 export function belotRow(layout: Layout, count = 8): { width: number; step: number } {
-    const width = crispCardWidth(layout.trick.w * BELOT_SCALE, layout.viewport.dpr);
+    const dpr = layout.viewport.dpr;
     const room = Math.min(PANEL.max, layout.board.w - PANEL.margin) - 2 * PANEL.padding;
+    const most = room / (1 + 7 * BELOT_SHOWN);
+    const wanted = crispCardWidth(layout.trick.w * BELOT_SCALE, dpr);
+    const s = Math.floor((most * dpr) / ART.w);
+    const width = wanted <= most || s < 1 ? wanted : (ART.w * s) / dpr;
     const step = count > 1 ? Math.max(0, Math.min(width * (1 - BELOT_OVERLAP), (room - width) / (count - 1))) : 0;
     return { width, step };
 }

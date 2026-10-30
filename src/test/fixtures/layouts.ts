@@ -1,22 +1,23 @@
 import { cardSize, layoutAt, type Layout, type LayoutKind, type Rect, type Target } from '../../components/board/model/cardTargets'
 
-/** A layout at the sizes board-fit spec §3 names for a window (Ruling A: before Task 4 layoutFor keeps today's). */
+/** A layout for a window at given card sizes (the step nearest each width at that density). */
 export function at(width: number, height: number, dpr: number, kind: LayoutKind, trick: number, hand = trick): Layout {
     return layoutAt({ width, height, dpr }, kind, cardSize(trick, dpr), cardSize(hand, dpr))
 }
 
 /**
- * The §7 windows at their sizes: phones upright 94.67 at 390×664 @3 and the step nearest 71 elsewhere, sideways the
- * step nearest 71, wide windows §3.3's examples. 1440×900 @2 takes 1440×789 @2's pair; 1280×720 @1, which §3.3
- * names no size for, takes both pairs around it.
+ * The §7 windows at the sizes layoutFor picks for them (board-fit spec §3; Ruling R: §3.3's examples are these; fit.test
+ * pins each): phones upright 94.67 at 390×664 @3 and 430×739 @3, 71 at 375×553 @2 and 375×812 @2; sideways 71; wide
+ * windows as §3.3 says. 1280×720 @1 also at 142/213, a pair fits rejects there (Ruling M), so the G2 test keeps it in
+ * view.
  */
 export const seven = (): Layout[] => [
-    at(375, 553, 2, 'portrait', 71), at(390, 664, 3, 'portrait', 94.67), at(375, 812, 2, 'portrait', 71), at(430, 739, 3, 'portrait', 71),
+    at(375, 553, 2, 'portrait', 71), at(390, 664, 3, 'portrait', 94.67), at(375, 812, 2, 'portrait', 71), at(430, 739, 3, 'portrait', 94.67),
     at(667, 323, 2, 'landscape', 71), at(844, 340, 3, 'landscape', 71), at(812, 375, 2, 'landscape', 71),
     at(960, 980, 1, 'tablet', 142, 213),
     at(1280, 720, 1, 'desktop', 71, 142), at(1280, 720, 1, 'desktop', 142, 213), at(1366, 641, 1, 'desktop', 71, 142),
-    at(1440, 900, 1, 'desktop', 142, 213), at(1440, 900, 2, 'desktop', 142, 213), at(1440, 789, 2, 'desktop', 142, 213),
-    at(1536, 730, 1.25, 'desktop', 113.6, 170.4), at(1280, 600, 1.5, 'desktop', 94.67, 142),
+    at(1440, 900, 1, 'desktop', 142, 213), at(1440, 900, 2, 'desktop', 142, 213), at(1440, 789, 2, 'desktop', 106.5, 142),
+    at(1536, 730, 1.25, 'desktop', 113.6, 170.4), at(1280, 600, 1.5, 'desktop', 94.67, 94.67),
     at(1920, 1080, 1, 'desktop', 142, 213), at(2560, 1300, 1, 'desktop', 213, 284),
 ]
 

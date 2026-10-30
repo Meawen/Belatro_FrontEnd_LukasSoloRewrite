@@ -1,30 +1,11 @@
 import { describe, test, expect } from 'vitest'
 import { declaredStep, seatBoxes, seatSpot } from './seatSpot'
-import { fanPlaces, handPlaces, hudBoxes, tableTargets, trickSlots, type Layout } from './model/cardTargets'
+import { fanPlaces, hudBoxes, tableTargets, trickSlots, type Layout } from './model/cardTargets'
+import { fits, handStrips as strips } from './model/fit'
 import { at, box, boxOf, hull, nameOf, overlap, seven, type Box } from '../../test/fixtures/layouts'
 
 /** Each trick slot at the widest a stable tilt makes it (tilt(): −4.8…+4.8°). */
 const slotBoxes = (layout: Layout) => Object.entries(trickSlots(layout)).map(([position, slot]) => ({ position, box: box({ ...slot, rotate: 4.8 }) }))
-
-/**
- * My full hand's exposed strips (board-fit spec G1, Ruling J): each card's part above the board's bottom edge that the
- * next card leaves uncovered (its left part, as far as the next card's left edge, in its own turn); the last card's
- * whole visible part.
- */
-function strips(layout: Layout): Box[] {
-    const hand = handPlaces(layout, 8)
-    return hand.map((card, i) => {
-        const w = i < hand.length - 1 ? hand[i + 1].left - card.left : card.width
-        const cx = card.left + card.width / 2
-        const cy = card.top + card.height / 2
-        const r = (card.rotate * Math.PI) / 180
-        const corners = [[card.left, card.top], [card.left + w, card.top], [card.left, card.top + card.height], [card.left + w, card.top + card.height]]
-            .map(([x, y]) => [cx + (x - cx) * Math.cos(r) - (y - cy) * Math.sin(r), cy + (x - cx) * Math.sin(r) + (y - cy) * Math.cos(r)])
-        const xs = corners.map(([x]) => x)
-        const ys = corners.map(([, y]) => y)
-        return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.min(Math.max(...ys), layout.board.h) }
-    })
-}
 
 const show = (b: Box) => `[${[b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0].map((n) => n.toFixed(1)).join(', ')}]`
 const by = (a: Box, b: Box) => `${(Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)).toFixed(1)}×${(Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0)).toFixed(1)}`
@@ -56,10 +37,12 @@ function collisions(layout: Layout): string[] {
  * a change to either shows. Every other §7 layout must meet nothing.
  */
 const OPEN: Record<string, string[]> = {
-    // never chosen: fits rejects it (its partner slot meets the partner fan; see the last test)
+    // never chosen: fits rejects it (its partner slot meets the partner fan; see the last test). Since the band no longer
+    // reserves the hover lift (Ruling P) the cross sits 17.7 px lower here, and my column meets the left seat's chip row
     '1280x720@1 142.00/213.00': [
-        "1280x720@1 142.00/213.00 theirs: right#1 [630.5, 197.6, 132.0, 119.0] meets slot right [520.6, 223.0, 157.4, 201.2] by 47.5×93.6",
-        "1280x720@1 142.00/213.00 theirs: left#1 [197.5, 197.6, 132.0, 119.0] meets slot left [282.0, 223.0, 157.4, 201.2] by 47.5×93.6",
+        "1280x720@1 142.00/213.00 mine: left#1 [197.5, 215.3, 132.0, 20.0] meets me#1 [12.0, 230.9, 188.2, 95.0] by 2.7×4.5",
+        "1280x720@1 142.00/213.00 theirs: right#1 [630.5, 215.3, 132.0, 119.0] meets slot right [520.6, 240.7, 157.4, 201.2] by 47.5×93.6",
+        "1280x720@1 142.00/213.00 theirs: left#1 [197.5, 215.3, 132.0, 119.0] meets slot left [282.0, 240.7, 157.4, 201.2] by 47.5×93.6",
     ],
 }
 
@@ -78,6 +61,7 @@ describe('the seat columns at the board-fit §7 sizes (spec G1, G2)', () => {
         const layout = seven().find((one) => nameOf(one) === '1280x720@1 142.00/213.00')!
         const fan = hull(fanPlaces(layout, 'partner', 8).map(box))
         expect(overlap(box({ ...trickSlots(layout).partner, rotate: 4.8 }), fan)).toBe(true)
+        expect(fits(layout)).toBe(false)
     })
 })
 

@@ -24,7 +24,8 @@ import { Piles } from './Piles';
 import { Seats } from './Seats';
 import { Summary } from './Summary';
 import { announce, seatName } from './announce';
-import { cardTargets, layoutFor, type Layout, type Targets } from './model/cardTargets';
+import { cardTargets, type Layout, type Targets } from './model/cardTargets';
+import { layoutFor } from './model/fit';
 import { BELOT_HOLD_MS, momentKey, momentSrLine } from './model/declarationMoment';
 import {
     answerBela, challengePending, pendingUntil, pressBid, pressCard, pressChallenge, unlock, waitingForDeclarations, type ChallengeSent, type InputResult,
