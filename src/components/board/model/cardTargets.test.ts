@@ -1,7 +1,10 @@
 import { describe, test, expect } from 'vitest'
-import { bannerSpot, belotRow, cardSize, cardTargets, layoutFor, tilt, trickCentre, type Target, type Targets, type Viewport } from './cardTargets'
+import {
+    bandBottom, bannerSpot, belotRow, cardSize, cardTargets, fanPlaces, fanStepOf, handPlaces, layoutAt, layoutFor, tilt, trickCentre, trickSlots,
+    type Layout, type LayoutKind, type Target, type Targets, type Viewport,
+} from './cardTargets'
 import { crispCardWidth } from '../../ui/cardWidth'
-import { EMPTY_LOCAL, boardModel, type BoardModel } from './boardModel'
+import { EMPTY_LOCAL, boardModel, type BoardModel, type SeatPosition } from './boardModel'
 import { indexOf, playTable } from '../../../test/fixtures/views/table'
 
 /** The busiest table: my 8 cards, a 3-card trick, 8 backs at every other seat. */
@@ -49,9 +52,11 @@ function checkFit(viewport: Viewport, minVisible: number) {
         expect(b.y0).toBeGreaterThanOrEqual(layout.kind === 'landscape' ? 0 : layout.hud)
         if (!hand.includes(target)) expect(b.y1).toBeLessThanOrEqual(H)
     }
-    // every hand card exposes a strip at least 36 px wide and minVisible px tall
+    // every hand card exposes a strip minVisible px tall and, on phones, max(32, 0.36 of its width) px wide; on
+    // desktops 40 % of its width (board-fit spec §3.5, redesign spec §5.6.3)
+    const strip = layout.kind === 'desktop' ? 0.4 * layout.hand.w : Math.max(32, 0.36 * layout.hand.w)
     hand.forEach((card, i) => {
-        if (i < hand.length - 1) expect(hand[i + 1].left - card.left).toBeGreaterThanOrEqual(36)
+        if (i < hand.length - 1) expect(hand[i + 1].left - card.left).toBeGreaterThanOrEqual(strip)
         expect(H - card.top).toBeGreaterThanOrEqual(minVisible)
     })
     // the regions never cover each other: hand, trick, each seat's backs, the piles
@@ -98,6 +103,174 @@ describe('layoutFor (spec §5.6, §3.6)', () => {
     })
 })
 
+/** A layout at the sizes board-fit spec §3 names for a window (Ruling A: before Task 4 layoutFor keeps today's). */
+function at(width: number, height: number, dpr: number, kind: LayoutKind, trick: number, hand = trick): Layout {
+    return layoutAt({ width, height, dpr }, kind, cardSize(trick, dpr), cardSize(hand, dpr))
+}
+
+/**
+ * The §7 windows at their sizes: phones upright 94.67 at 390×664 @3 and the step nearest 71 elsewhere, sideways the
+ * step nearest 71, wide windows §3.3's examples. 1440×900 @2 takes 1440×789 @2's pair; 1280×720 @1, which §3.3
+ * names no size for, takes both pairs around it.
+ */
+const seven = (): Layout[] => [
+    at(375, 553, 2, 'portrait', 71), at(390, 664, 3, 'portrait', 94.67), at(375, 812, 2, 'portrait', 71), at(430, 739, 3, 'portrait', 71),
+    at(667, 323, 2, 'landscape', 71), at(844, 340, 3, 'landscape', 71), at(812, 375, 2, 'landscape', 71),
+    at(960, 980, 1, 'tablet', 142, 213),
+    at(1280, 720, 1, 'desktop', 71, 142), at(1280, 720, 1, 'desktop', 142, 213), at(1366, 641, 1, 'desktop', 71, 142),
+    at(1440, 900, 1, 'desktop', 142, 213), at(1440, 900, 2, 'desktop', 142, 213), at(1440, 789, 2, 'desktop', 142, 213),
+    at(1536, 730, 1.25, 'desktop', 113.6, 170.4), at(1280, 600, 1.5, 'desktop', 94.67, 142),
+    at(1920, 1080, 1, 'desktop', 142, 213), at(2560, 1300, 1, 'desktop', 213, 284),
+]
+const nameOf = (layout: Layout) => `${layout.viewport.width}x${layout.viewport.height}@${layout.viewport.dpr} ${layout.trick.w.toFixed(2)}/${layout.hand.w.toFixed(2)}`
+
+describe('layoutAt: the whole layout at given card sizes (board-fit spec §3)', () => {
+    test('2560×1300 @1 at 213/284: the board 1100 × 284/142 = 2200 wide, centred left of Bela Blok\'s column; the backs drawn at half the trick (§3.3)', () => {
+        const layout = at(2560, 1300, 1, 'desktop', 213, 284)
+        expect(layout).toMatchObject({ kind: 'desktop', trick: { w: 213, h: 285 }, hand: { w: 284, h: 380 }, backScale: 0.5, hud: 52, handShow: 0.8 })
+        expect(layout.board).toEqual({ x: 20, y: 0, w: 2200, h: 1300 })
+        expect(layout.blok).toEqual({ x: 2220, y: 0, w: 320, h: 1300 })
+        expect(layout.back).toEqual(layout.trick)
+        expect(layout.back.w * layout.backScale).toBe(106.5)
+        // a hand no bigger than 142 keeps the 1100 cap; a narrow window gives the board what Blok leaves
+        expect(at(1440, 900, 2, 'desktop', 106.5).board).toEqual({ x: 10, y: 0, w: 1100, h: 900 })
+        expect(at(1536, 730, 1.25, 'desktop', 113.6, 170.4).board.w).toBe(1536 - 320)
+    })
+
+    test('phones and tablets: the whole window, no Blok column; the phone back on phones, the trick card on a tablet; scale .4, a 44-px HUD and half a hand card in landscape (§3.2–§3.4)', () => {
+        const upright = at(390, 664, 3, 'portrait', 94.67)
+        expect(upright).toMatchObject({ kind: 'portrait', board: { x: 0, y: 0, w: 390, h: 664 }, blok: null, back: { w: 71, h: 95 }, backScale: 0.5, hud: 52, handShow: 0.8 })
+        expect(upright.trick.w).toBeCloseTo(94.67, 2)
+        expect(upright.hand).toEqual(upright.trick)
+        expect(at(844, 340, 3, 'landscape', 71)).toMatchObject({ board: { x: 0, y: 0, w: 844, h: 340 }, blok: null, back: { w: 71, h: 95 }, backScale: 0.4, hud: 44, handShow: 0.5 })
+        const tablet = at(960, 980, 1, 'tablet', 142, 213)
+        expect(tablet).toMatchObject({ board: { x: 0, y: 0, w: 960, h: 980 }, blok: null, backScale: 0.5, hud: 52, handShow: 0.8 })
+        expect(tablet.back).toEqual(tablet.trick)
+    })
+
+    test('layoutFor keeps today\'s sizes through layoutAt (Task 4 swaps the size rule); a retina desktop\'s backs follow its trick (§3.3)', () => {
+        for (const viewport of [{ width: 375, height: 812, dpr: 3 }, { width: 812, height: 375, dpr: 2 }, { width: 820, height: 1180, dpr: 2 }, { width: 1440, height: 900, dpr: 1 }, { width: 1440, height: 900, dpr: 2 }]) {
+            const today = layoutFor(viewport)
+            expect(layoutAt(viewport, today.kind, today.trick, today.hand), `${viewport.width}@${viewport.dpr}`).toEqual(today)
+        }
+        expect(layoutFor({ width: 1440, height: 900, dpr: 2 }).back).toEqual({ w: 106.5, h: 142.5 })
+        expect(layoutFor({ width: 1440, height: 900, dpr: 1 }).back).toEqual({ w: 71, h: 95 })
+    })
+
+    test('declared cards: crisp, the step nearest half the trick card, never narrower than the backs as drawn (§3.5)', () => {
+        expect(at(375, 812, 2, 'portrait', 71).declared).toEqual({ w: 35.5, h: 47.5 })
+        expect(at(390, 664, 3, 'portrait', 94.67).declared.w).toBeCloseTo(142 / 3, 9)
+        expect(at(2560, 1300, 1, 'desktop', 213, 284).declared).toEqual({ w: 142, h: 190 })
+        expect(at(1536, 730, 1.25, 'desktop', 113.6, 170.4).declared.w).toBeCloseTo(56.8, 9)
+        // a trick card whose half is under the backs as drawn (35.5): the next crisp step up, not 23.67
+        const small = at(375, 812, 3, 'portrait', 142 / 3)
+        expect(small.declared.w).toBeCloseTo(142 / 3, 9)
+        for (const layout of seven()) {
+            const { w, h } = layout.declared
+            const s = (w * layout.viewport.dpr) / 71
+            expect(w, nameOf(layout)).toBeGreaterThanOrEqual(layout.back.w * layout.backScale)
+            expect(Math.abs(s - Math.round(s)), nameOf(layout)).toBeLessThan(1e-9)
+            expect(h, nameOf(layout)).toBeCloseTo((95 * w) / 71, 9)
+        }
+    })
+})
+
+describe('distances scale with the card size (board-fit spec §3.3, §3.5)', () => {
+    test('the hand step: 36/71 of the hand card upright, 52/71 sideways, 0.59 on desktops, or less where the board is narrow', () => {
+        const step = (layout: Layout) => { const hand = handPlaces(layout, 8); return hand[1].left - hand[0].left }
+        expect(step(at(375, 812, 2, 'portrait', 71))).toBe(36)
+        expect(step(at(812, 375, 2, 'landscape', 71))).toBe(52)
+        expect(step(at(2560, 1300, 1, 'desktop', 213, 284))).toBeCloseTo(0.59 * 284, 9)
+        // 960 px can't take 213 × 36/71 = 108: the eight fill the board less 16 px each side
+        expect(step(at(960, 980, 1, 'tablet', 142, 213))).toBeCloseTo(96.962, 3)
+        expect(handPlaces(at(375, 812, 2, 'portrait', 71), 1)).toEqual([{ left: 375 / 2 - 35.5, top: 812 - 76, width: 71, height: 95, rotate: 0, scale: 1, z: 0 }])
+    })
+
+    test('the fan step is 10 px per 47.5 px of the back as drawn (16 on desktop); the side insets and the partner\'s drop under the HUD follow the back\'s width / 71', () => {
+        const big = at(2560, 1300, 1, 'desktop', 213, 284)
+        expect(fanStepOf(big)).toBe(48)
+        expect(fanStepOf(at(1440, 900, 1, 'desktop', 71, 142))).toBe(16)
+        expect(fanStepOf(at(375, 812, 2, 'portrait', 71))).toBe(10)
+        expect(fanStepOf(at(960, 980, 1, 'tablet', 142, 213))).toBe(20)
+        // sideways the backs are drawn at .4: 38 px tall, so 8 px apart (today 10)
+        expect(fanStepOf(at(812, 375, 2, 'landscape', 71))).toBe(8)
+        const centreOf = (fan: Target[]) => ({ x: (fan[0].left + fan[fan.length - 1].left) / 2 + fan[0].width / 2, y: (fan[0].top + fan[fan.length - 1].top) / 2 + fan[0].height / 2 })
+        // 56 px under the HUD and 70 px in from the sides at a 71-wide back, three times that at 213
+        expect(centreOf(fanPlaces(big, 'partner', 8))).toEqual({ x: 1100, y: 52 + 168 })
+        expect(centreOf(fanPlaces(big, 'left', 8)).x).toBe(210)
+        expect(centreOf(fanPlaces(big, 'right', 8)).x).toBe(2200 - 210)
+        expect(centreOf(fanPlaces(big, 'left', 8)).y).toBeCloseTo(trickCentre(big).y - 10, 9)
+        const phone = at(375, 812, 2, 'portrait', 71)
+        expect(centreOf(fanPlaces(phone, 'partner', 8))).toEqual({ x: 375 / 2, y: 52 + 46 })
+        expect(centreOf(fanPlaces(phone, 'left', 8)).x).toBe(30)
+        const sideways = at(812, 375, 2, 'landscape', 71)
+        expect(centreOf(fanPlaces(sideways, 'partner', 8)).y).toBe(44 + 23)
+        expect(centreOf(fanPlaces(sideways, 'right', 8)).x).toBe(812 - 30)
+        expect(centreOf(fanPlaces(sideways, 'right', 8)).y).toBeCloseTo(trickCentre(sideways).y, 9)
+        // the backs: the seat's turn, ±2° a card, at the layout's scale; my own hand is no fan
+        const left = fanPlaces(phone, 'left', 8)
+        expect(left.map((back) => back.rotate)).toEqual([83, 85, 87, 89, 91, 93, 95, 97])
+        expect(left.every((back) => back.scale === 0.5 && back.width === 71)).toBe(true)
+        expect(left[1].top - left[0].top).toBeCloseTo(10, 9)
+        expect(fanPlaces(phone, 'me', 8)).toEqual([])
+    })
+
+    test('cardTargets builds from handPlaces, fanPlaces and trickSlots', () => {
+        const model = busyModel()
+        for (const layout of [layoutFor({ width: 375, height: 812, dpr: 3 }), at(2560, 1300, 1, 'desktop', 213, 284), at(844, 340, 3, 'landscape', 71)]) {
+            const t = cardTargets(model, layout)
+            expect(model.hand.map((card) => t.cards[card.id]), nameOf(layout)).toEqual(handPlaces(layout, 8))
+            for (const seat of model.seats.filter((one) => !one.isMe)) {
+                expect(Array.from({ length: 8 }, (_, i) => t.cards[`back:${seat.id}:${i}`]), seat.id).toEqual(fanPlaces(layout, seat.position, 8))
+            }
+            const slots = trickSlots(layout)
+            for (const play of model.trick!.plays) expect(t.cards[play.id]).toEqual({ ...slots[play.position ?? 'me'], rotate: tilt(play.id), z: play.order })
+            expect(Object.values(slots).every((slot) => slot.rotate === 0 && slot.scale === 1 && slot.width === layout.trick.w)).toBe(true)
+        }
+    })
+})
+
+/**
+ * A card's corner index (the art's rank and suit) after the card turns `rotate`° about its centre: 0.3 of its
+ * width by 0.25 of its height at its top-left corner or, turned, at its bottom-right.
+ */
+function indexBox(card: Target, corner: 'top-left' | 'bottom-right', rotate: number): Box {
+    const w = 0.3 * card.width
+    const h = 0.25 * card.height
+    const sign = corner === 'top-left' ? -1 : 1
+    const dx = (sign * (card.width - w)) / 2
+    const dy = (sign * (card.height - h)) / 2
+    const r = rad(rotate)
+    const cx = card.left + card.width / 2 + dx * Math.cos(r) - dy * Math.sin(r)
+    const cy = card.top + card.height / 2 + dx * Math.sin(r) + dy * Math.cos(r)
+    return box({ left: cx - w / 2, top: cy - h / 2, width: w, height: h, rotate, scale: 1, z: 0 })
+}
+
+describe('trickSlots: every trick card shows a corner index (board-fit spec G1, §7)', () => {
+    const TILTS = Array.from({ length: 9 }, (_, k) => (k - 4) * 1.2)
+    const POSITIONS: SeatPosition[] = ['me', 'right', 'partner', 'left']
+
+    test('at every §7 layout, each slot\'s top-left or bottom-right index, at any tilt, meets none of the other three slots at their widest tilt', () => {
+        expect(TILTS).toEqual([-4.8, -3.6, -2.4, -1.2, 0, 1.2, 2.4, 3.6, 4.8].map((r) => expect.closeTo(r, 9)))
+        for (const layout of seven()) {
+            const slots = trickSlots(layout)
+            for (const position of POSITIONS) {
+                const others = POSITIONS.filter((other) => other !== position).map((other) => tilted(slots[other]))
+                for (const rotate of TILTS) {
+                    const shows = (['top-left', 'bottom-right'] as const).some((corner) => others.every((other) => !overlap(indexBox(slots[position], corner, rotate), other)))
+                    expect(shows, `${nameOf(layout)}: ${position} at ${rotate}°`).toBe(true)
+                }
+            }
+        }
+    })
+
+    test('today\'s cross covers a side card\'s top-left index (the partner\'s card over the right one), so the turned bottom-right one is what shows', () => {
+        const slots = trickSlots(at(375, 812, 2, 'portrait', 71))
+        expect(overlap(indexBox(slots.right, 'top-left', 0), box(slots.partner))).toBe(true)
+        expect(overlap(indexBox(slots.right, 'bottom-right', 0), box(slots.me))).toBe(false)
+    })
+})
+
 describe('cardTargets: everything fits (spec §5.6)', () => {
     test('375×812 portrait: 8 cards at a 36-px step, each showing ≥ 36×76', () => {
         const { targets, model } = checkFit({ width: 375, height: 812, dpr: 3 }, 76)
@@ -106,20 +279,34 @@ describe('cardTargets: everything fits (spec §5.6)', () => {
         expect(hand.map((card) => card.rotate)).toEqual([-7.7, -5.5, -3.3, -1.1, 1.1, 3.3, 5.5, 7.7].map((r) => expect.closeTo(r, 5)))
     })
 
-    test('812×375 landscape: every card on screen, each hand card showing ≥ 36×71', () => {
-        const { targets, model } = checkFit({ width: 812, height: 375, dpr: 3 }, 71)
+    test('812×375 landscape: every card on screen, each hand card showing its top half, 47.5 px of 95 (board-fit spec §3.4)', () => {
+        const { layout, targets, model } = checkFit({ width: 812, height: 375, dpr: 3 }, 47.5)
         const hand = model.hand.map((card) => targets.cards[card.id])
         expect(hand[1].left - hand[0].left).toBe(52)
         expect(Object.values(targets.cards).filter((t) => t.scale !== 1).every((t) => t.scale === 0.4)).toBe(true)
+        expect(layout.handShow).toBe(0.5)
+        hand.forEach((card) => expect(card.top).toBeLessThanOrEqual(375 - 0.5 * 95))
+        // the outermost cards sit lowest: exactly half of each above the edge
+        expect(hand[0].top).toBe(375 - 47.5)
+        expect(hand[7].top).toBe(375 - 47.5)
     })
 
-    test('1440×900 desktop at 1× and 2×, and a 412×915 phone at 2.625×', () => {
+    test('the hand shows 80 % of each card elsewhere, as today (board-fit spec §3.4)', () => {
+        for (const viewport of [{ width: 375, height: 812, dpr: 3 }, { width: 820, height: 1180, dpr: 2 }, { width: 1440, height: 900, dpr: 1 }]) {
+            const layout = layoutFor(viewport)
+            expect(layout.handShow, `${viewport.width}`).toBe(0.8)
+            expect(handPlaces(layout, 8)[0].top, `${viewport.width}`).toBeCloseTo(viewport.height - 0.8 * layout.hand.h, 9)
+        }
+    })
+
+    test('1440×900 desktop at 1× and 2×, the hand step 0.59 of the hand card (board-fit spec §3.5: today 84 and 64), and a 412×915 phone at 2.625×', () => {
         const one = checkFit({ width: 1440, height: 900, dpr: 1 }, 152)
         const hand = one.model.hand.map((card) => one.targets.cards[card.id])
-        expect(hand[1].left - hand[0].left).toBe(84)
+        expect(hand[1].left - hand[0].left).toBeCloseTo(0.59 * 142, 9)
+        expect(Math.round(hand[1].left - hand[0].left)).toBe(84)
         expect(hand[0].width).toBe(142)
         const two = checkFit({ width: 1440, height: 900, dpr: 2 }, 114)
-        expect(two.targets.cards[two.model.hand[1].id].left - two.targets.cards[two.model.hand[0].id].left).toBe(64)
+        expect(two.targets.cards[two.model.hand[1].id].left - two.targets.cards[two.model.hand[0].id].left).toBeCloseTo(0.59 * 106.5, 9)
         checkFit({ width: 412, height: 915, dpr: 2.625 }, 86)
     })
 })
@@ -164,8 +351,15 @@ describe('cardTargets: places', () => {
     })
 })
 
+/** The lowest edge of the partner's full fan of eight backs: where the trick's band starts (board-fit spec §4). */
+const fanBottomOf = (layout: Layout) => Math.max(...fanPlaces(layout, 'partner', 8).map((back) => box(back).y1))
+/** The highest of my eight hand cards' tops. */
+const handTopOf = (layout: Layout) => Math.min(...handPlaces(layout, 8).map((card) => card.top))
+/** The widest a stable tilt makes a slot (tilt(): −4.8…+4.8°). */
+const tilted = (slot: Target, rotate = 4.8) => box({ ...slot, rotate })
+
 describe('trickCentre (spec §5.6; gameplay rules §6: the declaration moment is said there)', () => {
-    test('the middle of the trick\'s cross: 44% down, the middle in landscape', () => {
+    test('the middle of the trick\'s cross, centred in the band between the partner\'s fan and my hand (board-fit spec §4.1–§4.3: no longer 44 % down, nor the middle in landscape)', () => {
         const model = busyModel()
         for (const viewport of [{ width: 1440, height: 900, dpr: 1 }, { width: 375, height: 812, dpr: 3 }, { width: 812, height: 375, dpr: 3 }]) {
             const layout = layoutFor(viewport)
@@ -178,9 +372,60 @@ describe('trickCentre (spec §5.6; gameplay rules §6: the declaration moment is
             const ys = slots.map((slot) => middle(slot).y - centre.y)
             expect(Math.min(...xs) + Math.max(...xs), `${viewport.width}`).toBeCloseTo(0)
             expect(centre.x).toBe(layout.board.w / 2)
-            expect(centre.y).toBe(layout.kind === 'landscape' ? layout.board.h / 2 : layout.board.h * 0.44)
+            expect(centre.y, `${viewport.width}`).toBeCloseTo((fanBottomOf(layout) + bandBottom(layout)) / 2, 9)
             expect(Math.max(...ys.map(Math.abs))).toBeLessThan(layout.trick.h)
         }
+        // 375×812 @3: the partner's fan ends at 123.74 and the band at 711.2 (my hand's top 719.2 − 8), so the
+        // cross sits at 417.47, 60 px lower than 44 % (357.28)
+        const portrait = layoutFor({ width: 375, height: 812, dpr: 3 })
+        expect(fanBottomOf(portrait)).toBeCloseTo(123.736, 3)
+        expect(bandBottom(portrait)).toBeCloseTo(711.2, 9)
+        expect(trickCentre(portrait).y).toBeCloseTo(417.468, 3)
+        // 812×375: the fan ends at 87.59, the band at 302.7 (the lowered hand's top 310.7 − 8), so 195.14, not 187.5
+        expect(trickCentre(layoutFor({ width: 812, height: 375, dpr: 3 })).y).toBeCloseTo(195.1445, 3)
+    })
+
+    test('at 390×664 @3 with 94.67-px cards the cross lies between the partner fan\'s bottom and the band\'s, the same room above and below (board-fit spec §4.1)', () => {
+        const layout = layoutAt({ width: 390, height: 664, dpr: 3 }, 'portrait', cardSize(94.67, 3), cardSize(94.67, 3))
+        const slots = trickSlots(layout)
+        const fanBottom = fanBottomOf(layout)
+        const top = tilted(slots.partner).y0
+        const bottom = tilted(slots.me).y1
+        expect(top).toBeGreaterThan(fanBottom)
+        expect(bottom).toBeLessThan(bandBottom(layout))
+        expect(top - fanBottom).toBeCloseTo(bandBottom(layout) - bottom, 9)
+        expect(trickCentre(layout).y).toBeCloseTo((123.736 + 537.867) / 2, 2)
+    })
+
+    test('late in a hand the trick stays put: the centre and slots come from the layout alone, 8 cards in hand or 1 (Review Focus 4)', () => {
+        const busy = busyModel()
+        const late: BoardModel = { ...busy, hand: busy.hand.slice(0, 1), seats: busy.seats.map((seat) => ({ ...seat, cardsLeft: 1 })) }
+        for (const viewport of [{ width: 375, height: 812, dpr: 3 }, { width: 812, height: 375, dpr: 2 }, { width: 1440, height: 900, dpr: 1 }]) {
+            const layout = layoutFor(viewport)
+            const now = cardTargets(busy, layout)
+            const later = cardTargets(late, layout)
+            expect(Object.keys(later.cards).filter((id) => id.startsWith('back:'))).toHaveLength(3)
+            for (const play of busy.trick!.plays) {
+                expect(later.cards[play.id], `${viewport.width} ${play.id}`).toEqual(now.cards[play.id])
+                expect(now.cards[play.id]).toEqual({ ...trickSlots(layout)[play.position ?? 'me'], rotate: tilt(play.id), z: play.order })
+            }
+        }
+    })
+})
+
+describe('bandBottom (board-fit spec §4; Ruling E)', () => {
+    test('8 px over my full hand\'s top; on desktop also over the hover lift (24 px and the ×1.08 growth: 4 % of the card\'s height)', () => {
+        const portrait = layoutFor({ width: 375, height: 812, dpr: 3 })
+        // the outermost cards' top 812 − 76, the middle two 1.4·(3.5² − 0.5²) higher
+        expect(handTopOf(portrait)).toBeCloseTo(812 - 76 - 16.8, 9)
+        expect(bandBottom(portrait)).toBeCloseTo(handTopOf(portrait) - 8, 9)
+        const landscape = layoutFor({ width: 812, height: 375, dpr: 2 })
+        expect(bandBottom(landscape)).toBeCloseTo(375 - 47.5 - 16.8 - 8, 9)
+        const desktop = layoutAt({ width: 1440, height: 900, dpr: 1 }, 'desktop', cardSize(142, 1), cardSize(213, 1))
+        expect(bandBottom(desktop)).toBeCloseTo(900 - 0.8 * 285 - 16.8 - 8 - 24 - 0.04 * 285, 9)
+        // the portrait arrangement on a 768–1023-px window reserves no lift: only the desktop's does
+        const tablet = layoutAt({ width: 960, height: 980, dpr: 1 }, 'tablet', cardSize(142, 1), cardSize(213, 1))
+        expect(bandBottom(tablet)).toBeCloseTo(handTopOf(tablet) - 8, 9)
     })
 })
 

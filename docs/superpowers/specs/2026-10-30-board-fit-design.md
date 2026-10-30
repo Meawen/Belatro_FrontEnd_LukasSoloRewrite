@@ -36,8 +36,9 @@ What the investigation found (screenshots of master 5dbdae2 at real browser wind
   chips (bid, Bela, ZVANJA, No challenge), declared cards, the opponents' backs, the HUD and its buttons, and my own
   hand make room for the trick. §5 lists the deliberate exceptions.
   - The trick's own cards may overlap each other as today's cross does (slots at a fixed share of the card size; the
-    later card on top), as in the approved landscape mockup D. But each trick card's top-left corner (its rank and
-    suit) always shows. (Builder's call, from the review.)
+    later card on top), as in the approved landscape mockup D. But each trick card shows at least one of its two
+    corner indices (the art prints the rank and suit top-left and, turned, bottom-right). (Builder's call, from the
+    review.)
 - G2. Tags, chips, declared cards and HUD controls don't cover each other either.
 - G3. Phones upright: the trick and the hand are one crisp step bigger than today wherever they fit (§3.2).
 - G4. Desktops: card sizes come from the window. The table grows on big monitors, shrinks on short laptop windows,
@@ -85,7 +86,8 @@ dpr 2, 71, 106.5, 142, 177.5; at dpr 3, 71, 94.7, 118.3.
   - the pair is the biggest at which the layout of §4.3 fits the window's width and height.
 - **When the steps conflict, the hand's ratio wins over a bigger table** (owner, after the review: "Hand a bit
   bigger first"):
-  1. among the crisp pairs whose hand is 1.33–1.67× the trick, take the one with the biggest trick that fits;
+  1. among the crisp pairs whose hand is 1.33–1.67× the trick, take the one with the biggest trick that fits (for one
+     trick, the hand nearest 1.5×; a tie goes to the smaller hand);
   2. if none fits, take the biggest trick that fits with the hand nearest 1.5× (between 1× and 2×). A tie between
      1× and 2× goes to the bigger hand.
   - Examples (rough budgets; the builder's numbers decide). 1366×641 @1: trick 71, hand 142, today's 100 % look.
