@@ -50,4 +50,36 @@ describe('the catalogs (spec §1.2)', () => {
         expect([1, 2, 12].map(hr.admin.users.found)).toEqual(['Pronađen 1 korisnik', 'Pronađena 2 korisnika', 'Pronađeno 12 korisnika'])
         expect([1, 2, 4].map(hr.matchDetails.cardCount)).toEqual(['1 karta', '2 karte', '4 karte'])
     })
+
+    test("§1.4's game moments, word for word", () => {
+        const moments = (c: typeof en) => [
+            c.board.result.fellMine, c.board.result.fellTheirs, c.game.end.won, c.game.end.lost, c.board.bid.mustCall, c.board.away,
+            c.board.peek.lastTrick, c.common.loading, c.board.end.playAgain, c.board.capot, c.board.pass, c.board.yourTurn, c.board.bela.chip,
+        ]
+        expect(moments(hr)).toEqual([
+            'Pad! Pali ste.', 'Pad! Pali su.', 'Kaj ste dobri, pajdaši!', 'Bu bolje drugi put.', 'Mus! Moraš zvati.', 'Zaspal si?',
+            'Zadnji štih', 'Mešamo karte…', 'Ajmo još jednu!', 'Štiglja!', 'Dalje', 'Na tebi je!', 'Bela!',
+        ])
+        expect(moments(en)).toEqual([
+            'Fell! You fell.', 'They fell.', 'You won!', 'Next time.', 'You must call trump.', 'Still there?',
+            'Last trick', 'Shuffling…', 'Play again', 'Capot', 'Pass', 'Your turn', 'Bela!',
+        ])
+        // the seat's card count, for screen readers (S5 call 13)
+        expect([1, 2, 5, 11, 21, 22].map(hr.board.seat.cards)).toEqual(['karta', 'karte', 'karata', 'karata', 'karta', 'karte'])
+        expect([1, 2].map(en.board.seat.cards)).toEqual(['card', 'cards'])
+    })
+
+    test("S4's Croatian, corrected (Ruling 23)", () => {
+        expect(hr.table.removed).toBe('Više nisi za ovim stolom.')
+        expect(hr.table.removeTitle('ana')).toBe('Maknuti igrača ana sa stola?')
+        expect(hr.table.removeConfirm('ana')).toBe('Makni igrača ana')
+        expect([1, 2, 5, 21].map(hr.rank.ladder.placing)).toEqual(
+            ['1 igrač se još svrstava', '2 igrača se još svrstavaju', '5 igrača se još svrstava', '21 igrač se još svrstava'])
+        expect(hr.rank.forecast.far('Majster', 100)).toBe('Ovim tempom: Majster za više od 100 partija.')
+        expect([1, 2, 7].map(hr.rank.ladder.toJoin)).toEqual([
+            'Odigraj još 1 rangiranu partiju da se svrstaš.',
+            'Odigraj još 2 rangirane partije da se svrstaš.',
+            'Odigraj još 7 rangiranih partija da se svrstaš.',
+        ])
+    })
 })

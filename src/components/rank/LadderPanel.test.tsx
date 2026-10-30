@@ -177,11 +177,11 @@ describe('LadderPanel in Croatian (open beta §1.1; Raspored rangova)', () => {
         expect(screen.getByText('Ispred si 49 % rangiranih igrača')).toBeInTheDocument()
         const legend = screen.getByRole('list', { name: 'Igrači po rangu' })
         expect(within(legend).getByText('Dober pajdaš.')).toBeInTheDocument()
-        expect(screen.getByText('37 igrača još se svrstava')).toBeInTheDocument()
+        expect(screen.getByText('37 igrača se još svrstava')).toBeInTheDocument()
         unmount()
 
         me(rankedUser({ key: 'CUCEK', eloRating: 1236, rankedGamesPlayed: 3 }))
         render(<LadderPanel />)
-        expect(screen.getByText('Odigraj još 7 rangiranih partija da uđeš u raspored.')).toBeInTheDocument()
+        expect(screen.getByText('Odigraj još 7 rangiranih partija da se svrstaš.')).toBeInTheDocument()
     })
 })

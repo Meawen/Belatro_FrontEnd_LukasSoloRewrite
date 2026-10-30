@@ -340,7 +340,8 @@ describe('Board: belot (gameplay rules §3, §6)', () => {
     const belot = playTable({ belot: { player: 'bob', suit: 'PIK' } })
     const BELOT = 'Belot! bob holds all eight Pik'
     const PIK = belot[indexOf(belot, 'call:')].public.zvanja!.seats[1].cards.map(cardLabel)
-    const gameOver = () => screen.queryByRole('heading', { name: 'Game over' })
+    // carol (team A) loses to bob's belot: the end sheet's heading (spec §1.4 Loss)
+    const gameOver = () => screen.queryByRole('heading', { name: 'Next time.' })
     /** A belot's panel: a tap skips the wait for the end sheet, so it is named for that. */
     const belotPanel = () => screen.queryByRole('button', { name: 'Skip to the result' })
 
@@ -411,7 +412,7 @@ describe('Board: belot (gameplay rules §3, §6)', () => {
         after(4000)
         expect(gameOver()).toBeInTheDocument()
         // the end sheet's line (the live region says it too)
-        expect(within(screen.getByRole('region', { name: 'Game over' })).getByText('Team B wins by belot')).toBeInTheDocument()
+        expect(within(screen.getByRole('region', { name: 'Next time.' })).getByText('Team B wins by belot')).toBeInTheDocument()
         expect(screen.getByTestId('end-reason')).toHaveTextContent('bob held all eight Pik')
         expect(screen.queryAllByTestId('trick-card')).toHaveLength(0)
         cleanup()

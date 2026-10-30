@@ -5,8 +5,11 @@ import { OUTCOME_MS, WHO_MS, challengeAt } from './model/challengeMoment';
 import { bannerSpot, type Layout } from './model/cardTargets';
 import type { Challenged } from './model/diffBoard';
 
-/** "Team B" on one line: when the banner wraps on a phone, the team's letter never starts a line alone. */
-const keepTeam = (text: string) => text.replace(/\bTeam ([AB])\b/, 'Team\u00a0$1');
+/**
+ * "Team B" ("ekipa B") on one line: when the banner wraps on a phone, the team's letter never starts a line alone. A lone
+ * A or B keeps the word before it, whatever the language (usernames are 3–20 characters, so no name is a lone letter).
+ */
+const keepTeam = (text: string) => text.replace(/ ([AB])\b/, '\u00a0$1');
 
 export interface ChallengeBannerProps {
     challenge: Challenged;

@@ -193,6 +193,11 @@ describe("server errors in the site's language (spec §1.1, §8)", () => {
         expect(localiseStompError('Something the server never says')).toBe(GENERIC_HR)
     })
 
+    test("English keeps the game's own word: zvanja (§1.3, carried b)", async () => {
+        const { localiseStompError } = await load()
+        expect(localiseStompError('Declarations are being said')).toBe('Wait until the zvanja are shown, then play your card.')
+    })
+
     test('the table lines name Birtija and „Ajmo još jednu!” (carried)', async () => {
         const { localiseApiError, localiseStompError, ApiError, setLang } = await load()
         setLang('hr')

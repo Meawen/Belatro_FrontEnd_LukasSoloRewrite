@@ -1,6 +1,7 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, afterEach } from 'vitest'
 import { BELOT_HOLD_MS, MOMENT_MS, SAY_GAP_MS, belotLine, momentAt, momentKey, momentSrLine, summaryChips } from './declarationMoment'
 import type { DeclarationView, Rank, ZvanjaSeatView, ZvanjaView } from '../../../types/game'
+import { setLang } from '../../../i18n/lang'
 
 const OPENS = 1_000_000
 const T0 = OPENS - MOMENT_MS
@@ -264,5 +265,36 @@ describe('the board\'s moment per hand: momentKey, momentSrLine', () => {
         expect(momentSrLine(tied, 'me', OPENS, true)).toBeNull()
         expect(momentSrLine(null, 'me', T0, false)).toBeNull()
         expect(momentSrLine(belot, 'me', T0, true)).toBe('Belot! ivo holds all eight Pik')
+    })
+})
+
+describe('the moment in Croatian', () => {
+    afterEach(() => setLang('en'))
+
+    test('the live line, the winner lines with why, the chips and the belot', () => {
+        setLang('hr')
+        expect(momentAt(tied, 'me', T0)!.srLine).toBe('Zvanja: ivo 20 do Babe, mara ništa, lana ništa, ti 20 do Babe. ivo ima prednost po redu: ekipa B piše 20.')
+        expect(momentAt(tied, 'me', T0 + 2600)!.bubbles.ivo).toBe('20 · do Babe')
+        expect(momentAt(byValue, 'me', T0 + 2600)!.line).toBe('Ekipa B piše 70')
+        const heightMine = zvanja([
+            seat('ivo', 20, { kind: 'RUN', height: 'BABA' }),
+            seat('mara', null),
+            seat('lana', null),
+            seat('me', 20, { kind: 'RUN', height: 'AS', declarations: [run(20, 'AS')] }),
+        ], { winnerTeam: 'A', total: 20, decidedBy: 'HEIGHT' })
+        expect(momentAt(heightMine, 'me', T0 + 3400)!.line).toBe('Tvoje je jače: ekipa A piše 20')
+        const fourMine = zvanja([
+            seat('ivo', 100, { kind: 'RUN', height: 'AS' }),
+            seat('mara', null),
+            seat('lana', null),
+            seat('me', 100, { kind: 'FOUR', height: 'AS', declarations: [four('AS')] }),
+        ], { winnerTeam: 'A', total: 100, decidedBy: 'FOUR' })
+        expect(momentAt(fourMine, 'me', T0 + 3400)!.line).toBe('Imaš četiri ista, to tuče niz: ekipa A piše 100')
+        expect(momentAt(fourMine, 'ivo', T0 + 3400)!.line).toBe('me ima četiri ista, to tuče niz: ekipa A piše 100')
+        expect(momentAt(tied, 'ivo', T0 + 3400)!.line).toBe('Imaš prednost po redu: ekipa B piše 20')
+        expect(summaryChips(byValue)).toEqual({ ivo: 'Zvanja 50 + 20' })
+        const belot = zvanja([seat('ivo', null), seat('me', null)], { total: 0, belot: { playerId: 'ivo', suit: 'PIK' }, playOpensAt: null })
+        expect(belotLine(belot, 'me')).toBe('Belot! ivo ima cijeli Pik')
+        expect(belotLine(belot, 'ivo')).toBe('Belot! Imaš cijeli Pik')
     })
 })

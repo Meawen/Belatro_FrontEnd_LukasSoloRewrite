@@ -3,14 +3,12 @@ import { useGameWebSocket } from './useGameWebSocket';
 import { NOTHING_ACCEPTED, acceptFrame, type Accepted, type BoardState, type Frame } from '../components/board/model/accept';
 import type { Boja, GameCard, PrivateGameView, PublicGameView } from '../types/game';
 import { localiseStompError } from '../i18n/serverErrors';
+import { cat } from '../i18n/t';
 
 /** How long a page waits for its snapshot before asking again with /refresh (R-35). */
 const SNAPSHOT_WAIT_MS = 3000;
 /** /refresh requests per connection when the snapshot subscription brought nothing (R-35). */
 const MAX_REFRESHES = 3;
-
-/** Shown when a move could not be sent because the socket is down (R-30). */
-const NOT_SENT_MESSAGE = 'Not sent — reconnecting';
 
 /** How long a DISCONNECT waits for the CANCELLED frame it may have overtaken (spec §5.3.1 #6). */
 const DISCONNECT_WAIT_MS = 1000;
@@ -94,6 +92,9 @@ export function useGameViews(gameId: string, onDisconnect?: () => void): GameVie
                 setNotAvailable(true);
                 return;
             }
+            // Another game's answer (a page this tab left) isn't this table's: shown here it would say this game is gone or
+            // not yours. A page whose own game is gone still ends after its refreshes (R-35).
+            if (message.startsWith('Not a participant in game ') || message === 'Game not found') return;
             setError(localiseStompError(message));
         },
         // R-31: a cancelled game stays on its end screen, which says why. The backend sends DISCONNECT
@@ -149,9 +150,9 @@ export function useGameViews(gameId: string, onDisconnect?: () => void): GameVie
         return () => window.clearTimeout(timer);
     }, [gameId, isConnected, snapshotPending, notAvailable, ended, refreshesSent, refreshGameState]);
 
-    // R-30: a move made while the socket is down is not lost silently
+    // R-30: a move made while the socket is down is not lost silently (game.notSent)
     const report = useCallback((sent: boolean) => {
-        setError(sent ? null : NOT_SENT_MESSAGE);
+        setError(sent ? null : cat().game.notSent);
         return sent;
     }, []);
 

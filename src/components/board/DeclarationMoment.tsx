@@ -8,6 +8,7 @@ import { cardId } from './model/rules';
 import { bubbleSpot } from './seatSpot';
 import { useNow } from './useNow';
 import type { BoardModel } from './model/boardModel';
+import { useT } from '../../i18n/t';
 
 /** How often a running moment reads the clock: its steps are 0.6 s apart. */
 const TICK_MS = 100;
@@ -42,6 +43,7 @@ function appear(instant: boolean, reduced: boolean): Pick<MotionProps, 'initial'
  * of the felt, clear of the hand. The bubbles are for the eye; the live region has the moment in words (Board).
  */
 export function DeclarationMoment({ model, layout, targets, snapshot, reduced, onSkip, onFocusLost }: DeclarationMomentProps) {
+    const t = useT();
     // the ref goes to null while the button is still in the DOM: whether it has focus is still known then
     const button = useRef<HTMLButtonElement | null>(null);
     const keepFocus = useCallback((node: HTMLButtonElement | null) => {
@@ -86,13 +88,13 @@ export function DeclarationMoment({ model, layout, targets, snapshot, reduced, o
             <m.button
                 ref={keepFocus}
                 type="button"
-                aria-label={belot ? 'Skip to the result' : 'Skip declarations'}
+                aria-label={belot ? t.board.moment.skipToResult : t.board.moment.skip}
                 className="board-moment__panel notch-6 focus-inside"
                 style={{ left: centre.x, top: centre.y }}
                 onClick={onSkip}
                 {...appear(snapshot, reduced)}
             >
-                <span className="t-caption text-text-2">Declarations</span>
+                <span className="t-caption text-text-2">{t.board.moment.title}</span>
                 {belot ? (
                     <>
                         <span className="board-moment__line t-callout font-semibold">{belot}</span>

@@ -1,6 +1,7 @@
-import { describe, test, expect } from 'vitest'
-import { cardLabel, declarationLines, endSentence, heightText, isBelaCard, seatsFromMe, trumpOf } from './gameView'
+import { describe, test, expect, afterEach } from 'vitest'
+import { PHASE_LABEL, SUIT_LABEL, cardLabel, declarationLines, endSentence, heightText, isBelaCard, seatsFromMe, trumpOf } from './gameView'
 import { shippedSources } from '../../test/sourceFiles'
+import { setLang } from '../../i18n/lang'
 import type { GameCard, PublicGameView, ZvanjaSeatView, ZvanjaView } from '../../types/game'
 
 const seats = ['alice', 'bob', 'carol', 'dave'].map((id) => ({ id, cardsLeft: 8 }))
@@ -141,5 +142,35 @@ describe('heightText: a tied seat\'s height, said the same on the board and in t
             .filter(({ text }) => /from\s+['"][^'"]*board\/model\/declarationMoment['"]/.test(text))
             .map(({ path }) => path)
         expect(hits).toEqual([])
+    })
+})
+
+describe('card names, heights and end sentences in Croatian (S5 call 1)', () => {
+    afterEach(() => setLang('en'))
+    const tied = (kind: ZvanjaSeatView['kind'], height: ZvanjaSeatView['height']): ZvanjaSeatView =>
+        ({ playerId: 'ivo', said: kind === 'FOUR' ? 100 : 20, kind, height, declarations: [], cards: [] })
+    const ended = { gameState: 'CANCELLED', winnerTeamId: null, forfeitTeamId: null, zvanja: null } as unknown as PublicGameView
+
+    test('Herc, Karo, Pik, Tref; As, Kralj, Baba, Dečko; whole phrases for the heights; the end sentences; read when used', () => {
+        setLang('hr')
+        expect(cardLabel({ boja: 'HERC', rank: 'AS' })).toBe('As Herc')
+        expect(cardLabel({ boja: 'TREF', rank: 'DECKO' })).toBe('Dečko Tref')
+        expect(cardLabel({ boja: 'KARA', rank: 'DESETKA' })).toBe('10 Karo')
+        expect(heightText(tied('RUN', 'BABA'))).toBe('do Babe')
+        expect(heightText(tied('FOUR', 'AS'))).toBe('četiri Asa')
+        expect(heightText(tied('FOUR', 'DECKO'))).toBe('četiri Dečka')
+        expect(heightText(tied('FOUR', 'OSMICA'))).toBe('četiri Osmice')
+        expect(SUIT_LABEL.KARA).toBe('Karo')
+        expect(PHASE_LABEL.BIDDING).toBe('Licitacija')
+        const belot: ZvanjaView = { seats: [], winnerTeam: 'B', total: 0, decidedBy: null, belot: { playerId: 'ivo', suit: 'PIK' }, playOpensAt: null }
+        expect(endSentence({ ...ended, gameState: 'COMPLETED', winnerTeamId: 'B', endReason: 'BELOT', zvanja: belot })).toBe('ivo — cijeli Pik')
+        expect(endSentence({ ...ended, endReason: 'FORFEIT', forfeitTeamId: 'A' })).toBe('Ekipa A je predala — pobijedila je ekipa B')
+        expect(endSentence({ ...ended, endReason: 'ABANDONED', forfeitTeamId: 'A' })).toBe('Ekipa A je otišla — partija je prekinuta (bez rezultata)')
+        expect(endSentence({ ...ended, endReason: 'CANCELLED' })).toBe('Partija je otkazana')
+        expect(endSentence({ ...ended, endReason: 'DECLINED' })).toBe('Igrač je odbio partiju — opet si u potrazi')
+        setLang('en')
+        expect(SUIT_LABEL.KARA).toBe('Karo')
+        expect(cardLabel({ boja: 'TREF', rank: 'DECKO' })).toBe('Decko Tref')
+        expect(PHASE_LABEL.BIDDING).toBe('Bidding')
     })
 })

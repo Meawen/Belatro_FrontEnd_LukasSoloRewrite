@@ -42,11 +42,29 @@ describe('the game page loads on demand (spec §3.8, O-5)', () => {
     test('/game/:id shows the game page’s first frame while its chunk loads, then the page', async () => {
         window.history.pushState({}, '', '/game/g1')
         render(<App />)
-        expect(screen.getByText('Connecting to game...')).toBeInTheDocument()
+        expect(screen.getByText('Shuffling…')).toBeInTheDocument()
         expect(screen.queryByRole('heading', { name: 'The table' })).not.toBeInTheDocument()
 
         expect(await screen.findByRole('heading', { name: 'The table' })).toBeInTheDocument()
-        expect(screen.queryByText('Connecting to game...')).not.toBeInTheDocument()
+        expect(screen.queryByText('Shuffling…')).not.toBeInTheDocument()
         expect(document.title).toBe('Game · Stiglja')
+    })
+
+    test('the first frame in Croatian', async () => {
+        // a fresh App: in a fresh module registry the game page's chunk hasn't loaded, so its first frame shows again
+        vi.resetModules()
+        const { setLang } = await import('../i18n/lang')
+        const { default: FreshApp } = await import('../App')
+        setLang('hr')
+        try {
+            window.history.pushState({}, '', '/game/g1')
+            render(<FreshApp />)
+            expect(screen.getByText('Mešamo karte…')).toBeInTheDocument()
+            expect(await screen.findByRole('heading', { name: 'The table' })).toBeInTheDocument()
+            expect(screen.queryByText('Mešamo karte…')).not.toBeInTheDocument()
+            expect(document.title).toBe('Partija · Stiglja')
+        } finally {
+            setLang('en')
+        }
     })
 })

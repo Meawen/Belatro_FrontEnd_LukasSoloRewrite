@@ -1,23 +1,31 @@
 import type { Boja, GameCard, GamePhase, PlayerPublicInfo, PublicGameView, Rank, ZvanjaSeatView } from '../../types/game';
+import { cat } from '../../i18n/t';
 
 /** Bid buttons, in this order. */
 export const BOJE: Boja[] = ['HERC', 'KARA', 'PIK', 'TREF'];
 
-export const SUIT_LABEL: Record<Boja, string> = { HERC: 'Herc', KARA: 'Karo', PIK: 'Pik', TREF: 'Tref' };
+/** A suit's name in the site's language (cards.suit); read when used, never at import (i18n/t.ts). */
+export const SUIT_LABEL: Readonly<Record<Boja, string>> = {
+    get HERC() { return cat().cards.suit.HERC; },
+    get KARA() { return cat().cards.suit.KARA; },
+    get PIK() { return cat().cards.suit.PIK; },
+    get TREF() { return cat().cards.suit.TREF; },
+};
 
-export const RANK_LABEL: Record<Rank, string> = {
-    SEDMICA: '7',
-    OSMICA: '8',
-    DEVETKA: '9',
-    DESETKA: '10',
-    DECKO: 'Decko',
-    BABA: 'Baba',
-    KRALJ: 'Kralj',
-    AS: 'As',
+/** A rank's name in the site's language (cards.rank); read when used, never at import (i18n/t.ts). */
+export const RANK_LABEL: Readonly<Record<Rank, string>> = {
+    get SEDMICA() { return cat().cards.rank.SEDMICA; },
+    get OSMICA() { return cat().cards.rank.OSMICA; },
+    get DEVETKA() { return cat().cards.rank.DEVETKA; },
+    get DESETKA() { return cat().cards.rank.DESETKA; },
+    get DECKO() { return cat().cards.rank.DECKO; },
+    get BABA() { return cat().cards.rank.BABA; },
+    get KRALJ() { return cat().cards.rank.KRALJ; },
+    get AS() { return cat().cards.rank.AS; },
 };
 
 export function cardLabel(card: GameCard): string {
-    return `${RANK_LABEL[card.rank]} ${SUIT_LABEL[card.boja]}`;
+    return cat().cards.card(RANK_LABEL[card.rank], SUIT_LABEL[card.boja]);
 }
 
 /**
@@ -41,27 +49,17 @@ export function trumpOf(view: PublicGameView): Boja | null {
     return call?.selectedTrump ?? null;
 }
 
-/** Phases in words (R-31). The last three are internal; they get a word in case one is ever sent. */
-export const PHASE_LABEL: Record<GamePhase, string> = {
-    BIDDING: 'Bidding',
-    PLAYING: 'Playing',
-    HAND_COMPLETE: 'Hand finished',
-    COMPLETED: 'Game over',
-    CANCELLED: 'Cancelled',
-    INITIALIZED: 'Starting',
-    DECLARATIONS: 'Declarations',
-    SCORING: 'Scoring',
+/** Phases in words (R-31), in the site's language (game.phase). The last three are internal; they get a word in case one is ever sent. */
+export const PHASE_LABEL: Readonly<Record<GamePhase, string>> = {
+    get BIDDING() { return cat().game.phase.BIDDING; },
+    get PLAYING() { return cat().game.phase.PLAYING; },
+    get HAND_COMPLETE() { return cat().game.phase.HAND_COMPLETE; },
+    get COMPLETED() { return cat().game.phase.COMPLETED; },
+    get CANCELLED() { return cat().game.phase.CANCELLED; },
+    get INITIALIZED() { return cat().game.phase.INITIALIZED; },
+    get DECLARATIONS() { return cat().game.phase.DECLARATIONS; },
+    get SCORING() { return cat().game.phase.SCORING; },
 };
-
-/** By the Challenge button while it is available (R-31): one challenge per player per game (gameplay rules §1, §6). */
-export const CHALLENGE_HINT =
-    "Think an opponent played an illegal card this hand? Challenge to win the whole hand. If you're wrong it costs no points, but you lose your challenge for the rest of the game.";
-
-/** By the greyed "Challenge used" once my challenge is gone (gameplay rules §6, D-7). */
-export const CHALLENGE_USED_INFO = "Your challenge was wrong, so it's gone for the rest of the game.";
-
-/** A declined ranked match (R-25): the end sentence, and the notice /play shows after it. */
-export const DECLINED_NOTICE = "A player declined — you're back in the queue";
 
 const OTHER_TEAM = { A: 'B', B: 'A' } as const;
 
@@ -72,11 +70,6 @@ export function teamOf(view: PublicGameView, me: string): 'A' | 'B' | null {
     return null;
 }
 
-/** A four's rank in the plural ("four Asovi"); sevens and eights never make a four that scores. */
-const FOUR_LABEL: Partial<Record<Rank, string>> = {
-    DECKO: 'Decki', DEVETKA: 'Devetke', AS: 'Asovi', DESETKA: 'Desetke', KRALJ: 'Kralji', BABA: 'Babe',
-};
-
 /**
  * "up to Baba" (a run) or "four Asovi" (a four) for a seat tied at the top value with an opponent (D-20; the view's
  * kind and height); null for any other seat. The board's declaration moment and the hand history (gameplay rules §7)
@@ -84,7 +77,8 @@ const FOUR_LABEL: Partial<Record<Rank, string>> = {
  */
 export function heightText(seat: ZvanjaSeatView): string | null {
     if (seat.height === null) return null;
-    return seat.kind === 'FOUR' ? `four ${FOUR_LABEL[seat.height] ?? RANK_LABEL[seat.height]}` : `up to ${RANK_LABEL[seat.height]}`;
+    // whole phrases per rank (cards.four, cards.upTo): a declined form never comes from code
+    return seat.kind === 'FOUR' ? cat().cards.four[seat.height] : cat().cards.upTo[seat.height];
 }
 
 /** A seat's scored declarations as values, strongest first (the view's order): "50 + 20". */
@@ -102,14 +96,14 @@ export function declarationLines(view: PublicGameView): string[] {
         .map((seat) => `${seat.playerId}: ${declaredPoints(seat)}`);
     // R-32: bela once declared, from belaDeclaredByPlayer (a declarations entry never carries it)
     Object.entries(view.belaDeclaredByPlayer ?? {}).forEach(([player, declared]) => {
-        if (declared) lines.push(`${player}: bela 20`);
+        if (declared) lines.push(cat().game.belaLine(player));
     });
     return lines;
 }
 
 /** A belot in words, e.g. "ivo held all eight Pik" (gameplay rules §3): the end sheet's reason and the hand history's line. */
 export function heldAllEight(name: string, suit: Boja): string {
-    return `${name} held all eight ${SUIT_LABEL[suit]}`;
+    return cat().cards.heldAllEight(name, SUIT_LABEL[suit]);
 }
 
 /** Why a game ended other than by being played out (R-31); null for a game played to its end. */
@@ -122,18 +116,19 @@ export function endSentence(view: PublicGameView): string | null {
             return belot ? heldAllEight(belot.playerId, belot.suit) : null;
         }
         case 'FORFEIT':
-            return team ? `Team ${team} forfeited — Team ${OTHER_TEAM[team]} wins` : null;
+            return team ? cat().game.end.forfeited(team, OTHER_TEAM[team]) : null;
         case 'ABANDONED':
             return team
-                ? `Team ${team} left — the game was abandoned (no result)`
-                : 'Everyone left — the game was abandoned (no result)';
+                ? cat().game.end.teamLeft(team)
+                : cat().game.end.everyoneLeft;
         case 'DECLINED':
-            return DECLINED_NOTICE;
+            // R-25: also the notice /play shows after it (GamePageConnected)
+            return cat().game.end.declined;
         case 'CANCELLED':
-            return 'The game was cancelled';
+            return cat().game.end.cancelledReason;
         default:
             // an older backend sends no endReason
-            return view.gameState === 'CANCELLED' ? 'The game was cancelled' : null;
+            return view.gameState === 'CANCELLED' ? cat().game.end.cancelledReason : null;
     }
 }
 

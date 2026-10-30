@@ -75,7 +75,7 @@ describe('forecastLines in Croatian (open beta §1.1; rank names stay in the nom
         expect(primaryText(pace)).toBe('Ovim tempom: Majster za otprilike 36 partija')
         expect(pace.primary![1]).toBe('Majster')
         expect(pace.luck).toBe('Sama sreća može te pomaknuti za otprilike ±139 bodova kroz 20 partija.')
-        expect(primaryText(forecastLines(history({ rating: 1452, pace: 0.5 }), rank('GOSPON'), 'Majster'))).toBe('Ovim tempom Majster je dalje od 100 partija.')
+        expect(primaryText(forecastLines(history({ rating: 1452, pace: 0.5 }), rank('GOSPON'), 'Majster'))).toBe('Ovim tempom: Majster za više od 100 partija.')
         expect(primaryText(forecastLines(history({ rating: 1846, pace: 3 }), rank('KAJKAVAC'), null))).toBe('Kajkavac: najviši rang.')
         expect(primaryText(forecastLines(history({ games: 3, rating: 1256, pace: null, paceGames: 0 }), rank('CUCEK'), null)))
             .toBe('Svrstavanje: 3 od 10 rangiranih partija')

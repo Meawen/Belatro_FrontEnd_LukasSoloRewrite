@@ -10,7 +10,7 @@ import { showToast } from '../ui/toastStore';
 import { Arena } from './Arena';
 import { BelaPrompt } from './BelaPrompt';
 import { BidPanel } from './BidPanel';
-import { BlokColumn, BlokTable, BLOK_HINT } from './BelaBlok';
+import { BlokColumn, BlokTable } from './BelaBlok';
 import { ChallengeBanner } from './ChallengeBanner';
 import { DeclarationMoment } from './DeclarationMoment';
 import { EndSheet } from './EndSheet';
@@ -40,6 +40,9 @@ import type { BoardModel, HandCardModel, Team } from './model/boardModel';
 import type { GameActions } from '../../hooks/useGameViews';
 import type { MatchHands } from '../../hooks/useMatchHands';
 import type { RematchState } from '../../hooks/useRematch';
+import { useNow } from './useNow';
+import { secondsLeft } from './model/boardModel';
+import { useT } from '../../i18n/t';
 import './board.css';
 
 /** A recovered 4th card lands before its trick sweeps; a sweep or fade is over after this long. */
@@ -81,6 +84,7 @@ function useStageTimers(stage: Stage, setStage: Dispatch<SetStateAction<Stage>>)
 
 /** The trick region (spec §5.10): `trick-card` with `data-card` and `data-seat`, and the trick in words (§5.8). */
 function TrickRegion({ stage, model, targets, reduced }: { stage: Stage; model: BoardModel; targets: Targets; reduced: boolean }) {
+    const t = useT();
     const trick = tableTrick(stage);
     const instant = stage.events === null;
     const cards = (trick?.plays ?? []).map((play) => {
@@ -104,7 +108,7 @@ function TrickRegion({ stage, model, targets, reduced }: { stage: Stage; model: 
         );
     });
     const words = trick && trick.plays.length > 0
-        ? `Trick: ${trick.plays.map((play) => `${seatName(model, play.playerId)} ${cardLabel(play.card)}`).join(', ')}`
+        ? t.board.trickWords(trick.plays.map((play) => `${seatName(model, play.playerId)} ${cardLabel(play.card)}`).join(', '))
         : '';
     return (
         <div className="board-region board-trick">
@@ -183,15 +187,21 @@ interface MomentLocal {
     line: string | null;
 }
 
+/** The last seconds of my turn, before the server's timer plays for me: "Your turn" asks "Still there?" (spec §1.4). */
+const AWAY_SECONDS = 10;
+
 /**
  * "Your turn" over my hand (spec §5.3.3 `your-turn`): only while I can bid or play (`shown`), never in HAND_COMPLETE;
- * placed by the hand as it is.
+ * placed by the hand as it is; "Still there?" in its last 10 s.
  */
-function YourTurn({ shown, hand, targets, layout }: { shown: boolean; hand: HandCardModel[]; targets: Targets; layout: Layout }) {
+function YourTurn({ shown, hand, targets, layout, expiresAt, skew }: { shown: boolean; hand: HandCardModel[]; targets: Targets; layout: Layout; expiresAt: number | null; skew: number }) {
+    const t = useT();
+    const now = useNow(shown && expiresAt !== null ? 1000 : null);
     if (!shown) return null;
+    const away = expiresAt !== null && secondsLeft(expiresAt, skew, now) <= AWAY_SECONDS;
     const tops = hand.map((card) => targets.cards[card.id]?.top ?? layout.board.h);
     const top = (tops.length ? Math.min(...tops) : layout.board.h - layout.hand.h) - 40;
-    return <span data-testid="your-turn" className="board-your-turn notch t-footnote font-semibold" style={{ top }}>Your turn</span>;
+    return <span data-testid="your-turn" className="board-your-turn notch t-footnote font-semibold" style={{ top }}>{away ? t.board.away : t.board.yourTurn}</span>;
 }
 
 export interface BoardProps {
@@ -221,6 +231,7 @@ export interface BoardProps {
  */
 export function Board(props: BoardProps) {
     const { state, me, actions, error, isConnected, hands, rematch, onLeave, viewport } = props;
+    const t = useT();
     const [stage, setStage] = useState(() => emptyStage(me));
     let current = stage;
     if (stage.state !== state) {
@@ -268,7 +279,7 @@ export function Board(props: BoardProps) {
     };
     const onPile = (team: Team) => {
         if (team === (latest.current.model?.myTeam ?? 'A')) open('peek');
-        else showToast("You can only look at your team's tricks");
+        else showToast(t.board.piles.closed);
     };
 
     // one polite message per event (spec §5.8); a challenge is said by the banner and here, never a toast (gameplay rules §6)
@@ -359,7 +370,7 @@ export function Board(props: BoardProps) {
             <section
                 ref={focus.table}
                 tabIndex={-1}
-                aria-label="Game table"
+                aria-label={t.board.label}
                 className={cx('board', viewport ? 'board--framed' : 'board--screen')}
                 data-layout={layout.kind}
                 data-phase={model.phase}
@@ -374,7 +385,7 @@ export function Board(props: BoardProps) {
                         <TrickRegion stage={current} model={model} targets={targets} reduced={reduced} />
                         <Hand cards={hand} targets={targets} deal={current.deal} entrances={current.entrances} instant={instant} reduced={reduced} onPress={onCard} />
                         <Seats model={shown} targets={targets} layout={layout} instant={instant} playOpen={!waiting} />
-                        <YourTurn shown={shown.yourTurn} hand={hand} targets={targets} layout={layout} />
+                        <YourTurn shown={shown.yourTurn} hand={hand} targets={targets} layout={layout} expiresAt={shown.turn?.expiresAt ?? null} skew={shown.skew} />
                         <BidPanel model={model} onBid={onBid} />
                         {model.belaPrompt && targets.cards[model.belaPrompt.id] && (
                             <BelaPrompt card={model.belaPrompt} target={targets.cards[model.belaPrompt.id]} onAnswer={onBela} onDismiss={closeBela} />
@@ -402,9 +413,9 @@ export function Board(props: BoardProps) {
                     onChallenge={onChallenge} challengePending={challengeWaiting} challengeFrozen={frozen !== null} />
                 <EndSheet model={model} open={model.end !== null && current.held === null && !holding} rematch={rematch} onLeave={onLeave} />
                 <GameMenu model={model} open={panel === 'menu'} onClose={() => setPanel(null)} onBlok={layout.blok ? null : () => open('blok')} />
-                <Sheet open={panel === 'blok' && !layout.blok} onClose={() => setPanel(null)} title="Bela Blok" showClose data-testid="bela-blok">
+                <Sheet open={panel === 'blok' && !layout.blok} onClose={() => setPanel(null)} title={t.board.blok.title} showClose data-testid="bela-blok">
                     <BlokTable model={shown} hands={shownHands} />
-                    <p className="t-footnote text-text-3 mt-3">{BLOK_HINT}</p>
+                    <p className="t-footnote text-text-3 mt-3">{t.board.blok.hint}</p>
                 </Sheet>
                 <Peek model={model} hands={hands} open={panel === 'peek'} onClose={() => setPanel(null)} />
                 <div role="log" aria-live="polite" className="sr-only">

@@ -11,9 +11,11 @@ import { Button } from '../ui/Button';
 import { Loader } from '../ui/Loader';
 import { Panel } from '../ui/Panel';
 import { ReconnectBanner } from './ReconnectBanner';
-import { DECLINED_NOTICE, rematchOffered } from './gameView';
+import { rematchOffered } from './gameView';
+import { cat, useT } from '../../i18n/t';
 
 export default function GamePageConnected() {
+    const t = useT();
     const { gameId = '' } = useParams();
     // useGameViews keeps its views in state and does not reset them when the id
     // changes, so each game id gets its own mount: never the previous game's views.
@@ -22,7 +24,7 @@ export default function GamePageConnected() {
     return (
         <>
             {/* one h1 per page (spec §3.9) in every state, the crash screen too: the HUD names the table visually */}
-            <h1 className="sr-only">Game</h1>
+            <h1 className="sr-only">{t.titles.game}</h1>
             <ErrorBoundary key={gameId}>
                 <GamePage gameId={gameId} />
             </ErrorBoundary>
@@ -40,6 +42,7 @@ function ReconnectStrip() {
 }
 
 function GamePage({ gameId }: { gameId: string }) {
+    const t = useT();
     const navigate = useNavigate();
     const { user } = useAuth();
 
@@ -56,7 +59,7 @@ function GamePage({ gameId }: { gameId: string }) {
     // R-25: someone declined the ranked match; the other three are back in the queue, which /play shows
     const declined = publicView?.gameState === 'CANCELLED' && publicView.endReason === 'DECLINED';
     useEffect(() => {
-        if (declined) navigate('/play', { replace: true, state: { notice: DECLINED_NOTICE } });
+        if (declined) navigate('/play', { replace: true, state: { notice: cat().game.end.declined } });
     }, [declined, navigate]);
 
     // R-35: the server never sent this game, or said it isn't this player's: a way back, not a spinner
@@ -65,8 +68,8 @@ function GamePage({ gameId }: { gameId: string }) {
             <div className="felt flex min-h-dvh items-center justify-center p-4 text-text">
                 <Panel padding="lg" className="w-full max-w-md">
                     <div className="flex flex-col items-center gap-4 text-center">
-                        <p className="t-headline">This game isn't yours or has ended</p>
-                        <Button onClick={() => navigate('/dashboard')}>Back to dashboard</Button>
+                        <p className="t-headline">{t.game.notYours}</p>
+                        <Button onClick={() => navigate('/dashboard')}>{t.game.goHome}</Button>
                     </div>
                 </Panel>
             </div>
@@ -77,7 +80,8 @@ function GamePage({ gameId }: { gameId: string }) {
         return (
             <div className="felt flex min-h-dvh flex-col items-center justify-center gap-4 p-4 text-text">
                 <ReconnectStrip />
-                <Loader layout="block" text={isConnected ? 'Loading game state...' : 'Connecting to game...'} />
+                {/* connecting, and connected while the first state comes: the same first frame as App's chunk fallback (spec §1.4 Loading) */}
+                <Loader layout="block" text={t.common.loading} />
                 {connectionError && <p role="alert" className="t-callout text-danger-text">{connectionError}</p>}
             </div>
         );

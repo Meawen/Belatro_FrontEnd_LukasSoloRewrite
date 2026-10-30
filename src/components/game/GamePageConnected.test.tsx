@@ -8,6 +8,7 @@ import { useGameViews, type GameViews } from '../../hooks/useGameViews'
 import type { BoardState } from '../board/model/accept'
 import type { PrivateGameView, PublicGameView } from '../../types/game'
 import { captureConsole } from '../../test/captureConsole'
+import { setLang } from '../../i18n/lang'
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u3', username: 'carol' } }) }))
 vi.mock('../../hooks/useGameViews', () => ({ useGameViews: vi.fn() }))
@@ -84,7 +85,7 @@ describe('GamePageConnected', () => {
     test('waits for the connection and the first snapshot', () => {
         vi.mocked(useGameViews).mockReturnValue(views(null, null, { isConnected: false }))
         renderPage()
-        expect(screen.getByText('Connecting to game...')).toBeInTheDocument()
+        expect(screen.getByText('Shuffling…')).toBeInTheDocument()
         expect(vi.mocked(useGameViews).mock.calls[0][0]).toBe('g1')
     })
 
@@ -168,7 +169,7 @@ describe('GamePageConnected', () => {
             </MemoryRouter>,
         )
         expect(screen.getByText("This game isn't yours or has ended")).toBeInTheDocument()
-        expect(screen.queryByText('Loading game state...')).not.toBeInTheDocument()
+        expect(screen.queryByText('Shuffling…')).not.toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: 'Back to dashboard' }))
         expect(screen.getByText('Dashboard page')).toBeInTheDocument()
     })
@@ -204,6 +205,38 @@ describe('GamePageConnected', () => {
         const play = screen.getByTestId('play-notice')
         expect(play).toHaveTextContent("A player declined — you're back in the queue")
         expect(play).toHaveAttribute('data-navigation', 'REPLACE')
+    })
+
+    test('the game page in Croatian: the first frame, not yours, the h1, a declined match\'s notice', () => {
+        setLang('hr')
+        try {
+            // connecting, and connected while the first state comes: the same first frame (spec §1.4 Loading)
+            for (const isConnected of [false, true]) {
+                vi.mocked(useGameViews).mockReturnValue(views(null, null, { isConnected }))
+                renderPage()
+                expect(screen.getByText('Mešamo karte…')).toBeInTheDocument()
+                expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Partija')
+                cleanup()
+            }
+            vi.mocked(useGameViews).mockReturnValue(views(null, null, { notAvailable: true }))
+            renderPage()
+            expect(screen.getByText('Ova partija nije tvoja ili je već gotova')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Vrati se Doma' })).toBeInTheDocument()
+            expect(screen.queryByText('Mešamo karte…')).not.toBeInTheDocument()
+            cleanup()
+            vi.mocked(useGameViews).mockReturnValue(views({ ...publicView, gameState: 'CANCELLED', endReason: 'DECLINED', forfeitTeamId: null }))
+            render(
+                <MemoryRouter initialEntries={['/game/g1']}>
+                    <Routes>
+                        <Route path="/game/:gameId" element={<GamePageConnected />} />
+                        <Route path="/play" element={<PlayPageStub />} />
+                    </Routes>
+                </MemoryRouter>,
+            )
+            expect(screen.getByTestId('play-notice')).toHaveTextContent('Igrač je odbio partiju — opet si u potrazi')
+        } finally {
+            setLang('en')
+        }
     })
 
     test('a ranked forfeit keeps its table: only a declined match goes back to /play', () => {

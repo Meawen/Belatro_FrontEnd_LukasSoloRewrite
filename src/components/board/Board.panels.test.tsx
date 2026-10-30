@@ -1,11 +1,12 @@
 import { describe, test, expect, vi, afterEach, beforeEach } from 'vitest'
-import { screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderBoard, tableState } from './testing'
-import { endedHand } from './model/hands'
+import { endedHand, handTricks, handTrump } from './model/hands'
 import { devHands } from '../../dev/devTable'
 import { find, indexOf, playTable, type FanOut } from '../../test/fixtures/views/table'
 import type { MatchHands } from '../../hooks/useMatchHands'
+import { setLang } from '../../i18n/lang'
 
 // the whole board renders in every test: slower than a 5-s default on a busy machine
 vi.setConfig({ testTimeout: 20_000 })
@@ -104,5 +105,72 @@ describe('Board: the piles and the peek (spec §5.3.3, D-11, US-32)', () => {
         renderBoard({ state: tableState(table[at]), hands: storedHands(table, at) })
         await user.click(screen.getByRole('button', { name: "Look at your team's tricks (0)" }))
         expect(within(screen.getByTestId('peek-sheet')).getByText('No tricks won yet this hand.')).toBeInTheDocument()
+    })
+})
+
+describe('Board: the peek names the hand\'s 8th trick "Last trick" (§1.4)', () => {
+    const at = indexOf(table, 'window-open')
+    /** Who took trick 8 of the hand that just ended: the peek shows it to that seat's team. */
+    function lastTrickWinner(hands: MatchHands): string {
+        const current = [...hands.hands!].reverse().find((hand) => handTrump(hand) !== null)!
+        return handTricks(current).find((trick) => trick.trickNo === 8)!.winnerId!
+    }
+
+    test.each([
+        ['en', "Your team's tricks", /^Look at your team's tricks \(\d+\)$/, 'Last trick', 'Trick 8'],
+        ['hr', 'Štihovi tvoje ekipe', /^Pogledaj štihove svoje ekipe \(\d+\)$/, 'Zadnji štih', 'Štih 8'],
+    ] as const)('%s', async (lang, title, pile, last, eighth) => {
+        const user = userEvent.setup()
+        setLang(lang)
+        try {
+            const hands = storedHands(table, at)
+            const me = lastTrickWinner(hands)
+            renderBoard({ state: tableState(table[at], me), me, hands })
+            await user.click(screen.getByRole('button', { name: pile }))
+            const peek = screen.getByTestId('peek-sheet')
+            expect(within(peek).getByRole('heading', { name: title })).toBeInTheDocument()
+            expect(within(peek).getByText(last)).toBeInTheDocument()
+            expect(within(peek).queryByText(eighth)).not.toBeInTheDocument()
+        } finally {
+            setLang('en')
+        }
+    })
+})
+
+describe('Board: the menu and Bela Blok in Croatian', () => {
+    test('the menu: Ovo dijeljenje, my team, Pravila, Vrati se Doma and the note', async () => {
+        const user = userEvent.setup()
+        setLang('hr')
+        try {
+            renderBoard({ state: tableState(find(table, 'call:')) })
+            await user.click(screen.getByRole('button', { name: 'Izbornik igre' }))
+            const menu = screen.getByRole('dialog', { name: 'Izbornik igre' })
+            expect(within(menu).getByRole('heading', { name: 'Ovo dijeljenje' })).toBeInTheDocument()
+            expect(within(menu).getByText('Tvoja ekipa: A')).toBeInTheDocument()
+            expect(within(menu).getByText('dave: Herc')).toBeInTheDocument()
+            expect(within(menu).getByRole('link', { name: 'Pravila' })).toHaveAttribute('target', '_blank')
+            expect(within(menu).getByRole('button', { name: 'Vrati se Doma' })).toBeInTheDocument()
+            expect(within(menu).getByText('Mjesto ostaje tvoje. Ako nisi tu, sat igra umjesto tebe; 5 propuštenih poteza zaredom znači predaju (za nerangiranim stolom partija se otkazuje).')).toBeInTheDocument()
+        } finally {
+            setLang('en')
+        }
+    })
+
+    test('the desktop column: Bela blok, its rows, Ukupno and the hint', () => {
+        setLang('hr')
+        try {
+            const end = indexOf(table, 'next-deal')
+            renderBoard({ state: tableState(table[end]), hands: storedHands(table, end) })
+            const blok = screen.getByTestId('bela-blok')
+            expect(within(blok).getByRole('heading', { name: 'Bela blok' })).toBeInTheDocument()
+            const rows = within(blok).getAllByRole('row').map((row) => [...row.querySelectorAll('td, th')].map((cell) => cell.textContent))
+            expect(rows).toEqual([['#', 'Mi', 'Vi'], ['1', '11', '171'], ['Ukupno', '11', '171']])
+            expect(within(blok).getByText('Dodirni hrpu svoje ekipe i pogledaj njezine štihove iz ovog dijeljenja.')).toBeInTheDocument()
+            cleanup()
+            renderBoard({ state: tableState(table[end]), hands: storedHands(table, end), viewport: PHONE })
+            expect(screen.getByRole('button', { name: 'Blok' })).toBeInTheDocument()
+        } finally {
+            setLang('en')
+        }
     })
 })

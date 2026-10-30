@@ -4,6 +4,7 @@ import { PixelIcon } from '../ui/PixelIcon';
 import { Sheet } from '../ui/Sheet';
 import type { BoardModel } from './model/boardModel';
 import type { RematchState } from '../../hooks/useRematch';
+import { useT } from '../../i18n/t';
 
 export interface EndSheetProps {
     model: BoardModel;
@@ -20,11 +21,12 @@ export interface EndSheetProps {
  * and Match details.
  */
 export function EndSheet({ model, open, rematch, onLeave }: EndSheetProps) {
+    const t = useT();
     const end = model.end;
     const mine = model.myTeam ?? 'A';
     const score = (team: 'A' | 'B') => (team === 'A' ? model.scores.a : model.scores.b);
     return (
-        <Sheet open={open && end !== null} onClose={() => {}} title={end?.title ?? 'Game over'} modal={false} dismissible={false} side="bottom" className="board-dock">
+        <Sheet open={open && end !== null} onClose={() => {}} title={end?.title ?? t.game.end.over} modal={false} dismissible={false} side="bottom" className="board-dock">
             {end && (
                 <div className="board-end">
                     {end.winnerLine && <p className="t-headline">{end.winnerLine}</p>}
@@ -39,24 +41,24 @@ export function EndSheet({ model, open, rematch, onLeave }: EndSheetProps) {
                     {rematch && end.rematchOffered ? (
                         // R-45: Play again votes; Leave declines for everyone and goes back to the lobbies
                         <div className="board-end__rematch">
-                            <p data-testid="rematch-votes" className="t-callout">{`${rematch.votes}/4 want a rematch`}</p>
-                            {rematch.cancelledBy && <p className="t-callout text-danger-text">{`${rematch.cancelledBy} left — no rematch`}</p>}
-                            {rematch.expired && !rematch.cancelledBy && <p className="t-callout text-danger-text">Rematch expired</p>}
+                            <p data-testid="rematch-votes" className="t-callout">{t.board.end.votes(rematch.votes)}</p>
+                            {rematch.cancelledBy && <p className="t-callout text-danger-text">{t.board.end.left(rematch.cancelledBy)}</p>}
+                            {rematch.expired && !rematch.cancelledBy && <p className="t-callout text-danger-text">{t.board.end.expired}</p>}
                             <div className="board-end__actions">
                                 {/* one vote: off once mine went out, until the rematch starts, is declined or expires (R29) */}
                                 <Button onClick={rematch.playAgain} disabled={rematch.voted || rematch.cancelledBy !== null || rematch.expired}>
-                                    Play again
+                                    {t.board.end.playAgain}
                                 </Button>
-                                <Button variant="secondary" onClick={rematch.leave}>Leave</Button>
+                                <Button variant="secondary" onClick={rematch.leave}>{t.board.end.leave}</Button>
                             </div>
                         </div>
                     ) : (
                         <div className="board-end__actions">
-                            <Button onClick={onLeave}>Back to lobbies</Button>
+                            <Button onClick={onLeave}>{t.table.backToTables}</Button>
                         </div>
                     )}
                     <Link to={`/matches/${model.gameId}`} className="board-end__details t-callout font-semibold text-accent">
-                        Match details
+                        {t.titles.matchDetails}
                         <PixelIcon name="chevron" />
                     </Link>
                 </div>

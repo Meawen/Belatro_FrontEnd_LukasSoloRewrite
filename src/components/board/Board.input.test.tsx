@@ -1,9 +1,10 @@
 import { describe, test, expect, vi, afterEach, beforeEach } from 'vitest'
-import { act, cleanup, screen } from '@testing-library/react'
+import { act, cleanup, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { actions, privateFor, renderBoard, stateOf, tableState, view } from './testing'
 import { find, indexOf, playTable } from '../../test/fixtures/views/table'
 import type { GameCard } from '../../types/game'
+import { setLang } from '../../i18n/lang'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -80,7 +81,22 @@ describe('Board: bids and plays (GameTable cases, R-23, R-32)', () => {
         renderBoard({ state: stateOf(privateFor(view({ bids: threePasses }), true)), me: 'dave' })
         expect(screen.getByRole('button', { name: 'Pass' })).toBeDisabled()
         expect(screen.getByRole('button', { name: 'Call Herc' })).toBeEnabled()
-        expect(screen.getByTestId('dealer-must-call')).toHaveTextContent('The dealer must call trump')
+        expect(screen.getByTestId('dealer-must-call')).toHaveTextContent('You must call trump.')
+    })
+
+    test('the forced call in Croatian (§1.4): "Mus! Moraš zvati.", and each seat that passed says Dalje', () => {
+        setLang('hr')
+        try {
+            const threePasses = ['alice', 'bob', 'carol'].map((playerId) => ({ playerId, action: 'PASS' as const, selectedTrump: null }))
+            renderBoard({ state: stateOf(privateFor(view({ bids: threePasses }), true)), me: 'dave' })
+            expect(screen.getByRole('group', { name: 'Biraš adut' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Dalje' })).toBeDisabled()
+            expect(screen.getByRole('button', { name: 'Zovi Herc' })).toBeEnabled()
+            expect(screen.getByTestId('dealer-must-call')).toHaveTextContent('Mus! Moraš zvati.')
+            for (const id of ['alice', 'bob', 'carol']) expect(within(screen.getByTestId(`seat-${id}`)).getByText('Dalje')).toBeInTheDocument()
+        } finally {
+            setLang('en')
+        }
     })
 
     test('with fewer than three passes Pass stays available', () => {
@@ -114,6 +130,21 @@ describe('Board: bela (R-32)', () => {
         await user.click(screen.getByRole('button', { name: 'Play + Bela' }))
         expect(moves.play).toHaveBeenCalledWith({ boja: 'HERC', rank: 'BABA' }, true)
         expect(screen.queryByTestId('bela-prompt')).not.toBeInTheDocument()
+    })
+
+    test('the bela prompt in Croatian', async () => {
+        const user = userEvent.setup()
+        setLang('hr')
+        try {
+            withHand(kingAndQueenOfTrump)
+            await user.click(screen.getByRole('button', { name: 'Baba Herc' }))
+            const prompt = screen.getByRole('group', { name: 'Baba Herc: zoveš belu?' })
+            expect(within(prompt).getByText('Baba Herc: zoveš belu?')).toBeInTheDocument()
+            expect(within(prompt).getByRole('button', { name: 'Baci' })).toBeInTheDocument()
+            expect(within(prompt).getByRole('button', { name: 'Baci + bela' })).toBeInTheDocument()
+        } finally {
+            setLang('en')
+        }
     })
 
     test('Play sends the same card without bela', async () => {

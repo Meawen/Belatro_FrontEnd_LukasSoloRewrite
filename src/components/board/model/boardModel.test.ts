@@ -3,6 +3,7 @@ import { EMPTY_LOCAL, boardModel, secondsLeft, type BoardLocal } from './boardMo
 import type { BoardState } from './accept'
 import { find, indexOf, playTable } from '../../../test/fixtures/views/table'
 import type { GameCard, GamePhase, LastChallengeView, PrivateGameView, PublicGameView, ZvanjaView } from '../../../types/game'
+import { setLang } from '../../../i18n/lang'
 
 const seating = ['alice', 'bob', 'carol', 'dave'].map((id) => ({ id, cardsLeft: 6 }))
 const c = (boja: GameCard['boja'], rank: GameCard['rank']): GameCard => ({ boja, rank })
@@ -284,7 +285,7 @@ describe('boardModel: bidding controls, declarations, challenge, window, end', (
 
     test('the end: Game over with the winner; a forfeit is Game over; a cancel is Match cancelled; declined; rematch', () => {
         expect(model(state(view({ gameState: 'COMPLETED', winnerTeamId: 'A' }))).end).toEqual({
-            title: 'Game over', winnerLine: 'Team A wins', reason: null, declined: false, rematchOffered: true,
+            title: 'You won!', winnerLine: 'Team A wins', reason: null, declined: false, rematchOffered: true,
         })
         expect(model(state(view({ gameState: 'CANCELLED', endReason: 'FORFEIT', forfeitTeamId: 'B' }))).end).toMatchObject({
             title: 'Game over', winnerLine: null, reason: 'Team B forfeited — Team A wins', rematchOffered: true,
@@ -292,6 +293,35 @@ describe('boardModel: bidding controls, declarations, challenge, window, end', (
         expect(model(state(view({ gameState: 'CANCELLED', endReason: 'CANCELLED' }))).end).toMatchObject({ title: 'Match cancelled', rematchOffered: false })
         expect(model(state(view({ gameState: 'CANCELLED', endReason: 'DECLINED' }))).end!.declined).toBe(true)
         expect(model(state(view({ gameState: 'PLAYING' }))).end).toBeNull()
+    })
+
+    test('the end, from my seat (spec §1.4 Win, Loss): won or lost in a played-out game I sit in; else Game over', () => {
+        const aWins = state(view({ gameState: 'COMPLETED', winnerTeamId: 'A' }))
+        expect(model(aWins).end!.title).toBe('You won!')
+        expect(model(aWins, 'dave').end!.title).toBe('Next time.')
+        // not seated: a spectator's end
+        expect(model(aWins, 'zoe').end!.title).toBe('Game over')
+        expect(model(state(view({ gameState: 'COMPLETED', winnerTeamId: 'B', endReason: 'BELOT' }))).end!.title).toBe('Next time.')
+    })
+
+    test('in Croatian: the end, the phase, the trump, my team and the bids', () => {
+        setLang('hr')
+        try {
+            const aWins = state(view({ gameState: 'COMPLETED', winnerTeamId: 'A' }))
+            expect(model(aWins).end).toMatchObject({ title: 'Kaj ste dobri, pajdaši!', winnerLine: 'Ekipa A je pobijedila' })
+            expect(model(aWins, 'dave').end!.title).toBe('Bu bolje drugi put.')
+            expect(model(aWins, 'zoe').end!.title).toBe('Kraj partije')
+            expect(model(state(view({ gameState: 'COMPLETED', winnerTeamId: 'B', endReason: 'BELOT' }))).end!.title).toBe('Bu bolje drugi put.')
+            expect(model(state(view({ gameState: 'CANCELLED', endReason: 'CANCELLED' }))).end!.title).toBe('Otkazana partija')
+            expect(model(state(view())).phaseLabel).toBe('Licitacija')
+            const bids = [{ playerId: 'alice', action: 'PASS' as const, selectedTrump: null }, { playerId: 'bob', action: 'CALL_TRUMP' as const, selectedTrump: 'KARA' as const }]
+            const playing = model(state(view({ gameState: 'PLAYING', bids, currentTrick: { leadPlayerId: 'alice', trump: 'KARA', plays: {} } })))
+            expect(playing.trump!.label).toBe('Karo')
+            expect(playing.summary.yourTeam).toBe('Tvoja ekipa: A')
+            expect(playing.summary.bids).toEqual(['alice: Dalje', 'bob: Karo'])
+        } finally {
+            setLang('en')
+        }
     })
 })
 
@@ -348,7 +378,7 @@ describe('boardModel: the declarations and the last challenge (gameplay rules §
         const t = playTable({ belot: { player: 'carol', suit: 'PIK' } })
         const last = t[t.length - 1]
         const m = model({ publicView: last.public, privateView: last.private.carol, receivedAt: last.at, skew: 0, source: 'live' })
-        expect(m.end).toEqual({ title: 'Game over', winnerLine: 'Team A wins by belot', reason: 'carol held all eight Pik', declined: false, rematchOffered: true })
+        expect(m.end).toEqual({ title: 'You won!', winnerLine: 'Team A wins by belot', reason: 'carol held all eight Pik', declined: false, rematchOffered: true })
         expect(m).toMatchObject({ playOpensAt: null, zvanja: { belot: { playerId: 'carol', suit: 'PIK' } } })
     })
 

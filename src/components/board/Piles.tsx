@@ -3,6 +3,7 @@ import { fade } from '../../motion/tokens';
 import { PlayingCard } from '../ui/PlayingCard';
 import type { Team } from './model/boardModel';
 import type { Targets } from './model/cardTargets';
+import { useT } from '../../i18n/t';
 
 export interface PilesProps {
     /** The counts as shown (a trick still flying isn't on its pile yet). */
@@ -15,6 +16,7 @@ export interface PilesProps {
 
 /** The tricks won this hand (spec §5.3.3): `pile-a`/`pile-b` with `data-count`, a few backs and the count. */
 export function Piles({ counts, targets, myTeam, onTap }: PilesProps) {
+    const t = useT();
     return (
         <div className="board-region board-piles">
             {(['A', 'B'] as const).map((team) => {
@@ -54,7 +56,7 @@ export function Piles({ counts, targets, myTeam, onTap }: PilesProps) {
                         type="button"
                         data-testid={testId}
                         data-count={count}
-                        aria-label={mine ? `Look at your team's tricks (${count})` : `Opponents' tricks (${count})`}
+                        aria-label={mine ? t.board.piles.mine(count) : t.board.piles.theirs(count)}
                         className="board-pile board-pile--button press"
                         style={style}
                         onClick={() => onTap(team)}

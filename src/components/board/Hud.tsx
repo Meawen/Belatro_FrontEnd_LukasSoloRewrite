@@ -6,6 +6,7 @@ import { IconButton } from '../ui/IconButton';
 import { SuitIcon } from '../ui/SuitIcon';
 import { Challenge } from './Challenge';
 import type { BoardModel } from './model/boardModel';
+import { useT } from '../../i18n/t';
 
 const INSTANT = { duration: 0 } as const;
 
@@ -64,6 +65,7 @@ export interface HudProps {
  * is called ("Bidding" and the season word sit outside it); Challenge while playing; Blok (phones); the menu.
  */
 export function Hud({ model, instant, calledBy, calls, onChallenge, challengePending, challengeFrozen, resultOpen, onMenu, onBlok }: HudProps) {
+    const t = useT();
     const reduced = useReducedMotion();
     const badge = useRef<HTMLSpanElement>(null);
     const mine = model.myTeam ?? 'A';
@@ -98,7 +100,7 @@ export function Hud({ model, instant, calledBy, calls, onChallenge, challengePen
                 {onBlok && (
                     // a 44-px hit area around the 36-px chip (spec §3.9)
                     <button type="button" className="board-hud__hit press" onClick={onBlok}>
-                        <span className="board-hud__chip">Blok</span>
+                        <span className="board-hud__chip">{t.board.blok.short}</span>
                     </button>
                 )}
                 {/* nothing waits for the hold (§5.3.5 rule 5): while the last trick is held the window is already open */}
@@ -113,11 +115,11 @@ export function Hud({ model, instant, calledBy, calls, onChallenge, challengePen
                         <>
                             <span ref={badge} className="inline-flex"><SuitIcon boja={model.trump.suit} /></span>
                             <span data-testid="trump">{model.trump.label}</span>
-                            <span className="board-hud__season text-text-2" aria-hidden="true">{`· ${model.season}`}</span>
+                            <span className="board-hud__season text-text-2" aria-hidden="true">{`· ${t.board.season[model.trump.suit]}`}</span>
                         </>
                     )}
                 </span>
-                <IconButton icon="more" aria-label="Game menu" variant="secondary" size="sm" className="board-hud__menu" onClick={onMenu} />
+                <IconButton icon="more" aria-label={t.board.menu.title} variant="secondary" size="sm" className="board-hud__menu" onClick={onMenu} />
             </div>
         </div>
     );

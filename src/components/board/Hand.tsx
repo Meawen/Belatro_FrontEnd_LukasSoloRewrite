@@ -6,6 +6,7 @@ import { boxStyle, cardMotion, useArc, type Anchor } from './cardMotion';
 import type { HandCardModel } from './model/boardModel';
 import type { Target, Targets } from './model/cardTargets';
 import type { Entrance } from './stage';
+import { useT } from '../../i18n/t';
 
 interface HandCardProps {
     card: HandCardModel;
@@ -86,6 +87,7 @@ const MOVES: Record<string, (i: number, n: number) => number> = {
  * ←/→, Home and End move between the playable cards (one tab stop); Enter and Space play.
  */
 export function Hand({ cards, targets, deal, entrances, instant, reduced, onPress }: HandProps) {
+    const t = useT();
     const elements = useRef(new Map<string, HTMLButtonElement>());
     const [active, setActive] = useState<string | null>(null);
     const playable = cards.filter((card) => card.enabled);
@@ -127,7 +129,7 @@ export function Hand({ cards, targets, deal, entrances, instant, reduced, onPres
     });
 
     return (
-        <div role="toolbar" aria-label="Your hand" data-testid="hand" className="board-region board-hand" onKeyDown={onKeyDown}>
+        <div role="toolbar" aria-label={t.board.hand.label} data-testid="hand" className="board-region board-hand" onKeyDown={onKeyDown}>
             {reduced ? <AnimatePresence>{buttons}</AnimatePresence> : buttons}
         </div>
     );

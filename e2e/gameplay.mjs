@@ -775,7 +775,7 @@ async function rematch(pages) {
     const oldGameId = gameIdOf(pages[0]);
     for (const [k, page] of pages.entries()) {
         await page.getByRole('button', { name: 'Play again', exact: true }).click();
-        if (k < pages.length - 1) await page.getByText(`${k + 1}/4 want a rematch`).first().waitFor({ timeout: 10000 });
+        if (k < pages.length - 1) await page.getByText(`${k + 1}/4 want to play again`).first().waitFor({ timeout: 10000 });
     }
     let newGameId = null;
     await waitUntil(async () => {

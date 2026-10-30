@@ -899,6 +899,268 @@ export const en = {
             deleteUser: 'Delete User',
         },
     },
+    // card names: the table, a match's details, the Rules page's cards (the French-suited Croatian set in both languages;
+    // a declined form comes only from a whole phrase per rank, never from code)
+    cards: {
+        // the suits, keyed by the server's enum
+        suit: {
+            HERC: 'Herc',
+            KARA: 'Karo',
+            PIK: 'Pik',
+            TREF: 'Tref',
+        },
+        // the ranks, keyed by the server's enum
+        rank: {
+            SEDMICA: '7',
+            OSMICA: '8',
+            DEVETKA: '9',
+            DESETKA: '10',
+            DECKO: 'Decko',
+            BABA: 'Baba',
+            KRALJ: 'Kralj',
+            AS: 'As',
+        },
+        // every card's name: "As Herc" (cardLabel)
+        card: (rank: string, suit: string) => `${rank} ${suit}`,
+        // a run's height when it ties an opponent's: "up to Baba" (the declaration moment, the hand history)
+        upTo: {
+            SEDMICA: 'up to 7',
+            OSMICA: 'up to 8',
+            DEVETKA: 'up to 9',
+            DESETKA: 'up to 10',
+            DECKO: 'up to Decko',
+            BABA: 'up to Baba',
+            KRALJ: 'up to Kralj',
+            AS: 'up to As',
+        },
+        // a four's height when it ties a run: "four Asovi"
+        four: {
+            SEDMICA: 'four 7',
+            OSMICA: 'four 8',
+            DEVETKA: 'four Devetke',
+            DESETKA: 'four Desetke',
+            DECKO: 'four Decki',
+            BABA: 'four Babe',
+            KRALJ: 'four Kralji',
+            AS: 'four Asovi',
+        },
+        // a belot: the end sheet's reason and the hand history's line; the name may be "You"
+        heldAllEight: (name: string, suit: string) => `${name} held all eight ${suit}`,
+    },
+    // the game page around the table (/game/:id), the phases in words, and how a game ends
+    game: {
+        // the HUD's phase (game-phase) and the hand result's title before its number is known
+        phase: {
+            BIDDING: 'Bidding',
+            PLAYING: 'Playing',
+            HAND_COMPLETE: 'Hand finished',
+            COMPLETED: 'Game over',
+            CANCELLED: 'Cancelled',
+            INITIALIZED: 'Starting',
+            DECLARATIONS: 'Declarations',
+            SCORING: 'Scoring',
+        },
+        // a game the server never sent, or says isn't yours: the line and its way back
+        notYours: "This game isn't yours or has ended",
+        goHome: 'Back to dashboard',
+        // a move made while the socket is down (the table's error line; the e2e harness matches the English)
+        notSent: 'Not sent — reconnecting',
+        // the Reconnecting strip over the table and on Ranked (ReconnectBanner); Retry tries at once
+        reconnecting: 'Reconnecting…',
+        retry: 'Retry',
+        // the hidden "This hand" summary and the menu: a bela declared ("ivo: bela 20")
+        belaLine: (player: string) => `${player}: bela 20`,
+        // the end sheet: its heading, the winner line under it, and why a game ended other than played out
+        end: {
+            // the heading for a forfeit, a spectator, or a page without the end yet
+            over: 'Game over',
+            cancelled: 'Match cancelled',
+            // the heading for a played-out game, from my seat (spec §1.4 Win, Loss)
+            won: 'You won!',
+            lost: 'Next time.',
+            // the winner line (the e2e harness reads "Team A wins")
+            wins: (team: string) => `Team ${team} wins`,
+            winsByBelot: (team: string) => `Team ${team} wins by belot`,
+            // the reasons (end-reason)
+            forfeited: (team: string, winner: string) => `Team ${team} forfeited — Team ${winner} wins`,
+            teamLeft: (team: string) => `Team ${team} left — the game was abandoned (no result)`,
+            everyoneLeft: 'Everyone left — the game was abandoned (no result)',
+            // a declined ranked match: its reason, and the notice Ranked shows after it
+            declined: "A player declined — you're back in the queue",
+            cancelledReason: 'The game was cancelled',
+        },
+    },
+    // the table (components/board): the HUD, the seats, my hand, the bids, bela, the challenge, the declarations,
+    // the sheets and the live region for screen readers
+    board: {
+        // the table's region name
+        label: 'Game table',
+        // the badge over my hand on my turn, and its live line (spec §1.4); in its last 10 s it asks (§1.4 Away)
+        yourTurn: 'Your turn',
+        away: 'Still there?',
+        // the trick in words, for screen readers: "Trick: alice 7 Pik, bob Baba Pik"
+        trickWords: (plays: string) => `Trick: ${plays}`,
+        // a pass: the bid button, a seat's chip, the bids list (spec §1.4 Dalje)
+        pass: 'Pass',
+        // all eight tricks: the hand result's tag and Bela Blok's (spec §1.4 Capot)
+        capot: 'Capot',
+        // the menu's section and the hidden summary's heading
+        thisHand: 'This hand',
+        // the hidden summary when it isn't my turn
+        waiting: 'Waiting for other players...',
+        // the crown on a trick's winning card
+        wonTrick: 'won the trick',
+        // the season beside the trump in the HUD, keyed by the trump suit
+        season: {
+            HERC: 'spring',
+            KARA: 'summer',
+            PIK: 'autumn',
+            TREF: 'winter',
+        },
+        // the trick piles: the toast on the opponents' pile, and the piles' names
+        piles: {
+            closed: "You can only look at your team's tricks",
+            mine: (n: number) => `Look at your team's tricks (${n})`,
+            theirs: (n: number) => `Opponents' tricks (${n})`,
+        },
+        // the bid panel (BidPanel): its name and note, the dealer's forced call (spec §1.4), a suit's button
+        bid: {
+            label: 'Your bid',
+            mustCall: 'You must call trump.',
+            call: (suit: string) => `Call ${suit}`,
+        },
+        // the bela prompt over the trump K or Q, and the seat's chip once bela is declared (spec §1.4 Bela)
+        bela: {
+            prompt: (card: string) => `Declare bela with ${card}?`,
+            play: 'Play',
+            playBela: 'Play + Bela',
+            chip: 'Bela!',
+        },
+        // a seat's plate and chips (Seats)
+        seat: {
+            // after a bot's name, in its title and for screen readers
+            bot: '(bot)',
+            // the dealer chip, for screen readers (the chip shows "D")
+            dealer: 'Dealer',
+            // the word after a seat's count of cards, for screen readers
+            cards: (n: number) => plural(n, { one: 'card', other: 'cards' }, 'en'),
+            // the chip on a seat whose challenge is gone, and its words for screen readers
+            noChallenge: 'No challenge',
+            noChallengeLeft: (name: string) => `${name}: no challenge left`,
+            // the declared cards beside a seat, named for screen readers
+            declaredMine: 'Your declared cards',
+            declared: (name: string) => `${name}'s declared cards`,
+        },
+        // Challenge (the HUD, the hand result), its hint, and the banner that says it out loud
+        challenge: {
+            button: 'Challenge',
+            used: 'Challenge used',
+            info: 'What does Challenge do?',
+            hint: "Think an opponent played an illegal card this hand? Challenge to win the whole hand. If you're wrong it costs no points, but you lose your challenge for the rest of the game.",
+            usedInfo: "Your challenge was wrong, so it's gone for the rest of the game.",
+            // the banner: who, then the outcome; a right one is also the hand result's title
+            whoMine: 'You challenge!',
+            who: (name: string) => `${name} challenges!`,
+            foul: (team: string) => `Foul found: Team ${team} takes the hand`,
+            noFoulMine: 'No foul: you have no challenge left',
+            noFoul: (name: string) => `No foul: ${name} has no challenge left`,
+        },
+        // the declaration moment after the trump call (DeclarationMoment): its panel, the winner line, the live line
+        moment: {
+            title: 'Declarations',
+            // the panel is a button that skips the moment (or a belot's wait for the end sheet)
+            skip: 'Skip declarations',
+            skipToResult: 'Skip to the result',
+            // the winner line, and why when the opponents tied on value
+            scores: (team: string, total: number) => `Team ${team} scores ${total}`,
+            higherMine: (team: string, total: number) => `Yours is higher: Team ${team} scores ${total}`,
+            higher: (name: string, team: string, total: number) => `${name}'s is higher: Team ${team} scores ${total}`,
+            fourMine: (team: string, total: number) => `Your four beats the run: Team ${team} scores ${total}`,
+            four: (name: string, team: string, total: number) => `${name}'s four beats the run: Team ${team} scores ${total}`,
+            firstMine: (team: string, total: number) => `You were first: Team ${team} scores ${total}`,
+            first: (name: string, team: string, total: number) => `${name} was first: Team ${team} scores ${total}`,
+            // my name inside the live line, and a seat that declared nothing
+            you: 'you',
+            nothing: (name: string) => `${name} nothing`,
+            // the whole moment for screen readers: "Declarations: ivo 20, mara nothing. Team B scores 20."
+            srLine: (said: string, line: string) => `Declarations: ${said}. ${line}.`,
+            // a winning seat's chip for the rest of the hand: "Zvanja 50 + 20"
+            chip: (points: string) => `Zvanja ${points}`,
+            // a belot's line
+            belotMine: (suit: string) => `Belot! You hold all eight ${suit}`,
+            belot: (name: string, suit: string) => `Belot! ${name} holds all eight ${suit}`,
+        },
+        // the live region's lines for screen readers, one per event
+        say: {
+            turn: (name: string) => `${name}'s turn`,
+            passed: (name: string) => `${name}: Pass`,
+            // a trump call: the live line, and the caller's badge for screen readers
+            calledMine: (suit: string) => `You called ${suit}`,
+            called: (name: string, suit: string) => `${name} called ${suit}`,
+            trump: (suit: string) => `Trump: ${suit}`,
+            // a card played; the name is "You" for mine
+            played: (name: string, card: string) => `${name} played ${card}`,
+            trickMine: 'You win the trick',
+            trick: (name: string) => `${name} wins the trick`,
+            // the hand's 8th trick (spec §1.4 Last trick)
+            lastTrickMine: 'You win the last trick',
+            lastTrick: (name: string) => `${name} wins the last trick`,
+            bela: (name: string) => `${name}: Bela!`,
+            // an older backend's challenges, inferred from the scores
+            upheld: (team: string) => `Challenge upheld: Team ${team} takes the hand`,
+            upheldNoTeam: 'Challenge upheld',
+            failedMine: 'No foul found',
+            failed: (name: string) => `${name} challenged: no foul found`,
+        },
+        // the hand result (HandResult): its title, the challenge window, a row's tags (spec §1.4 Pad) and zvanja
+        result: {
+            hand: (n: number) => `Hand ${n}`,
+            nextIn: (seconds: number) => `Next hand in ${seconds} s`,
+            nextSoon: 'Next hand shortly',
+            fellMine: 'Fell! You fell.',
+            fellTheirs: 'They fell.',
+            decl: (points: number) => `incl. ${points} zvanja`,
+        },
+        // the end sheet (EndSheet): Play again's votes and outcomes, its buttons (spec §1.4 Rematch)
+        end: {
+            votes: (n: number) => `${n}/4 want to play again`,
+            left: (name: string) => `${name} left — no new game`,
+            expired: 'Too late to play again',
+            playAgain: 'Play again',
+            leave: 'Leave',
+        },
+        // the game menu (GameMenu): its title (also the HUD button's name), the hand, the way home and its note
+        menu: {
+            title: 'Game menu',
+            noBids: 'No bids yet',
+            backHome: 'Back to home',
+            leaveNote: "Your seat stays. If you're away, the timer plays for you; 5 missed turns in a row forfeit (casual: the game is cancelled).",
+            yourTeam: (team: string) => `Your team: ${team}`,
+        },
+        // Bela Blok (BelaBlok): the score sheet, a column on desktops and a sheet on phones ("Blok" in the HUD)
+        blok: {
+            title: 'Bela Blok',
+            short: 'Blok',
+            hint: "Tap your team's pile to look at the tricks you've won this hand.",
+            // a row's tag for the team that fell (a record, not the moment)
+            pad: 'Pad',
+            empty: 'No hands yet',
+            total: 'Total',
+        },
+        // my hand (Hand): the toolbar's name, and the hidden list of my cards
+        hand: {
+            label: 'Your hand',
+            list: (cards: string) => `Your hand: ${cards}`,
+        },
+        // the won-trick peek (Peek): my team's tricks this hand; the 8th is "Last trick" (spec §1.4)
+        peek: {
+            title: "Your team's tricks",
+            loading: 'Loading the tricks…',
+            empty: 'No tricks won yet this hand.',
+            trick: (n: number) => `Trick ${n}`,
+            lastTrick: 'Last trick',
+        },
+    },
     // relative times ("5 minutes ago"), wherever a time is shown
     time: {
         justNow: 'just now',
@@ -988,7 +1250,7 @@ export const en = {
             // the game: a refused move or Play again, shown on the table
             GAME_NOT_FOUND: 'This game is no longer running. Go back to Home.',
             CANT_CHALLENGE: "You can't challenge now.",
-            DECLARATIONS_BEING_SAID: 'Wait until the declarations are shown, then play your card.',
+            DECLARATIONS_BEING_SAID: 'Wait until the zvanja are shown, then play your card.',
             DEALER_MUST_CALL: 'You must call trump.',
             WAIT_FOR_PAUSE: 'Wait for the next hand to start.',
             REMATCH_UNAVAILABLE: "Play again isn't available for this game. Go back to Tables and sit at a new table.",

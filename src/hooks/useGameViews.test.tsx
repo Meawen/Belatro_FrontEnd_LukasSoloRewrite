@@ -166,12 +166,38 @@ describe('useGameViews: today\'s useBelatroGame behaviours', () => {
         act(() => ws.options.onGameError?.('Game not found'))
         expect(first.result.current.notAvailable).toBe(true)
         first.unmount()
-        // a page showing its table: another tab's "Game not found" is only shown, never fatal
+        // a page showing its table: another tab's "Game not found" is neither shown nor fatal
         const second = renderHook(() => useGameViews('g1'))
         act(() => ws.options.onPrivateGameUpdate?.(privateView))
         act(() => ws.options.onGameError?.('Game not found'))
         expect(second.result.current.notAvailable).toBe(false)
-        expect(second.result.current.error).toBe('This game is no longer running. Go back to Home.')
+        expect(second.result.current.error).toBeNull()
+    })
+
+    test("another game's refusal is neither shown nor fatal (S2 review, S5 call 3)", () => {
+        const { result } = renderHook(() => useGameViews('g1'))
+        act(() => ws.options.onGameError?.('Not a participant in game g2'))
+        expect(result.current.error).toBeNull()
+        expect(result.current.notAvailable).toBe(false)
+        act(() => ws.options.onPrivateGameUpdate?.(privateView))
+        act(() => ws.options.onGameError?.('Not a participant in game g2'))
+        expect(result.current.error).toBeNull()
+        expect(result.current.notAvailable).toBe(false)
+        // a refusal of this table's own move still shows
+        act(() => ws.options.onGameError?.("You can't challenge now"))
+        expect(result.current.error).toBe("You can't challenge now.")
+    })
+
+    test('a move that could not go out says so in Croatian (carried d)', () => {
+        setLang('hr')
+        try {
+            ws.playCard.mockReturnValueOnce(false)
+            const { result } = renderHook(() => useGameViews('g1'))
+            act(() => result.current.actions.play({ boja: 'KARA', rank: 'DESETKA' }))
+            expect(result.current.error).toBe('Nije poslano — ponovno se spajamo')
+        } finally {
+            setLang('en')
+        }
     })
 
     test('a reconnect asks again through the subscription, with a fresh allowance of 3 refreshes', () => {

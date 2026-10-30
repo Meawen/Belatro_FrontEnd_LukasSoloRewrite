@@ -7,6 +7,7 @@ import {
 } from '../../game/gameView';
 import { isBot } from '../../lobby/lobbyModel';
 import type { Boja, GameBid, GameCard, GamePhase, LastChallengeView, ZvanjaView } from '../../../types/game';
+import { cat } from '../../../i18n/t';
 
 export type { SeatPosition, Team, TrickModel, TrickPlayModel } from './trick';
 
@@ -79,8 +80,11 @@ export interface HandCardModel {
 }
 
 export interface EndModel {
-    /** "Match cancelled" for CANCELLED unless forfeited, else "Game over". */
-    title: 'Game over' | 'Match cancelled';
+    /**
+     * The end sheet's heading: "You won!" or "Next time." for a played-out game I sit in (spec §1.4 Win, Loss); else
+     * "Match cancelled" for CANCELLED unless forfeited, or "Game over".
+     */
+    title: string;
     /** "Team A wins", or "Team A wins by belot" (COMPLETED only). */
     winnerLine: string | null;
     /** endSentence: why it ended other than played out (`end-reason`). */
@@ -284,14 +288,17 @@ export function boardModel(state: BoardState, me: string, local: BoardLocal): Bo
         tellsChallenges: view.lastChallenge !== undefined,
         playOpensAt: playing ? view.zvanja?.playOpensAt ?? null : null,
         summary: {
-            bids: bids.map((bid) => `${bid.playerId}: ${bid.action === 'CALL_TRUMP' && bid.selectedTrump ? SUIT_LABEL[bid.selectedTrump] : 'Pass'}`),
+            bids: bids.map((bid) => `${bid.playerId}: ${bid.action === 'CALL_TRUMP' && bid.selectedTrump ? SUIT_LABEL[bid.selectedTrump] : cat().board.pass}`),
             declarations: declarationLines(view),
-            yourTeam: myTeam ? `Your team: ${myTeam}` : null,
+            yourTeam: myTeam ? cat().board.menu.yourTeam(myTeam) : null,
         },
         end: finished
             ? {
-                title: phase === 'CANCELLED' && view.endReason !== 'FORFEIT' ? 'Match cancelled' : 'Game over',
-                winnerLine: phase === 'COMPLETED' && view.winnerTeamId ? `Team ${view.winnerTeamId} wins${belotEnd ? ' by belot' : ''}` : null,
+                title: phase === 'CANCELLED' && view.endReason !== 'FORFEIT' ? cat().game.end.cancelled
+                    // spec §1.4 Win / Loss: a played-out game, seen from my seat
+                    : phase === 'COMPLETED' && view.winnerTeamId && myTeam ? (view.winnerTeamId === myTeam ? cat().game.end.won : cat().game.end.lost)
+                        : cat().game.end.over,
+                winnerLine: phase === 'COMPLETED' && view.winnerTeamId ? (belotEnd ? cat().game.end.winsByBelot(view.winnerTeamId) : cat().game.end.wins(view.winnerTeamId)) : null,
                 reason: endSentence(view),
                 declined: view.endReason === 'DECLINED',
                 rematchOffered: rematchOffered(view),

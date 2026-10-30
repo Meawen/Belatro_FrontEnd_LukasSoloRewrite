@@ -1,6 +1,7 @@
 import { Button } from '../ui/Button';
 import type { HandCardModel } from './model/boardModel';
 import type { Target } from './model/cardTargets';
+import { useT } from '../../i18n/t';
 
 export interface BelaPromptProps {
     card: HandCardModel;
@@ -15,11 +16,12 @@ export interface BelaPromptProps {
  * "Play + Bela", anchored above the card. Escape closes it without playing.
  */
 export function BelaPrompt({ card, target, onAnswer, onDismiss }: BelaPromptProps) {
+    const t = useT();
     return (
         <div
             data-testid="bela-prompt"
             role="group"
-            aria-label={`Declare bela with ${card.label}?`}
+            aria-label={t.board.bela.prompt(card.label)}
             className="board-bela"
             style={{ left: target.left + target.width / 2, top: target.top - 12 }}
             onKeyDown={(event) => {
@@ -28,11 +30,11 @@ export function BelaPrompt({ card, target, onAnswer, onDismiss }: BelaPromptProp
                 onDismiss();
             }}
         >
-            <span className="t-footnote">{`Declare bela with ${card.label}?`}</span>
+            <span className="t-footnote">{t.board.bela.prompt(card.label)}</span>
             <span className="board-bela__buttons">
                 {/* the prompt opens from a press: focus follows it, so the keyboard can answer */}
-                <Button size="sm" variant="secondary" autoFocus onClick={() => onAnswer(false)}>Play</Button>
-                <Button size="sm" onClick={() => onAnswer(true)}>Play + Bela</Button>
+                <Button size="sm" variant="secondary" autoFocus onClick={() => onAnswer(false)}>{t.board.bela.play}</Button>
+                <Button size="sm" onClick={() => onAnswer(true)}>{t.board.bela.playBela}</Button>
             </span>
         </div>
     );
