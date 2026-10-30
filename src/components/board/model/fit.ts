@@ -68,7 +68,7 @@ export function layoutFor(viewport: Viewport): Layout {
 }
 
 /**
- * Whether the table fits at this layout's sizes (board-fit spec §2 G1 and G2, §3.2, §4; Rulings E, H, J, P, S), with my 8
+ * Whether the table fits at this layout's sizes (board-fit spec §2 G1 and G2, §3.2, §4; Rulings E, H, J, P, S″), with my 8
  * hand cards and 8 backs at every other seat:
  * - every hand card leaves its strip (`STRIP`) and the hand stays within the board's width;
  * - the four trick slots, each at its widest tilt, lie inside the board below the HUD and above `bandBottom`, and meet

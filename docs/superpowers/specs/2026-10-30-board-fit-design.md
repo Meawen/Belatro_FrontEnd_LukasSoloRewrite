@@ -156,6 +156,10 @@ The trick keeps its cross in every layout. Its slots stay relative to the card s
 - The hover lift (−24 px, ×1.08, §5.6.5) of a hand card must not reach the partner's or a side seat's trick card. It
   may reach my own slot (builder, after the fit check): a card lifts only while it is enabled, on my turn, when my slot
   is empty, as with "Your turn".
+- The side seats' fans step 12 px per 71 px of back (the partner's fan keeps 16), so they stay clear of the piles. The
+  side seats' columns stay where a 16-step fan would start them (builder, after the fit check).
+- The piles stay clear of the fans once they hold a trick. A pile draws nothing before that, and by then every seat
+  holds 7 cards at most.
 
 ## 5. Deliberate exceptions to G1
 These cover the trick or hand on purpose, and the checks must allow them:

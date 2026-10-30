@@ -204,6 +204,31 @@ describe('fits: the trick, my hand and the seat columns at a candidate size (boa
         expect(fits(wide)).toBe(true)
     })
 
+    test('the seat columns (G2, Ruling J): 768×600 @1, a tablet, at 71/142 misses only on my column meeting the left seat\'s, so layoutFor picks 71/71 there', () => {
+        expect(misfits(at(768, 600, 1, 'tablet', 71, 142))).toEqual([
+            'mine: me#1 [12.0, 234.4, 188.2, 95.0] meets left [61.7, 208.0, 132.0, 33.0] by 132.0×6.6',
+            'mine: me#1 [12.0, 234.4, 188.2, 95.0] meets left [61.7, 245.0, 132.0, 20.0] by 132.0×20.0',
+            'theirs: me#0 [12.0, 333.4, 132.0, 57.0] meets left [61.7, 245.0, 188.2, 119.0] by 82.3×30.6',
+        ])
+        // 71/142 is the pair right before 71/71 in the order, and nothing before it fits either: the columns alone decide
+        const order = desktopCandidates(1).map(({ trick, hand }) => `${trick.w}/${hand.w}`)
+        expect(order.indexOf('71/71')).toBe(order.indexOf('71/142') + 1)
+        const picked = layoutFor({ width: 768, height: 600, dpr: 1 })
+        expect([picked.kind, picked.trick.w, picked.hand.w]).toEqual(['tablet', 71, 71])
+    })
+
+    test('the hover lift (Rulings H, P): 1440×900 @1 at 213/284 names a lifted hand card on the left slot, and never one on my own slot', () => {
+        const found = misfits(at(1440, 900, 1, 'desktop', 213, 284))
+        expect(found).toContain('hover: lifted hand:0 [-0.5, 538.3, 358.9, 447.8] meets slot left [263.0, 283.3, 236.1, 301.8] by 95.4×46.8')
+        expect(found.filter((why) => why.startsWith('hover:') && why.includes('meets slot me'))).toEqual([])
+    })
+
+    test('"Your turn" (Ruling E): 1366×641 @1 at 142/213 names the label on the right slot, and never on my own slot', () => {
+        const found = misfits(at(1366, 641, 1, 'desktop', 142, 213))
+        expect(found).toContain('your turn [463.0, 356.2, 120.0, 26.0] meets slot right [563.6, 201.2, 157.4, 201.2] by 19.4×26.0')
+        expect(found.filter((why) => why.startsWith('your turn') && why.includes('meets slot me'))).toEqual([])
+    })
+
     test('"Your turn" ([W/2 − 60, my hand\'s top − 40, 120, 26]) may meet my own slot, never the partner\'s or a side one (Ruling E)', () => {
         for (const layout of seven().filter((one) => nameOf(one) !== '1280x720@1 142.00/213.00')) {
             const handTop = Math.min(...handPlaces(layout, 8).map((card) => card.top))
