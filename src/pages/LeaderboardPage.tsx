@@ -6,8 +6,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { Page } from '../components/layout/Page';
 import { PublicFrame } from '../components/layout/PublicFrame';
 import { Button, EmptyState, Panel } from '../components/ui';
-
-const TITLE = 'Leaderboard';
+import { useT } from '../i18n/t';
 
 /**
  * /users (spec §4.12), readable without a session: the leaderboard inside the shell when signed in;
@@ -16,20 +15,21 @@ const TITLE = 'Leaderboard';
 export function LeaderboardPage() {
     const { isAuthenticated, isLoading } = useAuth();
     const navigate = useNavigate();
+    const t = useT();
     if (isLoading) return null;
 
     if (!isAuthenticated) {
         return (
-            <PublicFrame title={TITLE}>
+            <PublicFrame title={t.titles.leaderboard}>
                 <Panel>
                     <EmptyState
                         icon="lock"
-                        title="Authentication Required"
-                        body="Please log in to view the user leaderboard."
+                        title={t.leaderboard.signedOutTitle}
+                        body={t.leaderboard.signedOutBody}
                         action={
                             <>
-                                <Button onClick={() => navigate('/login')}>Login</Button>
-                                <Button variant="secondary" onClick={() => navigate('/signup')}>Sign Up</Button>
+                                <Button onClick={() => navigate('/login')}>{t.leaderboard.login}</Button>
+                                <Button variant="secondary" onClick={() => navigate('/signup')}>{t.leaderboard.signUp}</Button>
                             </>
                         }
                     />
@@ -40,7 +40,7 @@ export function LeaderboardPage() {
 
     return (
         <AppShell>
-            <Page title={TITLE}>
+            <Page title={t.titles.leaderboard}>
                 {/* ranks spec §7.1: the ladder in a panel above the list */}
                 <div className="flex flex-col gap-6">
                     <LadderPanel />

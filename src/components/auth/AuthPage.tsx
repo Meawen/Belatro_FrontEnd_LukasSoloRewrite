@@ -6,8 +6,8 @@ import { AuthFrame } from './AuthFrame';
 import { useReturnState } from './returnState';
 import { useAuth } from '../../hooks/useAuth';
 import { ErrorAlert } from '../common/ErrorAlert';
-import { SESSION_ENDED_MESSAGE } from '../../services/gameSocket';
 import { safeReturnPath } from '../../routing/returnPath';
+import { useT } from '../../i18n/t';
 
 export type AuthMode = 'login' | 'signup';
 
@@ -25,6 +25,7 @@ export function AuthPage({ initialMode = 'login', redirectTo = '/', onSuccess }:
     // ProtectedRoute's { from }, carried along every hop of the auth flow (D-20)
     const returnState = useReturnState();
     const { isAuthenticated } = useAuth();
+    const t = useT();
     // services/gameSocket sends a tab here after the server closed its socket for good
     const [searchParams] = useSearchParams();
     const sessionEnded = searchParams.get('reason') === 'session-ended';
@@ -51,7 +52,7 @@ export function AuthPage({ initialMode = 'login', redirectTo = '/', onSuccess }:
 
     return (
         <AuthFrame>
-            <ErrorAlert message={sessionEnded ? SESSION_ENDED_MESSAGE : null} className="mb-5" />
+            <ErrorAlert message={sessionEnded ? t.errors.socket.sessionEnded : null} className="mb-5" />
             {initialMode === 'login' ? <LoginForm onSuccess={handleSuccess} /> : <SignupForm onSuccess={handleSuccess} />}
         </AuthFrame>
     );

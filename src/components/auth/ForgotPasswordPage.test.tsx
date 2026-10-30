@@ -1,10 +1,11 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { ForgotPasswordPage } from './ForgotPasswordPage'
 import { authService } from '../../services/authService'
 import { ApiError } from '../../services/api'
+import { setLang } from '../../i18n/lang'
 
 vi.mock('../../services/authService', () => ({ authService: { forgotPassword: vi.fn() } }))
 
@@ -21,6 +22,7 @@ function Where() {
 const SENT = /If that address has an account, we sent a link/
 
 beforeEach(() => vi.clearAllMocks())
+afterEach(() => setLang('en'))
 
 describe('ForgotPasswordPage', () => {
     test('sends the address and answers the same way whether or not it has an account', async () => {
@@ -122,5 +124,24 @@ describe('ForgotPasswordPage on the auth frame (spec §4.3)', () => {
         expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Forgot your password?'])
         await userEvent.setup().click(screen.getByRole('link', { name: 'Back to sign in' }))
         expect(screen.getByTestId('where')).toHaveTextContent('/login {"from":"/lobby/abc"}')
+    })
+})
+
+describe('ForgotPasswordPage in Croatian (open beta §1.1)', () => {
+    test('in Croatian: the heading, a malformed address, the answer, and the way back', async () => {
+        setLang('hr')
+        const user = userEvent.setup()
+        vi.mocked(authService.forgotPassword).mockResolvedValue(undefined)
+        renderPage()
+        expect(screen.getByText('Bela za četvero, online.')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: 'Zaboravljena lozinka?' })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Natrag na prijavu' })).toHaveAttribute('href', '/login')
+        await user.type(screen.getByLabelText('E-adresa'), 'not-an-address')
+        await user.click(screen.getByRole('button', { name: 'Pošalji poveznicu' }))
+        expect(screen.getByRole('alert')).toHaveTextContent('E-adresa nije ispravna.')
+        await user.clear(screen.getByLabelText('E-adresa'))
+        await user.type(screen.getByLabelText('E-adresa'), 'ana@example.com')
+        await user.click(screen.getByRole('button', { name: 'Pošalji poveznicu' }))
+        expect(await screen.findByText('Ako ta adresa ima račun, poslali smo poveznicu za novu lozinku. Poveznica vrijedi 15 minuta.')).toBeInTheDocument()
     })
 })

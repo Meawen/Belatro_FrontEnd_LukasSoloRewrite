@@ -54,4 +54,15 @@ describe('format: dates, relative times and numbers follow the language (spec §
         expect(formatDate(new Date(2026, 9, 30))).toBe('30. 10. 2026.')
         expect(formatNumber(1234567)).toBe('1.234.567')
     })
+
+    test('an unparseable date shows nothing, in either language', async () => {
+        const { formatDate, formatRelative, setLang } = await load()
+        expect(formatDate('not a date')).toBe('')
+        expect(formatDate(NaN)).toBe('')
+        expect(formatRelative('garbage', now)).toBe('')
+        setLang('hr')
+        expect(formatDate('not a date')).toBe('')
+        expect(formatDate(NaN)).toBe('')
+        expect(formatRelative('garbage', now)).toBe('')
+    })
 })

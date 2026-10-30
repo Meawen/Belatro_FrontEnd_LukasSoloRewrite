@@ -9,15 +9,11 @@ import { useAuth } from '../../hooks/useAuth';
 import type { Friendship } from '../../types/friendship';
 import type { User } from '../../types/user';
 import { errorMessage } from '../../utils/errorMessage';
+import { formatDate } from '../../i18n/format';
+import { useT } from '../../i18n/t';
 
 type Tab = 'friends' | 'pending' | 'sent';
 type Busy = 'accept' | 'reject' | 'cancel' | 'remove';
-
-const EMPTY: Record<Tab, { title: string; body: string }> = {
-    friends: { title: 'No Friends Yet', body: 'Start adding friends to see them here!' },
-    pending: { title: 'No Pending Requests', body: 'Friend requests will appear here.' },
-    sent: { title: 'No Sent Requests', body: 'Your sent friend requests will appear here.' },
-};
 
 interface FriendRowProps {
     friendship: Friendship;
@@ -33,7 +29,8 @@ interface FriendRowProps {
 }
 
 function FriendRow({ friendship, other, tab, busy, onAccept, onReject, onCancel, onRemove, onViewProfile }: FriendRowProps) {
-    const name = other.username || 'Unknown User';
+    const t = useT();
+    const name = other.username || t.common.unknownPlayer;
     // the row's other actions wait while one of its requests runs; other rows never do
     const held = (kind: Busy) => busy !== undefined && busy !== kind;
     return (
@@ -50,36 +47,36 @@ function FriendRow({ friendship, other, tab, busy, onAccept, onReject, onCancel,
                             <RankChip rank={other.rank} className="align-middle" />
                         </>
                     )}{' '}
-                    · Level {other.level || 1}
+                    · {t.common.level} {other.level || 1}
                 </p>
                 {friendship.createdAt && (
                     <p className="t-footnote text-text-3">
-                        {tab === 'friends' ? 'Friends since' : 'Requested'} {new Date(friendship.createdAt).toLocaleDateString()}
+                        {tab === 'friends' ? t.friends.since(formatDate(friendship.createdAt)) : t.friends.requested(formatDate(friendship.createdAt))}
                     </p>
                 )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
                 <Button variant="quiet" size="sm" leftIcon={<PixelIcon name="user" />} onClick={onViewProfile}>
-                    View profile
+                    {t.friends.viewProfile}
                 </Button>
                 {tab === 'friends' && (
                     <Button variant="secondary" size="sm" leftIcon={<PixelIcon name="trash" />} loading={busy === 'remove'} disabled={held('remove')} onClick={onRemove}>
-                        Remove
+                        {t.friends.remove}
                     </Button>
                 )}
                 {tab === 'pending' && (
                     <>
                         <Button size="sm" leftIcon={<PixelIcon name="check" />} loading={busy === 'accept'} disabled={held('accept')} onClick={onAccept}>
-                            Accept
+                            {t.friends.accept}
                         </Button>
                         <Button variant="secondary" size="sm" leftIcon={<PixelIcon name="x" />} loading={busy === 'reject'} disabled={held('reject')} onClick={onReject}>
-                            Decline
+                            {t.friends.decline}
                         </Button>
                     </>
                 )}
                 {tab === 'sent' && (
                     <Button variant="secondary" size="sm" leftIcon={<PixelIcon name="x" />} loading={busy === 'cancel'} disabled={held('cancel')} onClick={onCancel}>
-                        Cancel
+                        {t.friends.cancelRequest}
                     </Button>
                 )}
             </div>
@@ -98,6 +95,7 @@ export const FriendsList: React.FC = () => {
 
     const { user: currentUser } = useAuth();
     const navigate = useNavigate();
+    const t = useT();
     const { friendships, isLoading, error, acceptFriendRequest, rejectFriendRequest, cancelFriendRequest, removeFriend, refetch } =
         useFriends(currentUser?.id || undefined);
 
@@ -157,48 +155,52 @@ export const FriendsList: React.FC = () => {
     };
 
     if (isLoading && !friendships.length) {
-        return <Loader text="Loading friends..." />;
+        return <Loader text={t.friends.loading} />;
     }
 
     if (error && !friendships.length) {
         return (
             <ErrorState
-                title="Error Loading Friends"
-                body="Failed to load friends list"
+                title={t.friends.loadFailedTitle}
+                body={t.friends.loadFailedBody}
                 action={
                     <Button variant="secondary" onClick={() => refetch()}>
-                        Try Again
+                        {t.common.tryAgain}
                     </Button>
                 }
             />
         );
     }
 
-    const empty = EMPTY[activeTab];
+    const empty = {
+        friends: { title: t.friends.empty.friendsTitle, body: t.friends.empty.friendsBody },
+        pending: { title: t.friends.empty.pendingTitle, body: t.friends.empty.pendingBody },
+        sent: { title: t.friends.empty.sentTitle, body: t.friends.empty.sentBody },
+    }[activeTab];
 
     return (
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <Segmented
-                    label="Friend lists"
+                    label={t.friends.lists}
                     value={activeTab}
                     onChange={setActiveTab}
                     options={[
-                        { value: 'friends', label: `Friends (${counts.friends})` },
-                        { value: 'pending', label: `Requests (${counts.pending})` },
-                        { value: 'sent', label: `Sent (${counts.sent})` },
+                        { value: 'friends', label: t.friends.tabFriends(counts.friends) },
+                        { value: 'pending', label: t.friends.tabRequests(counts.pending) },
+                        { value: 'sent', label: t.friends.tabSent(counts.sent) },
                     ]}
                 />
                 <Button variant="secondary" size="sm" onClick={() => refetch()} disabled={isLoading} leftIcon={<PixelIcon name="refresh" />}>
-                    {isLoading ? 'Refreshing...' : 'Refresh'}
+                    {isLoading ? t.common.refreshing : t.common.refresh}
                 </Button>
             </div>
 
             <ErrorAlert message={actionError} />
 
-            <Input label="Search friends" hideLabel type="text" placeholder="Search friends..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <Input label={t.friends.search} hideLabel type="text" placeholder={t.friends.searchPlaceholder} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
 
-            {isLoading && friendships.length > 0 && <Loader layout="inline" text="Updating..." />}
+            {isLoading && friendships.length > 0 && <Loader layout="inline" text={t.friends.updating} />}
 
             {filteredFriendships.length === 0 ? (
                 <EmptyState
@@ -207,7 +209,7 @@ export const FriendsList: React.FC = () => {
                     body={empty.body}
                     action={
                         <Button variant="secondary" leftIcon={<PixelIcon name="trophy" />} onClick={() => navigate('/users')}>
-                            Open the Leaderboard
+                            {t.friends.openLeaderboard}
                         </Button>
                     }
                 />
@@ -224,10 +226,10 @@ export const FriendsList: React.FC = () => {
                                     other={otherUser}
                                     tab={activeTab}
                                     busy={busyById[id]}
-                                    onAccept={() => run(id, 'accept', () => acceptFriendRequest(id), 'Failed to accept friend request')}
-                                    onReject={() => run(id, 'reject', () => rejectFriendRequest(id), 'Failed to reject friend request')}
-                                    onCancel={() => run(id, 'cancel', () => cancelFriendRequest(id), 'Failed to cancel friend request')}
-                                    onRemove={() => setRemoving({ id, name: otherUser.username || 'user' })}
+                                    onAccept={() => run(id, 'accept', () => acceptFriendRequest(id), t.friends.failed.accept)}
+                                    onReject={() => run(id, 'reject', () => rejectFriendRequest(id), t.friends.failed.reject)}
+                                    onCancel={() => run(id, 'cancel', () => cancelFriendRequest(id), t.friends.failed.cancel)}
+                                    onRemove={() => setRemoving({ id, name: otherUser.username || t.friends.someone })}
                                     onViewProfile={() => navigate(`/profile/${otherUser.id}`)}
                                 />
                             </li>
@@ -244,7 +246,7 @@ export const FriendsList: React.FC = () => {
                 onConfirm={() => {
                     if (!removing) return;
                     const { id } = removing;
-                    run(id, 'remove', () => removeFriend(id), 'Failed to remove friend').then(() => setRemoving(null));
+                    run(id, 'remove', () => removeFriend(id), t.friends.failed.remove).then(() => setRemoving(null));
                 }}
             />
         </div>

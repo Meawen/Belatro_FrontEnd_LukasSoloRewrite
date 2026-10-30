@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { SignupForm } from './SignupForm'
 import { ApiError } from '../../services/api'
 import { captureConsole } from '../../test/captureConsole'
+import { setLang } from '../../i18n/lang'
 
 const auth = vi.hoisted(() => ({ signup: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({
@@ -12,6 +13,7 @@ vi.mock('../../hooks/useAuth', () => ({
 }))
 
 beforeEach(() => vi.clearAllMocks())
+afterEach(() => setLang('en'))
 
 /** The form links to /login, so it renders inside a router. */
 function renderForm(onSuccess = vi.fn()) {
@@ -179,5 +181,39 @@ describe('SignupForm invite code (R-11)', () => {
         // on the field: its own error line, which describes the input to assistive tech
         expect(screen.getByLabelText('Invite code')).toHaveAccessibleDescription('Invalid invite code')
         expect(screen.getAllByText('Invalid invite code')).toHaveLength(1)
+    })
+})
+
+describe('SignupForm in Croatian (open beta §1.1)', () => {
+    async function fillInCroatian(password: string, confirm: string) {
+        const user = userEvent.setup()
+        await user.type(screen.getByLabelText('Korisničko ime'), 'ana')
+        await user.type(screen.getByLabelText('E-adresa'), 'ana@example.com')
+        await user.type(screen.getByLabelText('Lozinka'), password)
+        await user.type(screen.getByLabelText('Potvrda lozinke'), confirm)
+        await user.click(screen.getByRole('button', { name: 'Izradi račun' }))
+    }
+
+    test('sign-up in Croatian: the form, the legal line, a mismatch, and the inbox after a sign-up', async () => {
+        setLang('hr')
+        renderForm()
+        expect(screen.getByRole('heading', { level: 1, name: 'Izradi račun' })).toBeInTheDocument()
+        expect(screen.getByText(/Izradom računa prihvaćaš/)).toHaveTextContent('Izradom računa prihvaćaš Uvjete korištenja; pročitaj i Obavijest o privatnosti.')
+        expect(screen.getByRole('link', { name: 'Uvjete korištenja' })).toHaveAttribute('href', '/terms')
+        expect(screen.getByRole('link', { name: 'Prijavi se' })).toHaveAttribute('href', '/login')
+        await fillInCroatian('long-enough-1', 'long-enough-2')
+        expect(screen.getByText('Lozinke se ne podudaraju.')).toBeInTheDocument()
+        expect(auth.signup).not.toHaveBeenCalled()
+    })
+
+    test('after a sign-up in Croatian: check your inbox', async () => {
+        setLang('hr')
+        auth.signup.mockResolvedValue({ token: 't', user: { id: 'u1', username: 'ana' }, message: null })
+        renderForm()
+        await fillInCroatian('long-enough-1', 'long-enough-1')
+        expect(await screen.findByRole('heading', { level: 1, name: 'Provjeri poštu' })).toBeInTheDocument()
+        expect(screen.getByText(/poveznica za potvrdu stiže na/)).toHaveTextContent(
+            'Ako se ova adresa može koristiti, poveznica za potvrdu stiže na ana@example.com. Provjeri poštu (i neželjenu poštu). Potvrdi adresu za rangirane partije; nerangirane možeš igrati odmah.')
+        expect(screen.getByRole('button', { name: 'Nastavi' })).toBeInTheDocument()
     })
 })

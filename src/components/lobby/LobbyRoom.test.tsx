@@ -184,7 +184,7 @@ describe('LobbyRoom: polling (spec §4.7 Data, States)', () => {
         vi.mocked(lobbyService.getLobby).mockRejectedValue(unavailable())
         await wait(2000)
         expect(screen.getByRole('heading', { name: 'Friday' })).toBeInTheDocument()
-        expect(screen.getByRole('alert')).toHaveTextContent('Could not refresh the lobby: Service Unavailable')
+        expect(screen.getByRole('alert')).toHaveTextContent('Could not refresh the table: Service Unavailable')
         expect(screen.queryByText("Couldn't load this lobby")).not.toBeInTheDocument()
 
         serve(lobby({ teamBPlayers: [cy] }))

@@ -3,6 +3,7 @@ import { Panel, PlayingCard } from '../ui';
 import { Footer } from '../layout/Footer';
 import { Wordmark } from '../layout/Wordmark';
 import type { GameCard } from '../../types/game';
+import { useT } from '../../i18n/t';
 
 /** The accent links of the auth pages: "Sign up", "Forgot password?", "Back to sign in"… (spec §4.2) */
 export const AUTH_LINK = 'font-semibold text-accent underline-offset-4 hover:underline';
@@ -26,6 +27,7 @@ export interface AuthFrameProps {
  * footer links below (R-40).
  */
 export function AuthFrame({ children }: AuthFrameProps) {
+    const t = useT();
     return (
         <div className="relative isolate flex min-h-dvh flex-col bg-bg text-text">
             <div aria-hidden="true" className="felt absolute inset-x-0 top-0 -z-10 h-[33dvh] shadow-[inset_0_-3px_0_var(--edge)]" />
@@ -38,7 +40,7 @@ export function AuthFrame({ children }: AuthFrameProps) {
                         </span>
                     ))}
                 </div>
-                <p className="t-callout mt-5">Belot for four, online.</p>
+                <p className="t-callout mt-5">{t.auth.tagline}</p>
                 <Panel padding="lg" className="mt-6 w-full max-w-[400px]">
                     {children}
                 </Panel>

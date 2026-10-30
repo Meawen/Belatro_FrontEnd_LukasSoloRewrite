@@ -112,4 +112,17 @@ describe('Settings (spec §4.13)', () => {
         await userEvent.setup().click(screen.getByRole('button', { name: 'Log out' }))
         expect(auth.logout).toHaveBeenCalledTimes(1)
     })
+
+    // open beta §1.1; setLang comes after the reset, with the page, so both share one language store
+    test('the page in Croatian', async () => {
+        const { setLang } = await import('../i18n/lang')
+        setLang('hr')
+        await renderSettings()
+        expect(screen.getAllByRole('heading', { level: 2 }).slice(0, 3).map((h) => h.textContent)).toEqual(['Jezik', 'Efekti stola', 'Račun'])
+        expect(within(screen.getByRole('group', { name: 'Efekti stola' })).getAllByRole('button').map((b) => b.textContent)).toEqual(['Puno', 'Mirno', 'Isključeno'])
+        expect(screen.getByText('Igraš kao ana')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Promijeni e-adresu' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Promijeni lozinku' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Odjavi se' })).toBeInTheDocument()
+    })
 })

@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { userService } from '../../services/userService';
 import { isExpired } from '../../services/tokenRenewal';
 import { Banner, Button } from '../ui';
+import { useT } from '../../i18n/t';
 
 /** How often a signed-in page asks again whether the player has a seat in a running game. */
 export const ACTIVE_GAME_POLL_MS = 30_000;
@@ -17,6 +18,7 @@ export const ActiveGameBanner: React.FC = () => {
     const { isAuthenticated, token } = useAuth();
     const { pathname } = useLocation();
     const navigate = useNavigate();
+    const t = useT();
     const [gameId, setGameId] = useState<string | null>(null);
     const onGamePage = pathname.startsWith('/game/');
     // Home shows the "Return to your game" card in the banner's place and asks for itself (spec §2.5 R-33)
@@ -52,15 +54,15 @@ export const ActiveGameBanner: React.FC = () => {
 
     return (
         <Banner
-            label="Game in progress"
+            label={t.shell.activeGame.label}
             icon="play"
             action={
                 <Button size="sm" onClick={() => navigate(`/game/${gameId}`)}>
-                    Return to your game
+                    {t.shell.activeGame.action}
                 </Button>
             }
         >
-            You have a game in progress.
+            {t.shell.activeGame.body}
         </Banner>
     );
 };

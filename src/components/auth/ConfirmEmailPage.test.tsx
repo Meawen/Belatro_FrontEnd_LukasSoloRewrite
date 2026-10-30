@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes, useLocation, type InitialEntry } from 'rea
 import { ConfirmEmailPage } from './ConfirmEmailPage'
 import { authService } from '../../services/authService'
 import { ApiError } from '../../services/api'
+import { adoptAccountLang } from '../../i18n/lang'
 
 vi.mock('../../services/authService', () => ({
     authService: { confirmEmail: vi.fn(), isAuthenticated: vi.fn(() => true) },
@@ -150,5 +151,32 @@ describe('ConfirmEmailPage and the return path (spec §4.1)', () => {
         await user.click(screen.getByRole('button', { name: 'Confirm email address' }))
         await user.click(await screen.findByRole('link', { name: 'Continue' }))
         expect(screen.getByTestId('where')).toHaveTextContent('/login {"from":"/lobby/abc"}')
+    })
+})
+
+// isAuthenticated is mocked true here, so setLang would send the pick to the account: adoptAccountLang stores it only
+describe('ConfirmEmailPage in Croatian (open beta §1.1)', () => {
+    test('in Croatian, with what to do next: signed in, a new link from Settings', () => {
+        adoptAccountLang('hr')
+        try {
+            renderAt('/confirm-email')
+            expect(screen.getByRole('heading', { level: 1, name: 'Potvrdi e-adresu' })).toBeInTheDocument()
+            expect(screen.getByText(/Novu poveznicu/)).toHaveTextContent('Novu poveznicu možeš zatražiti u Postavkama.')
+            expect(screen.getByRole('link', { name: 'Postavkama' })).toHaveAttribute('href', '/settings')
+        } finally {
+            adoptAccountLang('en')
+        }
+    })
+
+    test('in Croatian, with what to do next: signed out, sign in first', () => {
+        vi.mocked(authService.isAuthenticated).mockReturnValue(false)
+        adoptAccountLang('hr')
+        try {
+            renderAt('/confirm-email')
+            expect(screen.getByText(/zatraži novu poveznicu/)).toHaveTextContent('Prijavi se pa zatraži novu poveznicu.')
+            expect(screen.getByRole('link', { name: 'Prijavi se' })).toHaveAttribute('href', '/login')
+        } finally {
+            adoptAccountLang('en')
+        }
     })
 })

@@ -9,7 +9,22 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
  * Sample arguments per function key ('dotted.key': [[…args], …]); a function without an entry is shown for the
  * counts 1, 2 and 5. A later task that adds a function taking something other than a count adds its samples here.
  */
-export const SAMPLES = {};
+export const SAMPLES = {
+    'common.pager.pageOf': [[1, 3], [2, 3]],
+    'shell.unverified.confirm': [['ana@example.com']],
+    'settings.account.pending': [['ana@example.com']],
+    'settings.account.emailNotice': [['ana@example.com']],
+    'settings.signedInAs': [['ana']],
+    'friends.removeSheet.title': [['ana']],
+    'friends.removeSheet.body': [['ana']],
+    'friends.removeSheet.confirm': [['ana']],
+    'friends.since': [['30. 10. 2026.']],
+    'friends.requested': [['30. 10. 2026.']],
+    'leaderboard.noMatch': [['matic']],
+    'table.refreshFailed': [['Service Unavailable']],
+    'leaderboard.games': [[1], [2], [5], [11], [21], [22]],
+    'leaderboard.found': [[1], [2], [5], [11], [21], [22]],
+};
 
 const DEFAULT_SAMPLES = [[1], [2], [5]];
 

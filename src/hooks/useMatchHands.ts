@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { matchService } from '../services/matchService';
 import { errorMessage } from '../utils/errorMessage';
+import { cat } from '../i18n/t';
 import { endedHand } from '../components/board/model/hands';
 import type { PublicGameView } from '../types/game';
 import type { HandDTO } from '../types/match';
@@ -54,7 +55,7 @@ export function useMatchHands(gameId: string, view: PublicGameView | null): Matc
                 }
             },
             (e: unknown) => {
-                if (alive.current) setError(errorMessage(e, "Couldn't load the hands"));
+                if (alive.current) setError(errorMessage(e, cat().matchDetails.handsLoadFailed));
             },
         ).finally(() => {
             inFlight.current = false;

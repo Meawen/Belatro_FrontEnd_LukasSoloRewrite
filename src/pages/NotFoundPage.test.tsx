@@ -1,8 +1,9 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { NotFoundPage } from './NotFoundPage'
+import { setLang } from '../i18n/lang'
 
 const auth = vi.hoisted(() => ({ isAuthenticated: true }))
 vi.mock('../hooks/useAuth', () => ({
@@ -36,6 +37,7 @@ function renderAt(path: string) {
 beforeEach(() => {
     auth.isAuthenticated = true
 })
+afterEach(() => setLang('en'))
 
 describe('Not found (spec §4.16)', () => {
     test('signed in: "Page not found" inside the shell, and Go home leads to /dashboard', async () => {
@@ -56,5 +58,17 @@ describe('Not found (spec §4.16)', () => {
         expect(screen.getByRole('link', { name: 'Stiglja' })).toHaveAttribute('href', '/')
         await userEvent.setup().click(screen.getByRole('button', { name: 'Sign in' }))
         expect(screen.getByRole('heading', { name: 'Sign-in page' })).toBeInTheDocument()
+    })
+})
+
+describe('Not found in Croatian (open beta §1.1)', () => {
+    test('in Croatian, signed in: the page, its title, and the way home', async () => {
+        setLang('hr')
+        renderAt('/no/such/page')
+        expect(screen.getByRole('heading', { level: 1, name: 'Stranica nije pronađena' })).toBeInTheDocument()
+        expect(document.title).toBe('Stranica nije pronađena · Stiglja')
+        expect(screen.getByText('Stranica koju tražiš ne postoji.')).toBeInTheDocument()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Vrati se Doma' }))
+        expect(screen.getByRole('heading', { name: 'Home page' })).toBeInTheDocument()
     })
 })

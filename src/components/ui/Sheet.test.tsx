@@ -6,6 +6,7 @@ import { Sheet, type SheetSide } from './Sheet'
 import { Button } from './Button'
 import { MotionProvider } from '../../motion/MotionProvider'
 import { blocks, rule, uiCss } from '../../test/css'
+import { setLang } from '../../i18n/lang'
 
 afterEach(() => {
     vi.unstubAllGlobals()
@@ -139,6 +140,18 @@ describe('Sheet (spec §3.7)', () => {
         await openSheet()
         await userEvent.click(screen.getByRole('button', { name: 'Close' }))
         await gone()
+    })
+
+    test('the Close button in Croatian (open beta §1.2)', async () => {
+        setLang('hr')
+        try {
+            render(<Harness showClose />)
+            await openSheet()
+            await userEvent.click(screen.getByRole('button', { name: 'Zatvori' }))
+            await gone()
+        } finally {
+            setLang('en')
+        }
     })
 
     test('a non-dismissible sheet ignores Escape and the scrim (Match Found)', async () => {

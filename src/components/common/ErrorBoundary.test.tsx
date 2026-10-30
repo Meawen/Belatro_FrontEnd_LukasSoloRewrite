@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ErrorBoundary } from './ErrorBoundary'
 import { captureConsole } from '../../test/captureConsole'
+import { setLang } from '../../i18n/lang'
 
 function Crash(): never {
     throw new Error('render failed')
@@ -11,6 +12,7 @@ function Crash(): never {
 afterEach(() => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
+    setLang('en')
 })
 
 describe('ErrorBoundary (R-29)', () => {
@@ -49,5 +51,15 @@ describe('ErrorBoundary (R-29)', () => {
         expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Go to dashboard' })).toBeInTheDocument()
+    })
+
+    test('the fallback in Croatian (open beta §1.1)', () => {
+        setLang('hr')
+        captureConsole()
+        render(<ErrorBoundary fullPage><Crash /></ErrorBoundary>)
+        expect(screen.getByRole('heading', { name: 'Nešto je pošlo po zlu' })).toBeInTheDocument()
+        expect(screen.getByText('Dogodila se neočekivana pogreška. Osvježi stranicu ili pokušaj malo kasnije.')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Učitaj ponovno' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Vrati se Doma' })).toBeInTheDocument()
     })
 })

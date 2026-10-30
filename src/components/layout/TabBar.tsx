@@ -5,12 +5,13 @@ import { ListRow, Sheet } from '../ui';
 import { cx } from '../ui/cx';
 import { MORE_ITEMS, TAB_ITEMS, isCurrent, useIsAdmin, visibleItems } from './nav';
 import { NavIcon } from './NavIcon';
+import { useT } from '../../i18n/t';
 
 const TAB = 'press focus-inside t-footnote flex h-16 w-full flex-col items-center justify-center gap-1.5';
 
 /**
  * The phone navigation (spec §4.1, D-25): a bottom material bar, 64 px plus the safe-area inset, with
- * Play, Lobbies, Matches, Profile and More. More is a sheet with the other destinations and Log out
+ * Home, Tables, Matches, Profile and More. More is a sheet with the other destinations and Log out
  * (a full page load to /, useAuth); every navigation closes it. AppShell shows this bar instead of
  * the sidebar below 768 px, and in landscape up to 500 px tall.
  */
@@ -19,6 +20,7 @@ export function TabBar() {
     const { logout } = useAuth();
     const isAdmin = useIsAdmin();
     const [moreOpen, setMoreOpen] = useState(false);
+    const t = useT();
     const more = visibleItems(MORE_ITEMS, isAdmin);
     const inMore = more.some((item) => isCurrent(item, location.pathname));
 
@@ -28,7 +30,7 @@ export function TabBar() {
     return (
         <>
             <nav
-                aria-label="Main navigation"
+                aria-label={t.nav.label}
                 className="material-bar fixed inset-x-0 bottom-0 z-(--z-bar) pb-(--safe-bottom) pl-(--safe-left) pr-(--safe-right)"
             >
                 <ul className="mx-auto flex max-w-[600px]">
@@ -42,7 +44,7 @@ export function TabBar() {
                                     className={cx(TAB, current ? 'text-accent' : 'text-text-2')}
                                 >
                                     <NavIcon name={item.icon} />
-                                    {item.label}
+                                    {t.titles[item.title]}
                                 </Link>
                             </li>
                         );
@@ -56,12 +58,12 @@ export function TabBar() {
                             className={cx(TAB, inMore ? 'text-accent' : 'text-text-2')}
                         >
                             <NavIcon name="more" />
-                            More
+                            {t.nav.more}
                         </button>
                     </li>
                 </ul>
             </nav>
-            <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
+            <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title={t.nav.more}>
                 <ul className="flex flex-col gap-2">
                     {more.map((item) => (
                         <li key={item.to}>
@@ -70,7 +72,7 @@ export function TabBar() {
                                 to={item.to}
                                 aria-current={isCurrent(item, location.pathname) ? 'page' : undefined}
                                 leading={<NavIcon name={item.icon} />}
-                                title={item.label}
+                                title={t.titles[item.title]}
                             />
                         </li>
                     ))}
@@ -79,7 +81,7 @@ export function TabBar() {
                             as="button"
                             onClick={() => void logout()}
                             leading={<NavIcon name="logout" />}
-                            title="Log out"
+                            title={t.common.logOut}
                             chevron={false}
                         />
                     </li>

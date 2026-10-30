@@ -17,9 +17,3 @@ export function errorMessage(e: unknown, fallback: string): string {
 export function isNetworkOrServerFailure(status: number): boolean {
     return status === 0 || status >= 500;
 }
-
-/** The generic line for a network failure or a 5xx where nothing more specific fits. */
-export const SOMETHING_WENT_WRONG = 'Something went wrong. Try again.';
-
-/** Shown under a 429. */
-export const WAIT_AND_RETRY = 'Wait a while, then try again.';

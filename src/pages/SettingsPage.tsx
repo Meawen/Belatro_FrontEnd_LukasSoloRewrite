@@ -16,11 +16,11 @@ export function SettingsPage() {
                 <LanguageSection />
                 <TableEffectsSection />
                 <AccountSection />
-                <Panel as="section" padding="lg" aria-label="Log out" className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="t-callout text-text-2">Signed in as {user?.username}</p>
+                <Panel as="section" padding="lg" aria-label={t.common.logOut} className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="t-callout text-text-2">{t.settings.signedInAs(user?.username ?? '')}</p>
                     {/* a full page load to / (useAuth), as from the navigation */}
                     <Button variant="secondary" leftIcon={<PixelIcon name="logout" />} onClick={() => void logout()}>
-                        Log out
+                        {t.common.logOut}
                     </Button>
                 </Panel>
             </div>

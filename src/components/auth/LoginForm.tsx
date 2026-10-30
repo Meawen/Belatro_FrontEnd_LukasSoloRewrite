@@ -4,8 +4,9 @@ import { Button, Input } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { useAuth } from '../../hooks/useAuth';
 import { ApiError } from '../../services/api';
-import { errorMessage, isNetworkOrServerFailure, SOMETHING_WENT_WRONG } from '../../utils/errorMessage';
+import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
 import { localiseLoginError } from '../../i18n/serverErrors';
+import { cat, useT } from '../../i18n/t';
 import { AUTH_LINK } from './AuthFrame';
 import { useReturnState } from './returnState';
 
@@ -23,6 +24,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
     const { login, isLoginLoading } = useAuth();
     const returnState = useReturnState();
+    const t = useT();
 
     const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -38,11 +40,11 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         const newErrors: Record<string, string> = {};
 
         if (!formData.username.trim()) {
-            newErrors.username = 'Username is required';
+            newErrors.username = cat().forms.usernameRequired;
         }
 
         if (!formData.password) {
-            newErrors.password = 'Password is required';
+            newErrors.password = cat().forms.passwordRequired;
         }
 
         setErrors(newErrors);
@@ -70,7 +72,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
             // a 500 while the backend's session store is down, or no answer: not the raw text
             const status = error instanceof ApiError ? error.status : 0;
             setErrors({
-                submit: isNetworkOrServerFailure(status) ? SOMETHING_WENT_WRONG : error instanceof ApiError ? localiseLoginError(error) : errorMessage(error, 'Login failed')
+                submit: isNetworkOrServerFailure(status) ? cat().errors.generic : error instanceof ApiError ? localiseLoginError(error) : errorMessage(error, cat().auth.signIn.failed)
             });
         }
     };
@@ -78,48 +80,48 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     return (
         <>
             <div className="mb-6 text-center">
-                <h1 className="t-title">Welcome Back</h1>
-                <p className="t-callout mt-2 text-text-2">Sign in to your account</p>
+                <h1 className="t-title">{t.auth.signIn.heading}</h1>
+                <p className="t-callout mt-2 text-text-2">{t.auth.signIn.subtitle}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <Input
-                    label="Username"
+                    label={t.forms.username}
                     name="username"
                     type="text"
                     value={formData.username}
                     onChange={handleChange}
                     error={errors.username}
-                    placeholder="Enter your username"
+                    placeholder={t.auth.signIn.usernamePlaceholder}
                 />
 
                 <Input
-                    label="Password"
+                    label={t.forms.password}
                     name="password"
                     type="password"
                     value={formData.password}
                     onChange={handleChange}
                     error={errors.password}
-                    placeholder="Enter your password"
+                    placeholder={t.auth.signIn.passwordPlaceholder}
                 />
 
                 <ErrorAlert message={errors.submit ?? null} />
 
                 <Button type="submit" block loading={isLoginLoading}>
-                    {isLoginLoading ? 'Signing In...' : 'Sign In'}
+                    {isLoginLoading ? t.auth.signIn.submitting : t.auth.signIn.submit}
                 </Button>
             </form>
 
             <p className="t-callout mt-4 text-center">
                 <Link to="/forgot-password" state={returnState} className={`inline-flex min-h-11 items-center ${AUTH_LINK}`}>
-                    Forgot password?
+                    {t.auth.signIn.forgot}
                 </Link>
             </p>
 
             <p className="t-callout mt-1 text-center text-text-2">
-                Don't have an account?{' '}
+                {t.auth.signIn.noAccount}{' '}
                 <Link to="/signup" state={returnState} className={`inline-flex min-h-11 items-center ${AUTH_LINK}`}>
-                    Sign up
+                    {t.auth.signIn.signUpLink}
                 </Link>
             </p>
         </>

@@ -61,4 +61,9 @@ describe('the HR · EN switch (spec §1.1)', () => {
         expect(fetch).not.toHaveBeenCalled()
         expect(screen.getByRole('button', { name: 'EN' })).toHaveAttribute('aria-pressed', 'true')
     })
+
+    test('each code is a 44-px target', async () => {
+        await renderSwitch()
+        for (const button of screen.getAllByRole('button')) expect(button.className).toMatch(/\bmin-w-11\b/)
+    })
 })

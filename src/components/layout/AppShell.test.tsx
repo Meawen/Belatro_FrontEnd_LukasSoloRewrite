@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AppShell } from './AppShell'
 import { viewport } from '../../test/viewport'
+import { setLang } from '../../i18n/lang'
 
 vi.mock('../../hooks/useAuth', () => ({
     useAuth: () => ({ user: { id: 'u1', username: 'ana' }, logout: vi.fn(), isAuthenticated: true }),
@@ -29,13 +30,16 @@ function renderShell(path = '/dashboard') {
     return screen.getByRole('navigation', { name: 'Main navigation' })
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+    vi.unstubAllGlobals()
+    setLang('en')
+})
 
 describe('AppShell on a phone (spec §4.1, R-37 amended)', () => {
     test('at 375 px the tab bar is the navigation and there is no sidebar', () => {
         viewport(375, 812)
         const nav = renderShell()
-        expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Play', 'Lobbies', 'Matches', 'Profile'])
+        expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Tables', 'Matches', 'Profile'])
         expect(within(nav).getByRole('button', { name: 'More' })).toBeInTheDocument()
         expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
     })
@@ -96,5 +100,29 @@ describe('AppShell and the site language (open beta §1.1)', () => {
         const banner = screen.getByRole('region', { name: 'Game in progress' })
         expect(screen.getByRole('main')).toContainElement(langSwitch)
         expect(langSwitch.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+})
+
+describe('AppShell in Croatian (open beta §1.1)', () => {
+    test('the shell in Croatian: the navigation, the footer and its links, the language switch', () => {
+        setLang('hr')
+        viewport(375, 812)
+        render(
+            <MemoryRouter initialEntries={['/dashboard']}>
+                <Routes>
+                    <Route element={<AppShell />}>
+                        <Route path="/dashboard" element={<h1>Doma</h1>} />
+                    </Route>
+                </Routes>
+            </MemoryRouter>,
+        )
+        expect(screen.getByRole('navigation', { name: 'Glavna navigacija' })).toBeInTheDocument()
+        expect(screen.getByRole('contentinfo')).toHaveTextContent('Ilustracije karata: Maks Markovic')
+        const links = within(screen.getByRole('contentinfo'))
+        expect(links.getByRole('link', { name: 'Pravila' })).toHaveAttribute('href', '/rules')
+        expect(links.getByRole('link', { name: 'Privatnost' })).toHaveAttribute('href', '/privacy')
+        expect(links.getByRole('link', { name: 'Uvjeti' })).toHaveAttribute('href', '/terms')
+        expect(links.getByRole('link', { name: 'Kontakt: support@stiglja.com' })).toHaveAttribute('href', 'mailto:support@stiglja.com')
+        expect(screen.getByRole('group', { name: 'Jezik stranice' })).toBeInTheDocument()
     })
 })

@@ -8,6 +8,7 @@ import { useFriends } from '../../hooks/useFriends'
 import { ApiError } from '../../services/api'
 import { viewport } from '../../test/viewport'
 import { rank } from '../../test/fixtures/ranks'
+import { setLang } from '../../i18n/lang'
 
 // Tailwind's own colour scale (bg-purple-600, text-slate-400, …): the design uses tokens only (spec §3.2)
 const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange|teal|lime|pink)-\d/
@@ -43,7 +44,10 @@ beforeEach(() => {
         isLoading: false, error: null, refetch: vi.fn(),
     }) as never)
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+    vi.unstubAllGlobals()
+    setLang('en')
+})
 
 describe('UserList (server-side paging and search)', () => {
     // D-28: the server's page is shown as it is; my own row stays and is highlighted
@@ -241,5 +245,43 @@ describe('UserList ranks', () => {
         expect(within(deeRow).queryByText('Cucek')).not.toBeInTheDocument()
         // a backend before team Elo: no rank, today's row
         expect(anaRow.querySelector('[data-rank]')).toBeNull()
+    })
+})
+
+describe('UserList counts (spec §1.1: plurals by the language)', () => {
+    /** One row per count of games, ranked by their order; `total` as the server's count. */
+    function serve(games: number[], total: number) {
+        const players = games.map((gamesPlayed, i) => ({ id: `p${i}`, username: `p${i}`, eloRating: 1500 - i, level: 1, gamesPlayed }))
+        vi.mocked(useUsersPage).mockImplementation(() => ({
+            data: { content: players, totalElements: total, totalPages: 1, number: 0, size: 20 },
+            isLoading: false, error: null, refetch: vi.fn(),
+        }) as never)
+    }
+
+    test('plurals and the count in English', () => {
+        serve([1, 2], 1)
+        renderList()
+        const meta = (row: HTMLElement) => within(row).getByText(/ · Level 1$/).textContent
+        expect(rows().map(meta)).toEqual(['1 game · Level 1', '2 games · Level 1'])
+        expect(screen.getByText('1 user found')).toBeInTheDocument()
+    })
+
+    test('plurals and the count in Croatian, around 11–14 and 21–24', () => {
+        setLang('hr')
+        serve([1, 2, 5, 11, 21, 22], 41)
+        const { unmount } = renderList()
+        const meta = (row: HTMLElement) => within(row).getByText(/ · Razina 1$/).textContent
+        expect(rows().map(meta)).toEqual(
+            ['1 partija', '2 partije', '5 partija', '11 partija', '21 partija', '22 partije'].map((games) => `${games} · Razina 1`))
+        expect(screen.getByText('Pronađen 41 igrač')).toBeInTheDocument()
+        expect(screen.getByRole('textbox', { name: 'Traži igrače' })).toBeInTheDocument()
+        unmount()
+        serve([1], 22)
+        const second = renderList()
+        expect(screen.getByText('Pronađena 22 igrača')).toBeInTheDocument()
+        second.unmount()
+        serve([1], 12)
+        renderList()
+        expect(screen.getByText('Pronađeno 12 igrača')).toBeInTheDocument()
     })
 })

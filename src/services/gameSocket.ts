@@ -58,6 +58,9 @@ export const SESSION_ENDED_MESSAGE = 'Your session ended — please sign in agai
 /** Shown when the server refused the CONNECT although GET /user/me says the session is alive. */
 export const CONNECT_REFUSED_MESSAGE = 'Could not connect to the game server. Try again.';
 
+/** Shown when there is no token to open the socket with. */
+export const AUTH_REQUIRED_MESSAGE = 'Authentication required';
+
 /**
  * How a session ends, for a 401 from the API and a 1008 alike: forget the token, then reload into
  * the login page, which says why. Only the token: storage is shared by the browser's tabs, and a
@@ -129,7 +132,7 @@ export function createGameSocket(
         // read on every attempt: a retry or reconnect() never reuses a rotated or cleared token
         const token = getToken();
         if (!token) {
-            setState({ isConnecting: false, isReconnecting: false, error: 'Authentication required' });
+            setState({ isConnecting: false, isReconnecting: false, error: AUTH_REQUIRED_MESSAGE });
             return;
         }
         // An ERROR frame means the server refused us. Its text is the server's (never shown):

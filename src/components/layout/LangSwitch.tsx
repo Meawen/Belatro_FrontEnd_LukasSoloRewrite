@@ -13,7 +13,7 @@ export function LangSwitch() {
         <button
             type="button"
             aria-pressed={lang === code}
-            className={cx('notch focus-inside press min-h-11 px-2', lang === code ? 'font-semibold text-text' : 'text-text-2 hover:text-text')}
+            className={cx('notch focus-inside press inline-flex min-h-11 min-w-11 items-center justify-center px-2', lang === code ? 'font-semibold text-text' : 'text-text-2 hover:text-text')}
             onClick={() => {
                 // the language already shown: nothing to store or send
                 if (lang !== code) setLang(code);

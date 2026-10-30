@@ -6,6 +6,7 @@ import type { FriendsState } from '../../hooks/useFriends';
 import type { User } from '../../types/user';
 import type { Friendship } from '../../types/friendship';
 import { errorMessage } from '../../utils/errorMessage';
+import { useT } from '../../i18n/t';
 
 export type FriendStatus = 'none' | 'incoming' | 'outgoing' | 'friends' | 'closed';
 
@@ -72,12 +73,13 @@ export function FriendActions({ user, meId, friends, compact = false, className 
     const [busy, setBusy] = useState<Busy | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [confirming, setConfirming] = useState(false);
+    const t = useT();
     const { friendship, status } = friendshipWith(friends.friendships, meId, user.id);
 
     if (!meId || !user.id || user.id === meId || status === 'closed') return null;
     const toUserId = user.id;
     const friendshipId = friendship?.id ?? null;
-    const name = user.username || 'this player';
+    const name = user.username || t.friends.thisPlayer;
 
     const run = async (action: Busy, work: () => Promise<unknown>, fallback: string) => {
         if (busy) return;
@@ -108,26 +110,26 @@ export function FriendActions({ user, meId, friends, compact = false, className 
     let buttons;
     if (status === 'none') {
         // secondary: a list of players would otherwise be a column of yellow (the accent is for answering a request)
-        buttons = action('Add Friend', 'plus', 'secondary', 'send', () =>
-            run('send', () => friends.sendFriendRequest({ toUserId }), 'Failed to send friend request'),
+        buttons = action(t.friends.addFriend, 'plus', 'secondary', 'send', () =>
+            run('send', () => friends.sendFriendRequest({ toUserId }), t.friends.failed.send),
         );
     } else if (status === 'incoming' && friendshipId) {
         buttons = (
             <>
-                {action('Accept', 'check', 'primary', 'accept', () =>
-                    run('accept', () => friends.acceptFriendRequest(friendshipId), 'Failed to accept friend request'),
+                {action(t.friends.accept, 'check', 'primary', 'accept', () =>
+                    run('accept', () => friends.acceptFriendRequest(friendshipId), t.friends.failed.accept),
                 )}
-                {action('Decline', 'x', 'secondary', 'reject', () =>
-                    run('reject', () => friends.rejectFriendRequest(friendshipId), 'Failed to reject friend request'),
+                {action(t.friends.decline, 'x', 'secondary', 'reject', () =>
+                    run('reject', () => friends.rejectFriendRequest(friendshipId), t.friends.failed.reject),
                 )}
             </>
         );
     } else if (status === 'outgoing' && friendshipId) {
-        buttons = action('Pending', 'more', 'secondary', 'cancel', () =>
-            run('cancel', () => friends.cancelFriendRequest(friendshipId), 'Failed to cancel friend request'),
+        buttons = action(t.friends.pending, 'more', 'secondary', 'cancel', () =>
+            run('cancel', () => friends.cancelFriendRequest(friendshipId), t.friends.failed.cancel),
         );
     } else if (status === 'friends' && friendshipId) {
-        buttons = action('Remove', 'trash', 'secondary', 'remove', () => setConfirming(true));
+        buttons = action(t.friends.remove, 'trash', 'secondary', 'remove', () => setConfirming(true));
     } else {
         return null;
     }
@@ -147,7 +149,7 @@ export function FriendActions({ user, meId, friends, compact = false, className 
                     busy={busy === 'remove'}
                     onClose={() => setConfirming(false)}
                     onConfirm={() =>
-                        run('remove', () => friends.removeFriend(friendshipId), 'Failed to remove friend').then(() => setConfirming(false))
+                        run('remove', () => friends.removeFriend(friendshipId), t.friends.failed.remove).then(() => setConfirming(false))
                     }
                 />
             )}

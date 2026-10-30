@@ -15,8 +15,6 @@ type Outcome =
     | { kind: 'done' }
     | { kind: 'failed'; message: string; status: number };
 
-const COULD_NOT_RESET = 'We could not reset your password.';
-
 /** /reset-password?token=... - the link from the reset mail (valid 15 minutes, single use). */
 export function ResetPasswordPage() {
     const t = useT();
@@ -43,7 +41,7 @@ export function ResetPasswordPage() {
         const newErrors: Record<string, string> = {};
         const ruleError = passwordRuleError(newPassword);
         if (ruleError) newErrors.newPassword = ruleError;
-        if (confirmPassword !== newPassword) newErrors.confirmPassword = 'Passwords do not match';
+        if (confirmPassword !== newPassword) newErrors.confirmPassword = cat().forms.passwordsDontMatch;
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
             return;
@@ -68,7 +66,7 @@ export function ResetPasswordPage() {
             setOutcome({
                 kind: 'failed',
                 // their text is the browser's or Spring's ("Failed to fetch", "Internal Server Error")
-                message: isNetworkOrServerFailure(status) ? COULD_NOT_RESET : message,
+                message: isNetworkOrServerFailure(status) ? cat().auth.reset.failed : message,
                 status,
             });
         }
@@ -76,38 +74,38 @@ export function ResetPasswordPage() {
 
     return (
         <AuthFrame>
-            <h1 className="t-title text-center">Choose a new password</h1>
+            <h1 className="t-title text-center">{t.auth.reset.heading}</h1>
 
             <div className="mt-6">
                 {!token ? (
                     <ErrorAlert message={t.errors.codes.LINK_INVALID} />
                 ) : outcome.kind === 'done' ? (
-                    <p className="t-body text-center text-success">Your password has been reset. Sign in with your new password.</p>
+                    <p className="t-body text-center text-success">{t.auth.reset.done}</p>
                 ) : (
                     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                         <Input
-                            label="New password"
+                            label={t.auth.reset.newPassword}
                             type="password"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             error={errors.newPassword}
                         />
                         <Input
-                            label="Confirm new password"
+                            label={t.auth.reset.confirmNewPassword}
                             type="password"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             error={errors.confirmPassword}
                         />
                         <ErrorAlert message={failed?.message ?? null} />
-                        {rateLimited && <p className="t-footnote text-text-2">Wait a while, then reload this page to try again.</p>}
+                        {rateLimited && <p className="t-footnote text-text-2">{t.auth.reset.rateLimited}</p>}
                         <Button
                             type="submit"
                             block
                             loading={outcome.kind === 'pending'}
                             disabled={outcome.kind !== 'idle'}
                         >
-                            Reset password
+                            {t.auth.reset.submit}
                         </Button>
                     </form>
                 )}
@@ -115,12 +113,12 @@ export function ResetPasswordPage() {
 
             {outcome.kind === 'done' ? (
                 <p className="t-callout mt-4 text-center">
-                    <Link to="/login" className={`inline-flex min-h-11 items-center ${AUTH_LINK}`}>Sign in</Link>
+                    <Link to="/login" className={`inline-flex min-h-11 items-center ${AUTH_LINK}`}>{t.common.signIn}</Link>
                 </p>
             ) : linkDead && (
                 <p className="t-callout mt-4 text-center text-text-2">
-                    <Link to="/forgot-password" className={`inline-flex min-h-11 items-center ${AUTH_LINK}`}>Request a new link</Link>
-                    {serverFailure && ' if this keeps happening.'}
+                    <Link to="/forgot-password" className={`inline-flex min-h-11 items-center ${AUTH_LINK}`}>{t.auth.reset.requestNewLink}</Link>
+                    {serverFailure && ` ${t.auth.reset.keepsHappening}`}
                 </p>
             )}
         </AuthFrame>

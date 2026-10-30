@@ -6,7 +6,8 @@ import { useMutation } from '../../hooks/useApi';
 import { notifyMeChanged } from '../../hooks/useUser';
 import { userService } from '../../services/userService';
 import { ApiError } from '../../services/api';
-import { errorMessage, isNetworkOrServerFailure, WAIT_AND_RETRY } from '../../utils/errorMessage';
+import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
+import { cat, useT } from '../../i18n/t';
 
 export interface ResendConfirmationButtonProps {
     /** Opens the change-of-address form. Without it, "nothing to confirm" links to Settings, where the form is (X-11). */
@@ -14,8 +15,6 @@ export interface ResendConfirmationButtonProps {
     /** Told when the server answers 409 "Nothing to confirm", so a caller can stop asking to confirm the address. */
     onNothingToConfirm?: () => void;
 }
-
-const ADD_OR_CHANGE = 'Add or change your email address';
 
 /** Re-sends the confirmation link for the pending (or legacy unconfirmed) address. */
 export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> = ({ onChangeEmail, onNothingToConfirm }) => {
@@ -29,6 +28,7 @@ export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> =
     // stops a second click that lands before React re-renders the button as disabled
     const sending = useRef(false);
     const resend = useMutation(() => userService.resendEmailConfirmation());
+    const t = useT();
 
     const handleClick = async () => {
         if (sending.current) return;
@@ -39,18 +39,18 @@ export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> =
             await resend.mutate();
             setFailed(false);
             // no promise of a mail: the address may belong to another account by now
-            setMessage('If the address can still be confirmed, a new link is on its way.');
+            setMessage(cat().auth.resend.sent);
         } catch (error) {
             const status = error instanceof ApiError ? error.status : 0;
             setFailed(true);
-            setMessage(isNetworkOrServerFailure(status) ? 'We could not send the email. Try again.' : errorMessage(error, 'Could not send the email'));
+            setMessage(isNetworkOrServerFailure(status) ? cat().auth.resend.notSent : errorMessage(error, cat().auth.resend.failed));
             if (status === 409) {
                 setNothingToConfirm(true);
                 onNothingToConfirm?.();
                 // what the page shows may be stale (for example confirmed in another tab)
                 notifyMeChanged();
             }
-            if (status === 429) setHint(WAIT_AND_RETRY);
+            if (status === 429) setHint(cat().errors.waitAndRetry);
         } finally {
             sending.current = false;
         }
@@ -62,11 +62,11 @@ export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> =
                 <span role="status" className="t-footnote text-danger-text">{message}</span>
                 {onChangeEmail ? (
                     <Button variant="secondary" size="sm" onClick={onChangeEmail}>
-                        {ADD_OR_CHANGE}
+                        {t.auth.resend.addOrChange}
                     </Button>
                 ) : (
                     <Link to="/settings" className="t-footnote inline-flex min-h-11 items-center font-semibold text-accent underline underline-offset-2">
-                        {ADD_OR_CHANGE}
+                        {t.auth.resend.addOrChange}
                     </Link>
                 )}
             </span>
@@ -76,7 +76,7 @@ export const ResendConfirmationButton: React.FC<ResendConfirmationButtonProps> =
     return (
         <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
             <Button variant="secondary" size="sm" onClick={handleClick} loading={resend.isLoading}>
-                Resend confirmation email
+                {t.auth.resend.button}
             </Button>
             {message && <span role="status" className={`t-footnote ${failed ? 'text-danger-text' : 'text-success'}`}>{message}</span>}
             {hint && <span className="t-footnote text-text-2">{hint}</span>}

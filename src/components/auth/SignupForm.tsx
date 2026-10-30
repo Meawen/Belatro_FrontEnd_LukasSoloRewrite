@@ -4,10 +4,11 @@ import { Button, Input } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { useAuth } from '../../hooks/useAuth';
 import { ApiError } from '../../services/api';
-import { errorMessage, isNetworkOrServerFailure, SOMETHING_WENT_WRONG } from '../../utils/errorMessage';
+import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
 import { EMAIL_PATTERN, passwordRuleError, usernameRuleError } from './credentialRules';
 import { AUTH_LINK } from './AuthFrame';
 import { useReturnState } from './returnState';
+import { cat, useT } from '../../i18n/t';
 
 export interface SignupFormProps {
     onSuccess?: () => void;
@@ -30,6 +31,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
 
     const { signup, isSignupLoading } = useAuth();
     const returnState = useReturnState();
+    const t = useT();
 
     const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -45,29 +47,29 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         const newErrors: Record<string, string> = {};
 
         if (!formData.username.trim()) {
-            newErrors.username = 'Username is required';
+            newErrors.username = cat().forms.usernameRequired;
         } else {
             const usernameError = usernameRuleError(formData.username.trim());
             if (usernameError) newErrors.username = usernameError;
         }
 
         if (!formData.email.trim()) {
-            newErrors.email = 'Email is required';
+            newErrors.email = cat().forms.emailRequired;
         } else if (!EMAIL_PATTERN.test(formData.email)) {
-            newErrors.email = 'Email is invalid';
+            newErrors.email = cat().forms.emailInvalid;
         }
 
         if (!formData.password) {
-            newErrors.password = 'Password is required';
+            newErrors.password = cat().forms.passwordRequired;
         } else {
             const passwordError = passwordRuleError(formData.password);
             if (passwordError) newErrors.password = passwordError;
         }
 
         if (!formData.confirmPassword) {
-            newErrors.confirmPassword = 'Please confirm your password';
+            newErrors.confirmPassword = cat().auth.signUp.confirmPasswordRequired;
         } else if (formData.password !== formData.confirmPassword) {
-            newErrors.confirmPassword = 'Passwords do not match';
+            newErrors.confirmPassword = cat().forms.passwordsDontMatch;
         }
 
         setErrors(newErrors);
@@ -102,11 +104,11 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
             const status = error instanceof ApiError ? error.status : 0;
             // R-11: signup's only 403 is a missing or wrong invite code ("Invalid invite code")
             if (status === 403) {
-                setErrors({ inviteCode: errorMessage(error, 'Invalid invite code') });
+                setErrors({ inviteCode: errorMessage(error, cat().auth.signUp.inviteCodeInvalid) });
                 return;
             }
             setErrors({
-                submit: isNetworkOrServerFailure(status) ? SOMETHING_WENT_WRONG : errorMessage(error, 'Registration failed')
+                submit: isNetworkOrServerFailure(status) ? cat().errors.generic : errorMessage(error, cat().auth.signUp.failed)
             });
         }
     };
@@ -114,15 +116,14 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     if (createdEmail) {
         return (
             <div className="flex flex-col gap-4 text-center">
-                <h1 className="t-title">Check your inbox</h1>
+                <h1 className="t-title">{t.auth.signUp.checkInbox.heading}</h1>
                 {/* The same answer comes for an address another account holds, and that one gets no
                     link (spec section 1), so this must not promise a mail. */}
                 <p className="t-body text-text-2">
-                    If this address can be used, a confirmation link is on its way to <strong className="text-text">{createdEmail}</strong>. Check your inbox (and spam).
-                    Confirm it to play ranked; casual games work right away.
+                    {t.auth.signUp.checkInbox.before}{' '}<strong className="text-text">{createdEmail}</strong>{t.auth.signUp.checkInbox.after}
                 </p>
                 <Button block onClick={() => onSuccess?.()}>
-                    Continue
+                    {t.common.continue}
                 </Button>
             </div>
         );
@@ -131,59 +132,59 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     return (
         <>
             <div className="mb-6 text-center">
-                <h1 className="t-title">Create Account</h1>
-                <p className="t-callout mt-2 text-text-2">Join the game today</p>
+                <h1 className="t-title">{t.auth.signUp.createAccount}</h1>
+                <p className="t-callout mt-2 text-text-2">{t.auth.signUp.subtitle}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <Input
-                    label="Username"
+                    label={t.forms.username}
                     name="username"
                     type="text"
                     value={formData.username}
                     onChange={handleChange}
                     error={errors.username}
-                    placeholder="Choose a username"
+                    placeholder={t.auth.signUp.usernamePlaceholder}
                 />
 
                 <Input
-                    label="Email"
+                    label={t.forms.email}
                     name="email"
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
                     error={errors.email}
-                    placeholder="Enter your email"
+                    placeholder={t.forms.emailPlaceholder}
                 />
 
                 <Input
-                    label="Password"
+                    label={t.forms.password}
                     name="password"
                     type="password"
                     value={formData.password}
                     onChange={handleChange}
                     error={errors.password}
-                    placeholder="Create a password"
+                    placeholder={t.auth.signUp.passwordPlaceholder}
                 />
 
                 <Input
-                    label="Confirm Password"
+                    label={t.auth.signUp.confirmPassword}
                     name="confirmPassword"
                     type="password"
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     error={errors.confirmPassword}
-                    placeholder="Confirm your password"
+                    placeholder={t.auth.signUp.confirmPasswordPlaceholder}
                 />
 
                 <Input
-                    label="Invite code"
+                    label={t.auth.signUp.inviteCode}
                     name="inviteCode"
                     type="text"
                     value={formData.inviteCode}
                     onChange={handleChange}
                     error={errors.inviteCode}
-                    placeholder="From your invitation"
+                    placeholder={t.auth.signUp.inviteCodePlaceholder}
                     autoComplete="off"
                     autoCapitalize="none"
                     autoCorrect="off"
@@ -193,21 +194,21 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
                 <ErrorAlert message={errors.submit ?? null} />
 
                 <Button type="submit" block loading={isSignupLoading}>
-                    {isSignupLoading ? 'Creating Account...' : 'Create Account'}
+                    {isSignupLoading ? t.auth.signUp.submitting : t.auth.signUp.createAccount}
                 </Button>
 
                 {/* R-40: the pages open in a new tab, so the form keeps what was typed */}
                 <p className="t-footnote text-center text-text-2">
-                    By creating an account you accept the{' '}
-                    <a href="/terms" target="_blank" rel="noopener noreferrer" className={TEXT_LINK}>Terms</a>; see the{' '}
-                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className={TEXT_LINK}>Privacy notice</a>.
+                    {t.auth.signUp.termsBefore}{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className={TEXT_LINK}>{t.auth.signUp.termsLink}</a>{t.auth.signUp.termsBetween}{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className={TEXT_LINK}>{t.auth.signUp.privacyLink}</a>.
                 </p>
             </form>
 
             <p className="t-callout mt-4 text-center text-text-2">
-                Already have an account?{' '}
+                {t.auth.signUp.haveAccount}{' '}
                 <Link to="/login" state={returnState} className={`inline-flex min-h-11 items-center ${AUTH_LINK}`}>
-                    Sign in
+                    {t.common.signIn}
                 </Link>
             </p>
         </>

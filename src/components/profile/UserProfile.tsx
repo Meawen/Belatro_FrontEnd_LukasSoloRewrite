@@ -9,6 +9,7 @@ import { useLadder } from '../../hooks/useRatings';
 import { ClimbPanel } from '../rank/ClimbPanel';
 import { RankBlock } from '../rank/RankBlock';
 import { nextRankName } from '../rank/rankNames';
+import { useT } from '../../i18n/t';
 
 /** How many of the player's newest matches the profile lists (spec §4.10: size=5). */
 export const PROFILE_RECENT_MATCHES = 5;
@@ -28,9 +29,10 @@ function Stat({ label, value }: { label: string; value: number | string }) {
 
 /** A state of the page while there is no player to show: under the page's h1. */
 function Frame({ children }: { children: ReactNode }) {
+    const t = useT();
     return (
         <div className="flex flex-col gap-6">
-            <h1 className="t-display">Profile</h1>
+            <h1 className="t-display">{t.titles.profile}</h1>
             {children}
         </div>
     );
@@ -53,12 +55,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
     const recentId = useId();
     // the next rank's name and every rank's start come from the ladder (ranks spec R-3, R-8)
     const ladder = useLadder(!!targetUserId);
+    const t = useT();
 
     if (!targetUserId || error?.status === 404) {
         return (
             <Frame>
                 <Panel>
-                    <EmptyState icon="user" title="Profile not found" body="Profile information is not available." />
+                    <EmptyState icon="user" title={t.profile.notFound} body={t.profile.notFoundBody} />
                 </Panel>
             </Frame>
         );
@@ -69,10 +72,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
             <Frame>
                 <Panel>
                     <ErrorState
-                        title="Couldn't load this profile"
+                        title={t.profile.loadFailed}
                         action={
                             <Button variant="secondary" onClick={() => refetch().catch(() => {})}>
-                                Try Again
+                                {t.common.tryAgain}
                             </Button>
                         }
                     />
@@ -84,20 +87,20 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
     if (!player) {
         return (
             <Frame>
-                <Loader text="Loading profile..." />
+                <Loader text={t.profile.loading} />
             </Frame>
         );
     }
 
-    const name = player.username || 'Unknown User';
+    const name = player.username || t.common.unknownPlayer;
     const matches = recent.data?.content;
     let recentList;
     if (recent.error) {
-        recentList = <p className="t-callout text-text-2">Couldn't load the recent matches.</p>;
+        recentList = <p className="t-callout text-text-2">{t.profile.recentFailed}</p>;
     } else if (!matches) {
-        recentList = <Loader layout="inline" text="Loading matches..." className="self-start" />;
+        recentList = <Loader layout="inline" text={t.profile.recentLoading} className="self-start" />;
     } else if (matches.length === 0) {
-        recentList = <p className="t-callout text-text-2">No matches yet</p>;
+        recentList = <p className="t-callout text-text-2">{t.profile.noMatches}</p>;
     } else {
         recentList = (
             <ul className="flex flex-col gap-2">
@@ -119,7 +122,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                         <h1 className="t-display break-words">{name}</h1>
                         <RankBlock player={player} nextName={nextRankName(player.rank, ladder.data)} />
                         {isOwnProfile && me?.roles && me.roles.length > 0 && (
-                            <ul aria-label="Roles" className="flex flex-wrap gap-1.5">
+                            <ul aria-label={t.profile.roles} className="flex flex-wrap gap-1.5">
                                 {me.roles.map((role) => (
                                     <li key={role}>
                                         <Chip>{role.replace('ROLE_', '')}</Chip>
@@ -132,9 +135,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
                 </div>
                 <dl className="grid grid-cols-3 gap-2 lg:w-80">
                     <Stat label="Elo" value={player.eloRating ?? '—'} />
-                    <Stat label="Games" value={player.gamesPlayed ?? '—'} />
+                    <Stat label={t.profile.games} value={player.gamesPlayed ?? '—'} />
                     {/* a new player is level 0 in the database and Level 1 on every screen (R-34) */}
-                    <Stat label="Level" value={player.level || 1} />
+                    <Stat label={t.common.level} value={player.level || 1} />
                 </dl>
             </div>
 
@@ -143,7 +146,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
 
             <section aria-labelledby={recentId} className="flex flex-col gap-3">
                 <h2 id={recentId} className="t-title">
-                    Recent matches
+                    {t.profile.recent}
                 </h2>
                 {recentList}
             </section>

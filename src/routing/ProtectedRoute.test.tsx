@@ -77,7 +77,7 @@ describe('ProtectedRoute and PublicRoute', () => {
         renderAt('/lobby/abc')
         expect(screen.getByText('Checking authentication...')).toBeInTheDocument()
         renderAt('/login')
-        expect(screen.getByText('Loading...')).toBeInTheDocument()
+        expect(screen.getByText('Shuffling…')).toBeInTheDocument()
     })
 
     test('a signed-in visitor of /login goes to /dashboard', () => {

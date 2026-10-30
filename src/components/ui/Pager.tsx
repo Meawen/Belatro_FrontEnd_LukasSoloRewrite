@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Button } from './Button';
 import { cx } from './cx';
+import { useT } from '../../i18n/t';
 
 export interface PagerProps {
     /** 0-based */
@@ -18,15 +19,16 @@ export interface PagerProps {
 
 /** Previous / "Page n" / Next (spec §3.7). */
 export function Pager({ page, hasNext, onPage, pageCount, note, disabled = false, className }: PagerProps) {
+    const t = useT();
     return (
-        <nav aria-label="Pagination" className={cx('flex flex-wrap items-center justify-center gap-3', className)}>
+        <nav aria-label={t.common.pager.label} className={cx('flex flex-wrap items-center justify-center gap-3', className)}>
             <Button variant="secondary" size="sm" disabled={disabled || page <= 0} onClick={() => onPage(page - 1)}>
-                Previous
+                {t.common.pager.previous}
             </Button>
-            <span className="t-score">{pageCount ? `Page ${page + 1} of ${pageCount}` : `Page ${page + 1}`}</span>
+            <span className="t-score">{pageCount ? t.common.pager.pageOf(page + 1, pageCount) : t.common.pager.page(page + 1)}</span>
             {note && <span className="t-footnote text-text-2">{note}</span>}
             <Button variant="secondary" size="sm" disabled={disabled || !hasNext} onClick={() => onPage(page + 1)}>
-                Next
+                {t.common.pager.next}
             </Button>
         </nav>
     );

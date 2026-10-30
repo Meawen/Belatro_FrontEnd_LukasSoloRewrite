@@ -10,6 +10,7 @@ import { useMe, notifyMeChanged } from '../../hooks/useUser';
 import { useMutation } from '../../hooks/useApi';
 import { userService } from '../../services/userService';
 import { errorMessage } from '../../utils/errorMessage';
+import { cat, useT } from '../../i18n/t';
 
 /**
  * Settings → Account (spec §4.13 item 2; D-32): the address, its confirmation, the change of address and of
@@ -23,10 +24,11 @@ export function AccountSection() {
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const [deletionError, setDeletionError] = useState<string | null>(null);
     const headingId = useId();
+    const t = useT();
 
     const { data: me, refetch: refetchMe } = useMe();
     // no address at all (e.g. a new account that changed its password before confirming): resend has nothing to send
-    const emailAction = me && !me.email && !me.pendingEmail ? 'Add an email address' : 'Change Email';
+    const emailAction = me && !me.email && !me.pendingEmail ? t.settings.account.addEmail : t.settings.account.changeEmail;
     const requestForgetMutation = useMutation(() => userService.requestForget());
 
     const handleRequestDeletion = async () => {
@@ -37,14 +39,14 @@ export function AccountSection() {
             // useApi's refetch rethrows: a failed refresh is not a failed request, and nothing awaits it
             refetchMe().catch(() => {});
         } catch (error) {
-            setDeletionError(errorMessage(error, 'Failed to request deletion'));
+            setDeletionError(errorMessage(error, cat().settings.account.deletionFailed));
         }
     };
 
     return (
         <Panel as="section" id="account" padding="lg" aria-labelledby={headingId} className="flex flex-col gap-5">
             <h2 id={headingId} className="t-title">
-                Account
+                {t.settings.account.heading}
             </h2>
 
             {emailNotice && (
@@ -56,14 +58,14 @@ export function AccountSection() {
             {/* The address comes from GET /user/me (only your own account has one to show). */}
             {me && (
                 <div className="flex flex-col gap-1">
-                    <p className="t-caption text-text-2">Email</p>
+                    <p className="t-caption text-text-2">{t.forms.email}</p>
                     <p className="t-body break-words">
-                        {me.email || 'Not set'}
-                        {me.email && !me.emailVerified && <span className="t-footnote ml-2 text-accent">(not confirmed)</span>}
+                        {me.email || t.settings.account.notSet}
+                        {me.email && !me.emailVerified && <span className="t-footnote ml-2 text-accent">{t.settings.account.notConfirmed}</span>}
                     </p>
                     {me.pendingEmail && (
                         <p data-testid="pending-email" className="t-footnote break-words text-accent">
-                            Waiting for confirmation: {me.pendingEmail}
+                            {t.settings.account.pending(me.pendingEmail)}
                         </p>
                     )}
                     {(me.pendingEmail || (me.email && !me.emailVerified)) && (
@@ -80,36 +82,36 @@ export function AccountSection() {
                     {emailAction}
                 </Button>
                 <Button variant="secondary" leftIcon={<PixelIcon name="lock" />} onClick={() => setShowChangePassword(true)}>
-                    Change Password
+                    {t.settings.account.changePassword}
                 </Button>
             </div>
 
             <div className="flex flex-col gap-3 border-t-2 border-edge pt-5">
                 {me?.deletionRequested ? (
-                    <p className="t-callout text-accent">Deletion requested — an administrator will process your account removal.</p>
+                    <p className="t-callout text-accent">{t.settings.account.deletionRequested}</p>
                 ) : confirmingDeletion ? (
                     <>
                         <p className="t-callout text-danger-text">
-                            Request deletion of your account? We delete your account and its data within 30 days of your request. You can keep playing until then.
+                            {t.settings.account.deletionQuestion}
                         </p>
                         <div className="flex flex-wrap gap-2">
                             <Button variant="secondary" onClick={() => setConfirmingDeletion(false)}>
-                                Keep my account
+                                {t.settings.account.keepAccount}
                             </Button>
                             <Button variant="danger" loading={requestForgetMutation.isLoading} onClick={handleRequestDeletion}>
-                                Confirm request
+                                {t.settings.account.confirmDeletion}
                             </Button>
                         </div>
                     </>
                 ) : (
                     <Button variant="quiet" leftIcon={<PixelIcon name="trash" />} className="self-start" onClick={() => setConfirmingDeletion(true)}>
-                        Request account deletion
+                        {t.settings.account.requestDeletion}
                     </Button>
                 )}
                 <ErrorAlert message={deletionError} />
             </div>
 
-            <Sheet open={showChangePassword} onClose={() => setShowChangePassword(false)} title="Change Password">
+            <Sheet open={showChangePassword} onClose={() => setShowChangePassword(false)} title={t.settings.account.changePassword}>
                 <ChangePasswordForm
                     onSuccess={() => {
                         setShowChangePassword(false);
@@ -127,7 +129,7 @@ export function AccountSection() {
                     onSuccess={(newEmail) => {
                         setShowChangeEmail(false);
                         // the same 202 whether or not the address can be used, so no promise of a mail
-                        setEmailNotice(`If this address can be used, a confirmation link is on its way to ${newEmail}. Check your inbox (and spam).`);
+                        setEmailNotice(cat().settings.account.emailNotice(newEmail));
                         refetchMe().catch(() => {});
                         notifyMeChanged();
                     }}

@@ -9,6 +9,7 @@ import { useFriends, type FriendsState } from '../../hooks/useFriends';
 import { useAuth } from '../../hooks/useAuth';
 import type { User } from '../../types/user';
 import { errorMessage } from '../../utils/errorMessage';
+import { useT } from '../../i18n/t';
 
 // The server searches; wait for a pause in typing before asking it.
 const SEARCH_DEBOUNCE_MS = 300;
@@ -32,7 +33,8 @@ interface PlayerRowProps {
 }
 
 function PlayerRow({ player, rank, isMe, meId, friends, compact }: PlayerRowProps) {
-    const name = player.username || 'Unknown User';
+    const t = useT();
+    const name = player.username || t.common.unknownPlayer;
     const games = player.gamesPlayed ?? 0;
     const rankTag = isRanked(player) && player.rank ? <RankChip rank={player.rank} /> : null;
     return (
@@ -51,11 +53,11 @@ function PlayerRow({ player, rank, isMe, meId, friends, compact }: PlayerRowProp
                     <Link to={`/profile/${player.id}`} className="inline-flex min-h-11 min-w-0 items-center truncate hover:underline">
                         {name}
                     </Link>
-                    {isMe && <Tag tone="you">You</Tag>}
-                    {!isRanked(player) && <Tag>Unranked</Tag>}
+                    {isMe && <Tag tone="you">{t.leaderboard.you}</Tag>}
+                    {!isRanked(player) && <Tag>{t.leaderboard.unranked}</Tag>}
                 </span>
             }
-            meta={compact ? undefined : `${games} ${games === 1 ? 'game' : 'games'} · Level ${player.level || 1}`}
+            meta={compact ? undefined : `${t.leaderboard.games(games)} · ${t.common.level} ${player.level || 1}`}
             trailing={
                 <>
                     {/* ranks spec §6.2: beside the Elo, only for a ranked row; an Unranked row keeps its tag alone.
@@ -99,6 +101,7 @@ export const UserList: React.FC = () => {
     // one friendships list for every row's buttons
     const friends = useFriends(meId ?? undefined);
     const compact = useMediaQuery(COMPACT_ROWS_QUERY);
+    const t = useT();
 
     const handleRefresh = useCallback(async () => {
         if (isRefreshing) return;
@@ -115,17 +118,17 @@ export const UserList: React.FC = () => {
     const clearSearch = useCallback(() => setSearchTerm(''), []);
 
     if (!usersPage && !error) {
-        return <Loader text="Loading users..." />;
+        return <Loader text={t.leaderboard.loading} />;
     }
 
     if (error) {
         return (
             <ErrorState
-                title="Error Loading Users"
-                body={errorMessage(error, 'Failed to load user list')}
+                title={t.leaderboard.loadFailed}
+                body={errorMessage(error, t.leaderboard.loadFailedBody)}
                 action={
                     <Button variant="secondary" onClick={handleRefresh} disabled={isRefreshing}>
-                        {isRefreshing ? 'Retrying...' : 'Try Again'}
+                        {isRefreshing ? t.leaderboard.retrying : t.common.tryAgain}
                     </Button>
                 }
             />
@@ -137,15 +140,15 @@ export const UserList: React.FC = () => {
         list = query ? (
             <EmptyState
                 icon="search"
-                title={`No players match '${query}'`}
+                title={t.leaderboard.noMatch(query)}
                 action={
                     <Button variant="secondary" onClick={clearSearch}>
-                        Clear Search
+                        {t.leaderboard.clearSearch}
                     </Button>
                 }
             />
         ) : (
-            <EmptyState icon="people" title="No Users Found" body="No users available." />
+            <EmptyState icon="people" title={t.leaderboard.empty} body={t.leaderboard.emptyBody} />
         );
     } else {
         // Ranks only without a search term (spec §4.12): a search shows a slice, not places
@@ -171,9 +174,7 @@ export const UserList: React.FC = () => {
     return (
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="t-callout text-text-2">
-                    {totalUsers} {totalUsers === 1 ? 'user' : 'users'} found
-                </p>
+                <p className="t-callout text-text-2">{t.leaderboard.found(totalUsers)}</p>
                 <Button
                     variant="secondary"
                     size="sm"
@@ -181,20 +182,20 @@ export const UserList: React.FC = () => {
                     disabled={isRefreshing || isLoading}
                     leftIcon={<PixelIcon name="refresh" />}
                 >
-                    {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                    {isRefreshing ? t.common.refreshing : t.common.refresh}
                 </Button>
             </div>
 
             <Input
-                label="Search players"
+                label={t.leaderboard.search}
                 hideLabel
                 type="text"
-                placeholder="Search users by username..."
+                placeholder={t.leaderboard.searchPlaceholder}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
             />
 
-            {isLoading && <Loader layout="inline" text="Loading users..." />}
+            {isLoading && <Loader layout="inline" text={t.leaderboard.loading} />}
 
             {list}
 

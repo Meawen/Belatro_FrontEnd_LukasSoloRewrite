@@ -106,11 +106,14 @@ describe('ResetPasswordPage', () => {
                 status: 400, message: 'Password must be at least 8 characters and at most 72 bytes', code: 'VALIDATION',
             }))
             renderAt('/reset-password?token=tok-2')
-            // the page's own labels are still English until S3
-            await submit('brand-new-pass')
+            expect(screen.getByRole('heading', { level: 1, name: 'Odaberi novu lozinku' })).toBeInTheDocument()
+            const user = userEvent.setup()
+            await user.type(screen.getByLabelText('Nova lozinka'), 'brand-new-pass')
+            await user.type(screen.getByLabelText('Potvrda nove lozinke'), 'brand-new-pass')
+            await user.click(screen.getByRole('button', { name: 'Spremi novu lozinku' }))
             expect(await screen.findByText('Lozinka mora imati najmanje 8 znakova i najviše 72 bajta.')).toBeInTheDocument()
             expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-            expect(screen.getByRole('button', { name: 'Reset password' })).toBeEnabled()
+            expect(screen.getByRole('button', { name: 'Spremi novu lozinku' })).toBeEnabled()
         } finally {
             setLang('en')
         }
