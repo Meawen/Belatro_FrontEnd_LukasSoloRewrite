@@ -73,8 +73,10 @@ export interface SeatsProps {
  * trick is down; a quiet "No challenge" on every seat whose challenge is gone, for the rest of the game
  * (gameplay rules §6). Mine sit over my plate, which sits low by my pile: my declared cards always, and in
  * landscape, where my plate is beside my hand, my chips too (under it they would cover my hand's first cards).
- * Upright my chips sit beside my plate (board.css). My partner's sit under its plate, in the column beside its fan; in
- * landscape on the plate's row, its declared cards on the fan's other side where the row has no room
+ * Upright my chips sit beside my plate, wrapping upwards (board.css), and my plate keeps the countdown's width; my
+ * declared cards over it overlap more where the trick slot beside them leaves less room (seatSpot's `above`). My
+ * partner's sit under its plate, in the column beside its fan; in landscape on the plate's row, its declared cards on
+ * the fan's other side where the row has no room
  * (`board-seat__aside`, seatSpot's `aside`). A side seat's chips and cards sit in `board-seat__under` (seatSpot's
  * `under`): under its fan upright, under its plate beside the fan elsewhere, on its own side (`data-position`), so none
  * reaches the trick or my hand (board-fit spec §4). Everything stays inside `seat-{id}`. The declared cards are half a
@@ -92,10 +94,10 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
             {model.seats.map((seat) => {
                 const turn = seat.current && model.turn?.playerId === seat.id ? model.turn : null;
                 const declared = showCards ? model.zvanja?.seats.find((one) => one.playerId === seat.id && one.declarations.length > 0)?.cards ?? [] : [];
-                const { under, aside, ...spot } = seatSpot(seat, targets, layout);
-                const step = declaredStep(cardWidth, declared.length, aside?.room ?? spot.maxWidth);
+                const { under, aside, above, beside, ...spot } = seatSpot(seat, targets, layout);
+                const step = declaredStep(cardWidth, declared.length, aside?.room ?? above ?? spot.maxWidth);
                 const chipRow = (
-                    <span className="board-seat__chips">
+                    <span className="board-seat__chips" style={beside === undefined ? undefined : { maxWidth: beside }}>
                         {seat.bid && (
                             <Pop instant={instant}>
                                 {seat.bid === 'PASS' ? <Tag>Pass</Tag> : <Tag tone="trump" suit={seat.bid}>{SUIT_LABEL[seat.bid]}</Tag>}
@@ -146,7 +148,12 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                                 <span data-testid={`cards-left-${seat.id}`}>{seat.cardsLeft}</span>
                                 <span className="sr-only"> cards</span>
                             </span>
-                            {turn?.expiresAt != null && <Countdown expiresAt={turn.expiresAt} skew={model.skew} />}
+                            {turn?.expiresAt != null ? (
+                                <Countdown expiresAt={turn.expiresAt} skew={model.skew} />
+                            ) : (
+                                // upright my plate keeps the countdown's width, so my chips beside it never shift
+                                beside !== undefined && <span className="board-seat__seconds" aria-hidden="true" />
+                            )}
                         </span>
                         {turn?.expiresAt != null && <TimerBar key={`${seat.id}:${turn.expiresAt}`} expiresAt={turn.expiresAt} skew={model.skew} />}
                         {under !== undefined ? (
@@ -154,7 +161,7 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                         ) : seat.isMe ? (
                             <>
                                 {!chipsOver && chipRow}
-                                {(cards || chipsOver) && <span className="board-seat__above" style={{ maxWidth: spot.maxWidth }}>{cards}{chipsOver && chipRow}</span>}
+                                {(cards || chipsOver) && <span className="board-seat__above" style={{ maxWidth: above ?? spot.maxWidth }}>{cards}{chipsOver && chipRow}</span>}
                             </>
                         ) : (
                             <>

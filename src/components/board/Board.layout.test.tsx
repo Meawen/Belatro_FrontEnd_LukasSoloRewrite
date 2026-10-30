@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, afterEach, beforeEach } from 'vitest'
-import { cleanup, screen } from '@testing-library/react'
+import { cleanup, screen, within } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -141,9 +141,51 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
         }
     })
 
-    test('upright my chips sit beside my plate, my declared cards over it, so my column stays under the left seat\'s (board-fit spec §4.1; Ruling I P1)', () => {
-        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-seat\[data-position="me"\] \{[^}]*flex-direction: row;[^}]*flex-wrap: wrap;/)
-        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-seat\[data-position="me"\] \.board-seat__timer \{[^}]*order: 1;[^}]*flex-basis: 100%;/)
+    test('upright my chips sit beside my plate, after it, bottom-aligned and wrapping upwards within their width, and my plate keeps the countdown\'s width, so they never shift or reach down onto my hand (board-fit spec §3.2, §4.1)', () => {
+        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-seat\[data-position="me"\] > \.board-seat__chips \{[^}]*position: absolute;[^}]*left: calc\(100% \+ 4px\);[^}]*top: 26px;[^}]*translate: 0 -100%;[^}]*flex-wrap: wrap-reverse;[^}]*width: max-content;/)
+        expect(css).toMatch(/\.board-seat__seconds \{[^}]*min-width: 4ch;/)
+        // the TS frame of the call: alice is to lead, then my turn comes
+        const call = indexOf(table, 'call:')
+        withDpr(2, () => {
+            renderBoard({ state: tableState(table[call + 1]), viewport: { width: 375, height: 553 } })
+            const mine = screen.getByTestId('seat-carol')
+            expect(px(mine.querySelector<HTMLElement>(':scope > .board-seat__chips')!, 'maxWidth')).toBe(375 - 8 - (12 + 140 + 4))
+            // not my turn: an empty, hidden place for the countdown on my plate
+            const reserve = mine.querySelector('.board-seat__name > .board-seat__seconds')!
+            expect(reserve).toHaveAttribute('aria-hidden', 'true')
+            expect(reserve).toBeEmptyDOMElement()
+            expect(within(mine).queryByTestId('turn-countdown')).toBeNull()
+        })
+        cleanup()
+        // my turn: the countdown takes that place
+        const mine = table.slice(call).find((frame) => frame.private.carol.publicPart.currentPlayerId === 'carol')!
+        withDpr(2, () => {
+            renderBoard({ state: tableState(mine), viewport: { width: 375, height: 553 } })
+            const seat = screen.getByTestId('seat-carol')
+            expect(seat.querySelectorAll('.board-seat__name > .board-seat__seconds')).toHaveLength(1)
+            expect(within(seat).getByTestId('turn-countdown')).toHaveClass('board-seat__seconds')
+        })
+    })
+
+    test('my declared cards over my plate run up to the trick slot beside them, overlapping more where they need to (board-fit spec §3.2 give-way 1; Ruling N)', () => {
+        // seed 1254, the hand's first card: I declared six cards; a seventh makes the rare column
+        const t = playTable({ seed: 1254 })
+        const frame = structuredClone(t[indexOf(t, 'play:')])
+        const zvanje = frame.private.carol.publicPart.zvanja!.seats.find((one) => one.playerId === 'carol')!
+        const extra = frame.private.carol.hand.find((card) => !zvanje.cards.some((one) => one.boja === card.boja && one.rank === card.rank))!
+        zvanje.cards.push(extra)
+        expect(zvanje.cards).toHaveLength(7)
+        withDpr(2, () => {
+            renderBoard({ state: tableState(frame, 'carol', 'snapshot'), viewport: { width: 375, height: 553 } })
+            const layout = layoutFor({ width: 375, height: 553, dpr: 2 })
+            const above = screen.getByTestId('seat-carol').querySelector<HTMLElement>(':scope > .board-seat__above')!
+            const cards = [...above.querySelectorAll<HTMLElement>('.board-seat__declared .ui-card')]
+            const w = layout.declared.w
+            // 148.15 − 6 − 12 = 130.15 px: the seven 35.5-px cards 15.78 apart, not 19.53
+            expect(px(above, 'maxWidth')).toBeCloseTo(130.150, 3)
+            expect(cards).toHaveLength(7)
+            expect(cards.map((card) => card.style.marginLeft)).toEqual(['', ...Array(6).fill(`${declaredStep(w, 7, px(above, 'maxWidth')) - w}px`)])
+        })
     })
 
     test('long names (Review Focus 2): each seat\'s plate at its maxWidth stops short of every trick slot, at 375×553 @2 and 667×323 @2', () => {

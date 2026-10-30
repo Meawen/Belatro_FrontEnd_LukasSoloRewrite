@@ -14,6 +14,10 @@ export interface SeatSpot {
      * side, ending `offset` px left of the plate's left edge, `room` px wide at most.
      */
     aside?: { offset: number; room: number };
+    /** Mine, upright and on wide windows: how wide my declared cards over my plate may run (give-way 1 within it). */
+    above?: number;
+    /** Mine, upright: how wide my chips beside my plate may run (board.css: they wrap upwards within it). */
+    beside?: number;
 }
 
 /** The seat column (board.css `.board-seat`): the plate, its gap, and the turn timer bar under the plate. */
@@ -38,6 +42,11 @@ const FAN_GAP = 6;
 const BESIDE = 8;
 const CLEAR = 6;
 const MY_EDGE = 12;
+/**
+ * My plate at its widest: "You", the dealer's D, the caller's badge and the countdown, whose width it keeps when it
+ * isn't my turn (Seats, board.css): about 136 px.
+ */
+const MY_PLATE = 140;
 /** Declared cards: 45 % under the next, closer in a narrow column down to a 12-px corner; a common column shows four. */
 const OVERLAP = 0.45;
 const CORNER = 12;
@@ -187,9 +196,9 @@ function sideBoxes(layout: Layout, position: 'left' | 'right'): Box[] {
 /**
  * Where a seat's tag and chips sit (spec §5.6, board-fit spec §4), from the layout alone (its full fans and hand), so
  * they never move during play: my partner, see partnerSpot; the side seats, see sideSpot; me:
- * - portrait: over my pile, and under the left seat's column at its common size, my chips beside my plate and my
- *   declared cards over it (board.css, Seats);
- * - tablet, desktop: over my pile, as today;
+ * - portrait: over my pile, and under the left seat's column at its common size; my chips beside my plate, after it,
+ *   wrapping upwards within `beside` (never down onto my hand); my declared cards over it within `above`;
+ * - tablet, desktop: over my pile, as today, my declared cards over it within `above`;
  * - landscape: at the bottom left, beside my hand, my chips and declared cards over the plate, up to my hand's first
  *   card and any trick slot beside them.
  */
@@ -200,11 +209,15 @@ export function seatSpot(seat: SeatModel, targets: Targets, layout: Layout): Sea
     const pileTop = pile.top + (pile.height * (1 - pile.scale)) / 2;
     const pileLeft = pile.left + (pile.width * (1 - pile.scale)) / 2;
     const overPile = { left: Math.max(MY_EDGE, pileLeft - 4), top: Math.max(layout.hud + 8, pileTop - 34) };
+    // my declared cards over my plate: up to the board's middle and 6 px before any trick slot beside them
+    const above = (left: number, top: number) =>
+        Math.min(layout.board.w / 2 - CLEAR - left, slotRoom(layout, left, 'left', top - GAP - layout.declared.h, top));
     if (layout.kind === 'portrait') {
         const leftSeat = sideSpot(layout, 'left');
-        return { ...overPile, top: Math.max(overPile.top, leftSeat.top + leftSeat.under + CHIP_ROW + GAP + layout.declared.h + GAP) };
+        const top = Math.max(overPile.top, leftSeat.top + leftSeat.under + CHIP_ROW + GAP + layout.declared.h + GAP);
+        return { ...overPile, top, above: above(overPile.left, top), beside: layout.board.w - 8 - (overPile.left + MY_PLATE + GAP) };
     }
-    if (layout.kind !== 'landscape') return overPile;
+    if (layout.kind !== 'landscape') return { ...overPile, above: above(overPile.left, overPile.top) };
     const top = layout.board.h - 8 - PLATE_ROW;
     const rows: [number, number] = [top - GAP - (CHIP_ROW + GAP + layout.declared.h), top + PLATE_ROW];
     const hand = handPlaces(layout, 8).map(boundsOf);
@@ -254,7 +267,6 @@ export function seatBoxes(layout: Layout, targets: Targets, declaredTeam: 'mine'
         // a box with chips and declared cards is as wide as the wider; one with the cards alone as their row
         const w = columnWidth(layout, spot.maxWidth, declared);
         const narrow = columnWidth(layout, spot.maxWidth, false);
-        const row = declaredRow(layout, spot.maxWidth);
         const add = (x: number, y: number, width: number, h: number) => boxes.push({ id: seat.id, box: { x, y, w: width, h } });
         if (position === 'me') {
             if (layout.kind === 'landscape') {
@@ -262,10 +274,10 @@ export function seatBoxes(layout: Layout, targets: Targets, declaredTeam: 'mine'
                 add(spot.left, spot.top - GAP - (CHIP_ROW + cards), w, CHIP_ROW + cards);
                 continue;
             }
-            // upright my chips beside my plate, else under it
-            if (layout.kind === 'portrait') add(spot.left, spot.top, Math.max(CHIP_W, Math.min(spot.maxWidth ?? Infinity, COLUMN_W + GAP + CHIP_W)), PLATE_ROW);
+            // upright my plate and my chips beside it as far as they may run (one row, bottom-aligned), else my chips under it
+            if (layout.kind === 'portrait') add(spot.left, spot.top, MY_PLATE + GAP + (spot.beside ?? 0), PLATE_ROW);
             else add(spot.left, spot.top, narrow, PLATE_ROW + GAP + CHIP_ROW);
-            if (declared) add(spot.left, spot.top - GAP - dh, row, dh);
+            if (declared) add(spot.left, spot.top - GAP - dh, declaredRow(layout, spot.above), dh);
         } else if (position === 'partner') {
             const here = declared && !spot.aside;
             if (layout.kind === 'landscape') {

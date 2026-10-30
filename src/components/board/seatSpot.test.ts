@@ -168,12 +168,16 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
             const pileLeft = pile.left + (pile.width * (1 - pile.scale)) / 2
             const today = { left: Math.max(12, pileLeft - 4), top: Math.max(layout.hud + 8, pileTop - 34) }
             const where = nameOf(layout)
+            // my declared cards over my plate: up to the middle and 6 px before any trick slot in their rows (Ruling N)
+            const above = (top: number) => Math.min(layout.board.w / 2 - 6 - today.left, roomBefore(slotBoxes(layout).map((one) => one.box), today.left, 'left', top - 4 - layout.declared.h, top))
             if (layout.kind === 'tablet' || layout.kind === 'desktop') {
-                expect(spot, where).toEqual(today)
+                expect(spot, where).toEqual({ ...today, above: expect.closeTo(above(today.top), 9) })
             } else if (layout.kind === 'portrait') {
-                // the left seat's chips and four cards (or its chips and my four cards over my plate), then 4 px
+                // the left seat's chips and four cards (or its chips and my four cards over my plate), then 4 px; my chips
+                // beside my plate from 4 px after its widest (140) to 8 px before the board's edge
                 const left = spotAt(layout, 'left')
-                expect(spot, where).toEqual({ left: today.left, top: Math.max(today.top, left.top + left.under! + 20 + 4 + layout.declared.h + 4) })
+                const top = Math.max(today.top, left.top + left.under! + 20 + 4 + layout.declared.h + 4)
+                expect(spot, where).toEqual({ left: today.left, top, above: expect.closeTo(above(top), 9), beside: layout.board.w - 8 - (12 + 140 + 4) })
             } else {
                 const top = layout.board.h - 8 - 33
                 const rows: [number, number] = [top - 4 - (20 + 4 + layout.declared.h), top + 33]
@@ -184,8 +188,9 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
         }
         // 812×375 @2: my hand's first card, turned −7.7°, starts at 182.46
         expect(spotAt(at(812, 375, 2, 'landscape', 71), 'me')).toEqual({ left: 12, top: 334, maxWidth: expect.closeTo(164.456, 3) })
-        // 375×553 @2: the left seat's column from 344.27 leaves my plate at 419.77, below my pile's top less 34 (362.35)
-        expect(spotAt(at(375, 553, 2, 'portrait', 71), 'me')).toEqual({ left: 12, top: expect.closeTo(419.772, 3) })
+        // 375×553 @2: the left seat's column from 344.27 leaves my plate at 419.77, below my pile's top less 34 (362.35); my
+        // declared cards stop 6 px before the me slot (from 148.15), my chips beside the plate have 211 px
+        expect(spotAt(at(375, 553, 2, 'portrait', 71), 'me')).toEqual({ left: 12, top: expect.closeTo(419.772, 3), above: expect.closeTo(130.150, 3), beside: 211 })
     })
 
     test('at 667×323 @2 my plate and its chips and declared cards meet none of the left seat\'s boxes (seatBoxes), whichever team\'s cards show (§4.2)', () => {
@@ -216,8 +221,8 @@ describe('seatBoxes: each seat\'s common column (board-fit spec §3.2): the plat
         const round = (r: number[]) => r.map((n) => Number(n.toFixed(3)))
         expect(mine.map((one) => one.id)).toEqual(['me', 'me', 'right', 'right', 'partner', 'left', 'left'])
         expect(mine.map(rect)).toEqual([
-            // my plate and its timer, my chips beside it (one common chip, 86); my declared cards over it, their row wide
-            [12, me.top, 132 + 4 + 86, 33],
+            // my plate and its timer, my chips beside it as far as they may run; my declared cards over it, their row wide
+            [12, me.top, 140 + 4 + me.beside!, 33],
             [12, me.top - 4 - 47.5, row, 47.5],
             // the right seat's plate and timer above its fan, its chips under it, right-aligned at its edge
             [right.left - 132, right.top, 132, 33],
@@ -230,7 +235,7 @@ describe('seatBoxes: each seat\'s common column (board-fit spec §3.2): the plat
         expect(partner.maxWidth).toBeLessThan(132)
         expect(theirs.map((one) => one.id)).toEqual(['me', 'right', 'right', 'partner', 'left', 'left'])
         expect(theirs.map(rect)).toEqual([
-            [12, me.top, 222, 33],
+            [12, me.top, 375 - 8 - 12, 33],
             [right.left - 132, right.top, 132, 33],
             [right.left - 132, right.top + right.under!, 132, 20 + 4 + 47.5],
             [partner.left, partner.top, partner.maxWidth!, 57],

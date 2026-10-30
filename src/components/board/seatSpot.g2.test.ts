@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
-import { seatBoxes } from './seatSpot'
+import { declaredStep, seatBoxes, seatSpot } from './seatSpot'
 import { fanPlaces, handPlaces, hudBoxes, tableTargets, trickSlots, type Layout } from './model/cardTargets'
-import { box, boxOf, hull, nameOf, overlap, seven, type Box } from '../../test/fixtures/layouts'
+import { at, box, boxOf, hull, nameOf, overlap, seven, type Box } from '../../test/fixtures/layouts'
 
 /** Each trick slot at the widest a stable tilt makes it (tilt(): −4.8…+4.8°). */
 const slotBoxes = (layout: Layout) => Object.entries(trickSlots(layout)).map(([position, slot]) => ({ position, box: box({ ...slot, rotate: 4.8 }) }))
@@ -78,5 +78,50 @@ describe('the seat columns at the board-fit §7 sizes (spec G1, G2)', () => {
         const layout = seven().find((one) => nameOf(one) === '1280x720@1 142.00/213.00')!
         const fan = hull(fanPlaces(layout, 'partner', 8).map(box))
         expect(overlap(box({ ...trickSlots(layout).partner, rotate: 4.8 }), fan)).toBe(true)
+    })
+})
+
+/** tableTargets' me: my id is my position, my team A. */
+const ME = { id: 'me', position: 'me', team: 'A', isMe: true, bot: false, cardsLeft: 8, current: true, dealer: true, bid: null, bela: true, challengeUsed: true } as const
+
+describe('my own column never reaches my hand or the trick (board-fit spec G1, §3.2)', () => {
+    test('upright, the rare full row (my plate at its widest with the countdown, D and the caller\'s badge; Bela, "Zvanja 100 + 20", "No challenge") wraps upwards beside my plate, clear of my hand\'s strips and every trick slot', () => {
+        // the chips in caption type with 6 px each side: Bela 46, Zvanja 100 + 20 138, No challenge 113; 4 px apart
+        const chips = [46, 138, 113]
+        for (const layout of [at(375, 553, 2, 'portrait', 71), at(390, 664, 3, 'portrait', 94.67)]) {
+            const where = nameOf(layout)
+            const spot = seatSpot(ME, tableTargets(layout), layout)
+            const room = spot.beside!
+            const lines = chips.reduce((rows, w) => {
+                const last = rows[rows.length - 1]
+                if (last !== undefined && last + 4 + w <= room) rows[rows.length - 1] = last + 4 + w
+                else rows.push(w)
+                return rows
+            }, [] as number[])
+            expect(lines.length, where).toBe(2)
+            // the plate (140 at most) and its timer bar; the chips from 4 px after it, bottom-aligned with it, rising a line a wrap
+            const plate = { x0: spot.left, x1: spot.left + 140, y0: spot.top, y1: spot.top + 33 }
+            const row = { x0: spot.left, x1: spot.left + 140 + 4 + room, y0: spot.top + 26 - (lines.length * 20 + (lines.length - 1) * 4), y1: spot.top + 26 }
+            expect(row.x1, where).toBe(layout.board.w - 8)
+            for (const mine of [plate, row]) {
+                strips(layout).forEach((strip, i) => expect(overlap(mine, strip), `${where} card ${i} ${show(mine)} ${show(strip)}`).toBe(false))
+                for (const slot of slotBoxes(layout)) expect(overlap(mine, slot.box), `${where} slot ${slot.position} ${show(mine)}`).toBe(false)
+            }
+        }
+    })
+
+    test('seven declared cards over my plate overlap more to stay within `above`, clear of every trick slot (Ruling N)', () => {
+        for (const layout of [at(375, 553, 2, 'portrait', 71), at(390, 664, 3, 'portrait', 94.67), at(1440, 900, 1, 'desktop', 142, 213)]) {
+            const where = nameOf(layout)
+            const spot = seatSpot(ME, tableTargets(layout), layout)
+            const w = layout.declared.w
+            const step = declaredStep(w, 7, spot.above)
+            expect(step, where).toBeGreaterThanOrEqual(12)
+            const cards = { x0: spot.left, x1: spot.left + w + 6 * step, y0: spot.top - 4 - layout.declared.h, y1: spot.top - 4 }
+            expect(cards.x1 - cards.x0, where).toBeLessThanOrEqual(spot.above! + 1e-9)
+            for (const slot of slotBoxes(layout)) expect(overlap(cards, slot.box), `${where} slot ${slot.position} ${show(cards)} ${show(slot.box)}`).toBe(false)
+        }
+        // 375×553 @2: 130.15 px for seven 35.5-px cards, 15.78 apart (19.53 at 45 %); 390×664 @3: 124.5 px for 47.33-px cards, 12.86 apart
+        expect(declaredStep(35.5, 7, seatSpot(ME, tableTargets(at(375, 553, 2, 'portrait', 71)), at(375, 553, 2, 'portrait', 71)).above)).toBeCloseTo((130.150 - 35.5) / 6, 3)
     })
 })
