@@ -34,13 +34,13 @@ export default [
     { name: 'rules-zvanja-reduced', path: board('call:', `${SAID}&motion=reduce`), viewports: SIZES },
     // a live belot: "Belot! bob holds all eight Pik" with the eight cards, the end sheet held back
     { name: 'rules-belot', path: board('call:', '&belot=bob:PIK&live=1'), viewports: SIZES },
-    // bob's wrong challenge during play: "No foul: bob has no challenge left"; his seat's "No challenge" tag
+    // bob's wrong challenge during play: "No foul: bob has no challenge left"; his plate's no-challenge badge
     { name: 'rules-challenge-wrong', path: board('challenge:', '&challenge=bob:2:wrong&live=1'), viewports: SIZES, setup: outcome('No foul') },
     // dave's right challenge during play: "Foul found: Team B takes the hand", the hand result held until it is said
     { name: 'rules-challenge-right', path: board('challenge:', '&challenge=dave:2:right&live=1'), viewports: SIZES, setup: outcome('Foul found') },
     // dave's right challenge in the window: the hand result already open, the banner above it (S4's open item)
     { name: 'rules-challenge-window', path: board('challenge:', '&challenge=dave:window:right&live=1'), viewports: SIZES, setup: outcome('Foul found') },
-    // a later hand: bob's "No challenge" tag, seen from carol's seat
+    // a later hand: bob's no-challenge badge, seen from carol's seat
     { name: 'rules-no-challenge', path: board(LATER, SPENT), viewports: SIZES },
     // the same, from bob's seat: his Challenge button greyed, reading "Challenge used"
     { name: 'rules-challenge-used', path: board(LATER, SPENT, 'bob'), viewports: SIZES },

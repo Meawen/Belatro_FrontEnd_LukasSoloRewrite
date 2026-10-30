@@ -56,18 +56,6 @@ function collisions(layout: Layout): string[] {
  * a change to either shows. Every other §7 layout must meet nothing.
  */
 const OPEN: Record<string, string[]> = {
-    // Ruling O: a side seat's two chip lines (and its cards, or my cards over my plate) leave no room above my column
-    // before my hand on the short phones (G1 kept: my plate stays 6 px over my hand)
-    '375x553@2 71.00/71.00': [
-        "375x553@2 71.00/71.00 mine: left#1 [8.0, 344.3, 132.0, 44.0] meets me#1 [12.0, 369.0, 94.1, 47.5] by 94.1×19.2",
-        "375x553@2 71.00/71.00 theirs: me#0 [12.0, 420.5, 355.0, 33.0] meets right#1 [235.0, 344.3, 132.0, 95.5] by 132.0×19.2",
-        "375x553@2 71.00/71.00 theirs: left#1 [8.0, 344.3, 132.0, 95.5] meets me#0 [12.0, 420.5, 355.0, 33.0] by 128.0×19.2",
-    ],
-    '390x664@3 94.67/94.67': [
-        "390x664@3 94.67/94.67 mine: left#1 [8.0, 403.9, 132.0, 44.0] meets me#1 [12.0, 438.6, 124.5, 63.3] by 124.5×9.2",
-        "390x664@3 94.67/94.67 theirs: me#0 [12.0, 506.0, 370.0, 33.0] meets right#1 [250.0, 403.9, 132.0, 111.3] by 132.0×9.2",
-        "390x664@3 94.67/94.67 theirs: left#1 [8.0, 403.9, 132.0, 111.3] meets me#0 [12.0, 506.0, 370.0, 33.0] by 128.0×9.2",
-    ],
     // never chosen: fits rejects it (its partner slot meets the partner fan; see the last test)
     '1280x720@1 142.00/213.00': [
         "1280x720@1 142.00/213.00 theirs: right#1 [630.5, 197.6, 132.0, 119.0] meets slot right [520.6, 223.0, 157.4, 201.2] by 47.5×93.6",
@@ -97,23 +85,18 @@ describe('the seat columns at the board-fit §7 sizes (spec G1, G2)', () => {
 const ME = { id: 'me', position: 'me', team: 'A', isMe: true, bot: false, cardsLeft: 8, current: true, dealer: true, bid: null, bela: true, challengeUsed: true } as const
 
 describe('my own column never reaches my hand or the trick (board-fit spec G1, §3.2)', () => {
-    test('upright, the rare full row (my plate at its widest with the countdown, D and the caller\'s badge; Bela, "Zvanja 100 + 20", "No challenge") wraps upwards beside my plate, clear of my hand\'s strips and every trick slot', () => {
-        // the chips in caption type with 6 px each side: Bela 46, Zvanja 100 + 20 138, No challenge 113; 4 px apart
-        const chips = [46, 138, 113]
+    test('upright, the rare full row (my plate at its widest: the countdown, D, the caller\'s badge and the no-challenge badge; then Bela and "Zvanja 100 + 20") stays beside my plate on one line, clear of my hand\'s strips and every trick slot', () => {
+        // Bela about 46, Zvanja 100 + 20 122.9 (measured in Chromium), 4 px apart; "No challenge" is a badge on the plate now
+        const chips = [46, 122.9]
         for (const layout of [at(375, 553, 2, 'portrait', 71), at(390, 664, 3, 'portrait', 94.67)]) {
             const where = nameOf(layout)
             const spot = seatSpot(ME, tableTargets(layout), layout)
             const room = spot.beside!.room
-            const lines = chips.reduce((rows, w) => {
-                const last = rows[rows.length - 1]
-                if (last !== undefined && last + 4 + w <= room) rows[rows.length - 1] = last + 4 + w
-                else rows.push(w)
-                return rows
-            }, [] as number[])
-            expect(lines.length, where).toBe(2)
-            // the plate (140 at most) and its timer bar; the chips from 4 px after it, bottom-aligned with it, rising a line a wrap
-            const plate = { x0: spot.left, x1: spot.left + 140, y0: spot.top, y1: spot.top + 33 }
-            const row = { x0: spot.left, x1: spot.left + 140 + 4 + room, y0: spot.top + 26 - (lines.length * 20 + (lines.length - 1) * 4), y1: spot.top + 26 }
+            expect(46 + 4 + 122.9, where).toBeLessThanOrEqual(room)
+            expect(chips.length, where).toBe(2)
+            // the plate (160 at most) and its timer bar; the chips from 4 px after it, bottom-aligned with it
+            const plate = { x0: spot.left, x1: spot.left + 160, y0: spot.top, y1: spot.top + 33 }
+            const row = { x0: spot.left, x1: spot.left + 160 + 4 + room, y0: spot.top + 6, y1: spot.top + 26 }
             expect(row.x1, where).toBe(layout.board.w - 8)
             for (const mine of [plate, row]) {
                 strips(layout).forEach((strip, i) => expect(overlap(mine, strip), `${where} card ${i} ${show(mine)} ${show(strip)}`).toBe(false))
@@ -147,9 +130,9 @@ describe('my chips and the side seats\' chips at their common size upright (revi
         return rows
     }, [] as number[])
 
-    test('a narrow plate (no D, no badge: 92.3 px in Chromium): my chips start past my declared cards\' room, so the line they wrap upwards meets neither my six or seven declared cards, nor the me slot, nor my hand', () => {
-        // measured in Chromium: "Zvanja 100 + 20" 122.9, "No challenge" 113; Bela about 46
-        const sets = { two: [122.9, 113], three: [46, 122.9, 113] }
+    test('a narrow plate (no D, no badges: 92.3 px in Chromium): my chips start past my declared cards\' room and stay on one line, meeting neither my six or seven declared cards, nor the me slot, nor my hand', () => {
+        // measured in Chromium: "Zvanja 100 + 20" 122.9; Bela about 46 ("No challenge" is a badge on the plate now)
+        const sets = { one: [122.9], two: [46, 122.9] }
         for (const layout of [at(375, 553, 2, 'portrait', 71), at(390, 664, 3, 'portrait', 94.67)]) {
             const spot = seatSpot(ME, tableTargets(layout), layout)
             const start = Math.max(spot.left + 92.3 + 4, spot.left + spot.beside!.from)
@@ -157,7 +140,7 @@ describe('my chips and the side seats\' chips at their common size upright (revi
             for (const [name, chips] of Object.entries(sets)) {
                 const rows = lines(chips, spot.beside!.room)
                 const where = `${nameOf(layout)} ${name} chips`
-                expect(rows.length, where).toBe(2)
+                expect(rows.length, where).toBe(1)
                 const boxes = rows.map((width, k) => ({ x0: start, x1: start + width, y0: spot.top + 26 - (k + 1) * 20 - k * 4, y1: spot.top + 26 - k * 20 - k * 4 }))
                 expect(Math.max(...boxes.map((b) => b.x1)), where).toBeLessThanOrEqual(layout.board.w - 8)
                 for (const n of [6, 7]) {
@@ -172,21 +155,16 @@ describe('my chips and the side seats\' chips at their common size upright (revi
         }
     })
 
-    test('a portrait side seat\'s chips under its fan take two lines (its Zvanja chip and "No challenge", about 203 px, against the room before the me slot), whichever team\'s cards show; my column clears them where the height allows, and stays off my hand where not', () => {
+    test('a portrait side seat\'s chips under its fan fit one line ("No challenge" is a badge on its plate, its Zvanja chip under the room before the me slot), whichever team\'s cards show; my column clears them and stays off my hand at every portrait size', () => {
         for (const layout of seven().filter((one) => one.kind === 'portrait')) {
             const where = nameOf(layout)
             const left = seatSpot({ ...ME, id: 'left', position: 'left', team: 'B', isMe: false }, tableTargets(layout), layout)
-            expect(86 + 4 + 113, where).toBeGreaterThan(left.maxWidth!)
+            expect(122.9, where).toBeLessThanOrEqual(left.maxWidth!)
             for (const team of ['mine', 'theirs'] as const) {
-                const boxes = seatBoxes(layout, tableTargets(layout), team)
-                const under = boxes.filter((one) => one.id === 'left')[1].box
-                expect(under.h, `${where} ${team}`).toBeCloseTo(44 + (team === 'theirs' ? 4 + layout.declared.h : 0), 9)
-                // never onto my hand
-                for (const mine of boxes.filter((one) => one.id === 'me')) strips(layout).forEach((strip) => expect(overlap(boxOf(mine.box), strip), `${where} ${team}`).toBe(false))
+                const under = seatBoxes(layout, tableTargets(layout), team).filter((one) => one.id === 'left')[1].box
+                expect(under.h, `${where} ${team}`).toBeCloseTo(20 + (team === 'theirs' ? 4 + layout.declared.h : 0), 9)
             }
-            // the short phones are open (see OPEN): the side columns reach my column there
-            const met = collisions(layout).filter((line) => / meets (me|left|right)#/.test(line))
-            expect(met, where).toEqual(OPEN[where] ?? [])
+            expect(collisions(layout), where).toEqual([])
         }
     })
 })

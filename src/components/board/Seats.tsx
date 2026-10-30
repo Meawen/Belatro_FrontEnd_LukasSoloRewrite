@@ -70,8 +70,8 @@ export interface SeatsProps {
  * the hand's end (owner, 2026-10-12; on the plate, so the seat never grows a line), and on the seat to act the
  * `turn-countdown` and its bar; the bid chips while bidding, Bela, and once play opens each winning
  * seat's zvanja chip (summaryChips) for the rest of the hand, with its declared cards until the first
- * trick is down; a quiet "No challenge" on every seat whose challenge is gone, for the rest of the game
- * (gameplay rules §6). Mine sit over my plate, which sits low by my pile: my declared cards always, and in
+ * trick is down; on every seat whose challenge is gone, for the rest of the game, a quiet badge on its plate, a
+ * crossed-out ring after the dealer's D and the caller's badge (gameplay rules §6; owner, 2026-10-30). Mine sit over my plate, which sits low by my pile: my declared cards always, and in
  * landscape, where my plate is beside my hand, my chips too (under it they would cover my hand's first cards).
  * Upright my chips sit beside my plate, wrapping upwards (board.css), and my plate keeps the countdown's width; my
  * declared cards over it overlap more where the trick slot beside them leaves less room (seatSpot's `above`). My
@@ -105,14 +105,6 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                         )}
                         {seat.bela && <Pop instant={instant}><Tag tone="mode">Bela</Tag></Pop>}
                         {chips[seat.id] && <Pop instant={instant}><Tag tone="neutral">{chips[seat.id]}</Tag></Pop>}
-                        {seat.challengeUsed && (
-                            <Pop instant={instant}>
-                                <Tag tone="neutral">
-                                    <span aria-hidden="true">No challenge</span>
-                                    <span className="sr-only">{`${seatName(model, seat.id)}: no challenge left`}</span>
-                                </Tag>
-                            </Pop>
-                        )}
                     </span>
                 );
                 const cards = declared.length > 0 && (
@@ -142,6 +134,13 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                                 <span data-testid="caller-badge" className={`board-seat__caller ${SUIT_FILL[model.trump.suit]}`}>
                                     <SuitIcon boja={model.trump.suit} />
                                     <span className="sr-only">{`${seatName(model, seat.id)} called ${model.trump.label}`}</span>
+                                </span>
+                            )}
+                            {/* its challenge is gone for the game (owner, 2026-10-30): a crossed-out ring on the plate, as the D */}
+                            {seat.challengeUsed && (
+                                <span data-testid="no-challenge-badge" className="board-seat__spent">
+                                    <PixelIcon name="ban" />
+                                    <span className="sr-only">{`${seatName(model, seat.id)}: no challenge left`}</span>
                                 </span>
                             )}
                             <span className="sr-only lg:not-sr-only text-text-2">

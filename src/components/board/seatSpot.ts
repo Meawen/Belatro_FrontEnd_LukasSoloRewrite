@@ -31,11 +31,6 @@ const PLATE_ROW = PLATE + GAP + TIMER;
 /** A row of chips: Chip.tsx's Tag is 20 px tall (`h-5`). */
 const CHIP_ROW = 20;
 /**
- * A portrait side seat's chips under its fan at their common size (Ruling O): its Zvanja chip and "No challenge", about
- * 203 px, which the room before the me slot (128–162 px) wraps to two lines.
- */
-const SIDE_CHIPS = 2 * CHIP_ROW + GAP;
-/**
  * A seat column at its common size (board-fit spec §3.2): 132 px wide; in my partner's landscape row, one common chip
  * ("Zvanja 20": caption type, 12 px uppercase, and 6 px each side) about 86 px.
  */
@@ -51,10 +46,10 @@ const BESIDE = 8;
 const CLEAR = 6;
 const MY_EDGE = 12;
 /**
- * My plate at its widest: "You", the dealer's D, the caller's badge and the countdown, whose width it keeps when it
- * isn't my turn (Seats, board.css): about 136 px.
+ * My plate at its widest: "You", the dealer's D, the caller's badge, the no-challenge badge and the countdown, whose
+ * width it keeps when it isn't my turn (Seats, board.css): about 156 px.
  */
-const MY_PLATE = 140;
+const MY_PLATE = 160;
 /** Declared cards: 45 % under the next, closer in a narrow column down to a 12-px corner; a common column shows four. */
 const OVERLAP = 0.45;
 const CORNER = 12;
@@ -222,10 +217,10 @@ export function seatSpot(seat: SeatModel, targets: Targets, layout: Layout): Sea
     const above = (left: number, top: number) =>
         Math.min(layout.board.w / 2 - CLEAR - left, slotRoom(layout, left, 'left', top - GAP - layout.declared.h, top));
     if (layout.kind === 'portrait') {
-        // under the side seats' columns at their common size (two chip lines and four cards, or two chip lines and my four
-        // cards over my plate), but never down onto my hand: G1 before G2
+        // under the side seats' columns at their common size (a chip line and four cards, or a chip line and my four cards
+        // over my plate), but never down onto my hand: G1 before G2
         const leftSeat = sideSpot(layout, 'left');
-        const clear = leftSeat.top + leftSeat.under + SIDE_CHIPS + GAP + layout.declared.h + GAP;
+        const clear = leftSeat.top + leftSeat.under + CHIP_ROW + GAP + layout.declared.h + GAP;
         const hand = Math.min(...handPlaces(layout, 8).map((card) => boundsOf(card).y0)) - CLEAR - PLATE_ROW;
         const top = Math.max(overPile.top, Math.min(clear, hand));
         const room = above(overPile.left, top);
@@ -265,8 +260,7 @@ function wrap(items: { w: number; h: number }[], room: number): { w: number; h: 
 /**
  * The estimated boxes of each seat's common column (board-fit spec §3.2), for `tableTargets` (seat ids are the
  * positions): the plate 26 tall with its timer bar (4 + 3), one row of chips 20 tall, 4-px gaps, 132 wide (capped by
- * the seat's maxWidth, never under a common chip; two lines under a portrait side fan), and up to four declared cards
- * at 45 % overlap for the seats of
+ * the seat's maxWidth, never under a common chip), and up to four declared cards at 45 % overlap for the seats of
  * `declaredTeam` only (the winners: never both teams at once). A box holding only declared cards is as wide as their
  * row. A seat may have two boxes: a side seat's plate and its chips and cards; my plate and what sits over it; my
  * partner's row and its cards on the fan's other side.
@@ -312,7 +306,7 @@ export function seatBoxes(layout: Layout, targets: Targets, declaredTeam: 'mine'
         } else {
             const x = (width: number) => (position === 'right' ? spot.left - width : spot.left);
             add(x(narrow), spot.top, narrow, PLATE_ROW);
-            add(x(w), spot.top + (spot.under ?? 0), w, (layout.kind === 'portrait' ? SIDE_CHIPS : CHIP_ROW) + cards);
+            add(x(w), spot.top + (spot.under ?? 0), w, CHIP_ROW + cards);
         }
     }
     return boxes;

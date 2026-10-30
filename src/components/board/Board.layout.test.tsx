@@ -150,8 +150,8 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
             renderBoard({ state: tableState(table[call + 1]), viewport: { width: 375, height: 553 } })
             const mine = screen.getByTestId('seat-carol')
             const chips = mine.querySelector<HTMLElement>(':scope > .board-seat__chips')!
-            // from my plate at its widest (140) to 8 px before the edge; not before my declared cards' room ends (130.15 + 4)
-            expect(px(chips, 'maxWidth')).toBe(375 - 8 - (12 + 140 + 4))
+            // from my plate at its widest (160) to 8 px before the edge; not before my declared cards' room ends (130.15 + 4)
+            expect(px(chips, 'maxWidth')).toBe(375 - 8 - (12 + 160 + 4))
             expect(Number.parseFloat(chips.style.getPropertyValue('--chips-from'))).toBeCloseTo(130.150 + 4, 3)
             // not my turn: an empty, hidden place for the countdown on my plate
             const reserve = mine.querySelector('.board-seat__name > .board-seat__seconds')!

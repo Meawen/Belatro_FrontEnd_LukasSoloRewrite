@@ -190,16 +190,18 @@ describe('Board: the challenge said out loud in the middle of the table (gamepla
 })
 
 describe('Board: the seats without a challenge (gameplay rules §6, D-6)', () => {
-    test('a quiet "No challenge" tag on the spent seat for every viewer, said "bob: no challenge left", from the banner\'s outcome, still there after the next deal', () => {
+    test('a quiet no-challenge badge on the spent seat\'s plate for every viewer, said "bob: no challenge left", from the banner\'s outcome, still there after the next deal; no "No challenge" text shows anywhere (owner, 2026-10-30)', () => {
         for (const me of PLAYERS) {
             const { rerenderWith } = live(me, challenged(table[PLAYING], 'bob', false))
             // while the banner says who, the seats are as before (the board's step before)
-            expect(screen.queryByText('No challenge'), me).toBeNull()
+            expect(screen.queryByTestId('no-challenge-badge'), me).toBeNull()
             after(WHO_MS)
             const check = (when: string) => {
                 const seat = screen.getByTestId('seat-bob')
-                expect(within(seat).getByText('No challenge'), `${me} ${when}`).toBeInTheDocument()
-                expect(within(seat).getByText(me === 'bob' ? 'You: no challenge left' : 'bob: no challenge left'), `${me} ${when}`).toHaveClass('sr-only')
+                const badge = within(seat).getByTestId('no-challenge-badge')
+                expect(within(badge).getByText(me === 'bob' ? 'You: no challenge left' : 'bob: no challenge left'), `${me} ${when}`).toHaveClass('sr-only')
+                expect(screen.getAllByTestId('no-challenge-badge'), `${me} ${when}`).toEqual([badge])
+                expect(screen.queryByText(/^no challenge$/i), `${me} ${when}`).toBeNull()
                 for (const other of PLAYERS.filter((id) => id !== 'bob')) {
                     expect(screen.getByTestId(`seat-${other}`), `${me} ${when}`).not.toHaveTextContent(/no challenge/i)
                 }
@@ -213,11 +215,31 @@ describe('Board: the seats without a challenge (gameplay rules §6, D-6)', () =>
         }
     })
 
-    test('the tag is in the seat\'s chip row, in the quiet tone', () => {
-        renderBoard({ state: tableState(spent(table[PLAYING], 'dave')) })
-        const tag = within(screen.getByTestId('seat-dave')).getByText('No challenge').closest('.ui-tag')!
-        expect(tag.closest('.board-seat__chips')).not.toBeNull()
-        expect(tag).toHaveClass('bg-surface-2', 'text-text-2')
+    test('the badge sits on the seat\'s name plate after the dealer\'s D and the caller\'s badge, before the cards left and the countdown: a crossed-out ring, no chip, no visible words (owner, 2026-10-30)', () => {
+        for (const id of PLAYERS) {
+            renderBoard({ state: tableState(spent(table[PLAYING], id)) })
+            const seat = screen.getByTestId(`seat-${id}`)
+            const badge = within(seat).getByTestId('no-challenge-badge')
+            const plate = seat.querySelector<HTMLElement>(':scope > .board-seat__name')!
+            expect(badge.parentElement, id).toBe(plate)
+            expect(badge, id).toHaveClass('board-seat__spent')
+            expect(badge.querySelector('svg'), id).toHaveAttribute('aria-hidden', 'true')
+            expect(badge.textContent, id).toBe(`${id === 'carol' ? 'You' : id}: no challenge left`)
+            expect(seat.querySelector('.board-seat__chips')?.textContent ?? '', id).not.toMatch(/challenge/i)
+            // name, D, caller's badge, then the badge, then the cards left (and the countdown, on the seat to act)
+            const order = [...plate.children]
+            const at = (el: Element | null) => (el ? order.indexOf(el) : -1)
+            const cardsLeft = within(seat).getByTestId(`cards-left-${id}`).parentElement!
+            expect(at(badge), id).toBeGreaterThan(at(plate.querySelector('.board-seat__label')))
+            expect(at(badge), id).toBeGreaterThan(at(within(seat).queryByTestId('dealer-chip')))
+            expect(at(badge), id).toBeGreaterThan(at(within(seat).queryByTestId('caller-badge')))
+            expect(at(badge), id).toBeLessThan(at(cardsLeft))
+            const countdown = within(seat).queryByTestId('turn-countdown')
+            if (countdown) expect(at(badge), id).toBeLessThan(at(countdown))
+            cleanup()
+        }
+        // the badge's look: the quiet chip's colours, no wider than the dealer's D (a 12-px mark and 1 px each side)
+        expect(css).toMatch(/\.board-seat__spent \{[^}]*display: inline-flex;[^}]*height: 16px;[^}]*padding: 0 1px;[^}]*background: var\(--surface-2\);[^}]*color: var\(--text-2\);/)
     })
 })
 
@@ -487,7 +509,7 @@ describe('Board: the step before, while the banner says who (gameplay rules §6,
             scores: [screen.getByTestId('score-a').textContent, screen.getByTestId('score-b').textContent],
             phase: screen.getByTestId('game-phase').textContent,
             hudChallenge: challengeIn(document.querySelector<HTMLElement>('.board-hud')),
-            tags: PLAYERS.filter((id) => within(screen.getByTestId(`seat-${id}`)).queryByText('No challenge') !== null),
+            tags: PLAYERS.filter((id) => within(screen.getByTestId(`seat-${id}`)).queryByTestId('no-challenge-badge') !== null),
             countdowns: screen.queryAllByTestId('turn-countdown').map((el) => el.closest('.board-seat')!.getAttribute('data-testid')),
             yourTurn: screen.queryByTestId('your-turn') !== null,
             trick: screen.queryAllByTestId('trick-card').map((el) => el.getAttribute('data-card')),
@@ -588,7 +610,7 @@ describe('Board: the step before, while the banner says who (gameplay rules §6,
         expect(sheetShown()!.challenge).toBeNull()
     })
 
-    test('a wrong challenge: until WHO_MS no "No challenge" tag, and my own Challenge is not yet "Challenge used"; at WHO_MS both', () => {
+    test('a wrong challenge: until WHO_MS no no-challenge badge, and my own Challenge is not yet "Challenge used"; at WHO_MS both', () => {
         const t = playTable({ challenge: { by: 'bob', after: 2, foul: false } })
         const said = indexOf(t, 'challenge:')
         for (const me of ['bob', 'carol']) {

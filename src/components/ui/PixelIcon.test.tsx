@@ -5,11 +5,12 @@ import { SuitIcon } from './SuitIcon'
 import { ICONS, type IconName } from './icons'
 import { CARD_ART_BASE_URL } from '../../config'
 
-// spec §3.5: the prototypes' 15 icons plus the 14 added ones; then the robot for bots (casual bots spec §7)
+// spec §3.5: the prototypes' 15 icons plus the 14 added ones; then the robot for bots (casual bots spec §7) and the
+// spent challenge's crossed-out ring on a seat's plate (board-fit, owner 2026-10-30)
 const SPEC_ICONS: IconName[] = [
     'lock', 'crown', 'door', 'trash', 'x', 'plus', 'link', 'check', 'back', 'chevron', 'more', 'user', 'eye', 'play', 'refresh',
     'home', 'cards', 'list', 'people', 'trophy', 'gear', 'book', 'shield', 'search', 'copy', 'logout', 'mail', 'warning', 'info',
-    'robot',
+    'robot', 'ban',
 ]
 
 describe('PixelIcon (spec §3.5)', () => {
