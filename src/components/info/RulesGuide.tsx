@@ -6,6 +6,8 @@ import { Chip, Panel, PlayingCard, Segmented, Tag } from '../ui';
 import { cx } from '../ui/cx';
 import { RankChip } from '../rank/RankChip';
 import { useElementWidth } from '../rank/useElementWidth';
+import { useT } from '../../i18n/t';
+import type { RulesDoc } from '../../i18n/docs/types';
 import {
     BID_HAND,
     DECLARATIONS,
@@ -43,6 +45,7 @@ interface StepProps {
 
 /** One step: a number, a title, the picture, at most two short lines, and the way to the full rule. */
 function Step({ n, title, rule, text, onOpenRule, children }: StepProps) {
+    const t = useT();
     const open = (event: MouseEvent) => {
         event.preventDefault();
         onOpenRule(rule);
@@ -59,7 +62,7 @@ function Step({ n, title, rule, text, onOpenRule, children }: StepProps) {
                 {children}
                 <p className="t-callout text-text-2">{text}</p>
                 <a href={`#${rule}`} onClick={open} className="t-callout -my-2 inline-flex min-h-11 items-center self-start text-text-2 hover:text-text">
-                    Full rule ›
+                    {t.rules.guide.fullRule}
                 </a>
             </Panel>
         </li>
@@ -68,18 +71,20 @@ function Step({ n, title, rule, text, onOpenRule, children }: StepProps) {
 
 /** Step 1: the table, partners opposite. */
 function Table() {
+    const t = useT();
     return (
         <div className="relative h-32 w-64 max-w-full bg-felt-a shadow-[inset_0_0_0_3px_var(--rim)] notch-6">
-            <span className="absolute top-2 left-1/2 -translate-x-1/2"><Tag tone="team-a">Partner</Tag></span>
-            <span className="absolute bottom-2 left-1/2 -translate-x-1/2"><Tag tone="team-a">You</Tag></span>
-            <span className="absolute top-1/2 left-2 -translate-y-1/2"><Tag tone="team-b">Opponent</Tag></span>
-            <span className="absolute top-1/2 right-2 -translate-y-1/2"><Tag tone="team-b">Opponent</Tag></span>
+            <span className="absolute top-2 left-1/2 -translate-x-1/2"><Tag tone="team-a">{t.rules.guide.partner}</Tag></span>
+            <span className="absolute bottom-2 left-1/2 -translate-x-1/2"><Tag tone="team-a">{t.common.you}</Tag></span>
+            <span className="absolute top-1/2 left-2 -translate-y-1/2"><Tag tone="team-b">{t.rules.guide.opponent}</Tag></span>
+            <span className="absolute top-1/2 right-2 -translate-y-1/2"><Tag tone="team-b">{t.rules.guide.opponent}</Tag></span>
         </div>
     );
 }
 
 /** Step 2: one suit's order and points, as another suit or as trump; the cards fly to their new places. */
 function CardOrder() {
+    const t = useT();
     const [trump, setTrump] = useState(false);
     const { ref, w, gap } = useCardSize();
     const order = trump ? TRUMP_HIGH_FIRST : PLAIN_HIGH_FIRST;
@@ -87,10 +92,10 @@ function CardOrder() {
     return (
         <div className="flex flex-col gap-3">
             <Segmented
-                label="Card order"
+                label={t.rules.guide.order.label}
                 options={[
-                    { value: 'plain', label: 'Other suits' },
-                    { value: 'trump', label: 'Trump' },
+                    { value: 'plain', label: t.rules.guide.order.plain },
+                    { value: 'trump', label: t.rules.guide.trump },
                 ]}
                 value={trump ? 'trump' : 'plain'}
                 onChange={(value) => setTrump(value === 'trump')}
@@ -99,7 +104,7 @@ function CardOrder() {
             <div ref={ref} className="w-full">
                 {/* keyed on the card size: once the row is measured (or a phone turns) the cards are placed afresh, not slid
                     from where the fallback width put them; only a switch of order slides them */}
-                <ol key={w} aria-label={trump ? 'Herc as trump, highest first' : 'Herc as another suit, highest first'} className="relative" style={{ height: h + 22 }}>
+                <ol key={w} aria-label={trump ? t.rules.guide.order.trumpList : t.rules.guide.order.plainList} className="relative" style={{ height: h + 22 }}>
                     {order.map((rank, i) => (
                         <m.li
                             key={rank}
@@ -123,6 +128,7 @@ function CardOrder() {
 
 /** Step 3: six cards, two to come, then name a trump or pass. */
 function Bidding() {
+    const t = useT();
     const { ref, w } = useCardSize();
     return (
         <div ref={ref} className="flex flex-col gap-3">
@@ -130,16 +136,16 @@ function Bidding() {
                 {BID_HAND.map((card) => (
                     <PlayingCard key={cardId(card)} card={card} width={w} />
                 ))}
-                <span className="ml-2 flex gap-1" aria-label="two more cards to come" role="img">
+                <span className="ml-2 flex gap-1" aria-label={t.rules.guide.toCome} role="img">
                     <PlayingCard back={1} width={w} />
                     <PlayingCard back={1} width={w} />
                 </span>
             </div>
             <div className="flex flex-wrap gap-2">
                 <Chip tone="trump" suit="HERC">
-                    Call Herc
+                    {t.board.bid.call(t.cards.suit.HERC)}
                 </Chip>
-                <Chip>Pass</Chip>
+                <Chip>{t.board.pass}</Chip>
             </div>
         </div>
     );
@@ -147,6 +153,7 @@ function Bidding() {
 
 /** Step 4: a trick to try: tap a card, read whether it may be played and why. */
 function FollowSuit() {
+    const t = useT();
     const [chosen, setChosen] = useState<string | null>(null);
     const { ref, w } = useCardSize();
     const pick = FOLLOW_HAND.find((entry) => cardId(entry.card) === chosen) ?? null;
@@ -154,16 +161,16 @@ function FollowSuit() {
         <div ref={ref} className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
                 <Chip tone="trump" suit="HERC">
-                    Trump
+                    {t.rules.guide.trump}
                 </Chip>
-                <span className="t-footnote text-text-2">Karo 9 was led. Which card may you play?</span>
+                <span className="t-footnote text-text-2">{t.rules.guide.follow.question}</span>
             </div>
             <div className="flex flex-wrap items-end gap-4">
                 <div className="flex flex-col items-center gap-1">
                     <PlayingCard card={FOLLOW_LED} width={w} />
-                    <span className="t-caption text-text-2">Led</span>
+                    <span className="t-caption text-text-2">{t.rules.guide.follow.led}</span>
                 </div>
-                <ul aria-label="Your cards" className="flex flex-wrap items-end gap-1 pt-2">
+                <ul aria-label={t.rules.guide.follow.yourCards} className="flex flex-wrap items-end gap-1 pt-2">
                     {FOLLOW_HAND.map(({ card }) => {
                         const id = cardId(card);
                         const on = chosen === id;
@@ -186,7 +193,7 @@ function FollowSuit() {
                 </ul>
             </div>
             <p data-testid="follow-verdict" aria-live="polite" className={cx('t-callout', !pick ? 'text-text-2' : pick.legal ? 'text-success' : 'text-danger-text')}>
-                {pick ? pick.verdict : 'Tap a card to see if you may play it.'}
+                {pick ? t.rules.guide.follow.verdict[pick.verdict] : t.rules.guide.follow.prompt}
             </p>
         </div>
     );
@@ -213,13 +220,14 @@ function Declarations() {
 
 /** Step 7: a foul the game lets through. */
 function Foul() {
+    const t = useT();
     const { ref, w } = useCardSize();
     return (
         <div ref={ref} className="flex pb-2">
             <span className="relative">
                 <PlayingCard card={{ boja: 'KARA', rank: 'AS' }} width={w} />
                 <span className="absolute -bottom-2 left-1/2 -translate-x-1/2">
-                    <Tag tone="bad">Illegal</Tag>
+                    <Tag tone="bad">{t.rules.guide.illegal}</Tag>
                 </span>
             </span>
         </div>
@@ -227,6 +235,8 @@ function Foul() {
 }
 
 export interface RulesGuideProps {
+    /** Each step's title and lines, from the Rules document in the site's language. */
+    steps: RulesDoc['steps'];
     /** Opens the full rules at a section. */
     onOpenRule: (rule: RuleSection) => void;
 }
@@ -235,39 +245,40 @@ export interface RulesGuideProps {
  * The Rules page's visual guide (ranks spec §9.1, owner 2026-10-11): eight short steps built from the real cards,
  * two of them to try; each links to its full rule.
  */
-export function RulesGuide({ onOpenRule }: RulesGuideProps) {
+export function RulesGuide({ steps, onOpenRule }: RulesGuideProps) {
+    const t = useT();
     const step = { onOpenRule };
     return (
         <section aria-labelledby="rules-guide" className="space-y-3">
             <h2 id="rules-guide" className="t-headline text-text">
-                How to play
+                {t.rules.guide.heading}
             </h2>
-            <ol aria-label="How to play" className="flex flex-col gap-3">
-                <Step n={1} title="Two teams" rule="rules-scoring" text="Partners sit opposite. The first team to 1001 points wins." {...step}>
+            <ol aria-label={t.rules.guide.heading} className="flex flex-col gap-3">
+                <Step n={1} title={steps.teams.title} rule="rules-scoring" text={steps.teams.text} {...step}>
                     <Table />
                 </Step>
-                <Step n={2} title="32 cards, two orders" rule="rules-cards" text="In trump the Decko and the 9 jump to the top. The last trick is worth 10 more: 162 points a hand." {...step}>
+                <Step n={2} title={steps.cards.title} rule="rules-cards" text={steps.cards.text} {...step}>
                     <CardOrder />
                 </Step>
-                <Step n={3} title="Name trump or pass" rule="rules-bidding" text="Six cards each. Name a trump or pass; if all pass, the dealer must name one. Then two more cards." {...step}>
+                <Step n={3} title={steps.bidding.title} rule="rules-bidding" text={steps.bidding.text} {...step}>
                     <Bidding />
                 </Step>
-                <Step n={4} title="Follow suit" rule="rules-playing" text="Follow suit and beat the best card if you can. No card of that suit? Play a trump, higher if you can. Neither? Play anything." {...step}>
+                <Step n={4} title={steps.follow.title} rule="rules-playing" text={steps.follow.text} {...step}>
                     <FollowSuit />
                 </Step>
-                <Step n={5} title="Declarations and bela" rule="rules-declarations" text="Said out loud when trump is named, before the first card: 3 in a row 20, 4 in a row 50, 5 to 7 in a row 100; all eight of a suit wins the game. The team with the best one scores all of its own. Bela you declare with Play + Bela." {...step}>
+                <Step n={5} title={steps.declarations.title} rule="rules-declarations" text={steps.declarations.text} {...step}>
                     <Declarations />
                 </Step>
-                <Step n={6} title="Win the hand" rule="rules-scoring" text="The team that named trump must score more, or it falls and the other team takes the whole hand. All eight tricks: 90 more." {...step}>
+                <Step n={6} title={steps.hand.title} rule="rules-scoring" text={steps.hand.text} {...step}>
                     <div className="flex flex-wrap gap-2">
-                        <Tag tone="warn">Padanje</Tag>
-                        <Tag tone="win">Capot +90</Tag>
+                        <Tag tone="warn">{t.rules.guide.padanje}</Tag>
+                        <Tag tone="win">{t.rules.guide.capot}</Tag>
                     </div>
                 </Step>
-                <Step n={7} title="Challenge a foul" rule="rules-challenge" text="Illegal cards aren't blocked. Press Challenge during the hand or in the 10 seconds after: if the other team fouled, your team wins the hand. A wrong challenge costs no points, but you lose your challenge for the rest of the game." {...step}>
+                <Step n={7} title={steps.challenge.title} rule="rules-challenge" text={steps.challenge.text} {...step}>
                     <Foul />
                 </Step>
-                <Step n={8} title="Ranks" rule="rules-ranks" text="Everyone starts at 1200. After 10 placement games your rank follows your rating." {...step}>
+                <Step n={8} title={steps.ranks.title} rule="rules-ranks" text={steps.ranks.text} {...step}>
                     <div className="flex flex-wrap gap-1.5">
                         {RULE_RANKS.map((rank) => (
                             <RankChip key={rank.key} rank={rank} />

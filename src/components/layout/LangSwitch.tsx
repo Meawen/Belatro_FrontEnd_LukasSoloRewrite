@@ -3,8 +3,9 @@ import { setLang, useLang, type Lang } from '../../i18n/lang';
 import { useT } from '../../i18n/t';
 
 /**
- * The compact HR · EN switch (spec §1.1) in the signed-in shell's top row. A shell component, not a design-system
- * one: it knows the language store. The codes read the same in both languages; a 44-px target each.
+ * The compact HR · EN switch (spec §1.1) in the signed-in shell's top row and the public frame's header. A shell
+ * component, not a design-system one: it knows the language store. The codes read the same in both languages; a 44-px
+ * target each.
  */
 export function LangSwitch() {
     const lang = useLang();

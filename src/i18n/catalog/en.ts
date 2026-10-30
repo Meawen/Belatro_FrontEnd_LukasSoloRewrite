@@ -34,7 +34,8 @@ export const en = {
         confirmEmail: 'Confirm email',
         notFound: 'Page not found',
     },
-    // the compact HR · EN switch at the top of the signed-in shell: its group's name for screen readers
+    // the compact HR · EN switch at the top of the signed-in shell and of the public pages: its group's name for screen
+    // readers
     langSwitch: {
         label: 'Site language',
     },
@@ -1159,6 +1160,48 @@ export const en = {
             empty: 'No tricks won yet this hand.',
             trick: (n: number) => `Trick ${n}`,
             lastTrick: 'Last trick',
+        },
+    },
+    // the Rules page (/rules): the guide's pictures and buttons, and the full rules' disclosure; its prose (the opening
+    // line, the guide's steps, every rule) is in src/i18n/docs/rules.{hr,en}.tsx
+    rules: {
+        // the guide (RulesGuide): its heading (also the steps list's name) and each step's link to its full rule
+        guide: {
+            heading: 'How to play',
+            fullRule: 'Full rule ›',
+            partner: 'Partner',
+            opponent: 'Opponent',
+            // step 2's switch between a suit's two orders, and the row's name for screen readers
+            order: {
+                label: 'Card order',
+                plain: 'Other suits',
+                plainList: 'Herc as another suit, highest first',
+                trumpList: 'Herc as trump, highest first',
+            },
+            trump: 'Trump',
+            toCome: 'two more cards to come',
+            // step 4: a trick to try
+            follow: {
+                question: 'Karo 9 was led. Which card may you play?',
+                led: 'Led',
+                yourCards: 'Your cards',
+                prompt: 'Tap a card to see if you may play it.',
+                // the line after a tap, by card (rulesData FOLLOW_HAND)
+                verdict: {
+                    beats: 'Yes: it follows suit and beats the 9.',
+                    mustBeat: 'Not this one: you can beat the 9 with your Kralj, so you must.',
+                    followFirst: 'Not this one: you have Karo, so you must follow suit before you trump.',
+                    mustFollow: 'Not this one: you have Karo, so you must follow suit.',
+                },
+            },
+            padanje: 'Padanje',
+            capot: 'Capot +90',
+            illegal: 'Illegal',
+        },
+        // the disclosure that holds every rule
+        full: {
+            heading: 'Full rules',
+            note: 'Every rule, as the server enforces it.',
         },
     },
     // relative times ("5 minutes ago"), wherever a time is shown

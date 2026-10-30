@@ -1,5 +1,6 @@
 import React from 'react';
 import { PublicFrame } from '../layout/PublicFrame';
+import type { LegalDoc } from '../../i18n/docs/types';
 
 export interface PublicPageProps {
     title: string;
@@ -24,3 +25,16 @@ export const Section: React.FC<{ title: string; level?: 2 | 3; id?: string; chil
         </section>
     );
 };
+
+/** Privacy or Terms in the site's language: the date line, the opening line, then each section as an h2. */
+export const LegalText: React.FC<{ doc: LegalDoc }> = ({ doc }) => (
+    <>
+        <p className="t-footnote text-text-2">{doc.updated}</p>
+        <p>{doc.intro}</p>
+        {doc.sections.map((section) => (
+            <Section key={section.title} title={section.title}>
+                {section.body}
+            </Section>
+        ))}
+    </>
+);

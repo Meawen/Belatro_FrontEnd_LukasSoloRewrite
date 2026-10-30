@@ -69,6 +69,12 @@ describe('the catalogs (spec §1.2)', () => {
         expect([1, 2].map(en.board.seat.cards)).toEqual(['card', 'cards'])
     })
 
+    test("S5's Croatian, corrected (Ruling 25): a four agrees with karte, and a challenge that finds no foul", () => {
+        expect(hr.board.moment.fourMine('A', 100)).toBe('Imaš četiri iste, to tuče niz: ekipa A piše 100')
+        expect(hr.board.moment.four('ivo', 'A', 100)).toBe('ivo ima četiri iste, to tuče niz: ekipa A piše 100')
+        expect(hr.board.say.failed('ivo')).toBe('ivo prijavljuje prekršaj, ali prekršaja nema')
+    })
+
     test("S4's Croatian, corrected (Ruling 23)", () => {
         expect(hr.table.removed).toBe('Više nisi za ovim stolom.')
         expect(hr.table.removeTitle('ana')).toBe('Maknuti igrača ana sa stola?')

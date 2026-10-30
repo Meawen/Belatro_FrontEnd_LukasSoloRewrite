@@ -14,17 +14,17 @@ const RAW_CLASS = new RegExp(`(?<![\\w-])(?:[a-z-]+:)*(?:${UTILITY})-(?:${PALETT
 // Not new URL(…, import.meta.url): Vite rewrites that form into an import.
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** The shipped .ts/.tsx/.css files under src/components and src/pages, and src/index.css. */
+/** The shipped .ts/.tsx/.css files under src/components, src/pages and src/i18n/docs, and src/index.css. */
 function styledFiles(): { path: string; text: string }[] {
     const under = (folder: string) => readdirSync(join(SRC, folder), { recursive: true, encoding: 'utf8' })
         .map((relative) => `${folder}/${relative.split('\\').join('/')}`)
         .filter((path) => /\.(tsx?|css)$/.test(path) && !/\.test\.tsx?$/.test(path))
-    return [...under('components'), ...under('pages'), 'index.css']
+    return [...under('components'), ...under('pages'), ...under('i18n/docs'), 'index.css']
         .map((path) => ({ path: `src/${path}`, text: readFileSync(join(SRC, path), 'utf8') }))
 }
 
 describe('colour tokens only (spec §3.2)', () => {
-    test('no raw palette class in src/components, src/pages or index.css', () => {
+    test('no raw palette class in src/components, src/pages, src/i18n/docs or index.css', () => {
         const hits = styledFiles().flatMap(({ path, text }) => text.split('\n').flatMap((line, index) =>
             [...line.matchAll(RAW_CLASS)].map((match) => `${path}:${index + 1}: ${match[0]}`)))
         expect(hits).toEqual([])

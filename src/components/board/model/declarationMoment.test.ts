@@ -289,8 +289,8 @@ describe('the moment in Croatian', () => {
             seat('lana', null),
             seat('me', 100, { kind: 'FOUR', height: 'AS', declarations: [four('AS')] }),
         ], { winnerTeam: 'A', total: 100, decidedBy: 'FOUR' })
-        expect(momentAt(fourMine, 'me', T0 + 3400)!.line).toBe('Imaš četiri ista, to tuče niz: ekipa A piše 100')
-        expect(momentAt(fourMine, 'ivo', T0 + 3400)!.line).toBe('me ima četiri ista, to tuče niz: ekipa A piše 100')
+        expect(momentAt(fourMine, 'me', T0 + 3400)!.line).toBe('Imaš četiri iste, to tuče niz: ekipa A piše 100')
+        expect(momentAt(fourMine, 'ivo', T0 + 3400)!.line).toBe('me ima četiri iste, to tuče niz: ekipa A piše 100')
         expect(momentAt(tied, 'ivo', T0 + 3400)!.line).toBe('Imaš prednost po redu: ekipa B piše 20')
         expect(summaryChips(byValue)).toEqual({ ivo: 'Zvanja 50 + 20' })
         const belot = zvanja([seat('ivo', null), seat('me', null)], { total: 0, belot: { playerId: 'ivo', suit: 'PIK' }, playOpensAt: null })

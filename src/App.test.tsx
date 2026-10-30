@@ -108,11 +108,11 @@ describe('Home with a game in progress (spec §2.5 R-33)', () => {
 })
 
 describe('Privacy and Terms (R-40)', () => {
-    test('/privacy is readable signed out and names who runs the service', () => {
+    test('/privacy is readable signed out and names who runs the service', async () => {
         auth.isAuthenticated = false
         renderAt('/privacy')
         expect(screen.getByRole('heading', { level: 1, name: 'Privacy notice' })).toBeInTheDocument()
-        expect(screen.getByText('Stiglja is run by Lukas Miholić, Bregana, Croatia.')).toBeInTheDocument()
+        expect(await screen.findByText('Stiglja is run by Lukas Miholić, Bregana, Croatia.')).toBeInTheDocument()
     })
 
     test('/terms is readable signed out', () => {
@@ -138,19 +138,19 @@ describe('Privacy and Terms (R-40)', () => {
 })
 
 describe('Rules (R-41)', () => {
-    test('/rules is readable signed out and says a challenge is per game (gameplay rules §1)', () => {
+    test('/rules is readable signed out and says a challenge is per game (gameplay rules §1)', async () => {
         auth.isAuthenticated = false
         renderAt('/rules')
         expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
-        expect(screen.getByText('Each player has one challenge per game. A right challenge keeps it; a wrong one uses it up.')).toBeInTheDocument()
+        expect(await screen.findByText('Each player has one challenge per game. A right challenge keeps it; a wrong one uses it up.')).toBeInTheDocument()
     })
 
     // owner 2026-10-11: Rules sits in the shell, with the sidebar, like every other signed-in page
-    test('signed in: /rules is in the shell, with the navigation', () => {
+    test('signed in: /rules is in the shell, with the navigation', async () => {
         renderAt('/rules')
         expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
         expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
-        expect(screen.getByRole('heading', { level: 2, name: 'How to play' })).toBeInTheDocument()
+        expect(await screen.findByRole('heading', { level: 2, name: 'How to play' })).toBeInTheDocument()
         expect(document.title).toBe('Rules · Stiglja')
     })
 
