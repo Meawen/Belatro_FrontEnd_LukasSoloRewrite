@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
-import { devHands, devStream, devTable, frameOf, parseDevOptions, recordedStream, resolveAt, type RecordedViews } from './devTable'
+import { LONG_NAMES, SEATS, devHands, devStream, devTable, frameOf, parseDevOptions, recordedStream, resolveAt, type RecordedViews } from './devTable'
 import { blokRows, endedHand, handTricks } from '../components/board/model/hands'
-import { deliveries, indexOf, playTable } from '../test/fixtures/views/table'
+import { deliveries, indexOf, playTable, type FanOut } from '../test/fixtures/views/table'
 
 const table = playTable({ hands: 2 })
 
@@ -10,7 +10,7 @@ describe('the dev board’s data (spec §4.17)', () => {
         expect(parseDevOptions('')).toEqual({
             seat: 'alice', seed: 7, trump: 'HERC', hands: 2, scores: null, at: null, chaos: false, layout: 'fit',
             reduced: false, effects: null, controls: true, skip: false, play: false, speed: 1, names: false, fixture: null,
-            bots: [], live: false, t: 0, belot: null, challenge: null,
+            bots: [], live: false, t: 0, belot: null, challenge: null, busy: false,
         })
         expect(parseDevOptions('?fixture=recorded-k3f9q').fixture).toBe('recorded-k3f9q')
         expect(parseDevOptions('?seat=carol&at=window-open&layout=812x375&motion=reduce&effects=off&chaos=1&controls=0&skip=1&play=1&speed=2&scores=990,900&trump=KARA'))
@@ -27,6 +27,26 @@ describe('the dev board’s data (spec §4.17)', () => {
             for (const seat of [...v.teamA, ...v.teamB, ...v.seatingOrder]) expect([seat.id, seat.bot === true]).toEqual([seat.id, seat.id === 'bob' || seat.id === 'dave'])
         }
         expect(JSON.parse(JSON.stringify(marked).split(',"bot":true').join(''))).toEqual(devTable(options, 0))
+    })
+
+    test('busy=1: every seat has said bela and spent its challenge in every view, public and private, so every tag column is at its biggest; nothing else changes', () => {
+        expect(parseDevOptions('?busy=1').busy).toBe(true)
+        expect(parseDevOptions('?busy=yes').busy).toBe(false)
+        const options = { seed: 7, trump: 'HERC' as const, hands: 1, scores: null }
+        const everyone = (ids: readonly string[]) => Object.fromEntries(ids.map((id) => [id, true]))
+        const viewsOf = (fanOuts: FanOut[]) => fanOuts.flatMap((f) => [f.public, ...Object.values(f.private).map((p) => p.publicPart)])
+        const busy = devTable({ ...options, busy: true }, 0)
+        for (const v of viewsOf(busy)) {
+            expect(v.challengeUsedByPlayer).toEqual(everyone(SEATS))
+            expect(v.belaDeclaredByPlayer).toEqual(everyone(SEATS))
+        }
+        const unmarked = (fanOuts: FanOut[]) => JSON.parse(JSON.stringify(fanOuts, (key, value) => (key === 'challengeUsedByPlayer' || key === 'belaDeclaredByPlayer' ? undefined : value)))
+        expect(unmarked(busy)).toEqual(unmarked(devTable(options, 0)))
+        // with names=long the marks follow the long names
+        for (const v of viewsOf(devTable({ ...options, busy: true, names: true }, 0))) {
+            expect(v.challengeUsedByPlayer).toEqual(everyone(Object.values(LONG_NAMES)))
+            expect(v.belaDeclaredByPlayer).toEqual(everyone(Object.values(LONG_NAMES)))
+        }
     })
 
     test('live=1 and t: step into `at` live, that long ago; belot= and challenge= reach the table (gameplay rules §1, §3)', () => {
