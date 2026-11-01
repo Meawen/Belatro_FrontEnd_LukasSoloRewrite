@@ -206,8 +206,9 @@ describe('fits: the trick, my hand and the seat columns at a candidate size (boa
 
     test('the seat columns (G2, Ruling J): 768×600 @1, a tablet, at 71/142 misses only on my column meeting the left seat\'s, so layoutFor picks 71/71 there', () => {
         expect(misfits(at(768, 600, 1, 'tablet', 71, 142))).toEqual([
-            'mine: me#1 [12.0, 234.4, 188.2, 95.0] meets left [61.7, 208.0, 132.0, 33.0] by 132.0×6.6',
-            'mine: me#1 [12.0, 234.4, 188.2, 95.0] meets left [61.7, 245.0, 132.0, 20.0] by 132.0×20.0',
+            // my declared cards start past the left fan's backs (Ruling X), into the left seat's column beside the fan
+            'mine: me#1 [61.7, 234.4, 188.2, 95.0] meets left [61.7, 208.0, 132.0, 33.0] by 132.0×6.6',
+            'mine: me#1 [61.7, 234.4, 188.2, 95.0] meets left [61.7, 245.0, 132.0, 20.0] by 132.0×20.0',
             'theirs: me#0 [12.0, 333.4, 132.0, 57.0] meets left [61.7, 245.0, 188.2, 119.0] by 82.3×30.6',
         ])
         // 71/142 is the pair right before 71/71 in the order, and nothing before it fits either: the columns alone decide
@@ -215,6 +216,13 @@ describe('fits: the trick, my hand and the seat columns at a candidate size (boa
         expect(order.indexOf('71/71')).toBe(order.indexOf('71/142') + 1)
         const picked = layoutFor({ width: 768, height: 600, dpr: 1 })
         expect([picked.kind, picked.trick.w, picked.hand.w]).toEqual(['tablet', 71, 71])
+    })
+
+    test('the card backs (Ruling X): 1280×720 @1 at 142/213 names a side seat\'s plate on the partner fan\'s end back, with 8 backs; no seat\'s column meets a back at any §7 pick', () => {
+        expect(misfits(at(1280, 720, 1, 'desktop', 142, 213))).toContain("mine: right#0 [630.5, 178.3, 132.0, 33.0] meets partner's back 7 of 8 [551.0, 112.5, 82.0, 102.9] by 2.5×33.0")
+        for (const layout of seven().filter((one) => nameOf(one) !== '1280x720@1 142.00/213.00')) {
+            expect(misfits(layout).filter((why) => /^(mine|theirs): .* meets (left|right|partner)'s back/.test(why)), nameOf(layout)).toEqual([])
+        }
     })
 
     test('the hover lift (Rulings H, P): 1440×900 @1 at 213/284 names a lifted hand card on the left slot, and never one on my own slot', () => {

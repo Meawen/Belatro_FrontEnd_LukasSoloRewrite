@@ -9,7 +9,7 @@ import { fanPlaces, fanStepOf, handPlaces, trickSlots } from './model/cardTarget
 import { layoutFor } from './model/fit'
 import { find, indexOf, playTable } from '../../test/fixtures/views/table'
 import { box, hull, overlap } from '../../test/fixtures/layouts'
-import { LONG_NAMES, devTable, parseDevOptions } from '../../dev/devTable'
+import { LONG_NAMES, devTable, parseDevOptions, resolveAt } from '../../dev/devTable'
 
 // board.css as written (Vitest doesn't load CSS); not new URL(…, import.meta.url), which Vite turns into an import
 const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'board.css'), 'utf8')
@@ -193,6 +193,43 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
             expect(cards).toHaveLength(7)
             expect(cards.map((card) => card.style.marginLeft)).toEqual(['', ...Array(6).fill(`${declaredStep(w, 7, px(above, 'maxWidth')) - w}px`)])
         })
+    })
+
+    test('my seat keeps clear of the left seat\'s card backs: in landscape my declared cards start past its fan and my chips wrap upwards, lifted where a lone Zvanja chip comes first; on wide windows my plate starts past the fan where it reaches down beside my pile (board-fit spec G2; Ruling X)', () => {
+        expect(css).toMatch(/\.board\[data-layout="landscape"\] \.board-seat\[data-position="me"\] \.board-seat__above > \.board-seat__chips \{[^}]*flex-wrap: wrap-reverse;/)
+        // seed 1254, the hand's first card: I declared six cards
+        const t = playTable({ seed: 1254 })
+        const frame = t[indexOf(t, 'play:')]
+        // the dev board's busy column (Task 5): every seat with Bela and no challenge left, long names
+        const options = parseDevOptions('?seat=carol&seed=1254&names=long&busy=1&at=play:')
+        const at = resolveAt(devTable(options, 0), options.at)
+        const busyFrame = devTable(options, Date.now(), at)[at]
+        for (const [state, me] of [[tableState(frame, 'carol', 'snapshot'), 'carol'], [tableState(busyFrame, LONG_NAMES.carol, 'snapshot'), LONG_NAMES.carol]] as const) {
+            withDpr(2, () => {
+                const { unmount } = renderBoard({ state, me, viewport: { width: 667, height: 323 } })
+                const layout = layoutFor({ width: 667, height: 323, dpr: 2 })
+                const mine = screen.getByTestId(`seat-${me}`)
+                const above = mine.querySelector<HTMLElement>(':scope > .board-seat__above')!
+                const cards = above.querySelector<HTMLElement>('.board-seat__declared')!
+                const fanRight = Math.max(...fanPlaces(layout, 'left', 8).map((back) => box(back).x1))
+                expect(px(mine, 'left') + Number.parseFloat(cards.style.marginLeft), me).toBeCloseTo(fanRight + 6, 9)
+                // lifted only where my Zvanja chip comes first: after Bela it wraps up a line instead
+                const chips = [...above.querySelectorAll('.board-seat__chips > *')].map((one) => one.textContent)
+                expect(chips.at(-1), me).toMatch(/^Zvanja/)
+                // 4 px and the 12.83-px lift that keeps a lone wide chip 6 px over my hand's first card
+                if (chips[0]?.startsWith('Zvanja')) expect(Number(/^calc\(100% \+ ([\d.]+)px\)$/.exec(above.style.bottom)?.[1]), me).toBeCloseTo(4 + 12.828, 3)
+                else expect(above.style.bottom, me).toBe('')
+                unmount()
+            })
+        }
+        for (const dpr of [1, 2]) {
+            withDpr(dpr, () => {
+                const { unmount } = renderBoard({ state: tableState(frame, 'carol', 'snapshot'), viewport: { width: 1440, height: 900 } })
+                const layout = layoutFor({ width: 1440, height: 900, dpr })
+                expect(px(screen.getByTestId('seat-carol'), 'left'), `@${dpr}`).toBeCloseTo(Math.max(...fanPlaces(layout, 'left', 8).map((back) => box(back).x1)) + 6, 9)
+                unmount()
+            })
+        }
     })
 
     test('long names (Review Focus 2): each seat\'s plate at its maxWidth stops short of every trick slot, at 375×553 @2 and 667×323 @2', () => {

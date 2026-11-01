@@ -21,6 +21,17 @@ export interface SeatSpot {
      * declared cards' room, so a line they wrap upwards never lands on those cards), and run `room` px at most.
      */
     beside?: { from: number; room: number };
+    /**
+     * Mine, on wide windows and in landscape: px from my plate's left edge to my declared cards', where the left seat's fan
+     * reaches down beside them (Ruling X: no seat column on a card back); they then run `above` px from there.
+     */
+    cardsFrom?: number;
+    /**
+     * Mine in landscape: px my chips and declared cards over my plate rise above the usual 4-px gap where my Zvanja chip
+     * comes first (Seats), so that a chip wider than my plate's room, overhanging on the line nearest the plate, stays off
+     * my hand's cards (G1). After another chip it wraps up a line instead (board.css).
+     */
+    lift?: number;
 }
 
 /** The seat column (board.css `.board-seat`): the plate, its gap, and the turn timer bar under the plate. */
@@ -50,6 +61,8 @@ const MY_EDGE = 12;
  * width it keeps when it isn't my turn (Seats, board.css): about 156 px.
  */
 const MY_PLATE = 160;
+/** The widest single chip a column holds: "Zvanja 100 + 20", 122.9 px in Chromium. */
+const WIDE_CHIP = 124;
 /** Declared cards: 45 % under the next, closer in a narrow column down to a 12-px corner; a common column shows four. */
 const OVERLAP = 0.45;
 const CORNER = 12;
@@ -230,12 +243,44 @@ export function seatSpot(seat: SeatModel, targets: Targets, layout: Layout): Sea
         const room = above(overPile.left, top);
         return { ...overPile, top, above: room, beside: { from: room + GAP, room: layout.board.w - 8 - (overPile.left + Math.max(MY_PLATE, room) + GAP) } };
     }
-    if (layout.kind !== 'landscape') return { ...overPile, above: above(overPile.left, overPile.top) };
+    const dh = layout.declared.h;
+    if (layout.kind !== 'landscape') {
+        // over my pile, unless the left seat's fan reaches down beside it: then my plate and its chips start 6 px past the
+        // fan's backs, and so may my declared cards over the plate (Ruling X)
+        const top = overPile.top;
+        const left = pastLeftFan(layout, overPile.left, MY_PLATE, top, top + PLATE_ROW + GAP + CHIP_ROW);
+        const from = pastLeftFan(layout, left, declaredRow(layout), top - GAP - dh, top - GAP);
+        return { left, top, above: above(from, top), ...(from > left ? { cardsFrom: from - left } : {}) };
+    }
     const top = layout.board.h - 8 - PLATE_ROW;
-    const rows: [number, number] = [top - GAP - (CHIP_ROW + GAP + layout.declared.h), top + PLATE_ROW];
+    const rows: [number, number] = [top - GAP - (CHIP_ROW + GAP + dh), top + PLATE_ROW];
     const hand = handPlaces(layout, 8).map(boundsOf);
     const room = Math.min(layout.board.w / 2 - CLEAR - MY_EDGE, slotRoom(layout, MY_EDGE, 'left', ...rows), roomBefore(hand, MY_EDGE, 'left', ...rows));
-    return { left: MY_EDGE, top, maxWidth: room };
+    // the line of chips nearest my plate may hold a chip wider than `room`: it stays 6 px over my hand's cards it reaches
+    const reach = MY_EDGE + Math.max(room, WIDE_CHIP);
+    const handTop = Math.min(...hand.filter((card) => card.x0 < reach && card.x1 > MY_EDGE).map((card) => card.y0));
+    const lift = Math.max(0, top - GAP - (handTop - CLEAR));
+    const base = top - GAP - lift;
+    // my declared cards over my chips: past the left seat's fan where it reaches down beside them (Ruling X; with a second
+    // line of chips, as the busy column wraps, too), up to the board's middle, the trick slots and my hand in their rows
+    const cards: [number, number] = [base - CHIP_ROW - GAP - dh, base - CHIP_ROW - GAP];
+    const from = pastLeftFan(layout, MY_EDGE, declaredRow(layout), cards[0] - CHIP_ROW - GAP, cards[1]);
+    const lifted = lift > 0 ? { lift } : {};
+    if (from === MY_EDGE) return { left: MY_EDGE, top, maxWidth: room, ...lifted };
+    const cardsRoom = Math.min(layout.board.w / 2 - CLEAR - from, slotRoom(layout, from, 'left', ...cards), roomBefore(hand, from, 'left', ...cards));
+    return { left: MY_EDGE, top, maxWidth: room, cardsFrom: from - MY_EDGE, above: cardsRoom, ...lifted };
+}
+
+/**
+ * Where a box of mine `w` px wide at `left`, in the rows `y0…y1`, starts clear of the left seat's backs (Ruling X): 6 px
+ * past its fan of eight where the fan meets the box, else at `left`.
+ */
+function pastLeftFan(layout: Layout, left: number, w: number, y0: number, y1: number): number {
+    let x1 = -Infinity;
+    for (const back of fanPlaces(layout, 'left', 8).map(boundsOf)) {
+        if (back.y0 < y1 && back.y1 > y0 && back.x0 < left + w && back.x1 + CLEAR > left) x1 = Math.max(x1, back.x1);
+    }
+    return x1 === -Infinity ? left : Math.max(left, x1 + CLEAR);
 }
 
 /** tableTargets' seats: each seat's id is its position, my team A. */
@@ -282,15 +327,23 @@ export function seatBoxes(layout: Layout, targets: Targets, declaredTeam: 'mine'
         const narrow = columnWidth(layout, spot.maxWidth, false);
         const add = (x: number, y: number, width: number, h: number) => boxes.push({ id: seat.id, box: { x, y, w: width, h } });
         if (position === 'me') {
+            const from = spot.left + (spot.cardsFrom ?? 0);
             if (layout.kind === 'landscape') {
+                const base = spot.top - GAP - (spot.lift ?? 0);
                 add(spot.left, spot.top, narrow, PLATE_ROW);
-                add(spot.left, spot.top - GAP - (CHIP_ROW + cards), w, CHIP_ROW + cards);
+                if (!spot.cardsFrom) {
+                    add(spot.left, base - (CHIP_ROW + cards), w, CHIP_ROW + cards);
+                    continue;
+                }
+                // my chips over my plate; my declared cards over them, past the left seat's fan (Ruling X)
+                add(spot.left, base - CHIP_ROW, narrow, CHIP_ROW);
+                if (declared) add(from, base - CHIP_ROW - GAP - dh, declaredRow(layout, spot.above), dh);
                 continue;
             }
             // upright my plate and my chips beside it as far as they may run (one row, bottom-aligned), else my chips under it
             if (layout.kind === 'portrait') add(spot.left, spot.top, layout.board.w - 8 - spot.left, PLATE_ROW);
             else add(spot.left, spot.top, narrow, PLATE_ROW + GAP + CHIP_ROW);
-            if (declared) add(spot.left, spot.top - GAP - dh, declaredRow(layout, spot.above), dh);
+            if (declared) add(from, spot.top - GAP - dh, declaredRow(layout, spot.above), dh);
         } else if (position === 'partner') {
             const here = declared && !spot.aside;
             if (layout.kind === 'landscape') {

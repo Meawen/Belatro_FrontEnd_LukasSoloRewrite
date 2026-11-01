@@ -39,7 +39,8 @@ What the investigation found (screenshots of master 5dbdae2 at real browser wind
     later card on top), as in the approved landscape mockup D. But each trick card shows at least one of its two
     corner indices (the art prints the rank and suit top-left and, turned, bottom-right). (Builder's call, from the
     review.)
-- G2. Tags, chips, declared cards and HUD controls don't cover each other either.
+- G2. Tags, chips, declared cards and HUD controls don't cover each other either, nor the opponents' card backs (with
+  7 or 8 cards in a hand; owner, after the before/after).
 - G3. Phones upright: the trick and the hand are one crisp step bigger than today wherever they fit (§3.2).
 - G4. Desktops: card sizes come from the window. The table grows on big monitors, shrinks on short laptop windows,
   and looks the same at 100 %, 125 % and 150 % zoom (§3.3).

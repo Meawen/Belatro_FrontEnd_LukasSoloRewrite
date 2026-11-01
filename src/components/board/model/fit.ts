@@ -68,7 +68,7 @@ export function layoutFor(viewport: Viewport): Layout {
 }
 
 /**
- * Whether the table fits at this layout's sizes (board-fit spec §2 G1 and G2, §3.2, §4; Rulings E, H, J, P, S″), with my 8
+ * Whether the table fits at this layout's sizes (board-fit spec §2 G1 and G2, §3.2, §4; Rulings E, H, J, P, S″, X), with my 8
  * hand cards and 8 backs at every other seat:
  * - every hand card leaves its strip (`STRIP`) and the hand stays within the board's width;
  * - the four trick slots, each at its widest tilt, lie inside the board below the HUD and above `bandBottom`, and meet
@@ -78,7 +78,7 @@ export function layoutFor(viewport: Viewport): Layout {
  *   side slots (my own it may: Ruling P, as Ruling E: the lift shows only on enabled cards, on my turn);
  * - the piles meet no fan of 7 backs (a pile draws nothing until a trick is taken, and by then a seat holds 7 at most);
  * - the seats' columns (`seatBoxes`, whichever team's declared cards show) meet none of the HUD's boxes, my hand's
- *   exposed strips, nor each other.
+ *   exposed strips, each other, nor any fan's backs, 8 or 7 of them (Ruling X).
  * Not checked, by design (spec §5): the bid panel, the declaration moment's panel, the challenge banner, the Bela
  * prompt, the sheets and cards in flight.
  */
@@ -210,8 +210,10 @@ function walk(layout: Layout, found: string[] | null): boolean {
         }
     }
 
-    // the seats' columns, whichever team's declared cards show: off the slots, the HUD, my hand's strips and each other
+    // the seats' columns, whichever team's declared cards show: off the slots, the HUD, my hand's strips, each other and the backs
     const strips = handStrips(layout, hand);
+    // every fan at 8 backs and at 7: no seat's plate, chips or declared cards on a card back (Ruling X)
+    const fans = OPPONENTS.flatMap((position) => [8, 7].map((n) => ({ position, backs: fanPlaces(layout, position, n).map(boundsOf) })));
     for (const team of TEAMS) {
         const seats = seatBoxes(layout, targets, team).map(({ id, box }) => ({ id, box: boxOf(box) }));
         for (let i = 0; i < seats.length; i++) {
@@ -229,6 +231,12 @@ function walk(layout: Layout, found: string[] | null): boolean {
             for (let k = i + 1; k < seats.length; k++) {
                 const other = seats[k];
                 if (other.id !== seat.id && meets(seat.box, other.box) && miss(() => `${name()} meets ${other.id} ${show(other.box)} by ${by(seat.box, other.box)}`)) return false;
+            }
+            for (const fan of fans) {
+                for (let k = 0; k < fan.backs.length; k++) {
+                    const back = fan.backs[k];
+                    if (meets(seat.box, back) && miss(() => `${name()} meets ${fan.position}'s back ${k} of ${fan.backs.length} ${show(back)} by ${by(seat.box, back)}`)) return false;
+                }
             }
         }
     }

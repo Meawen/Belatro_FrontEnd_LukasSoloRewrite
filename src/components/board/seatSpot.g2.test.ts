@@ -23,6 +23,12 @@ function collisions(layout: Layout): string[] {
             for (const slot of slotBoxes(layout)) if (overlap(one.b, slot.box)) met.push(`${where}: ${name} meets slot ${slot.position} ${show(slot.box)} by ${by(one.b, slot.box)}`)
             huds.forEach((hud, i) => { if (overlap(one.b, hud)) met.push(`${where}: ${name} meets hud#${i} ${show(hud)} by ${by(one.b, hud)}`) })
             hand.forEach((strip, i) => { if (overlap(one.b, strip)) met.push(`${where}: ${name} meets my hand card ${i}'s strip ${show(strip)} by ${by(one.b, strip)}`) })
+            // the opponents' card backs, 8 and 7 of them (Ruling X)
+            for (const position of ['right', 'partner', 'left'] as const) {
+                for (const n of [8, 7]) {
+                    fanPlaces(layout, position, n).map(box).forEach((back, i) => { if (overlap(one.b, back)) met.push(`${where}: ${name} meets ${position}'s back ${i} of ${n} ${show(back)} by ${by(one.b, back)}`) })
+                }
+            }
             for (const other of boxes) {
                 if (other.id <= one.id || !overlap(one.b, other.b)) continue
                 met.push(`${where}: ${name} meets ${other.id}#${other.part} ${show(other.b)} by ${by(one.b, other.b)}`)
@@ -38,16 +44,29 @@ function collisions(layout: Layout): string[] {
  */
 const OPEN: Record<string, string[]> = {
     // never chosen: fits rejects it (its partner slot meets the partner fan; see the last test). Since the band no longer
-    // reserves the hover lift (Ruling P) the cross sits 17.7 px lower here, and my column meets the left seat's chip row
+    // reserves the hover lift (Ruling P) the cross sits 17.7 px lower here; my column starts past the left fan's backs
+    // (Ruling X) and meets the left slot; the side plates meet the partner fan's end backs (Ruling X counts card backs)
     '1280x720@1 142.00/213.00': [
-        "1280x720@1 142.00/213.00 mine: left#1 [197.5, 215.3, 132.0, 20.0] meets me#1 [12.0, 230.9, 188.2, 95.0] by 2.7×4.5",
+        "1280x720@1 142.00/213.00 mine: me#0 [197.5, 329.9, 132.0, 57.0] meets slot left [282.0, 240.7, 157.4, 201.2] by 47.5×57.0",
+        "1280x720@1 142.00/213.00 mine: me#1 [197.5, 230.9, 107.0, 95.0] meets slot left [282.0, 240.7, 157.4, 201.2] by 22.5×85.1",
+        "1280x720@1 142.00/213.00 mine: right#0 [630.5, 178.3, 132.0, 33.0] meets partner's back 7 of 8 [551.0, 112.5, 82.0, 102.9] by 2.5×33.0",
+        "1280x720@1 142.00/213.00 mine: right#1 [630.5, 215.3, 132.0, 20.0] meets partner's back 7 of 8 [551.0, 112.5, 82.0, 102.9] by 2.5×0.2",
+        "1280x720@1 142.00/213.00 mine: left#0 [197.5, 178.3, 132.0, 33.0] meets partner's back 0 of 8 [327.0, 112.5, 82.0, 102.9] by 2.5×33.0",
+        "1280x720@1 142.00/213.00 mine: left#1 [197.5, 215.3, 132.0, 20.0] meets partner's back 0 of 8 [327.0, 112.5, 82.0, 102.9] by 2.5×0.2",
+        "1280x720@1 142.00/213.00 mine: left#1 [197.5, 215.3, 132.0, 20.0] meets me#1 [197.5, 230.9, 107.0, 95.0] by 107.0×4.5",
+        "1280x720@1 142.00/213.00 theirs: me#0 [197.5, 329.9, 132.0, 57.0] meets slot left [282.0, 240.7, 157.4, 201.2] by 47.5×57.0",
+        "1280x720@1 142.00/213.00 theirs: right#0 [630.5, 178.3, 132.0, 33.0] meets partner's back 7 of 8 [551.0, 112.5, 82.0, 102.9] by 2.5×33.0",
         "1280x720@1 142.00/213.00 theirs: right#1 [630.5, 215.3, 132.0, 119.0] meets slot right [520.6, 240.7, 157.4, 201.2] by 47.5×93.6",
+        "1280x720@1 142.00/213.00 theirs: right#1 [630.5, 215.3, 132.0, 119.0] meets partner's back 7 of 8 [551.0, 112.5, 82.0, 102.9] by 2.5×0.2",
+        "1280x720@1 142.00/213.00 theirs: left#0 [197.5, 178.3, 132.0, 33.0] meets partner's back 0 of 8 [327.0, 112.5, 82.0, 102.9] by 2.5×33.0",
         "1280x720@1 142.00/213.00 theirs: left#1 [197.5, 215.3, 132.0, 119.0] meets slot left [282.0, 240.7, 157.4, 201.2] by 47.5×93.6",
+        "1280x720@1 142.00/213.00 theirs: left#1 [197.5, 215.3, 132.0, 119.0] meets partner's back 0 of 8 [327.0, 112.5, 82.0, 102.9] by 2.5×0.2",
+        "1280x720@1 142.00/213.00 theirs: left#1 [197.5, 215.3, 132.0, 119.0] meets me#0 [197.5, 329.9, 132.0, 57.0] by 132.0×4.5",
     ],
 }
 
 describe('the seat columns at the board-fit §7 sizes (spec G1, G2)', () => {
-    test('no seat\'s common column meets a trick slot (±4.8°), the HUD\'s boxes, another seat\'s or my hand\'s exposed strips, whichever team\'s declared cards show', () => {
+    test('no seat\'s common column meets a trick slot (±4.8°), the HUD\'s boxes, another seat\'s, my hand\'s exposed strips or an opponent\'s card backs (8 or 7; Ruling X), whichever team\'s declared cards show', () => {
         const layouts = seven().filter((layout) => !(nameOf(layout) in OPEN))
         expect(layouts).toHaveLength(18 - Object.keys(OPEN).length)
         expect(layouts.flatMap(collisions)).toEqual([])

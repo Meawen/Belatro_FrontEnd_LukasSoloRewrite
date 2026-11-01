@@ -354,6 +354,12 @@
     flex-wrap: wrap-reverse;
     width: max-content;
 }
+/* sideways: my chips over my plate wrap upwards, so the line nearest my plate (and my hand's first cards) takes the
+   first chips and a wide Zvanja chip after them goes up a line, clear of my hand (Ruling X; Seats lifts the column
+   where that chip comes first) */
+.board[data-layout="landscape"] .board-seat[data-position="me"] .board-seat__above > .board-seat__chips {
+    flex-wrap: wrap-reverse;
+}
 /* the winners' declared cards (gameplay rules §6), small and overlapping, until the first trick is down */
 .board-seat__declared {
     display: flex;

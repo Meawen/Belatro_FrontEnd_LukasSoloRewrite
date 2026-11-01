@@ -74,7 +74,9 @@ export interface SeatsProps {
  * crossed-out ring after the dealer's D and the caller's badge (gameplay rules §6; owner, 2026-10-30). Mine sit over my plate, which sits low by my pile: my declared cards always, and in
  * landscape, where my plate is beside my hand, my chips too (under it they would cover my hand's first cards).
  * Upright my chips sit beside my plate, wrapping upwards (board.css), and my plate keeps the countdown's width; my
- * declared cards over it overlap more where the trick slot beside them leaves less room (seatSpot's `above`). My
+ * declared cards over it overlap more where the trick slot beside them leaves less room (seatSpot's `above`), and start
+ * past the left seat's backs where its fan reaches down beside them (`cardsFrom`, Ruling X; in landscape my chips stay
+ * over my plate, kept to its `maxWidth`, and only my cards move). My
  * partner's sit under its plate, in the column beside its fan; in landscape on the plate's row, its declared cards on
  * the fan's other side where the row has no room
  * (`board-seat__aside`, seatSpot's `aside`). A side seat's chips and cards sit in `board-seat__under` (seatSpot's
@@ -94,7 +96,7 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
             {model.seats.map((seat) => {
                 const turn = seat.current && model.turn?.playerId === seat.id ? model.turn : null;
                 const declared = showCards ? model.zvanja?.seats.find((one) => one.playerId === seat.id && one.declarations.length > 0)?.cards ?? [] : [];
-                const { under, aside, above, beside, ...spot } = seatSpot(seat, targets, layout);
+                const { under, aside, above, beside, cardsFrom, lift, ...spot } = seatSpot(seat, targets, layout);
                 const step = declaredStep(cardWidth, declared.length, aside?.room ?? above ?? spot.maxWidth);
                 const chipRow = (
                     <span className="board-seat__chips" style={beside === undefined ? undefined : ({ '--chips-from': `${beside.from}px`, maxWidth: beside.room } as CSSProperties)}>
@@ -108,7 +110,7 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                     </span>
                 );
                 const cards = declared.length > 0 && (
-                    <span role="group" aria-label={seat.isMe ? 'Your declared cards' : `${seat.id}'s declared cards`} className="board-seat__declared">
+                    <span role="group" aria-label={seat.isMe ? 'Your declared cards' : `${seat.id}'s declared cards`} className="board-seat__declared" style={cardsFrom ? { marginLeft: cardsFrom } : undefined}>
                         <Pop instant={instant} delay={0.06}>
                             {declared.map((card, i) => (
                                 <PlayingCard key={cardId(card)} card={card} width={cardWidth} style={i ? { marginLeft: step - cardWidth } : undefined} />
@@ -160,7 +162,7 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                         ) : seat.isMe ? (
                             <>
                                 {!chipsOver && chipRow}
-                                {(cards || chipsOver) && <span className="board-seat__above" style={{ maxWidth: above ?? spot.maxWidth }}>{cards}{chipsOver && chipRow}</span>}
+                                {(cards || chipsOver) && <span className="board-seat__above" style={{ maxWidth: chipsOver ? spot.maxWidth : (cardsFrom ?? 0) + (above ?? 0), ...(lift && chips[seat.id] && !seat.bid && !seat.bela ? { bottom: `calc(100% + ${4 + lift}px)` } : {}) }}>{cards}{chipsOver && chipRow}</span>}
                             </>
                         ) : (
                             <>

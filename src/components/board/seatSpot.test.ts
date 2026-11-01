@@ -165,7 +165,7 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
         expect(spotAt(at(812, 375, 2, 'landscape', 71), 'left')).toEqual({ left: expect.closeTo(56.589, 3), top: expect.closeTo(147.735, 3), under: 37, maxWidth: expect.closeTo(254.361, 3) })
     })
 
-    test('me: upright over my pile and under the side seats\' columns at their common size, but never onto my hand; on wide windows over my pile, as today; in landscape at the bottom left, beside my hand (§4.1, §4.2; Ruling I P1)', () => {
+    test('me: upright over my pile and under the side seats\' columns at their common size, but never onto my hand; on wide windows over my pile, or past the left seat\'s backs where its fan reaches down beside it; in landscape at the bottom left, beside my hand (§4.1, §4.2; Rulings I P1, X)', () => {
         for (const layout of seven()) {
             const targets = tableTargets(layout)
             const spot = seatSpot(seat('me'), targets, layout)
@@ -175,9 +175,20 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
             const today = { left: Math.max(12, pileLeft - 4), top: Math.max(layout.hud + 8, pileTop - 34) }
             const where = nameOf(layout)
             // my declared cards over my plate: up to the middle and 6 px before any trick slot in their rows (Ruling N)
-            const above = (top: number) => Math.min(layout.board.w / 2 - 6 - today.left, roomBefore(slotBoxes(layout).map((one) => one.box), today.left, 'left', top - 4 - layout.declared.h, top))
+            const above = (top: number, from = today.left) => Math.min(layout.board.w / 2 - 6 - from, roomBefore(slotBoxes(layout).map((one) => one.box), from, 'left', top - 4 - layout.declared.h, top))
+            // the left seat's backs, 8 and 7 of them (Ruling X)
+            const backs = [8, 7].flatMap((n) => fanPlaces(layout, 'left', n).map(box))
+            const clearOfBacks = (b: Box) => backs.every((back) => !overlap(b, back))
             if (layout.kind === 'tablet' || layout.kind === 'desktop') {
-                expect(spot, where).toEqual({ ...today, above: expect.closeTo(above(today.top), 9) })
+                // over my pile at its height; past the left fan where it reaches my plate and its chips, else at the pile
+                expect(spot.top, where).toBe(today.top)
+                const plate = { x0: spot.left, x1: spot.left + 160, y0: spot.top, y1: spot.top + 33 + 4 + 20 }
+                expect(clearOfBacks(plate), where).toBe(true)
+                if (spot.left !== today.left) expect(clearOfBacks({ ...plate, x0: today.left, x1: today.left + 160 }), where).toBe(false)
+                // my declared cards over it, from cardsFrom, clear of the backs too, up to the middle and the slots in their rows
+                const from = spot.left + (spot.cardsFrom ?? 0)
+                expect(spot.above, where).toBeCloseTo(above(spot.top, from), 9)
+                expect(clearOfBacks({ x0: from, x1: from + spot.above!, y0: spot.top - 4 - layout.declared.h, y1: spot.top - 4 }), where).toBe(true)
             } else if (layout.kind === 'portrait') {
                 // the side seat's chip line and four cards (or its chip line and my four cards over my plate), then 4 px; but
                 // my plate and its timer bar stay 6 px over my hand's cards
@@ -193,11 +204,27 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
                 const rows: [number, number] = [top - 4 - (20 + 4 + layout.declared.h), top + 33]
                 const hand = handPlaces(layout, 8).map(box)
                 const room = Math.min(layout.board.w / 2 - 6 - 12, roomBefore(slotBoxes(layout).map((one) => one.box), 12, 'left', ...rows), roomBefore(hand, 12, 'left', ...rows))
-                expect(spot, where).toEqual({ left: 12, top, maxWidth: expect.closeTo(room, 9) })
+                expect(spot, where).toMatchObject({ left: 12, top, maxWidth: expect.closeTo(room, 9) })
+                // the line of chips nearest my plate, as wide as a Zvanja 100 + 20 chip (124) where that is wider than the
+                // room, stays 6 px over my hand's cards it reaches (Ruling X)
+                const base = top - 4 - (spot.lift ?? 0)
+                const reach = hand.filter((card) => card.x0 < 12 + Math.max(room, 124) && card.x1 > 12)
+                expect(base, where).toBeLessThanOrEqual(Math.min(...reach.map((card) => card.y0)) - 6 + 1e-9)
+                if (spot.lift) expect(base, where).toBeCloseTo(Math.min(...reach.map((card) => card.y0)) - 6, 9)
+                // my declared cards over my chips, past the left seat's backs (Ruling X)
+                const from = 12 + (spot.cardsFrom ?? 0)
+                const cards = { x0: from, x1: from + (spot.above ?? room), y0: base - 20 - 4 - layout.declared.h, y1: base - 20 - 4 }
+                expect(clearOfBacks(cards), where).toBe(true)
             }
         }
-        // 812×375 @2: my hand's first card, turned −7.7°, starts at 182.46
-        expect(spotAt(at(812, 375, 2, 'landscape', 71), 'me')).toEqual({ left: 12, top: 334, maxWidth: expect.closeTo(164.456, 3) })
+        // 1440×900 @1: the left fan reaches down beside my pile, so my plate starts 6 px past its backs (Ruling X; was 12)
+        const wide = at(1440, 900, 1, 'desktop', 142, 213)
+        expect(spotAt(wide, 'me').left).toBeCloseTo(Math.max(...fanPlaces(wide, 'left', 8).map(box).map((b) => b.x1)) + 6, 9)
+        // 667×323 @2: my cards 44.59 px past my plate's left edge, past the left fan; the column 12.83 px higher for a wide chip
+        expect(spotAt(at(667, 323, 2, 'landscape', 71), 'me')).toEqual({ left: 12, top: 282, maxWidth: expect.closeTo(91.956, 3), cardsFrom: expect.closeTo(44.589, 3), above: expect.closeTo(181.861, 3), lift: expect.closeTo(12.828, 3) })
+        // 812×375 @2: my hand's first card, turned −7.7°, starts at 182.46; my cards start past the left fan, which reaches
+        // their rows once a second line of chips lifts them (Ruling X)
+        expect(spotAt(at(812, 375, 2, 'landscape', 71), 'me')).toEqual({ left: 12, top: 334, maxWidth: expect.closeTo(164.456, 3), cardsFrom: expect.closeTo(44.589, 3), above: expect.closeTo(304.061, 3) })
         // 375×553 @2: the side seats' columns from 344.27 put my plate at 419.77, 0.73 px above my hand's limit (420.50); my
         // declared cards stop 6 px before the me slot (from 148.15), my chips start at 12 + 134.15, 191 px wide
         expect(spotAt(at(375, 553, 2, 'portrait', 71), 'me')).toEqual({ left: 12, top: expect.closeTo(419.772, 3), above: expect.closeTo(130.150, 3), beside: { from: expect.closeTo(134.150, 3), room: 191 } })
@@ -209,7 +236,8 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
             const boxes = seatBoxes(layout, tableTargets(layout), team)
             const mine = boxes.filter((one) => one.id === 'me').map((one) => boxOf(one.box))
             const left = boxes.filter((one) => one.id === 'left').map((one) => boxOf(one.box))
-            expect(mine.length, team).toBe(2)
+            // my plate, then my chips over it and (with my team's cards) my declared cards past the left fan (Ruling X)
+            expect(mine.length, team).toBe(team === 'mine' ? 3 : 2)
             expect(left.length, team).toBe(2)
             for (const a of mine) for (const b of left) expect(overlap(a, b), `${team}: ${JSON.stringify(a)} ${JSON.stringify(b)}`).toBe(false)
         }
@@ -281,7 +309,9 @@ describe('seatBoxes: each seat\'s common column (board-fit spec §3.2): the plat
         expect(seatBoxes(narrow, tableTargets(narrow), 'mine').filter((b) => b.id === 'me').map((b) => [b.box.x, b.box.y, b.box.w, b.box.h])).toEqual([
             // up to my hand's first card, 6 px clear (91.96 px), never under a common chip
             [12, me.top, expect.closeTo(91.956, 3), 33],
-            [12, me.top - 4 - (20 + 4 + 47.5), expect.closeTo(91.956, 3), 20 + 4 + 47.5],
+            // my chips over it, lifted 12.83 px for a wide chip; my cards over them past the left fan (Ruling X)
+            [12, expect.closeTo(me.top - 4 - me.lift! - 20, 9), expect.closeTo(91.956, 3), 20],
+            [expect.closeTo(12 + me.cardsFrom!, 9), expect.closeTo(me.top - 4 - me.lift! - 20 - 4 - 47.5, 9), expect.closeTo(35.5 * 2.65, 9), 47.5],
         ])
     })
 })
