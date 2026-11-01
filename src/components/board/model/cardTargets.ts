@@ -320,6 +320,14 @@ function pilePlaces(layout: Layout, n: number, myTeam: Team): Record<Team, Targe
         : { A: pileTarget(theirs, 8), B: pileTarget(mine, -8) };
 }
 
+/**
+ * My team's pile with my full hand of 8, from the layout alone: where my seat's plate sits over it (seatSpot), so my plate
+ * never moves as my hand shrinks, though the pile itself drops a little with each card I play.
+ */
+export function fullHandPile(layout: Layout): Target {
+    return pilePlaces(layout, 8, 'A').A;
+}
+
 /** Where every card goes for this model and layout (spec §5.6). Pure: the board animates elements here. */
 export function cardTargets(model: BoardModel, layout: Layout): Targets {
     const cards: Record<CardId, Target> = {};

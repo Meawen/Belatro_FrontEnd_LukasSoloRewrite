@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach } from 'vitest'
+import { describe, test, expect, afterEach, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useBoardViewport } from './useBoardViewport'
 import { layoutFor } from './model/fit'
@@ -34,6 +34,36 @@ describe('useBoardViewport follows a zoom (board-fit spec §6, Review Focus 1)',
         // crisp at the new density: whole device pixels per art pixel
         for (const size of [after.trick, after.hand]) expect(Math.abs((size.w * 1.25) / 71 - Math.round((size.w * 1.25) / 71))).toBeLessThan(1e-9)
         expect(after.viewport.dpr).not.toBe(before.viewport.dpr)
+    })
+
+    test('a move to a screen of another density fires no resize: the resolution query\'s change reaches the viewport, and the hook then watches the new density (final review)', () => {
+        const queries: { media: string; listeners: Set<() => void> }[] = []
+        vi.stubGlobal('matchMedia', (media: string) => {
+            const entry = { media, listeners: new Set<() => void>() }
+            queries.push(entry)
+            return {
+                matches: true, media,
+                addEventListener: (_type: string, listener: () => void) => entry.listeners.add(listener),
+                removeEventListener: (_type: string, listener: () => void) => entry.listeners.delete(listener),
+            }
+        })
+        try {
+            setWindow(1440, 900, 1)
+            const { result, unmount } = renderHook(() => useBoardViewport())
+            const watching = () => queries.filter((one) => one.listeners.size > 0).map((one) => one.media)
+            expect(watching()).toEqual(['(resolution: 1dppx)'])
+            act(() => {
+                // dragged onto a 2× screen: the density changes, the window's CSS size doesn't, and no resize fires
+                setWindow(1440, 900, 2)
+                for (const listener of [...queries.find((one) => one.media === '(resolution: 1dppx)')!.listeners]) listener()
+            })
+            expect(result.current.viewport).toEqual({ width: 1440, height: 900, dpr: 2 })
+            expect(watching()).toEqual(['(resolution: 2dppx)'])
+            unmount()
+            expect(watching()).toEqual([])
+        } finally {
+            vi.unstubAllGlobals()
+        }
     })
 
     test('a density change alone (the window keeps its CSS size) still reaches the viewport', () => {

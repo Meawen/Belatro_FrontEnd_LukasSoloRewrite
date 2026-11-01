@@ -355,3 +355,45 @@ describe('declaredStep (board-fit spec §3.2 give-way 1): a seat\'s declared car
         expect(declaredStep(71, 1, 50)).toBe(0)
     })
 })
+
+describe('my seat stays put as my hand shrinks (board-fit spec anti-goal: no reflow during play; final review)', () => {
+    /** A grid sample of every kind, and the windows where the review saw my plate or cards jump. */
+    const sample = (): Layout[] => {
+        const out: Layout[] = []
+        for (const dpr of [1, 1.25, 2]) {
+            for (let width = 1024; width <= 2560; width += 192) for (let height = 520; height <= 1440; height += 115) out.push(layoutFor({ width, height, dpr }))
+            for (let width = 768; width < 1024; width += 64) for (let height = 600; height <= 1300; height += 175) out.push(layoutFor({ width, height, dpr }))
+        }
+        for (const dpr of [2, 3]) {
+            for (let width = 320; width < 768; width += 56) for (let height = 520; height <= 1000; height += 120) out.push(layoutFor({ width, height, dpr }))
+            for (let width = 568; width <= 1000; width += 72) for (let height = 300; height <= 500; height += 50) out.push(layoutFor({ width, height, dpr }))
+        }
+        for (const [width, height, dpr] of [[1920, 969, 1], [1920, 953, 1], [1680, 969, 1], [1728, 963, 2], [2560, 1335, 1], [1536, 714, 1.25], [1440, 789, 1], [1600, 789, 1]] as const) out.push(layoutFor({ width, height, dpr }))
+        return out
+    }
+
+    test('seatSpot(me) and seatBoxes are the same with 1 to 8 cards in my hand, at every §7 layout and on a grid sample of every kind, though my pile drops as the hand shrinks', () => {
+        const me = model.seats.find((one) => one.isMe)!
+        expect(model.hand).toHaveLength(8)
+        const layouts = [...seven(), ...sample()]
+        expect(new Set(layouts.map((layout) => layout.kind))).toEqual(new Set(['portrait', 'landscape', 'tablet', 'desktop']))
+        let dropped = 0
+        for (const layout of layouts) {
+            const at = (n: number) => {
+                const targets = cardTargets({ ...model, hand: model.hand.slice(0, n) }, layout)
+                return { spot: seatSpot(me, targets, layout), mine: seatBoxes(layout, targets, 'mine'), theirs: seatBoxes(layout, targets, 'theirs'), pile: targets.piles.A }
+            }
+            const full = at(8)
+            for (let n = 1; n < 8; n++) {
+                const now = at(n)
+                const where = `${nameOf(layout)} ${n} cards`
+                expect(now.spot, where).toEqual(full.spot)
+                expect(now.mine, where).toEqual(full.mine)
+                expect(now.theirs, where).toEqual(full.theirs)
+            }
+            if (at(1).pile.top !== full.pile.top) dropped++
+        }
+        // the pile itself still follows the hand (it sits over the hand's left end), on the windows where it lies over it
+        expect(dropped).toBeGreaterThan(0)
+    })
+})

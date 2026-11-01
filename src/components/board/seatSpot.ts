@@ -1,5 +1,5 @@
 import type { BoardModel, SeatModel, SeatPosition } from './model/boardModel';
-import { boundsOf, fanPlaces, fanStepOf, handPlaces, hudBoxes, trickSlots, type Layout, type Rect, type Targets } from './model/cardTargets';
+import { boundsOf, fanPlaces, fanStepOf, fullHandPile, handPlaces, hudBoxes, trickSlots, type Layout, type Rect, type Targets } from './model/cardTargets';
 
 /** A seat's place on the board: its plate's top-left corner (or, with `transform`, its top right). */
 export interface SeatSpot {
@@ -219,14 +219,18 @@ function sideBoxes(layout: Layout, position: 'left' | 'right'): Box[] {
  * - portrait: over my pile, and under the side seats' columns at their common size, but never onto my hand; my chips
  *   beside my plate, after it and past my declared cards' room, wrapping upwards within `beside` (never down onto my
  *   hand, never onto my cards); my declared cards over it within `above`;
- * - tablet, desktop: over my pile, as today, my declared cards over it within `above`;
+ * - tablet, desktop: over my pile, or past the left seat's backs where its fan reaches down beside it (Rulings X, Y), my
+ *   declared cards over it within `above`;
  * - landscape: at the bottom left, beside my hand, my chips and declared cards over the plate, up to my hand's first
  *   card and any trick slot beside them.
+ * "My pile" is where it lies with my full hand (`fullHandPile`): the live pile in `_targets` drops as my hand shrinks,
+ * and my plate must not follow it. `_targets` is not read; the callers keep passing it.
  */
-export function seatSpot(seat: SeatModel, targets: Targets, layout: Layout): SeatSpot {
+export function seatSpot(seat: SeatModel, _targets: Targets, layout: Layout): SeatSpot {
     if (seat.position === 'partner' && !seat.isMe) return partnerSpot(layout);
     if (!seat.isMe) return sideSpot(layout, seat.position === 'left' ? 'left' : 'right');
-    const pile = targets.piles[seat.team ?? 'A'];
+    // over my pile as it lies with my full hand (not the live pile, which drops as my hand shrinks): my plate stays put
+    const pile = fullHandPile(layout);
     const pileTop = pile.top + (pile.height * (1 - pile.scale)) / 2;
     const pileLeft = pile.left + (pile.width * (1 - pile.scale)) / 2;
     const overPile = { left: Math.max(MY_EDGE, pileLeft - 4), top: Math.max(layout.hud + 8, pileTop - 34) };
