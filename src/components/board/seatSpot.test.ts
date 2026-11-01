@@ -230,6 +230,35 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
         expect(spotAt(at(375, 553, 2, 'portrait', 71), 'me')).toEqual({ left: 12, top: expect.closeTo(419.772, 3), above: expect.closeTo(130.150, 3), beside: { from: expect.closeTo(134.150, 3), room: 191 } })
     })
 
+    test('moved past the left fan on a wide window, my plate stops 6 px short of every trick slot (±4.8°) in its rows, at the sizes layoutFor picks over 1024–2560 × 520–1440 at dpr 1, 1.25, 1.5 and 2 (board-fit spec G1; Ruling Y)', () => {
+        let moved = 0
+        for (const dpr of [1, 1.25, 1.5, 2]) {
+            for (let width = 1024; width <= 2560; width += 64) {
+                for (let height = 520; height <= 1440; height += 40) {
+                    const layout = layoutFor({ width, height, dpr })
+                    if (layout.kind !== 'desktop' && layout.kind !== 'tablet') continue
+                    const targets = tableTargets(layout)
+                    const spot = seatSpot(seat('me'), targets, layout)
+                    const pile = targets.piles.A
+                    const overPile = Math.max(12, pile.left + (pile.width * (1 - pile.scale)) / 2 - 4)
+                    const where = `${width}x${height}@${dpr}`
+                    // a maxWidth exactly where my plate moved; seatBoxes models the plate at it, never over 160
+                    expect(spot.maxWidth !== undefined, where).toBe(spot.left > overPile)
+                    if (spot.maxWidth === undefined) continue
+                    moved++
+                    const plate = { x0: spot.left, x1: spot.left + spot.maxWidth, y0: spot.top, y1: spot.top + 33 + 4 + 20 }
+                    for (const slot of slotBoxes(layout)) expect(overlap(plate, { ...slot.box, x0: slot.box.x0 - 6 + 1e-9 }), `${where} ${slot.position}`).toBe(false)
+                    const mine = seatBoxes(layout, targets, 'theirs').find((one) => one.id === 'me')!.box
+                    expect(mine.w, where).toBeCloseTo(Math.min(spot.maxWidth, 160), 9)
+                }
+            }
+        }
+        expect(moved).toBeGreaterThan(100)
+        // 1376×820 @1, the tightest: 126.55 px before the left slot
+        const tight = layoutFor({ width: 1376, height: 820, dpr: 1 })
+        expect(spotAt(tight, 'me').maxWidth).toBeCloseTo(126.547, 3)
+    })
+
     test('at 667×323 @2 my plate and its chips and declared cards meet none of the left seat\'s boxes (seatBoxes), whichever team\'s cards show (§4.2)', () => {
         const layout = at(667, 323, 2, 'landscape', 71)
         for (const team of TEAMS) {

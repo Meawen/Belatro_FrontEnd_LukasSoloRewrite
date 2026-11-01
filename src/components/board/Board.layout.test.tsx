@@ -226,7 +226,14 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
             withDpr(dpr, () => {
                 const { unmount } = renderBoard({ state: tableState(frame, 'carol', 'snapshot'), viewport: { width: 1440, height: 900 } })
                 const layout = layoutFor({ width: 1440, height: 900, dpr })
-                expect(px(screen.getByTestId('seat-carol'), 'left'), `@${dpr}`).toBeCloseTo(Math.max(...fanPlaces(layout, 'left', 8).map((back) => box(back).x1)) + 6, 9)
+                const mine = screen.getByTestId('seat-carol')
+                expect(px(mine, 'left'), `@${dpr}`).toBeCloseTo(Math.max(...fanPlaces(layout, 'left', 8).map((back) => box(back).x1)) + 6, 9)
+                // moved, it stops 6 px before the left slot (Ruling Y): 1440×900, 4.5 px short of a 160-px plate
+                const slot = box({ ...trickSlots(layout).left, rotate: 4.8 })
+                expect(px(mine, 'maxWidth'), `@${dpr}`).toBeCloseTo(slot.x0 - 6 - px(mine, 'left'), 9)
+                // my cards left: my hand shows them, so my plate keeps them for screen readers only; the others' show (Ruling Y)
+                expect(within(mine).getByTestId('cards-left-carol').parentElement!.className, `@${dpr}`).toBe('sr-only')
+                expect(within(screen.getByTestId('seat-dave')).getByTestId('cards-left-dave').parentElement!).toHaveClass('lg:not-sr-only')
                 unmount()
             })
         }

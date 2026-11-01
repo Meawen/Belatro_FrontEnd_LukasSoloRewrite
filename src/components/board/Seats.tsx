@@ -145,7 +145,8 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                                     <span className="sr-only">{`${seatName(model, seat.id)}: no challenge left`}</span>
                                 </span>
                             )}
-                            <span className="sr-only lg:not-sr-only text-text-2">
+                            {/* the cards left: shown on wide windows, but not on mine (my hand shows it; Ruling Y) */}
+                            <span className={seat.isMe ? 'sr-only' : 'sr-only lg:not-sr-only text-text-2'}>
                                 <span data-testid={`cards-left-${seat.id}`}>{seat.cardsLeft}</span>
                                 <span className="sr-only"> cards</span>
                             </span>

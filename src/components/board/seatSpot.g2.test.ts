@@ -45,23 +45,22 @@ function collisions(layout: Layout): string[] {
 const OPEN: Record<string, string[]> = {
     // never chosen: fits rejects it (its partner slot meets the partner fan; see the last test). Since the band no longer
     // reserves the hover lift (Ruling P) the cross sits 17.7 px lower here; my column starts past the left fan's backs
-    // (Ruling X) and meets the left slot; the side plates meet the partner fan's end backs (Ruling X counts card backs)
+    // (Ruling X), my plate stopping 6 px before the left slot (Ruling Y), my declared cards still on it; the side plates
+    // meet the partner fan's end backs (Ruling X counts card backs)
     '1280x720@1 142.00/213.00': [
-        "1280x720@1 142.00/213.00 mine: me#0 [197.5, 329.9, 132.0, 57.0] meets slot left [282.0, 240.7, 157.4, 201.2] by 47.5×57.0",
         "1280x720@1 142.00/213.00 mine: me#1 [197.5, 230.9, 107.0, 95.0] meets slot left [282.0, 240.7, 157.4, 201.2] by 22.5×85.1",
         "1280x720@1 142.00/213.00 mine: right#0 [630.5, 178.3, 132.0, 33.0] meets partner's back 7 of 8 [551.0, 112.5, 82.0, 102.9] by 2.5×33.0",
         "1280x720@1 142.00/213.00 mine: right#1 [630.5, 215.3, 132.0, 20.0] meets partner's back 7 of 8 [551.0, 112.5, 82.0, 102.9] by 2.5×0.2",
         "1280x720@1 142.00/213.00 mine: left#0 [197.5, 178.3, 132.0, 33.0] meets partner's back 0 of 8 [327.0, 112.5, 82.0, 102.9] by 2.5×33.0",
         "1280x720@1 142.00/213.00 mine: left#1 [197.5, 215.3, 132.0, 20.0] meets partner's back 0 of 8 [327.0, 112.5, 82.0, 102.9] by 2.5×0.2",
         "1280x720@1 142.00/213.00 mine: left#1 [197.5, 215.3, 132.0, 20.0] meets me#1 [197.5, 230.9, 107.0, 95.0] by 107.0×4.5",
-        "1280x720@1 142.00/213.00 theirs: me#0 [197.5, 329.9, 132.0, 57.0] meets slot left [282.0, 240.7, 157.4, 201.2] by 47.5×57.0",
         "1280x720@1 142.00/213.00 theirs: right#0 [630.5, 178.3, 132.0, 33.0] meets partner's back 7 of 8 [551.0, 112.5, 82.0, 102.9] by 2.5×33.0",
         "1280x720@1 142.00/213.00 theirs: right#1 [630.5, 215.3, 132.0, 119.0] meets slot right [520.6, 240.7, 157.4, 201.2] by 47.5×93.6",
         "1280x720@1 142.00/213.00 theirs: right#1 [630.5, 215.3, 132.0, 119.0] meets partner's back 7 of 8 [551.0, 112.5, 82.0, 102.9] by 2.5×0.2",
         "1280x720@1 142.00/213.00 theirs: left#0 [197.5, 178.3, 132.0, 33.0] meets partner's back 0 of 8 [327.0, 112.5, 82.0, 102.9] by 2.5×33.0",
         "1280x720@1 142.00/213.00 theirs: left#1 [197.5, 215.3, 132.0, 119.0] meets slot left [282.0, 240.7, 157.4, 201.2] by 47.5×93.6",
         "1280x720@1 142.00/213.00 theirs: left#1 [197.5, 215.3, 132.0, 119.0] meets partner's back 0 of 8 [327.0, 112.5, 82.0, 102.9] by 2.5×0.2",
-        "1280x720@1 142.00/213.00 theirs: left#1 [197.5, 215.3, 132.0, 119.0] meets me#0 [197.5, 329.9, 132.0, 57.0] by 132.0×4.5",
+        "1280x720@1 142.00/213.00 theirs: left#1 [197.5, 215.3, 132.0, 119.0] meets me#0 [197.5, 329.9, 78.5, 57.0] by 78.5×4.5",
     ],
 }
 

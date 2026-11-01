@@ -248,9 +248,13 @@ export function seatSpot(seat: SeatModel, targets: Targets, layout: Layout): Sea
         // over my pile, unless the left seat's fan reaches down beside it: then my plate and its chips start 6 px past the
         // fan's backs, and so may my declared cards over the plate (Ruling X)
         const top = overPile.top;
-        const left = pastLeftFan(layout, overPile.left, MY_PLATE, top, top + PLATE_ROW + GAP + CHIP_ROW);
+        const rows: [number, number] = [top, top + PLATE_ROW + GAP + CHIP_ROW];
+        const left = pastLeftFan(layout, overPile.left, MY_PLATE, ...rows);
+        // moved past the fan, my plate and its chips stop 6 px before any trick slot in their rows and the board's middle,
+        // as the side seats' plates do; the name ellipsizes first, the badges and the countdown stay whole (Ruling Y)
+        const moved = left > overPile.left ? { maxWidth: Math.min(layout.board.w / 2 - CLEAR - left, slotRoom(layout, left, 'left', ...rows)) } : {};
         const from = pastLeftFan(layout, left, declaredRow(layout), top - GAP - dh, top - GAP);
-        return { left, top, above: above(from, top), ...(from > left ? { cardsFrom: from - left } : {}) };
+        return { left, top, ...moved, above: above(from, top), ...(from > left ? { cardsFrom: from - left } : {}) };
     }
     const top = layout.board.h - 8 - PLATE_ROW;
     const rows: [number, number] = [top - GAP - (CHIP_ROW + GAP + dh), top + PLATE_ROW];
@@ -342,7 +346,8 @@ export function seatBoxes(layout: Layout, targets: Targets, declaredTeam: 'mine'
             }
             // upright my plate and my chips beside it as far as they may run (one row, bottom-aligned), else my chips under it
             if (layout.kind === 'portrait') add(spot.left, spot.top, layout.board.w - 8 - spot.left, PLATE_ROW);
-            else add(spot.left, spot.top, narrow, PLATE_ROW + GAP + CHIP_ROW);
+            // on wide windows my plate and the chips under it; moved past the left fan, as wide as it may grow (Ruling Y)
+            else add(spot.left, spot.top, spot.maxWidth === undefined ? narrow : Math.min(spot.maxWidth, MY_PLATE), PLATE_ROW + GAP + CHIP_ROW);
             if (declared) add(from, spot.top - GAP - dh, declaredRow(layout, spot.above), dh);
         } else if (position === 'partner') {
             const here = declared && !spot.aside;
