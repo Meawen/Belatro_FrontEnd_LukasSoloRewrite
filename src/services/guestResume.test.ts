@@ -255,6 +255,24 @@ describe('the resume, bounded (Ruling 44)', () => {
         expect(assign).not.toHaveBeenCalled()
     })
 
+    test("a refused sign-in forgets only the secret it tried: another tab's new guest keeps its own (Ruling 48)", async () => {
+        const other = JSON.stringify({ id: 'g2', username: 'gost_7310', guest: true })
+        jsdomStorage.setItem('authToken', 'g-old')
+        vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+            if (!url.endsWith('/api/auth/login')) return sessionExpired()
+            // another tab played as a new guest while this sign-in was out
+            jsdomStorage.setItem('authToken', 'g-other')
+            jsdomStorage.setItem('user', other)
+            jsdomStorage.setItem(GUEST_SECRET_KEY, 'other-secret')
+            return badCredentials()
+        }))
+        await expect(gameSocket.resumeGuest('g-old')).resolves.toBe('refused')
+        expect(jsdomStorage.getItem(GUEST_SECRET_KEY)).toBe('other-secret')
+        expect(jsdomStorage.getItem('authToken')).toBe('g-other')
+        expect(jsdomStorage.getItem('user')).toBe(other)
+        expect(assign).not.toHaveBeenCalled()
+    })
+
     test('a sign-in with no answer gives up after about 10 s, and the same token waits before it tries again', async () => {
         jsdomStorage.setItem('authToken', 'g-slow')
         // AbortSignal.timeout's clock is not the test's: hand out signals this test aborts itself

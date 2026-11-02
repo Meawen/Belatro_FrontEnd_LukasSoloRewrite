@@ -61,6 +61,7 @@ export const hr = {
         youCaps: 'TI',
         team: (team: string) => `Ekipa ${team}`,
         teamCaps: (team: string) => `EKIPA ${team}`,
+        back: 'Natrag',
     },
     nav: {
         label: 'Glavna navigacija',
@@ -333,6 +334,7 @@ export const hr = {
         pollFailed: 'Popis se nije osvježio — prikazujemo zadnji',
         empty: 'Nema otvorenih stolova.',
         emptyBody: 'Otvori stol i pozovi pajdaše.',
+        emptyBots: 'Igraj protiv botova',
         noMatch: 'Nijedan stol ne odgovara pretrazi.',
         list: 'Otvoreni stolovi',
         host: (name: string) => `domaćin ${name}`,
@@ -355,6 +357,7 @@ export const hr = {
         form: {
             nameLabel: 'Ime stola',
             namePlaceholder: 'Upiši ime stola…',
+            privateName: (username: string) => `Kod ${username}`,
             nameRequired: 'Upiši ime stola.',
             casual: 'Partije za stolom su nerangirane: ne mijenjaju tvoj rejting.',
             privateHelper: 'Sjesti može samo tko zna lozinku.',
@@ -377,6 +380,9 @@ export const hr = {
         backToTables: 'Natrag u Birtiju',
         inviteCopied: 'Poveznica za poziv je kopirana',
         copyInvite: 'Kopiraj poveznicu za poziv',
+        sharePassword: (password: string) => `Lozinka: ${password}`,
+        shareHostKnows: 'Lozinku zna domaćin.',
+        invitePasswordCopied: 'Poveznica za poziv i lozinka su kopirane',
         fill: 'Popuni botovima',
         busy: {
             joining: 'Sjedaš…',
@@ -851,7 +857,7 @@ export const hr = {
             left: (name: string) => `${name} odlazi — nema nove partije`,
             expired: 'Prekasno je za još jednu',
             playAgain: 'Ajmo još jednu!',
-            leave: 'Napusti stol',
+            withPeople: 'Igraj s ljudima',
         },
         menu: {
             title: 'Izbornik igre',
@@ -949,7 +955,7 @@ export const hr = {
         },
         bots: {
             title: 'Botovi',
-            body: 'Znam igrati: partija protiv tri bota, odmah i kao gost.',
+            body: 'Znam igrati: partija protiv tri bota, odmah, kao gost.',
             action: 'Igraj odmah',
         },
         people: {
@@ -958,16 +964,16 @@ export const hr = {
             action: 'Registriraj se',
         },
         ended: {
-            label: 'Gostovanje je završilo',
-            body: 'Tvoje gostovanje je završilo. Ispod odaberi kako ćeš krenuti ispočetka.',
+            label: 'Sesija gosta je završila',
+            body: 'Tvoja sesija gosta je završila. Odaberi ispod kako ćeš krenuti ispočetka.',
         },
         guest: {
             continueAs: (name: string) => `Nastavi kao ${name}`,
-            body: 'Ovaj preglednik pamti tvoje gostujuće ime. Promijeni ga kad god želiš: to ime vide svi za stolom.',
+            body: 'Ovaj preglednik pamti tvoje ime gosta. Promijeni ga kad god želiš: to ime vide svi za stolom.',
             rename: 'Promijeni ime',
         },
         rename: {
-            title: 'Promijeni gostujuće ime',
+            title: 'Promijeni ime gosta',
             save: 'Spremi',
             failed: 'Ime nije promijenjeno. Pokušaj ponovno za koji trenutak.',
         },
@@ -984,7 +990,7 @@ export const hr = {
         },
         people: {
             title: 'Protiv ljudi',
-            body: 'Pravi igrači: rangirano za rejting, stolovi za društvo.',
+            body: 'Pravi igrači: rangirane partije za rejting, stolovi za društvo.',
             ranked: 'Igraj rangirano',
             private: 'Stol za ekipu',
             tables: (n: number) => `Birtija (${n})`,

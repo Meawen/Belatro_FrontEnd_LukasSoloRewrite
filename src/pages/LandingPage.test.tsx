@@ -152,6 +152,19 @@ describe('The landing page (spec §4, option C)', () => {
         expect(await screen.findByText('Botovi trenutno nisu dostupni. Pokušaj malo kasnije.')).toBeInTheDocument()
     })
 
+    test("a new guest's panel waits until the game fails to start: no flash above the doors while it starts (Ruling 48)", async () => {
+        let answer: (started: { gameId: string; lobbyId: string }) => void = () => {}
+        bots.startBotGame.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
+        renderLanding()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Play now' }))
+        await vi.waitFor(() => expect(bots.startBotGame).toHaveBeenCalledTimes(1))
+        await settle()
+        expect(authService.startGuest).toHaveBeenCalledTimes(1)
+        expect(screen.queryByRole('region', { name: 'Continue as gost_4821' })).not.toBeInTheDocument()
+        await act(async () => answer({ gameId: 'g7', lobbyId: 'l7' }))
+        expect(await screen.findByText('at /game/g7')).toBeInTheDocument()
+    })
+
     test('a visitor made a guest whose game then failed is not made a guest again', async () => {
         const user = userEvent.setup()
         bots.startBotGame.mockRejectedValueOnce(unavailable()).mockResolvedValueOnce({ gameId: 'g7', lobbyId: 'l7' })
@@ -209,10 +222,10 @@ describe('The landing page (spec §4, option C)', () => {
         // a decomposed č: c followed by a combining caron
         await user.clear(field)
         await user.click(field)
-        await user.paste('Matič')
-        expect(field).toHaveValue('Matič')
+        await user.paste('Matic\u030C')
+        expect(field).toHaveValue('Matic\u030C')
         await user.click(within(dialog).getByRole('button', { name: 'Save' }))
-        expect(authService.renameGuest).toHaveBeenCalledWith('Matič')
+        expect(authService.renameGuest).toHaveBeenCalledWith('Mati\u010D')
         await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Change your guest name' })).not.toBeInTheDocument())
         expect(screen.getByRole('heading', { level: 2, name: 'Continue as matič' })).toBeInTheDocument()
     })
@@ -284,8 +297,8 @@ describe('The landing page (spec §4, option C)', () => {
         const doors = screen.getByRole('region', { name: 'Kako početi' })
         expect(within(doors).getAllByRole('button').map((b) => b.textContent)).toEqual(['Navči me', 'Igraj odmah', 'Registriraj se'])
         expect(screen.getByRole('link', { name: 'Prijava' })).toHaveAttribute('href', '/login')
-        expect(screen.getByRole('region', { name: 'Gostovanje je završilo' })).toHaveTextContent(
-            'Tvoje gostovanje je završilo. Ispod odaberi kako ćeš krenuti ispočetka.',
+        expect(screen.getByRole('region', { name: 'Sesija gosta je završila' })).toHaveTextContent(
+            'Tvoja sesija gosta je završila. Odaberi ispod kako ćeš krenuti ispočetka.',
         )
         expect(document.title).toBe('Bela za četvero, online · Stiglja')
         unmount()
@@ -303,6 +316,22 @@ describe('The landing page (spec §4, option C)', () => {
         const heading = await screen.findByRole('heading', { level: 2, name: `Continue as ${LONG_NAMES.dave}` })
         expect(heading).toHaveClass('break-words')
         expect(heading.parentElement).toHaveClass('min-w-0')
+    })
+
+    test("Play now refused by the bot game's own limit (429) or with no answer: the line, and Play now again (spec §8)", async () => {
+        const user = userEvent.setup()
+        asGuest()
+        bots.startBotGame
+            .mockRejectedValueOnce(new ApiError({ status: 429, message: 'Too many requests, try again later', code: 'RATE_LIMITED' }))
+            .mockRejectedValueOnce(new ApiError({ status: 0, message: 'Failed to fetch' }))
+        renderLanding()
+        await settle()
+        for (const line of ['Too many tries. Wait a little, then try again.', "Bots aren't available right now. Try again later."]) {
+            await user.click(screen.getByRole('button', { name: 'Play now' }))
+            expect(await screen.findByText(line)).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Play now' })).toBeEnabled()
+        }
+        expect(authService.startGuest).not.toHaveBeenCalled()
     })
 
     test('Play now refused with ALREADY_IN_GAME says so and looks for the running game at once', async () => {

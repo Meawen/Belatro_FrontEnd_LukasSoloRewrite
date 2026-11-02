@@ -103,4 +103,18 @@ describe('NeedsAccountPage (spec §3.3, §8)', () => {
         expect(within(await screen.findByRole('alert')).getByText('Botovi trenutno nisu dostupni. Pokušaj malo kasnije.')).toBeInTheDocument()
         expect(button()).toBeEnabled()
     })
+
+    test("a bot game refused with ALREADY_IN_GAME, or with no answer, says so; the way back to the game is the shell's banner", async () => {
+        const user = userEvent.setup()
+        const button = () => screen.getByRole('button', { name: 'Play against bots as a guest' })
+        bots.startBotGame
+            .mockRejectedValueOnce(new ApiError({ message: 'You already have a game in progress', status: 409, code: 'ALREADY_IN_GAME' }))
+            .mockRejectedValueOnce(new ApiError({ message: 'Failed to fetch', status: 0 }))
+        renderArea('friends')
+        for (const line of ['You already have a game in progress. Go back to it first.', "Bots aren't available right now. Try again later."]) {
+            await user.click(button())
+            expect(await screen.findByText(line)).toBeInTheDocument()
+            expect(button()).toBeEnabled()
+        }
+    })
 })

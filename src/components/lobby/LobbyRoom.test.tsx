@@ -12,7 +12,9 @@ import type { LobbyDTO } from '../../types/lobby'
 import type { MatchDTO } from '../../types/match'
 import { setLang } from '../../i18n/lang'
 
-vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', username: 'ana' } }) }))
+// ana, a member unless a test makes her a guest (a guest reaches a table only by its link, spec §3.2)
+const auth = vi.hoisted(() => ({ isGuest: false }))
+vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', username: 'ana' }, isGuest: auth.isGuest }) }))
 vi.mock('../../services/matchService', () => ({ matchService: { getMatchByLobbyId: vi.fn() } }))
 
 const ana = { id: 'u1', username: 'ana', bot: false }
@@ -55,6 +57,7 @@ function renderLobby() {
                 <Route path="/lobby/:lobbyId" element={<LobbyRoom lobbyId="l1" />} />
                 <Route path="/game/:gameId" element={<GamePage />} />
                 <Route path="/lobbies" element={<p>the lobby list</p>} />
+                <Route path="/" element={<p>the landing page</p>} />
             </Routes>
             <Toaster />
         </MemoryRouter>,
@@ -69,6 +72,8 @@ const sheet = (name: string) => screen.getByRole('dialog', { name })
 
 beforeEach(() => {
     vi.clearAllMocks()
+    auth.isGuest = false
+    sessionStorage.clear()
     vi.spyOn(lobbyService, 'getLobby').mockResolvedValue(lobby())
     vi.spyOn(lobbyService, 'switchTeam').mockResolvedValue(lobby())
     vi.spyOn(lobbyService, 'joinLobby').mockResolvedValue(lobby())
@@ -488,8 +493,60 @@ describe('LobbyRoom: joining, leaving and the host (spec §4.7 Actions)', () => 
         expect(screen.getByText('Casual')).toBeInTheDocument()
         expect(screen.getByText('Private')).toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: 'Copy invite link' }))
+        // this tab didn't create the table, so the invite says who knows its password (spec §5)
+        expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/lobby/l1\nThe host knows the password.`)
+        expect(screen.getByRole('status')).toHaveTextContent('Invite link copied')
+    })
+
+    test('a private table this tab created: the invite carries its password (spec §5)', async () => {
+        const user = userEvent.setup()
+        sessionStorage.setItem('stiglja:table-password:l1', 'kuna7')
+        serve(lobby({ privateLobby: true }))
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Copy invite link' }))
+        const invite = `${window.location.origin}/lobby/l1\nPassword: kuna7`
+        expect(await navigator.clipboard.readText()).toBe(invite)
+        expect(screen.getByRole('status')).toHaveTextContent('Invite link and password copied')
+
+        await navigator.clipboard.writeText('')
+        await user.click(screen.getByRole('button', { name: 'Table options' }))
+        await user.click(within(sheet('Table options')).getByRole('button', { name: 'Copy invite link' }))
+        expect(await navigator.clipboard.readText()).toBe(invite)
+    })
+
+    test("a public table's invite is the link alone", async () => {
+        const user = userEvent.setup()
+        sessionStorage.setItem('stiglja:table-password:l1', 'kuna7')
+        serve(lobby({ privateLobby: false }))
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Copy invite link' }))
         expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/lobby/l1`)
         expect(screen.getByRole('status')).toHaveTextContent('Invite link copied')
+    })
+
+    test("a guest at a friend's table goes back to the landing page, never the Birtija (spec §3.2, §6)", async () => {
+        const user = userEvent.setup()
+        auth.isGuest = true
+        serve(lobby({ hostUser: bob }))
+        renderLobby()
+        expect(await screen.findByRole('link', { name: 'Back' })).toHaveAttribute('href', '/')
+        expect(screen.queryByRole('link', { name: 'Tables' })).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Leave' }))
+        await user.click(within(sheet('Leave this table?')).getByRole('button', { name: 'Leave table' }))
+        expect(await screen.findByText('the landing page')).toBeInTheDocument()
+        cleanup()
+
+        vi.useFakeTimers()
+        serve(lobby({ hostUser: bob }))
+        renderLobby()
+        await settle()
+        vi.mocked(lobbyService.getLobby).mockRejectedValue(lobbyGone())
+        await wait(2000)
+        expect(screen.getByText('This table was closed.')).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/')
+        vi.useRealTimers()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Back' }))
+        expect(screen.getByText('the landing page')).toBeInTheDocument()
     })
 })
 
@@ -1026,5 +1083,32 @@ describe('LobbyRoom in Croatian (open beta §1.1, §1.4)', () => {
         vi.useRealTimers()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Natrag u Birtiju' }))
         expect(screen.getByText('the lobby list')).toBeInTheDocument()
+    })
+
+    test('the invite in Croatian', async () => {
+        const user = userEvent.setup()
+        setLang('hr')
+        sessionStorage.setItem('stiglja:table-password:l1', 'kuna7')
+        serve(lobby({ privateLobby: true }))
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Kopiraj poveznicu za poziv' }))
+        expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/lobby/l1\nLozinka: kuna7`)
+        expect(screen.getByRole('status')).toHaveTextContent('Poveznica za poziv i lozinka su kopirane')
+        cleanup()
+
+        sessionStorage.clear()
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Kopiraj poveznicu za poziv' }))
+        expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/lobby/l1\nLozinku zna domaćin.`)
+        expect(screen.getByRole('status')).toHaveTextContent('Poveznica za poziv je kopirana')
+    })
+
+    test("a guest's way back in Croatian", async () => {
+        setLang('hr')
+        auth.isGuest = true
+        serve(lobby({ hostUser: bob }))
+        renderLobby()
+        expect(await screen.findByRole('link', { name: 'Natrag' })).toHaveAttribute('href', '/')
+        expect(screen.queryByRole('link', { name: 'Birtija' })).not.toBeInTheDocument()
     })
 })

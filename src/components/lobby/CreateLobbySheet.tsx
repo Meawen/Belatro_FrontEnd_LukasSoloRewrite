@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Sheet, Switch } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
@@ -6,6 +6,8 @@ import { lobbyService } from '../../services/lobbyService';
 import type { CreateLobbyDTO } from '../../types/lobby';
 import { errorMessage } from '../../utils/errorMessage';
 import { cat, useT } from '../../i18n/t';
+import { useAuth } from '../../hooks/useAuth';
+import { rememberTablePassword } from './tablePassword';
 
 export interface CreateLobbySheetProps {
     open: boolean;
@@ -41,6 +43,13 @@ function CreateLobbyForm({ onCancel, privateTable }: { onCancel: () => void; pri
     const [errors, setErrors] = useState<FormErrors>({});
     const [creating, setCreating] = useState(false);
     const t = useT();
+    // spec §5: Stol za ekipu's name starts as "Kod <username>", which the host can change. useAuth reads the stored
+    // user in an effect, a render after mount, so the name is filled once that arrives, never over anything typed
+    const { user } = useAuth();
+    const username = user?.username;
+    useEffect(() => {
+        if (privateTable && username) setName((typed) => typed || cat().tables.form.privateName(username));
+    }, [privateTable, username]);
 
     const submit = async (event: FormEvent) => {
         event.preventDefault();
@@ -56,6 +65,8 @@ function CreateLobbyForm({ onCancel, privateTable }: { onCancel: () => void; pri
         setCreating(true);
         try {
             const created = await lobbyService.createLobby(lobbyData);
+            // spec §5: the host shares a Stol za ekipu's password with its link; the server keeps only its hash
+            if (privateLobby && created.id) rememberTablePassword(created.id, password);
             navigate(`/lobby/${created.id}`);
         } catch (error) {
             setErrors({ submit: errorMessage(error, c.failed) });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button, EmptyState, ErrorState, Input, ListRow, Loader, PixelIcon, Select, Tag } from '../ui';
 import { cx } from '../ui/cx';
 import { ErrorAlert } from '../common/ErrorAlert';
@@ -29,12 +29,14 @@ export interface LobbyListProps {
     /** The last poll failed; `lobbies` is the last good list. */
     pollFailed: boolean;
     onRetry: () => void;
+    /** The empty list's ways on (spec §8): LobbiesPage's Stol za ekipu and bot game. */
+    emptyAction?: ReactNode;
 }
 
 const NO_LOBBIES: LobbyDTO[] = [];
 
 /** The open lobbies (spec §4.6): search, sort, one row per lobby, and the quick-look a row opens. */
-export function LobbyList({ lobbies, failed, pollFailed, onRetry }: LobbyListProps) {
+export function LobbyList({ lobbies, failed, pollFailed, onRetry, emptyAction }: LobbyListProps) {
     const { user } = useAuth();
     const me = user?.id ?? null;
     const wide = useMediaQuery('(min-width: 768px)');
@@ -94,7 +96,7 @@ export function LobbyList({ lobbies, failed, pollFailed, onRetry }: LobbyListPro
             {pollFailed && <ErrorAlert message={t.tables.pollFailed} />}
 
             {all.length === 0 ? (
-                <EmptyState icon="cards" title={t.tables.empty} body={t.tables.emptyBody} />
+                <EmptyState icon="cards" title={t.tables.empty} body={t.tables.emptyBody} action={emptyAction} />
             ) : rows.length === 0 ? (
                 <EmptyState icon="search" title={t.tables.noMatch} />
             ) : (

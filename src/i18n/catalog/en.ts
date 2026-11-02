@@ -83,6 +83,8 @@ export const en = {
         team: (team: string) => `Team ${team}`,
         // a team's name in the upper-case tags: "TEAM A"
         teamCaps: (team: string) => `TEAM ${team}`,
+        // a guest's way back to the landing page (/): the end of a game, a friend's table (a guest can't open Doma or Tables)
+        back: 'Back',
     },
     // the main navigation: the sidebar and the phone tab bar (each destination's name is its page title, titles.*)
     nav: {
@@ -436,6 +438,8 @@ export const en = {
         // no open table, and a search that finds none
         empty: 'No open tables.',
         emptyBody: 'Create one and invite friends.',
+        // the empty list's second way on (spec §8): a game against three bots now (spec §6); its first is privateTable
+        emptyBots: 'Play against bots',
         noMatch: 'No tables match your search.',
         // the list's name, for screen readers
         list: 'Open tables',
@@ -474,6 +478,8 @@ export const en = {
         form: {
             nameLabel: 'Table name',
             namePlaceholder: 'Enter table name...',
+            // the name a Stol za ekipu starts with (spec §5; Doma's button and the empty list's): the host can change it
+            privateName: (username: string) => `${username}'s table`,
             nameRequired: 'Table name is required',
             casual: "Table games are casual: they don't change your rating.",
             // under the private switch
@@ -507,6 +513,12 @@ export const en = {
         // the invite link: the toast after a copy, and its buttons (the header's and the host's options)
         inviteCopied: 'Invite link copied',
         copyInvite: 'Copy invite link',
+        // the invite's second line at a private table (spec §5): its password, when this tab created the table (kept in the tab's session storage, as Privacy says)
+        sharePassword: (password: string) => `Password: ${password}`,
+        // … or, when this tab didn't create it: the friend asks the host
+        shareHostKnows: 'The host knows the password.',
+        // the toast after copying the link and the password
+        invitePasswordCopied: 'Invite link and password copied',
         // the host's button under the table
         fill: 'Fill with bots',
         // what a seat says while its request runs
@@ -1130,7 +1142,8 @@ export const en = {
             left: (name: string) => `${name} left — no new game`,
             expired: 'Too late to play again',
             playAgain: 'Play again',
-            leave: 'Leave',
+            // a guest's way to people (spec §6): sign up (Ruling 6); a guest's way out is common.back, a member's titles.home
+            withPeople: 'Play with people',
         },
         // the game menu (GameMenu): its title (also the HUD button's name), the hand, the way home and its note
         menu: {

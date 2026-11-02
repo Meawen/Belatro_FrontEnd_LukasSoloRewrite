@@ -40,7 +40,7 @@ describe('Board: the end of the game (GameTable cases, R-20, R-25, R-31)', () =>
         const { props } = renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A', teamAScore: 1001, teamBScore: 640 }) })
         expect(screen.getByRole('heading', { name: 'You won!' })).toBeInTheDocument()
         expect(screen.getByText('Team A wins')).toBeInTheDocument()
-        await user.click(screen.getByRole('button', { name: 'Back to tables' }))
+        await user.click(screen.getByRole('button', { name: 'Home' }))
         expect(props.onLeave).toHaveBeenCalledTimes(1)
     })
 
@@ -65,21 +65,69 @@ describe('Board: the end of the game (GameTable cases, R-20, R-25, R-31)', () =>
     test("a guest's end sheet leaves out Match details, a member-only page (spec §3.3)", () => {
         renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A', teamAScore: 1001, teamBScore: 640 }), guest: true })
         expect(screen.queryByRole('link', { name: 'Match details' })).not.toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Back to tables' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument()
+    })
+
+    test('one primary action in each ending: Play again when a rematch may follow, else the way out (spec §8)', () => {
+        const primaries = () => [...document.querySelectorAll('.board-end .ui-btn--primary')].map((button) => button.textContent)
+        renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: rematch() })
+        expect(primaries()).toEqual(['Play again'])
+        cleanup()
+        renderBoard({ state: ended({ gameState: 'CANCELLED', endReason: 'CANCELLED' }) })
+        expect(primaries()).toEqual(['Home'])
+    })
+
+    test("a guest's end: Play again, Play with people and Back; with no rematch, Back and Play with people (spec §6)", async () => {
+        const user = userEvent.setup()
+        const buttons = () => within(document.querySelector<HTMLElement>('.board-end')!).getAllByRole('button').map((button) => button.textContent)
+        const onSignUp = vi.fn()
+        const { props } = renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: rematch(), guest: true, onSignUp })
+        expect(buttons()).toEqual(['Play again', 'Play with people', 'Back'])
+        expect(screen.queryByRole('button', { name: 'Home' })).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Play with people' }))
+        expect(onSignUp).toHaveBeenCalledTimes(1)
+        await user.click(screen.getByRole('button', { name: 'Back' }))
+        expect(props.onLeave).toHaveBeenCalledTimes(1)
+        cleanup()
+        renderBoard({ state: ended({ gameState: 'CANCELLED', endReason: 'CANCELLED' }), guest: true, onSignUp })
+        expect(buttons()).toEqual(['Back', 'Play with people'])
+        expect([...document.querySelectorAll('.board-end .ui-btn--primary')].map((button) => button.textContent)).toEqual(['Back'])
+    })
+
+    test('a member never sees Play with people, even when the page passes it', () => {
+        renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: rematch(), onSignUp: vi.fn() })
+        expect(screen.queryByRole('button', { name: 'Play with people' })).not.toBeInTheDocument()
+        cleanup()
+        renderBoard({ state: ended({ gameState: 'CANCELLED', endReason: 'CANCELLED' }), onSignUp: vi.fn() })
+        expect(screen.queryByRole('button', { name: 'Play with people' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument()
+    })
+
+    test("the guest's end in Croatian (§1.4, §6)", () => {
+        setLang('hr')
+        try {
+            renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: rematch(), guest: true, onSignUp: vi.fn() })
+            expect(within(document.querySelector<HTMLElement>('.board-end')!).getAllByRole('button').map((button) => button.textContent))
+                .toEqual(['Ajmo još jednu!', 'Igraj s ljudima', 'Natrag'])
+        } finally {
+            setLang('en')
+        }
     })
 })
 
 describe('Board: Play again after the game (GameTable cases, R-45)', () => {
-    test('game over offers Play again and Leave, with how many want a rematch', async () => {
+    test('game over offers Play again and Home, with how many want a rematch', async () => {
         const user = userEvent.setup()
         const state = rematch({ votes: 2 })
-        renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: state })
+        const { props } = renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: state })
         expect(screen.getByTestId('rematch-votes').textContent).toBe('2/4 want to play again')
         expect(screen.queryByRole('button', { name: 'Back to tables' })).not.toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: 'Play again' }))
         expect(state.playAgain).toHaveBeenCalledTimes(1)
-        await user.click(screen.getByRole('button', { name: 'Leave' }))
-        expect(state.leave).toHaveBeenCalledTimes(1)
+        await user.click(screen.getByRole('button', { name: 'Home' }))
+        expect(props.onLeave).toHaveBeenCalledTimes(1)
+        // the page declines the rematch on the way out (GamePageConnected)
+        expect(state.leave).not.toHaveBeenCalled()
     })
 
     test('a ranked forfeit offers it too; a plain cancel offers only the way back', () => {
@@ -88,7 +136,7 @@ describe('Board: Play again after the game (GameTable cases, R-45)', () => {
         cleanup()
         renderBoard({ state: ended({ gameState: 'CANCELLED', endReason: 'CANCELLED' }), rematch: rematch() })
         expect(screen.queryByRole('button', { name: 'Play again' })).not.toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Back to tables' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument()
     })
 
     test('someone left: their name, and Play again is off', () => {
@@ -104,7 +152,7 @@ describe('Board: Play again after the game (GameTable cases, R-45)', () => {
         expect(screen.getByRole('button', { name: 'Play again' })).toBeDisabled()
         await user.click(screen.getByRole('button', { name: 'Play again' }))
         expect(state.playAgain).not.toHaveBeenCalled()
-        expect(screen.getByRole('button', { name: 'Leave' })).toBeEnabled()
+        expect(screen.getByRole('button', { name: 'Home' })).toBeEnabled()
     })
 
     test('two minutes without a start: Rematch expired, and Play again is off', () => {
@@ -121,13 +169,13 @@ describe('Board: Play again after the game (GameTable cases, R-45)', () => {
             expect(screen.getByText('Ekipa A je pobijedila')).toBeInTheDocument()
             expect(screen.getByTestId('rematch-votes').textContent).toBe('2/4 za još jednu')
             expect(screen.getByRole('button', { name: 'Ajmo još jednu!' })).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: 'Napusti stol' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Doma' })).toBeInTheDocument()
             expect(screen.getByRole('link', { name: 'Detalji partije' })).toHaveAttribute('href', '/matches/g1')
             cleanup()
             renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'B' }) })
             expect(screen.getByRole('heading', { name: 'Bu bolje drugi put.' })).toBeInTheDocument()
             expect(screen.getByText('Ekipa B je pobijedila')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: 'Natrag u Birtiju' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Doma' })).toBeInTheDocument()
             cleanup()
             renderBoard({ state: ended({ gameState: 'CANCELLED', endReason: 'FORFEIT', forfeitTeamId: 'B' }) })
             expect(screen.getByRole('heading', { name: 'Kraj partije' })).toBeInTheDocument()

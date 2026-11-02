@@ -1,11 +1,11 @@
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Page } from '../components/layout/Page';
 import { MatchRow } from '../components/match/MatchRow';
 import { Button, Chip, Loader, Panel, PixelIcon } from '../components/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useMatchSummary } from '../hooks/useMatchHistory';
-import { useMe, useUser } from '../hooks/useUser';
+import { ME_CHANGED, useMe, useUser } from '../hooks/useUser';
 import { RankChip } from '../components/rank/RankChip';
 import { ErrorAlert } from '../components/common/ErrorAlert';
 import { ResendConfirmationButton } from '../components/auth/ResendConfirmationButton';
@@ -43,7 +43,19 @@ export function HomePage() {
     // GET /user/{id}: a member's own numbers; a guest never reaches Doma (MemberRoute sends them to /), so never a guest's 403 (B4)
     const { user: profile } = useUser(user?.id ?? undefined);
     // GET /user/me: whether the address is confirmed, for the ranked lock
-    const { data: me } = useMe();
+    const { data: me, refetch: refetchMe } = useMe();
+    // Ruling 48, as UnverifiedEmailBanner: asked again when this tab may have changed its answer (Settings, a resend
+    // that finds nothing to confirm), so the lock follows the address. refetch is a new function on every render; the
+    // listener registers once
+    const refetchMeRef = useRef(refetchMe);
+    refetchMeRef.current = refetchMe;
+    useEffect(() => {
+        const onMeChanged = () => {
+            refetchMeRef.current().catch(() => {});
+        };
+        window.addEventListener(ME_CHANGED, onMeChanged);
+        return () => window.removeEventListener(ME_CHANGED, onMeChanged);
+    }, []);
     const { gameId, recheck } = useActiveGame();
     const bots = useBotGame({ onAlreadyInGame: recheck });
     // "Birtija (n)": the open tables the Birtija lists (GET /lobbies/open; hidden bot tables are never in it), asked once;

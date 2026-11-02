@@ -235,8 +235,9 @@ describe("a guest's session ends on the landing page (Rulings 7, 32)", () => {
         expect(forgotten()).toEqual([null, null, null])
     })
 
-    // Ruling 44: someone who never had an account meets no sign-in wall, and is not taken off the page they read
-    test.each(['/privacy', '/terms', '/rules', '/confirm-email', '/reset-password'])(
+    // Ruling 44: someone who never had an account meets no sign-in wall, and is not taken off the page they read;
+    // Ruling 48 adds the sign-in, sign-up and forgotten-password forms and the leaderboard
+    test.each(['/privacy', '/terms', '/rules', '/confirm-email', '/reset-password', '/forgot-password', '/login', '/signup', '/users'])(
         'on %s, a page that needs no session, the guest is forgotten and the reader stays',
         async (pathname) => {
             vi.stubGlobal('location', { ...window.location, pathname, assign })

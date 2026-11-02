@@ -118,6 +118,8 @@ export const SAMPLES = {
     'home.greeting': [['ana_k']],
     'landing.guest.continueAs': [['gost_4821']],
     'home.people.tables': [[0], [3]],
+    'tables.form.privateName': [['ana_k']],
+    'table.sharePassword': [['kuna7']],
 };
 
 const DEFAULT_SAMPLES = [[1], [2], [5]];

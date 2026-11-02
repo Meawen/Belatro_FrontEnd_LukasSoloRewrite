@@ -218,10 +218,12 @@ export interface BoardProps {
     hands?: MatchHands | null;
     /** The rematch after the game (R-45). Without it a finished game offers only the way back. */
     rematch?: RematchState;
-    /** "Back to lobbies". */
+    /** The end sheet's way out (open beta §6): Doma, or the landing page for a guest. */
     onLeave: () => void;
     /** A guest's game (spec §3.3): the end sheet leaves out Match details. */
     guest?: boolean;
+    /** A guest's "Igraj s ljudima" on the end sheet (open beta §6): sign up. */
+    onSignUp?: () => void;
     /** A fixed size instead of the window: the dev board's layout presets. */
     viewport?: { width: number; height: number };
 }
@@ -232,7 +234,7 @@ export interface BoardProps {
  * waits for an animation: the timers only decide when finished tricks leave the table.
  */
 export function Board(props: BoardProps) {
-    const { state, me, actions, error, isConnected, hands, rematch, onLeave, guest, viewport } = props;
+    const { state, me, actions, error, isConnected, hands, rematch, onLeave, guest, onSignUp, viewport } = props;
     const t = useT();
     const [stage, setStage] = useState(() => emptyStage(me));
     let current = stage;
@@ -413,7 +415,7 @@ export function Board(props: BoardProps) {
                     waits for a right challenge's banner (resultOpen) */}
                 <HandResult model={sheet ? sheet.model : model} open={resultOpen} hands={sheet ? sheet.hands : hands} delta={sheet ? sheet.delta : current.handDelta}
                     onChallenge={onChallenge} challengePending={challengeWaiting} challengeFrozen={frozen !== null} />
-                <EndSheet model={model} open={model.end !== null && current.held === null && !holding} rematch={rematch} onLeave={onLeave} guest={guest} />
+                <EndSheet model={model} open={model.end !== null && current.held === null && !holding} rematch={rematch} onLeave={onLeave} guest={guest} onSignUp={onSignUp} />
                 <GameMenu model={model} open={panel === 'menu'} onClose={() => setPanel(null)} onBlok={layout.blok ? null : () => open('blok')} />
                 <Sheet open={panel === 'blok' && !layout.blok} onClose={() => setPanel(null)} title={t.board.blok.title} showClose data-testid="bela-blok">
                     <BlokTable model={shown} hands={shownHands} />

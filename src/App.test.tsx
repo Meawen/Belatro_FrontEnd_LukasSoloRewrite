@@ -7,6 +7,7 @@ import { useUser } from './hooks/useUser'
 import { userService } from './services/userService'
 import { captureConsole } from './test/captureConsole'
 import { authService } from './services/authService'
+import { lobbyService } from './services/lobbyService'
 
 // One switch for every test: signed in (the default) or signed out, a member (the default) or a guest, and the stored token.
 const auth = vi.hoisted(() => ({ isAuthenticated: true, guest: false, token: 'tok-1' }))
@@ -36,8 +37,14 @@ vi.mock('./components/game/GamePageConnected', () => ({ default: () => <h1>The t
 // The one-click bot game (spec §6): its request is NeedsAccountPage's own test's; here a stub.
 const bots = vi.hoisted(() => ({ startBotGame: vi.fn() }))
 vi.mock('./services/botGame', () => ({ startBotGame: bots.startBotGame }))
-// A table's room polls its lobby; here a stand-in that names the table it was given.
-vi.mock('./components/lobby/LobbyRoom', () => ({ LobbyRoom: ({ lobbyId }: { lobbyId: string }) => <h1>The room {lobbyId}</h1> }))
+// A table's room polls its lobby; here a stand-in that names the table it was given (and notes each table it showed).
+const rooms = vi.hoisted(() => ({ shown: [] as string[] }))
+vi.mock('./components/lobby/LobbyRoom', () => ({
+    LobbyRoom: ({ lobbyId }: { lobbyId: string }) => {
+        rooms.shown.push(lobbyId)
+        return <h1>The room {lobbyId}</h1>
+    },
+}))
 
 // Node 26's own localStorage global is unusable here; borrow jsdom's (see api.test.ts)
 const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }).window
@@ -53,6 +60,7 @@ beforeEach(() => {
     auth.guest = false
     auth.token = 'tok-1'
     bots.startBotGame.mockReset()
+    rooms.shown = []
     vi.mocked(useUser).mockReturnValue({ user: null, isLoading: false, error: null, refetch: vi.fn() } as never)
     vi.stubGlobal('localStorage', jsdomStorage)
     // The shell's own requests (GET /user/me, …) get an empty 204, never a network
@@ -421,5 +429,59 @@ describe('The landing page and Doma (spec §4, §5)', () => {
         await act(async () => {})
         expect(screen.queryByRole('region', { name: 'Email confirmation' })).not.toBeInTheDocument()
         expect(screen.getAllByRole('button', { name: 'Resend confirmation email' })).toHaveLength(1)
+    })
+})
+
+// The plan's "one click → the game page, with no lobby screen in between"
+describe('One click to a bot game (spec §6)', () => {
+    let lobbyCalls: ReturnType<typeof vi.spyOn>[] = []
+    beforeEach(() => {
+        bots.startBotGame.mockResolvedValue({ gameId: 'g7', lobbyId: 'l7' })
+        lobbyCalls = [vi.spyOn(lobbyService, 'createLobby'), vi.spyOn(lobbyService, 'startMatch'), vi.spyOn(lobbyService, 'fillBots')]
+    })
+
+    /** After the click: the game page, one step on in history, never the room, and no table made, filled or started. */
+    async function expectTheGameAlone(before: number) {
+        expect(await screen.findByRole('heading', { name: 'The table' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/game/g7')
+        expect(window.history.length).toBe(before + 1)
+        expect(rooms.shown).toEqual([])
+        expect(screen.queryByRole('heading', { name: /^The room/ })).not.toBeInTheDocument()
+        for (const call of lobbyCalls) expect(call).not.toHaveBeenCalled()
+    }
+
+    test('from Doma, Play now', async () => {
+        renderAt('/dashboard')
+        const button = within(screen.getByRole('region', { name: 'Against bots' })).getByRole('button', { name: 'Play now' })
+        const before = window.history.length
+        await userEvent.setup().click(button)
+        await expectTheGameAlone(before)
+    })
+
+    test('from an empty Birtija, Play against bots', async () => {
+        renderAt('/lobbies')
+        const button = await screen.findByRole('button', { name: 'Play against bots' })
+        const before = window.history.length
+        await userEvent.setup().click(button)
+        await expectTheGameAlone(before)
+    })
+
+    test("signed out, the landing page's Play now, as a new guest", async () => {
+        auth.isAuthenticated = false
+        // as S9's: the guest's token and user are stored before it answers, and from then on this is a guest
+        const startGuest = vi.spyOn(authService, 'startGuest').mockImplementation(async () => {
+            jsdomStorage.setItem('authToken', 'g-tok')
+            jsdomStorage.setItem('user', JSON.stringify({ id: 'g1', username: 'gost_4821', guest: true }))
+            auth.isAuthenticated = true
+            auth.guest = true
+            return { token: 'g-tok', user: { id: 'g1', username: 'gost_4821', guest: true }, message: null }
+        })
+        renderAt('/')
+        const button = screen.getByRole('button', { name: 'Play now' })
+        const before = window.history.length
+        await userEvent.setup().click(button)
+        await expectTheGameAlone(before)
+        expect(startGuest).toHaveBeenCalledTimes(1)
+        expect(startGuest.mock.invocationCallOrder[0]).toBeLessThan(bots.startBotGame.mock.invocationCallOrder[0])
     })
 })

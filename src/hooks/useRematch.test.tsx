@@ -121,11 +121,11 @@ describe('useRematch (R-45)', () => {
         expect(result.current.expired).toBe(true)
     })
 
-    test('Leave sends the decline, then goes back to the lobbies', () => {
+    test('Leave sends the decline, then goes where the page says (open beta §6)', () => {
         const { result } = renderHook(() => useRematch('g1', true))
-        act(() => result.current.leave())
+        act(() => result.current.leave('/dashboard'))
         expect(ws.declineRematch).toHaveBeenCalledWith('g1')
-        expect(router.navigate).toHaveBeenCalledWith('/lobbies')
+        expect(router.navigate).toHaveBeenCalledWith('/dashboard')
         expect(ws.declineRematch.mock.invocationCallOrder[0]).toBeLessThan(router.navigate.mock.invocationCallOrder[0])
     })
 })

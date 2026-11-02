@@ -234,7 +234,8 @@ export function signGuestBackIn(): Promise<GuestResume> | null {
             },
             (error: unknown): GuestResume => {
                 if (!(error instanceof ApiError) || error.status !== 401) return 'unavailable';
-                localStorage.removeItem(GUEST_SECRET_KEY);
+                // Ruling 48: only the secret this sign-in tried; a new guest another tab stored meanwhile keeps its own
+                if (localStorage.getItem(GUEST_SECRET_KEY) === credentials.password) localStorage.removeItem(GUEST_SECRET_KEY);
                 return 'refused';
             },
         )

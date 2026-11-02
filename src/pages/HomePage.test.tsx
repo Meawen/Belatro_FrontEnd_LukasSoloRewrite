@@ -3,7 +3,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { HomePage } from './HomePage'
-import { useUser } from '../hooks/useUser'
+import { notifyMeChanged, useUser } from '../hooks/useUser'
 import { userService } from '../services/userService'
 import { lobbyService } from '../services/lobbyService'
 import { matchHistoryService } from '../services/matchHistoryService'
@@ -158,6 +158,20 @@ describe('Doma (spec §5, option B)', () => {
         expect(userService.getActiveGame).toHaveBeenCalledTimes(2)
     })
 
+    test('Play now refused by the limit (429) or with no answer: the line, and Play now again (spec §8)', async () => {
+        const user = userEvent.setup()
+        bots.startBotGame
+            .mockRejectedValueOnce(new ApiError({ status: 429, message: 'Too many requests, try again later', code: 'RATE_LIMITED' }))
+            .mockRejectedValueOnce(new ApiError({ status: 0, message: 'Failed to fetch' }))
+        renderHome()
+        await settle()
+        for (const line of ['Too many tries. Wait a little, then try again.', "Bots aren't available right now. Try again later."]) {
+            await user.click(screen.getByRole('button', { name: 'Play now' }))
+            expect(await screen.findByText(line)).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Play now' })).toBeEnabled()
+        }
+    })
+
     test('Against people: Play ranked opens /play, Private table opens the create sheet with Private on, Tables (n) opens the Birtija', async () => {
         const user = userEvent.setup()
         for (const [name, path] of [['Play ranked', '/play'], ['Private table', '/lobbies?create=private'], ['Tables (2)', '/lobbies']]) {
@@ -198,6 +212,20 @@ describe('Doma (spec §5, option B)', () => {
         expect(within(half).getByText('Add an email address to play ranked.')).toBeInTheDocument()
         expect(within(half).getByRole('link', { name: 'Open settings' })).toHaveAttribute('href', '/settings')
         expect(within(half).getByRole('button', { name: 'Play ranked' })).toBeDisabled()
+    })
+
+    test('an address confirmed meanwhile unlocks Play ranked: Doma asks GET /user/me again when this tab says it changed (Ruling 48)', async () => {
+        vi.mocked(userService.getMe).mockResolvedValueOnce({ ...VERIFIED, emailVerified: false, pendingEmail: 'ana@example.com', email: null })
+        renderHome()
+        await settle()
+        const half = screen.getByRole('region', { name: 'Against people' })
+        expect(within(half).getByRole('button', { name: 'Play ranked' })).toBeDisabled()
+        // what a resend that finds nothing to confirm, or Settings, fires (useUser's notifyMeChanged)
+        await act(async () => notifyMeChanged())
+        await settle()
+        expect(userService.getMe).toHaveBeenCalledTimes(2)
+        expect(within(half).getByRole('button', { name: 'Play ranked' })).toBeEnabled()
+        expect(within(half).queryByRole('button', { name: 'Resend confirmation email' })).not.toBeInTheDocument()
     })
 
     test("a verified member's Play ranked is enabled", async () => {

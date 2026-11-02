@@ -43,12 +43,16 @@ export function LandingPage() {
     usePageTitle(t.titles.landing);
 
     // a visitor with no session becomes a guest first (spec §3); decided at click time from storage, not from this
-    // mount's useAuth state, so a guest made here whose game then failed is never made twice
-    const playBots = () =>
+    // mount's useAuth state, so a guest made here whose game then failed is never made twice. Ruling 48: the page shows
+    // that guest only once the game failed to start, so its panel never flashes in above the doors while it starts
+    const playBots = () => {
+        const made: { user?: UserLoginDetailsDTO | null } = {};
         void bots.play(authService.isAuthenticated() ? undefined : async () => {
-            const started = await authService.startGuest(getLang());
-            setMadeGuest(started.user ?? null);
+            made.user = (await authService.startGuest(getLang())).user;
+        }).then((started) => {
+            if (!started && made.user) setMadeGuest(made.user);
         });
+    };
 
     const ended = params.get('reason') === 'guest-ended' && !guest;
 

@@ -174,4 +174,15 @@ describe('LobbyList (spec §4.6)', () => {
         expect(screen.getByRole('alert')).toHaveTextContent("Couldn't refresh — showing the last list")
         expect(screen.getByRole('button', { name: /^Kod Mire/ })).toBeInTheDocument()
     })
+
+    test("the empty list shows the way on it is given; a list with tables doesn't", () => {
+        const empty = renderList([], { emptyAction: <button>On</button> })
+        const title = screen.getByText('No open tables.')
+        const on = screen.getByRole('button', { name: 'On' })
+        expect(title.compareDocumentPosition(on) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        empty.unmount()
+
+        renderList([lobby()], { emptyAction: <button>On</button> })
+        expect(screen.queryByRole('button', { name: 'On' })).not.toBeInTheDocument()
+    })
 })

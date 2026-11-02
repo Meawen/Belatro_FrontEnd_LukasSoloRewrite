@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { CreateLobbySheet } from './CreateLobbySheet'
@@ -8,17 +8,19 @@ import { ApiError } from '../../services/api'
 import type { LobbyDTO } from '../../types/lobby'
 import { setLang } from '../../i18n/lang'
 
+vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', username: 'ana' } }) }))
+
 const onClose = vi.fn()
 
 function LobbyAt() {
     return <p>lobby page {useParams().lobbyId}</p>
 }
 
-function renderSheet() {
+function renderSheet(privateTable?: boolean) {
     render(
         <MemoryRouter initialEntries={['/lobbies']}>
             <Routes>
-                <Route path="/lobbies" element={<CreateLobbySheet open onClose={onClose} />} />
+                <Route path="/lobbies" element={<CreateLobbySheet open onClose={onClose} privateTable={privateTable} />} />
                 <Route path="/lobby/:lobbyId" element={<LobbyAt />} />
             </Routes>
         </MemoryRouter>,
@@ -27,6 +29,7 @@ function renderSheet() {
 
 beforeEach(() => {
     vi.clearAllMocks()
+    sessionStorage.clear()
     vi.spyOn(lobbyService, 'createLobby').mockResolvedValue({ id: 'l9' } as LobbyDTO)
 })
 afterEach(() => vi.restoreAllMocks())
@@ -97,6 +100,54 @@ describe('CreateLobbySheet (spec §4.6)', () => {
         await userEvent.setup().click(screen.getByRole('button', { name: 'Cancel' }))
         expect(onClose).toHaveBeenCalled()
     })
+
+    test('Stol za ekipu opens with Private on and the name "ana\'s table", which the host can change (spec §5)', async () => {
+        const user = userEvent.setup()
+        renderSheet(true)
+        const name = await screen.findByDisplayValue("ana's table")
+        expect(name).toBe(screen.getByLabelText('Table name'))
+        expect(screen.getByRole('switch', { name: 'Private table' })).toBeChecked()
+        await user.clear(name)
+        await user.type(name, 'Petak')
+        await user.type(screen.getByLabelText('Password'), 'kuna7')
+        await user.click(screen.getByRole('button', { name: 'Create' }))
+        expect(lobbyService.createLobby).toHaveBeenCalledWith({ name: 'Petak', privateLobby: true, password: 'kuna7' })
+    })
+
+    test('the plain Create table starts with no name and Private off', async () => {
+        renderSheet()
+        await act(async () => {})
+        expect(screen.getByLabelText('Table name')).toHaveValue('')
+        expect(screen.getByRole('switch', { name: 'Private table' })).not.toBeChecked()
+    })
+
+    test("a private table's password stays in this tab for the invite, and nothing else does (spec §5, Privacy)", async () => {
+        const user = userEvent.setup()
+        const key = 'stiglja:table-password:l9'
+        renderSheet(true)
+        await screen.findByDisplayValue("ana's table")
+        await user.type(screen.getByLabelText('Password'), 'kuna7')
+        await user.click(screen.getByRole('button', { name: 'Create' }))
+        expect(await screen.findByText('lobby page l9')).toBeInTheDocument()
+        expect(sessionStorage.getItem(key)).toBe('kuna7')
+        cleanup()
+
+        sessionStorage.clear()
+        renderSheet()
+        await user.type(screen.getByLabelText('Table name'), 'Friday')
+        await user.click(screen.getByRole('button', { name: 'Create' }))
+        expect(await screen.findByText('lobby page l9')).toBeInTheDocument()
+        expect(sessionStorage.getItem(key)).toBeNull()
+        cleanup()
+
+        vi.mocked(lobbyService.createLobby).mockRejectedValue(new ApiError({ status: 400, message: 'Lobby password must be at most 72 bytes' }))
+        renderSheet(true)
+        await screen.findByDisplayValue("ana's table")
+        await user.type(screen.getByLabelText('Password'), 'kuna7')
+        await user.click(screen.getByRole('button', { name: 'Create' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent('Lobby password must be at most 72 bytes')
+        expect(sessionStorage.getItem(key)).toBeNull()
+    })
 })
 
 describe('CreateLobbySheet in Croatian (open beta §1.1, §1.4)', () => {
@@ -116,5 +167,11 @@ describe('CreateLobbySheet in Croatian (open beta §1.1, §1.4)', () => {
         expect(screen.getByText('Stol za ekipu treba lozinku.')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Odustani' })).toBeInTheDocument()
         expect(lobbyService.createLobby).not.toHaveBeenCalled()
+    })
+
+    test("Stol za ekipu's name in Croatian: Kod ana", async () => {
+        setLang('hr')
+        renderSheet(true)
+        expect(await screen.findByDisplayValue('Kod ana')).toBe(screen.getByLabelText('Ime stola'))
     })
 })

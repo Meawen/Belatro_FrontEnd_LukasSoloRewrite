@@ -54,6 +54,28 @@ describe('the catalogs (spec §1.2)', () => {
         expect(hr.home.newToBela.action).toBe('Škola bele')
     })
 
+    test('the words S10 shows (§1.4, §5, §6)', () => {
+        expect(hr.board.end.playAgain).toBe('Ajmo još jednu!')
+        expect(en.board.end.playAgain).toBe('Play again')
+        expect(hr.titles.home).toBe('Doma')
+        expect(hr.tables.privateTable).toBe('Stol za ekipu')
+        expect(hr.board.end.withPeople).toBe('Igraj s ljudima')
+        expect(hr.common.back).toBe('Natrag')
+        expect(hr.tables.form.privateName('ana')).toBe('Kod ana')
+        expect(hr.table.sharePassword('kuna7')).toBe('Lozinka: kuna7')
+        expect(hr.table.shareHostKnows).toBe('Lozinku zna domaćin.')
+        expect(hr.tables.emptyBots).toBe('Igraj protiv botova')
+    })
+
+    test("Ruling 48's Croatian for the landing page and Doma", () => {
+        expect(hr.landing.ended.label).toBe('Sesija gosta je završila')
+        expect(hr.landing.ended.body).toBe('Tvoja sesija gosta je završila. Odaberi ispod kako ćeš krenuti ispočetka.')
+        expect(hr.landing.bots.body).toBe('Znam igrati: partija protiv tri bota, odmah, kao gost.')
+        expect(hr.home.people.body).toBe('Pravi igrači: rangirane partije za rejting, stolovi za društvo.')
+        expect(hr.landing.guest.body).toBe('Ovaj preglednik pamti tvoje ime gosta. Promijeni ga kad god želiš: to ime vide svi za stolom.')
+        expect(hr.landing.rename.title).toBe('Promijeni ime gosta')
+    })
+
     test("Ruling 44's Croatian for the needs-an-account lines", () => {
         expect(hr.guest.needsAccount.what.home).toBe('Tvoja statistika, zadnje partije i svi načini igre na jednom mjestu.')
         expect(en.guest.needsAccount.what.home).toBe('Your stats, your recent games and all the ways to play, in one place.')

@@ -45,10 +45,19 @@ function GamePage({ gameId }: { gameId: string }) {
     const t = useT();
     const navigate = useNavigate();
     const { user, isGuest } = useAuth();
+    // spec §6: the game page's ways out. A member goes Doma; a guest goes to the landing page (a guest can't open the
+    // Birtija or Doma) and may also sign up (Ruling 6). While a rematch is on offer, going also declines it for
+    // everyone (R-45), as Leave did.
+    const home = isGuest ? '/' : '/dashboard';
 
     const { view, publicView, isConnected, connectionError, error, notAvailable, actions } =
-        useGameViews(gameId, () => navigate('/lobbies'));
-    const rematch = useRematch(gameId, publicView !== null && rematchOffered(publicView));
+        useGameViews(gameId, () => navigate(home));
+    const offered = publicView !== null && rematchOffered(publicView);
+    const rematch = useRematch(gameId, offered);
+    const go = (to: string) => {
+        if (offered) rematch.leave(to);
+        else navigate(to);
+    };
     const hands = useMatchHands(gameId, publicView);
 
     // spec §3.6: all 39 images decoded once on entering the game, no React state per image
@@ -97,8 +106,9 @@ function GamePage({ gameId }: { gameId: string }) {
                 isConnected={isConnected}
                 hands={hands}
                 rematch={rematch}
-                onLeave={() => navigate('/lobbies')}
+                onLeave={() => go(home)}
                 guest={isGuest}
+                onSignUp={isGuest ? () => go('/signup') : undefined}
             />
             <ReconnectStrip />
         </>

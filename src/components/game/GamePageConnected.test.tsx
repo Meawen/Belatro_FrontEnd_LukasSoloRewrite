@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useState } from 'react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom'
 import GamePageConnected from './GamePageConnected'
@@ -45,10 +45,18 @@ function views(pub: PublicGameView | null, priv: PrivateGameView | null = null, 
     }
 }
 
+/** Where a way out of the game led. */
+function Where() {
+    return <p>at {useLocation().pathname}</p>
+}
+
 function renderPage() {
     render(
         <MemoryRouter initialEntries={['/game/g1']}>
-            <Routes><Route path="/game/:gameId" element={<GamePageConnected />} /></Routes>
+            <Routes>
+                <Route path="/game/:gameId" element={<GamePageConnected />} />
+                <Route path="*" element={<Where />} />
+            </Routes>
         </MemoryRouter>,
     )
 }
@@ -280,5 +288,80 @@ describe('GamePageConnected', () => {
         auth.isGuest = false
         renderPage()
         expect(screen.getByRole('link', { name: 'Match details' })).toHaveAttribute('href', '/matches/g1')
+    })
+})
+
+describe('the ways out of a game (spec §6)', () => {
+    const over = { ...publicView, gameState: 'COMPLETED', winnerTeamId: 'A' } as PublicGameView
+    const cancelled = { ...publicView, gameState: 'CANCELLED', endReason: 'CANCELLED', forfeitTeamId: null } as PublicGameView
+
+    test('a member: Home declines a rematch on offer and goes Doma', async () => {
+        vi.mocked(useGameViews).mockReturnValue(views(over))
+        renderPage()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Home' }))
+        expect(rematchMock.state.leave).toHaveBeenCalledTimes(1)
+        expect(rematchMock.state.leave).toHaveBeenCalledWith('/dashboard')
+    })
+
+    test('a member with no rematch on offer: Home just goes Doma', async () => {
+        vi.mocked(useGameViews).mockReturnValue(views(cancelled))
+        renderPage()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Home' }))
+        expect(screen.getByText('at /dashboard')).toBeInTheDocument()
+        expect(rematchMock.state.leave).not.toHaveBeenCalled()
+    })
+
+    test('a guest: Back goes to the landing page and Play with people to sign-up, each declining a rematch on offer', async () => {
+        const user = userEvent.setup()
+        auth.isGuest = true
+        vi.mocked(useGameViews).mockReturnValue(views(over))
+        renderPage()
+        await user.click(screen.getByRole('button', { name: 'Back' }))
+        expect(rematchMock.state.leave).toHaveBeenLastCalledWith('/')
+        await user.click(screen.getByRole('button', { name: 'Play with people' }))
+        expect(rematchMock.state.leave).toHaveBeenLastCalledWith('/signup')
+        expect(rematchMock.state.leave).toHaveBeenCalledTimes(2)
+    })
+
+    test('a guest with no rematch on offer: Back opens the landing page, Play with people the sign-up page', async () => {
+        const user = userEvent.setup()
+        auth.isGuest = true
+        vi.mocked(useGameViews).mockReturnValue(views(cancelled))
+        renderPage()
+        await user.click(screen.getByRole('button', { name: 'Back' }))
+        expect(screen.getByText('at /')).toBeInTheDocument()
+        cleanup()
+        renderPage()
+        await user.click(screen.getByRole('button', { name: 'Play with people' }))
+        expect(screen.getByText('at /signup')).toBeInTheDocument()
+        expect(rematchMock.state.leave).not.toHaveBeenCalled()
+    })
+
+    test('a game that stops without a cancel frame takes a member Doma and a guest to the landing page', () => {
+        vi.mocked(useGameViews).mockReturnValue(views(publicView))
+        renderPage()
+        act(() => vi.mocked(useGameViews).mock.lastCall?.[1]?.())
+        expect(screen.getByText('at /dashboard')).toBeInTheDocument()
+        cleanup()
+        auth.isGuest = true
+        renderPage()
+        act(() => vi.mocked(useGameViews).mock.lastCall?.[1]?.())
+        expect(screen.getByText('at /')).toBeInTheDocument()
+    })
+
+    test('the ways out in Croatian', () => {
+        setLang('hr')
+        try {
+            vi.mocked(useGameViews).mockReturnValue(views(over))
+            renderPage()
+            expect(screen.getByRole('button', { name: 'Doma' })).toBeInTheDocument()
+            cleanup()
+            auth.isGuest = true
+            renderPage()
+            expect(screen.getByRole('button', { name: 'Igraj s ljudima' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Natrag' })).toBeInTheDocument()
+        } finally {
+            setLang('en')
+        }
     })
 })

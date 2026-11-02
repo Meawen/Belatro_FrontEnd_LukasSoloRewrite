@@ -20,6 +20,7 @@ import { LobbyTable, type SeatBusy } from './LobbyTable';
 import { isBot, isMember, lobbyName } from './lobbyModel';
 import { fillableSeats, hostHint, isHost, lobbyHint, memberStatus, seatAction, startReadiness, tableSeats, takesBots, teamOf, type SeatPosition, type TableSeat } from './seats';
 import { displayName } from '../common/displayName';
+import { tablePassword } from './tablePassword';
 
 export interface LobbyRoomProps {
     lobbyId: string;
@@ -79,7 +80,7 @@ function afterBot(lobby: LobbyDTO, viewerId: string | null, seated: Set<string>,
  * from a 2-s poll; members follow a started match into the game.
  */
 export function LobbyRoom({ lobbyId }: LobbyRoomProps) {
-    const { user } = useAuth();
+    const { user, isGuest } = useAuth();
     const me = user?.id ?? null;
     const navigate = useNavigate();
     const [removed, setRemoved] = useState(false);
@@ -127,7 +128,12 @@ export function LobbyRoom({ lobbyId }: LobbyRoomProps) {
     }, [lobbyClosed, member, lobbyId, navigate]);
 
     const t = useT();
-    const back = { to: '/lobbies', label: t.titles.tables };
+    // spec §3.2, §3.3: a guest reaches a table only by its link and can't open the Birtija, so their way back is the
+    // landing page; a member's is the Birtija
+    const away: Away = isGuest
+        ? { to: '/', label: t.common.back, button: t.common.back }
+        : { to: '/lobbies', label: t.titles.tables, button: t.table.backToTables };
+    const back = { to: away.to, label: away.label };
 
     // Only the first load shows a spinner; later polls keep the page in place.
     if (loading && lobby === null) {
@@ -137,8 +143,8 @@ export function LobbyRoom({ lobbyId }: LobbyRoomProps) {
             </Page>
         );
     }
-    if (closed) return <LobbyGone title={t.table.closed} />;
-    if (removed) return <LobbyGone title={t.table.removed} />;
+    if (closed) return <LobbyGone title={t.table.closed} away={away} />;
+    if (removed) return <LobbyGone title={t.table.removed} away={away} />;
 
     // Only a failed first load replaces the page; a failed poll leaves the last lobby up.
     if (lobby === null) {
@@ -152,8 +158,8 @@ export function LobbyRoom({ lobbyId }: LobbyRoomProps) {
                             <Button variant="secondary" onClick={() => void refresh()}>
                                 {t.common.retry}
                             </Button>
-                            <Button variant="quiet" onClick={() => navigate('/lobbies')}>
-                                {t.table.backToTables}
+                            <Button variant="quiet" onClick={() => navigate(away.to)}>
+                                {away.button}
                             </Button>
                         </>
                     }
@@ -162,16 +168,23 @@ export function LobbyRoom({ lobbyId }: LobbyRoomProps) {
         );
     }
 
-    return <LobbyView lobbyId={lobbyId} lobby={lobby} me={me} refresh={refresh} notice={pollError ?? followError} following={lobbyClosed && member} />;
+    return <LobbyView lobbyId={lobbyId} lobby={lobby} me={me} refresh={refresh} notice={pollError ?? followError} following={lobbyClosed && member} away={away} />;
+}
+
+/** Where this viewer goes back to (spec §3.2): the Birtija, or the landing page for a guest. */
+interface Away {
+    to: string;
+    label: string;
+    button: string;
 }
 
 /** The end of a lobby, for this viewer: closed (404) or removed by the host. */
-function LobbyGone({ title }: { title: string }) {
+function LobbyGone({ title, away }: { title: string; away: Away }) {
     const navigate = useNavigate();
     const t = useT();
     return (
-        <Page title={t.titles.table} back={{ to: '/lobbies', label: t.titles.tables }}>
-            <EmptyState icon="door" title={title} action={<Button onClick={() => navigate('/lobbies')}>{t.table.backToTables}</Button>} />
+        <Page title={t.titles.table} back={{ to: away.to, label: away.label }}>
+            <EmptyState icon="door" title={title} action={<Button onClick={() => navigate(away.to)}>{away.button}</Button>} />
         </Page>
     );
 }
@@ -187,9 +200,11 @@ interface LobbyViewProps {
     notice: string | null;
     /** The lobby closed and this member is following it into the game. */
     following: boolean;
+    /** Where Leave, Close table and the back link go (spec §3.2). */
+    away: Away;
 }
 
-function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyViewProps) {
+function LobbyView({ lobbyId, lobby, me, refresh, notice, following, away }: LobbyViewProps) {
     const navigate = useNavigate();
     const t = useT();
     const [sheet, setSheet] = useState<OpenSheet>(null);
@@ -224,15 +239,20 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     const botControls = takesBots(lobby) && !launching;
     const closeSheet = () => setSheet(null);
 
+    // spec §5: a Stol za ekipu's invite carries its password when this tab created the table and kept it
+    // (tablePassword); otherwise it says the host knows it. A public table's invite is the link alone.
     const copyInvite = () => {
+        const c = cat().table;
         const link = `${window.location.origin}/lobby/${lobbyId}`;
+        const password = lobby.privateLobby ? tablePassword(lobbyId) : null;
+        const text = lobby.privateLobby ? `${link}\n${password ? c.sharePassword(password) : c.shareHostKnows}` : link;
         if (!navigator.clipboard) {
-            showToast(link);
+            showToast(text);
             return;
         }
-        navigator.clipboard.writeText(link).then(
-            () => showToast(cat().table.inviteCopied),
-            () => showToast(link),
+        navigator.clipboard.writeText(text).then(
+            () => showToast(password ? c.invitePasswordCopied : c.inviteCopied),
+            () => showToast(text),
         );
     };
 
@@ -319,7 +339,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
 
     const leave = async () => {
         await lobbyService.leaveLobby(lobbyId);
-        navigate('/lobbies');
+        navigate(away.to);
     };
 
     const kick = async () => {
@@ -330,7 +350,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
 
     const closeLobby = async () => {
         await lobbyService.deleteLobby(lobbyId);
-        navigate('/lobbies');
+        navigate(away.to);
     };
 
     // POST /lobbies/join puts the caller in Unassigned, or, in a lobby of four with a bot, in that bot's seat; the next
@@ -370,7 +390,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     return (
         <Page
             title={lobbyName(lobby)}
-            back={{ to: '/lobbies', label: t.titles.tables }}
+            back={{ to: away.to, label: away.label }}
             meta={<LobbyChips lobby={lobby} />}
             actions={<IconButton icon="link" aria-label={t.table.copyInvite} variant="secondary" onClick={copyInvite} />}
         >

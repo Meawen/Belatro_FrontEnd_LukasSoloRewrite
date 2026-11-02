@@ -78,8 +78,11 @@ function signOutToLogin(): void {
     window.location.assign('/login?reason=session-ended');
 }
 
-/** Ruling 44: the pages that need no session; a guest whose session ends while reading one stays on it. */
-const SESSION_FREE_PATHS = ['/privacy', '/terms', '/rules', '/confirm-email', '/reset-password'];
+/**
+ * Ruling 44: the pages that need no session; a guest whose session ends while reading one stays on it. Ruling 48 adds
+ * the forgotten-password, sign-in and sign-up forms and the leaderboard.
+ */
+const SESSION_FREE_PATHS = ['/privacy', '/terms', '/rules', '/confirm-email', '/reset-password', '/forgot-password', '/login', '/signup', '/users'];
 
 /**
  * How a guest's session ends for good (spec §3.1, §8 "guest expired"; Rulings 7, 32): the server refused its token,
