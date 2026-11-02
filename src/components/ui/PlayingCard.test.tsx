@@ -18,6 +18,17 @@ afterEach(() => {
 })
 
 describe('card sizes (spec §3.6; D-23)', () => {
+    test('`exact` draws the board\'s sideways cards at exactly their width, not made crisp (owner 2026-11-01, board-fit spec §3.4); without it the width snaps', () => {
+        viewport(915, 2.625)
+        const { container, rerender } = render(<PlayingCard back={1} width={71} exact />)
+        const card = () => container.querySelector<HTMLElement>('.ui-card')!
+        expect(card().style.width).toBe('71px')
+        expect(card().style.height).toBe('95px')
+        rerender(<PlayingCard back={1} width={71} />)
+        expect(Number.parseFloat(card().style.width)).toBeCloseTo(81.14, 2)
+    })
+
+
     test('the intended CSS widths per size, screen width and density', () => {
         const phone = { width: 375, dpr: 3 }
         const landscape = { width: 812, dpr: 3 }

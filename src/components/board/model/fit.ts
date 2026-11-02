@@ -1,7 +1,7 @@
 import { ART_W } from '../../ui/cardWidth';
 import { seatBoxes } from '../seatSpot';
 import {
-    bandBottom, boundsOf, cardSize, fanPlaces, hudBoxes, layoutAt, tableTargets, type Layout, type LayoutKind, type Rect, type Target, type Viewport,
+    LANDSCAPE_EXACT, bandBottom, boundsOf, cardSize, exactSideways, fanPlaces, hudBoxes, layoutAt, tableTargets, type Layout, type LayoutKind, type Rect, type Target, type Viewport,
 } from './cardTargets';
 import { desktopCandidates, floorPair, phoneCandidates } from './sizes';
 
@@ -40,7 +40,8 @@ export function kindOf({ width, height }: Viewport): LayoutKind {
  * The layout for a viewport (board-fit spec §3): the biggest crisp cards that `fits` the window, from the window only,
  * so they change only when the window does (resize, rotation, zoom).
  * - Portrait phones: the first of `phoneCandidates` that fits, the trick and the hand alike; else the step nearest 71.
- * - Landscape phones: always the step nearest 71 (§3.4).
+ * - Landscape phones: always the step nearest 71 (§3.4); on a screen where that is over 72 px, exactly 71 (owner
+ *   2026-11-01, LANDSCAPE_EXACT).
  * - Tablets (the portrait arrangement, no Blok column) and desktops: the first of `desktopCandidates` that fits; else
  *   `floorPair` (§3.3's floor: the felt goes tight rather than the art shrinking further).
  */
@@ -48,7 +49,8 @@ export function layoutFor(viewport: Viewport): Layout {
     const kind = kindOf(viewport);
     const { dpr } = viewport;
     if (kind === 'landscape') {
-        const card = cardSize(ART_W, dpr);
+        // the step nearest 71; where that is over 72 px (Android sideways), exactly 71 (owner 2026-11-01, LANDSCAPE_EXACT)
+        const card = exactSideways(dpr) ? LANDSCAPE_EXACT.card : cardSize(ART_W, dpr);
         return layoutAt(viewport, kind, card, card);
     }
     if (kind === 'portrait') {

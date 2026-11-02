@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import { fits, handStrips, kindOf, layoutFor, misfits } from './fit'
-import { bandBottom, cardSize, fanPlaces, handPlaces, layoutAt, tableTargets, trickSlots, type Layout, type Viewport } from './cardTargets'
+import { LANDSCAPE_EXACT, bandBottom, cardSize, fanPlaces, handPlaces, layoutAt, tableTargets, trickSlots, type Layout, type Viewport } from './cardTargets'
 import { desktopCandidates, floorPair, phoneCandidates } from './sizes'
 import { at, box, hull, nameOf, overlap, seven } from '../../../test/fixtures/layouts'
 
@@ -65,10 +65,10 @@ describe('layoutFor picks the biggest that fits (board-fit spec §3)', () => {
         expect(fits(at(375, 553, 2, 'portrait', 106.5))).toBe(false)
     })
 
-    test('phones sideways (§3.4): 812×375 @2, 667×323 @2 and 844×340 @3 keep the step nearest 71, half the hand showing', () => {
+    test('phones sideways (§3.4): 812×375 @2, 667×323 @2 and 844×340 @3 keep the step nearest 71, 45 % of the hand showing (owner 2026-11-01: was half)', () => {
         for (const viewport of [{ width: 812, height: 375, dpr: 2 }, { width: 667, height: 323, dpr: 2 }, { width: 844, height: 340, dpr: 3 }]) {
             const layout = layoutFor(viewport)
-            expect(layout, named(viewport)).toMatchObject({ kind: 'landscape', trick: { w: 71, h: 95 }, hand: { w: 71, h: 95 }, handShow: 0.5 })
+            expect(layout, named(viewport)).toMatchObject({ kind: 'landscape', trick: { w: 71, h: 95 }, hand: { w: 71, h: 95 }, handShow: 0.45, exact: false })
         }
     })
 
@@ -268,7 +268,7 @@ describe('fits: the trick, my hand and the seat columns at a candidate size (boa
         expect(fits(layout)).toBe(true)
     })
 
-    test('landscape\'s flatter cross (Ruling Q: slots 0.35 of a card apart vertically, the partner\'s fan 17 px under the HUD per 71 of back) fits 667×323 @2, 844×340 @3, the notch\'s 756×340 @3 and 812×375 @2, "Your turn" clear of the side slots', () => {
+    test('landscape\'s flatter cross (slots 0.32 of a card apart vertically, the partner\'s fan 13 px under the HUD per 71 of back; owner 2026-11-01, after Ruling Q\'s 0.35 and 17) fits 667×323 @2, 844×340 @3, the notch\'s 756×340 @3 and 812×375 @2, "Your turn" clear of the side slots', () => {
         for (const viewport of [{ width: 667, height: 323, dpr: 2 }, { width: 844, height: 340, dpr: 3 }, { width: 756, height: 340, dpr: 3 }, { width: 812, height: 375, dpr: 2 }]) {
             const layout = layoutFor(viewport)
             expect(layout.kind, named(viewport)).toBe('landscape')
@@ -278,10 +278,83 @@ describe('fits: the trick, my hand and the seat columns at a candidate size (boa
             expect(box({ ...slots.partner, rotate: 4.8 }).y0, named(viewport)).toBeGreaterThanOrEqual(fanBottom)
             expect(box({ ...slots.me, rotate: 4.8 }).y1, named(viewport)).toBeLessThanOrEqual(bandBottom(layout))
         }
-        // 667×323 @2, the tightest: the band 81.6–250.7 (169.1 px) holds the 167.1-px cross
+        // 667×323 @2, the tightest iPhone: the band 77.6–255.4 (177.9 px) holds the 161.4-px cross
         const tight = layoutFor({ width: 667, height: 323, dpr: 2 })
         const slots = trickSlots(tight)
-        expect(box({ ...slots.me, rotate: 4.8 }).y1 - box({ ...slots.partner, rotate: 4.8 }).y0).toBeCloseTo(167.1, 1)
-        expect(bandBottom(tight) - Math.max(...fanPlaces(tight, 'partner', 8).map((back) => box(back).y1))).toBeCloseTo(169.1, 1)
+        expect(box({ ...slots.me, rotate: 4.8 }).y1 - box({ ...slots.partner, rotate: 4.8 }).y0).toBeCloseTo(161.41, 1)
+        expect(bandBottom(tight) - Math.max(...fanPlaces(tight, 'partner', 8).map((back) => box(back).y1))).toBeCloseTo(177.86, 1)
+    })
+})
+
+/**
+ * Known, not fixed (owner, 2026-11-01: "Fix common sizes"; for after the beta): 300-px-tall sideways windows at dpr 3, with
+ * exactly what they miss today, so a change shows.
+ */
+const LANDSCAPE_OPEN: Record<string, string[]> = {
+    '800x300@3': [
+        "slot me [360.6, 135.1, 78.7, 100.6] outside the band [0, 44, 800.0, 232.4]",
+        "your turn [340.0, 200.4, 120.0, 26.0] meets slot right [410.3, 104.7, 78.7, 100.6] by 49.7×4.9",
+        "your turn [340.0, 200.4, 120.0, 26.0] meets slot left [310.9, 104.7, 78.7, 100.6] by 49.7×4.9",
+        "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:0 [355.6, 36.4, 32.8, 41.2] by 27.8×3.3",
+        "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:1 [364.2, 36.8, 31.6, 40.3] by 31.6×2.8",
+        "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:2 [372.8, 37.3, 30.3, 39.4] by 30.3×2.4",
+        "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:3 [381.5, 37.8, 29.1, 38.5] by 29.1×1.9",
+        "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:4 [389.5, 37.8, 29.1, 38.5] by 29.1×1.9",
+        "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:5 [396.8, 37.3, 30.3, 39.4] by 30.3×2.4",
+        "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:6 [404.2, 36.8, 31.6, 40.3] by 31.6×2.8",
+        "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:7 [411.6, 36.4, 32.8, 41.2] by 27.8×3.3",
+        "mine: partner#1 [264.3, 44.0, 83.3, 63.3] meets slot left [310.9, 104.7, 78.7, 100.6] by 36.6×2.6",
+    ],
+    '740x300@3': [
+        "slot me [330.6, 135.1, 78.7, 100.6] outside the band [0, 44, 740.0, 232.4]",
+        "your turn [310.0, 200.4, 120.0, 26.0] meets slot right [380.3, 104.7, 78.7, 100.6] by 49.7×4.9",
+        "your turn [310.0, 200.4, 120.0, 26.0] meets slot left [280.9, 104.7, 78.7, 100.6] by 49.7×4.9",
+        "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:0 [325.6, 36.4, 32.8, 41.2] by 27.8×3.3",
+        "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:1 [334.2, 36.8, 31.6, 40.3] by 31.6×2.8",
+        "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:2 [342.8, 37.3, 30.3, 39.4] by 30.3×2.4",
+        "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:3 [351.5, 37.8, 29.1, 38.5] by 29.1×1.9",
+        "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:4 [359.5, 37.8, 29.1, 38.5] by 29.1×1.9",
+        "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:5 [366.8, 37.3, 30.3, 39.4] by 30.3×2.4",
+        "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:6 [374.2, 36.8, 31.6, 40.3] by 31.6×2.8",
+        "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:7 [381.6, 36.4, 32.8, 41.2] by 27.8×3.3",
+        "mine: partner#1 [234.3, 44.0, 83.3, 63.3] meets slot left [280.9, 104.7, 78.7, 100.6] by 36.6×2.6",
+    ],
+}
+
+describe('phones held sideways (board-fit spec §3.4, §4.2, §7; owner 2026-11-01, "Fix common sizes")', () => {
+    test('common Android windows fit, their cards drawn at exactly 71 CSS px where the crisp step nearest 71 is over 72 px (LANDSCAPE_EXACT): 915×332 @2.625 and 851×329 @2.75', () => {
+        for (const viewport of [{ width: 915, height: 332, dpr: 2.625 }, { width: 851, height: 329, dpr: 2.75 }]) {
+            const layout = layoutFor(viewport)
+            expect(cardSize(71, viewport.dpr).w, named(viewport)).toBeGreaterThan(72)
+            expect(layout, named(viewport)).toMatchObject({ kind: 'landscape', exact: true, trick: LANDSCAPE_EXACT.card, hand: LANDSCAPE_EXACT.card, back: LANDSCAPE_EXACT.card, declared: LANDSCAPE_EXACT.declared, handShow: 0.45 })
+            expect(misfits(layout), named(viewport)).toEqual([])
+        }
+    })
+
+    test('the iPhone windows still fit, crisp, at the step nearest 71 (71 px): 667×323 @2, 844×340 @3, 812×375 @2 and the notch\'s 756×340 @3', () => {
+        for (const viewport of [{ width: 667, height: 323, dpr: 2 }, { width: 844, height: 340, dpr: 3 }, { width: 812, height: 375, dpr: 2 }, { width: 756, height: 340, dpr: 3 }]) {
+            const layout = layoutFor(viewport)
+            expect(layout, named(viewport)).toMatchObject({ kind: 'landscape', exact: false, trick: cardSize(71, viewport.dpr), hand: cardSize(71, viewport.dpr) })
+            expect(layout.trick.w, named(viewport)).toBe(71)
+            expect(misfits(layout), named(viewport)).toEqual([])
+        }
+    })
+
+    test('800×300 @3 and 740×300 @3 stay open (owner 2026-11-01: known, for after the beta) and miss exactly what LANDSCAPE_OPEN lists', () => {
+        for (const [name, found] of Object.entries(LANDSCAPE_OPEN)) {
+            const [width, height] = name.split('@')[0].split('x').map(Number)
+            expect(misfits(layoutFor({ width, height, dpr: 3 })), name).toEqual(found)
+        }
+    })
+
+    test('a coarse landscape grid: from 310 px tall (dpr 2, 2.625, 2.75) or 320 (dpr 3) up to 500, every window 700–932 wide fits; just under, some does not', () => {
+        const floor: [number, number][] = [[2, 310], [2.625, 310], [2.75, 310], [3, 320]]
+        for (const [dpr, from] of floor) {
+            for (let width = 700; width <= 932; width += 29) {
+                for (let height = from; height <= 500; height += 19) expect(misfits(layoutFor({ width, height, dpr })), `${width}x${height}@${dpr}`).toEqual([])
+            }
+            const under = [700, 740, 800, 851, 915, 932].some((width) => misfits(layoutFor({ width, height: from - 1, dpr })).length > 0)
+            expect(under, `${from - 1} px @${dpr}`).toBe(true)
+        }
     })
 })

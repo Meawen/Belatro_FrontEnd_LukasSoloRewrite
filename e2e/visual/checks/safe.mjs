@@ -1,14 +1,14 @@
 // Safe areas in landscape (Review focus; spec §3.4): headless Chromium has no notch, so the check gives the page
 // one, the way an iPhone in landscape reports it (--safe-right/left 44 px, --safe-bottom 21 px for the home
 // indicator), at 812×375 and at 812×340 (Safari with its toolbar). On the board every card, chip and control must
-// then lie inside the safe rectangle. My hand's cards may tuck half their height below its bottom edge (board-fit
-// spec §3.4: only their top half shows) but keep their sides and top inside it. A docked sheet's panel runs to the
+// then lie inside the safe rectangle. My hand's cards may tuck 55 % of their height below its bottom edge (board-fit
+// spec §3.4: only their top 45 % shows, owner 2026-11-01) but keep their sides and top inside it. A docked sheet's panel runs to the
 // screen's edge (its content is padded by the insets), so for sheets only their controls are checked.
 
 const INSETS = { top: 0, right: 44, bottom: 21, left: 44 };
 const VIEWPORTS = ['812x375', '812x340'];
-// the share of a hand card that may tuck below the safe area (board-fit spec §3.4: half in landscape)
-const TUCK = 0.5;
+// the share of a hand card that may tuck below the safe area (board-fit spec §3.4: 55 % in landscape, owner 2026-11-01)
+const TUCK = 0.55;
 const at = (label, extra = '') => `/dev/board?controls=0&skip=1&effects=off&seat=carol&at=${label}${extra}`;
 const SCENES = [
     { name: 'safe-bidding', path: at('bid:bob:PASS') },

@@ -54,6 +54,8 @@ What the investigation found (screenshots of master 5dbdae2 at real browser wind
 
 **Anti-goals** (a failure even if it "works")
 - Soft or blurry card art: every face and back stays a whole number of device pixels per art pixel (§3.6's rule).
+  One exception (owner, 2026-11-01, "Fix common sizes"): phones held sideways on a screen whose crisp step nearest 71
+  is over 72 px wide draw the table's cards at exactly 71 px (§3.4), slightly uneven, so that they fit.
 - A table that jumps or reflows during play. Sizes change only when the window does (resize, rotation, zoom).
 - Hiding information to make room. Every tag, chip and declared card still shows; it moves or shrinks.
 
@@ -112,8 +114,14 @@ dpr 2, 71, 106.5, 142, 177.5; at dpr 3, 71, 94.7, 118.3.
 
 ### 3.4 Landscape phones (height 500 px or less)
 - The cards stay at today's size (the step nearest 71), hand and trick alike.
-- The hand sinks so only its **top half** shows (owner's choice D; today a quarter tucks below the edge, now half). The
-  corner index and part of each picture show, and each card's exposed strip stays tappable.
+  - **Except where that step is over 72 px wide** (Android's dpr 2.625 gives 81.1, 2.75 gives 77.5): there the
+    table's cards are drawn at exactly **71 px** (the opponents' backs too, the declared cards at half that). That is
+    a non-integer number of device pixels per art pixel, slightly uneven. The owner accepted it for this case only
+    (2026-11-01, "Fix common sizes"), so that common Android phones held sideways fit (§7). Upright, tablets and
+    desktops stay crisp.
+- The hand sinks so only its **top 45 %** shows (owner's choice D, then 45 % for the Android sizes, 2026-11-01; today
+  a quarter tucks below the edge). The corner index and part of each picture show, and each card's exposed strip stays
+  tappable.
 
 ### 3.5 Things sized from the cards
 - Declared cards (by the seats, from the trump call until the first trick is taken) are about **half the trick card's
@@ -141,8 +149,10 @@ The trick keeps its cross in every layout. Its slots stay relative to the card s
 
 ### 4.2 Landscape (height 500 px or less)
 - The cross is centred in the band between the partner's fan and the top of the (lowered) hand. It is flatter than
-  upright: its slots sit 0.35 of a card's height from its centre (0.45 before), and the partner's fan sits closer under
-  the HUD, so the cross fits 667×323 and 844×340 (builder, after the fit check).
+  upright: its slots sit 0.32 of a card's height from its centre (0.45 at first, then 0.35), the flattest at which
+  every trick card still shows a corner index. The partner's fan sits 13 px under the HUD per 71 px of back (23 at
+  first, then 17), the backs drawn at 0.4. So the cross fits the iPhone windows and the common Android ones of §7
+  (builder, after the fit checks; the Android numbers owner-approved 2026-11-01).
 - The partner's tag stays beside the fan (today's rule), its chips and declared cards beside it, on the same row.
 - The side seats as in §4.1: tags above the fans, chips and declared cards under them.
 - **My tag sits at the bottom left, beside my hand**, low enough that the left seat's column never reaches it.
@@ -190,11 +200,14 @@ These cover the trick or hand on purpose, and the checks must allow them:
   smaller cards; the table grows from 1440×900 to 2560×1300 (1440×900 and 1920×1080 at @1 may share a size, §3.3);
   960×980 no longer gets phone cards; every trick card's corner index shows (G1).
 - **Sizes** (CSS window, dpr): upright 375×553 @2, 390×664 @3, 375×812 @2, 430×739 @3; sideways 667×323 @2, 844×340
-  @3, 812×375 @2; desktop 960×980 @1, 1280×720 @1, 1440×900 @1 and @2, 1536×730 @1.25, 1280×600 @1.5, 1920×1080 @1,
-  2560×1300 @1.
+  @3, 812×375 @2, and Android Chrome's 915×332 @2.625 and 851×329 @2.75; desktop 960×980 @1, 1280×720 @1, 1440×900 @1
+  and @2, 1536×730 @1.25, 1280×600 @1.5, 1920×1080 @1, 2560×1300 @1.
+  - Known, for after the beta (owner, 2026-11-01): sideways windows 300 px tall at dpr 3 (800×300, 740×300) don't
+    fit yet. Sideways, every window 700 px wide or more fits from 310 px tall at dpr 2, 2.625 and 2.75, and from
+    320 px at dpr 3.
 - **Visual harness:** the board scenes gain some of these sizes, at least 390×664, 375×553, 844×340, 1536×730 @1.25
   and 960×980. Shots that change are re-recorded only after the owner approves a before/after page. The `safe` check's
-  landscape tuck rises from a quarter to a half of a hand card (§3.4).
+  landscape tuck rises from a quarter to 55 % of a hand card (§3.4; half until 2026-11-01).
 - **The testing session** (stiglja-lanes-f0, `stiglja-notes/sdd/2026-10-30-board-fit/test-plan.md`) checks the
   same sizes independently with its own DOM geometry check (T3), allowing §5's exceptions, then the rig runs the owner
   picks.

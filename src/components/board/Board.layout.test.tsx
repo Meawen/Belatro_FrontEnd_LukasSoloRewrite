@@ -216,8 +216,8 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
                 // lifted only where my Zvanja chip comes first: after Bela it wraps up a line instead
                 const chips = [...above.querySelectorAll('.board-seat__chips > *')].map((one) => one.textContent)
                 expect(chips.at(-1), me).toMatch(/^Zvanja/)
-                // 4 px and the 12.83-px lift that keeps a lone wide chip 6 px over my hand's first card
-                if (chips[0]?.startsWith('Zvanja')) expect(Number(/^calc\(100% \+ ([\d.]+)px\)$/.exec(above.style.bottom)?.[1]), me).toBeCloseTo(4 + 12.828, 3)
+                // 4 px and the 8.08-px lift that keeps a lone wide chip 6 px over my hand's first card
+                if (chips[0]?.startsWith('Zvanja')) expect(Number(/^calc\(100% \+ ([\d.]+)px\)$/.exec(above.style.bottom)?.[1]), me).toBeCloseTo(4 + 8.078, 3)
                 else expect(above.style.bottom, me).toBe('')
                 unmount()
             })
@@ -234,6 +234,27 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
                 // my cards left: my hand shows them, so my plate keeps them for screen readers only; the others' show (Ruling Y)
                 expect(within(mine).getByTestId('cards-left-carol').parentElement!.className, `@${dpr}`).toBe('sr-only')
                 expect(within(screen.getByTestId('seat-dave')).getByTestId('cards-left-dave').parentElement!).toHaveClass('lg:not-sr-only')
+                unmount()
+            })
+        }
+    })
+
+    test('held sideways at 915×332 @2.625 every card on the table is drawn at exactly 71 px (my hand, the backs; my declared cards at 35.5), not snapped to the crisp 81.14; at 844×340 @3 they stay crisp (owner 2026-11-01, board-fit spec §3.4)', () => {
+        const t = playTable({ seed: 1254 })
+        const frame = t[indexOf(t, 'play:')]
+        for (const [viewport, dpr] of [[{ width: 915, height: 332 }, 2.625], [{ width: 844, height: 340 }, 3]] as const) {
+            withDpr(dpr, () => {
+                const { unmount } = renderBoard({ state: tableState(frame, 'carol', 'snapshot'), viewport })
+                const where = `${viewport.width}x${viewport.height}@${dpr}`
+                const widths = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)].map((card) => card.style.width)
+                const hand = widths('[data-testid="hand-card"] .board-card__face .ui-card')
+                expect(hand.length, where).toBeGreaterThan(0)
+                expect(new Set(hand), where).toEqual(new Set(['71px']))
+                expect(new Set(widths('.board-back-card .ui-card')), where).toEqual(new Set(['71px']))
+                // my declared cards: half of 71 exactly where the cards are exact; else the crisp step (47.33 at dpr 3)
+                const declared = layoutFor({ ...viewport, dpr }).declared.w
+                expect(declared, where).toBeCloseTo(dpr === 2.625 ? 35.5 : 142 / 3, 9)
+                expect(new Set(widths('[data-testid="seat-carol"] .board-seat__declared .ui-card')), where).toEqual(new Set([`${declared}px`]))
                 unmount()
             })
         }

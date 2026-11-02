@@ -113,7 +113,7 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                     <span role="group" aria-label={seat.isMe ? 'Your declared cards' : `${seat.id}'s declared cards`} className="board-seat__declared" style={cardsFrom ? { marginLeft: cardsFrom } : undefined}>
                         <Pop instant={instant} delay={0.06}>
                             {declared.map((card, i) => (
-                                <PlayingCard key={cardId(card)} card={card} width={cardWidth} style={i ? { marginLeft: step - cardWidth } : undefined} />
+                                <PlayingCard key={cardId(card)} card={card} width={cardWidth} exact={layout.exact} style={i ? { marginLeft: step - cardWidth } : undefined} />
                             ))}
                         </Pop>
                     </span>

@@ -44,6 +44,11 @@ export interface Layout {
     handShow: number;
     /** A seat's declared cards (board-fit spec §3.5): crisp, the step nearest half the trick card, never narrower than the backs as drawn. */
     declared: Size;
+    /**
+     * The board's cards drawn at exactly their CSS size rather than crisp (LANDSCAPE_EXACT): only sideways on a screen
+     * whose crisp step nearest 71 is over 72 px wide.
+     */
+    exact: boolean;
 }
 
 /** A card element's place: `left`/`top` of its box (board coordinates), rotated and scaled about its centre. */
@@ -56,6 +61,8 @@ export interface Target {
     scale: number;
     /** Stacking order within its region (later cards on top). */
     z: number;
+    /** Drawn at exactly `width` (PlayingCard `exact`), not made crisp: the layout's `exact` (LANDSCAPE_EXACT). */
+    exact?: true;
 }
 
 export interface Targets {
@@ -91,17 +98,27 @@ const DESKTOP_HAND_STEP = 0.59;
 const FAN_STEP = { drawn: 47.5, phone: 10, desktop: 16, desktopSide: 12 };
 /**
  * At a 71-wide back: the side fans' inset from the edge (§5.6.1: 30), the partner's fan centre under the HUD (46; in
- * landscape 17, Ruling Q: was 23).
+ * landscape 13: Ruling Q's 17, then 13 for Android phones held sideways, owner 2026-11-01; at first 23).
  */
 const SIDE_INSET = { phone: 30, desktop: 70 };
-const PARTNER_DROP: Record<LayoutKind, number> = { portrait: 46, tablet: 46, landscape: 17, desktop: 56 };
+const PARTNER_DROP: Record<LayoutKind, number> = { portrait: 46, tablet: 46, landscape: 13, desktop: 56 };
 /**
  * The trick's cross: each slot's offset from its centre, in card widths (x) and heights (y) (spec §5.6.1, §5.6.2). In
- * landscape a flatter cross (y 0.35, Ruling Q: was 0.45), so it fits the short band between the partner's fan and the
- * lowered hand.
+ * landscape a flatter cross (y 0.32: Ruling Q's 0.35, then 0.32 for Android phones held sideways, owner 2026-11-01; at
+ * first 0.45), so it fits the short band between the partner's fan and the lowered hand. 0.32 is the flattest at which
+ * every trick card still shows a corner index (G1).
  */
 const SLOT = { x: 0.84, y: 0.58 };
-const LANDSCAPE_SLOT = { x: 0.7, y: 0.35 };
+const LANDSCAPE_SLOT = { x: 0.7, y: 0.32 };
+/**
+ * Owner, 2026-11-01 ("Fix common sizes"): sideways on a screen whose crisp step nearest 71 is over 72 px wide (Android's
+ * dpr 2.625 gives 81.14, 2.75 gives 77.45), the board's cards are drawn at exactly 71 CSS px (95 tall; declared cards
+ * half that), a non-integer number of device pixels per art pixel and so slightly uneven, accepted for this case only so
+ * that common Android phones held sideways fit the table (board-fit spec §3.4). Upright, tablet and desktop stay crisp.
+ */
+export const LANDSCAPE_EXACT = { over: 72, card: { w: 71, h: 95 }, declared: { w: 35.5, h: 47.5 } } as const;
+/** Whether a sideways layout at this density takes the owner's exact 71-px cards (LANDSCAPE_EXACT). */
+export const exactSideways = (dpr: number) => cardSize(ART.w, dpr).w > LANDSCAPE_EXACT.over;
 /** Kept clear between the trick's band and my hand's top. */
 const BAND_GAP = 8;
 
@@ -119,17 +136,19 @@ export function cardSize(intended: number, dpr: number): Size {
  */
 export function layoutAt(viewport: Viewport, kind: LayoutKind, trick: Size, hand: Size): Layout {
     const { width, height, dpr } = viewport;
-    const back = kind === 'tablet' || kind === 'desktop' ? trick : cardSize(ART.w, dpr);
+    const exact = kind === 'landscape' && exactSideways(dpr);
+    const back = kind === 'tablet' || kind === 'desktop' ? trick : exact ? LANDSCAPE_EXACT.card : cardSize(ART.w, dpr);
     const backScale = kind === 'landscape' ? 0.4 : 0.5;
     const hud = kind === 'landscape' ? 44 : 52;
-    const handShow = kind === 'landscape' ? 0.5 : 0.8;
-    const declared = declaredSize(trick, back.w * backScale, dpr);
+    // sideways only 45 % of each hand card shows (its corner index, part of the picture): owner 2026-11-01, was half
+    const handShow = kind === 'landscape' ? 0.45 : 0.8;
+    const declared = exact ? LANDSCAPE_EXACT.declared : declaredSize(trick, back.w * backScale, dpr);
     if (kind === 'desktop') {
         const w = Math.min(BOARD_MAX_W * Math.max(1, hand.w / BOARD_HAND_W), width - BLOK_W);
         const x = (width - BLOK_W - w) / 2;
-        return { kind, viewport, board: { x, y: 0, w, h: height }, blok: { x: x + w, y: 0, w: BLOK_W, h: height }, hand, trick, back, backScale, hud, handShow, declared };
+        return { kind, viewport, board: { x, y: 0, w, h: height }, blok: { x: x + w, y: 0, w: BLOK_W, h: height }, hand, trick, back, backScale, hud, handShow, declared, exact };
     }
-    return { kind, viewport, board: { x: 0, y: 0, w: width, h: height }, blok: null, hand, trick, back, backScale, hud, handShow, declared };
+    return { kind, viewport, board: { x: 0, y: 0, w: width, h: height }, blok: null, hand, trick, back, backScale, hud, handShow, declared, exact };
 }
 
 /** The crisp step nearest half the trick card; where that is narrower than the backs as drawn, the next one up. */
@@ -350,7 +369,18 @@ export function cardTargets(model: BoardModel, layout: Layout): Targets {
         cards[play.id] = { ...slots[play.position ?? 'me'], rotate: tilt(play.id), z: play.order };
     }
 
-    return { cards, piles: pilePlaces(layout, model.hand.length, model.myTeam ?? 'A'), anchors };
+    return exactly(layout, { cards, piles: pilePlaces(layout, model.hand.length, model.myTeam ?? 'A'), anchors });
+}
+
+/** Every card target marked `exact` where the layout draws its cards at exactly their size (LANDSCAPE_EXACT). */
+function exactly(layout: Layout, targets: Targets): Targets {
+    if (!layout.exact) return targets;
+    const mark = (t: Target): Target => ({ ...t, exact: true });
+    return {
+        cards: Object.fromEntries(Object.entries(targets.cards).map(([id, t]) => [id, mark(t)])),
+        piles: { A: mark(targets.piles.A), B: mark(targets.piles.B) },
+        anchors: targets.anchors,
+    };
 }
 
 const POSITIONS: readonly SeatPosition[] = ['me', 'right', 'partner', 'left'];

@@ -113,7 +113,7 @@ describe('layoutAt: the whole layout at given card sizes (board-fit spec §3)', 
         expect(upright).toMatchObject({ kind: 'portrait', board: { x: 0, y: 0, w: 390, h: 664 }, blok: null, back: { w: 71, h: 95 }, backScale: 0.5, hud: 52, handShow: 0.8 })
         expect(upright.trick.w).toBeCloseTo(94.67, 2)
         expect(upright.hand).toEqual(upright.trick)
-        expect(at(844, 340, 3, 'landscape', 71)).toMatchObject({ board: { x: 0, y: 0, w: 844, h: 340 }, blok: null, back: { w: 71, h: 95 }, backScale: 0.4, hud: 44, handShow: 0.5 })
+        expect(at(844, 340, 3, 'landscape', 71)).toMatchObject({ board: { x: 0, y: 0, w: 844, h: 340 }, blok: null, back: { w: 71, h: 95 }, backScale: 0.4, hud: 44, handShow: 0.45, exact: false })
         const tablet = at(960, 980, 1, 'tablet', 142, 213)
         expect(tablet).toMatchObject({ board: { x: 0, y: 0, w: 960, h: 980 }, blok: null, backScale: 0.5, hud: 52, handShow: 0.8 })
         expect(tablet.back).toEqual(tablet.trick)
@@ -179,8 +179,8 @@ describe('distances scale with the card size (board-fit spec §3.3, §3.5)', () 
         expect(centreOf(fanPlaces(phone, 'partner', 8))).toEqual({ x: 375 / 2, y: 52 + 46 })
         expect(centreOf(fanPlaces(phone, 'left', 8)).x).toBe(30)
         const sideways = at(812, 375, 2, 'landscape', 71)
-        // landscape: 17 px under the HUD (Ruling Q, board-fit spec §4.2: was 23)
-        expect(centreOf(fanPlaces(sideways, 'partner', 8)).y).toBe(44 + 17)
+        // landscape: 13 px under the HUD (owner 2026-11-01, board-fit spec §4.2: Ruling Q's 17, at first 23)
+        expect(centreOf(fanPlaces(sideways, 'partner', 8)).y).toBe(44 + 13)
         expect(centreOf(fanPlaces(sideways, 'right', 8)).x).toBe(812 - 30)
         expect(centreOf(fanPlaces(sideways, 'right', 8)).y).toBeCloseTo(trickCentre(sideways).y, 9)
         // the backs: the seat's turn, ±2° a card, at the layout's scale; my own hand is no fan
@@ -255,16 +255,16 @@ describe('cardTargets: everything fits (spec §5.6)', () => {
         expect(hand.map((card) => card.rotate)).toEqual([-7.7, -5.5, -3.3, -1.1, 1.1, 3.3, 5.5, 7.7].map((r) => expect.closeTo(r, 5)))
     })
 
-    test('812×375 landscape: every card on screen, each hand card showing its top half, 47.5 px of 95 (board-fit spec §3.4)', () => {
-        const { layout, targets, model } = checkFit({ width: 812, height: 375, dpr: 3 }, 47.5)
+    test('812×375 landscape: every card on screen, each hand card showing its top 45 %, 42.75 px of 95 (board-fit spec §3.4; owner 2026-11-01: was half)', () => {
+        const { layout, targets, model } = checkFit({ width: 812, height: 375, dpr: 3 }, 42.75)
         const hand = model.hand.map((card) => targets.cards[card.id])
         expect(hand[1].left - hand[0].left).toBe(52)
         expect(Object.values(targets.cards).filter((t) => t.scale !== 1).every((t) => t.scale === 0.4)).toBe(true)
-        expect(layout.handShow).toBe(0.5)
-        hand.forEach((card) => expect(card.top).toBeLessThanOrEqual(375 - 0.5 * 95))
-        // the outermost cards sit lowest: exactly half of each above the edge
-        expect(hand[0].top).toBe(375 - 47.5)
-        expect(hand[7].top).toBe(375 - 47.5)
+        expect(layout.handShow).toBe(0.45)
+        hand.forEach((card) => expect(card.top).toBeLessThanOrEqual(375 - 0.45 * 95))
+        // the outermost cards sit lowest: exactly 45 % of each above the edge
+        expect(hand[0].top).toBe(375 - 42.75)
+        expect(hand[7].top).toBe(375 - 42.75)
     })
 
     test('the hand shows 80 % of each card elsewhere, as today (board-fit spec §3.4)', () => {
@@ -395,9 +395,9 @@ describe('trickCentre (spec §5.6; gameplay rules §6: the declaration moment is
         expect(fanBottomOf(portrait)).toBeCloseTo(123.736, 3)
         expect(bandBottom(portrait)).toBeCloseTo(711.2, 9)
         expect(trickCentre(portrait).y).toBeCloseTo(417.468, 3)
-        // 812×375: the fan ends at 81.59 (17 px under the HUD, Ruling Q: was 87.59), the band at 302.7 (the lowered hand's
-        // top 310.7 − 8), so 192.14, not 187.5
-        expect(trickCentre(layoutFor({ width: 812, height: 375, dpr: 3 })).y).toBeCloseTo(192.1445, 3)
+        // 812×375: the fan ends at 77.59 (13 px under the HUD, owner 2026-11-01: Ruling Q's 81.59), the band at 307.45 (the
+        // lowered hand's top 315.45 − 8, 45 % of it showing), so 192.52, not 187.5
+        expect(trickCentre(layoutFor({ width: 812, height: 375, dpr: 3 })).y).toBeCloseTo(192.5195, 3)
     })
 
     test('at 390×664 @3 with 94.67-px cards the cross lies between the partner fan\'s bottom and the band\'s, the same room above and below (board-fit spec §4.1)', () => {
@@ -435,7 +435,8 @@ describe('bandBottom (board-fit spec §4; Rulings E, P)', () => {
         expect(handTopOf(portrait)).toBeCloseTo(812 - 76 - 16.8, 9)
         expect(bandBottom(portrait)).toBeCloseTo(handTopOf(portrait) - 8, 9)
         const landscape = layoutFor({ width: 812, height: 375, dpr: 2 })
-        expect(bandBottom(landscape)).toBeCloseTo(375 - 47.5 - 16.8 - 8, 9)
+        // sideways 45 % of each hand card shows (owner 2026-11-01: was half)
+        expect(bandBottom(landscape)).toBeCloseTo(375 - 42.75 - 16.8 - 8, 9)
         // desktops and tablets too: fits keeps the lifted cards off the partner's and the side slots instead (Ruling P: was
         // also 24 px and 4 % of the hand card's height over it on desktops)
         const desktop = layoutAt({ width: 1440, height: 900, dpr: 1 }, 'desktop', cardSize(142, 1), cardSize(213, 1))
