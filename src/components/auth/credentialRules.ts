@@ -27,5 +27,6 @@ export function passwordRuleError(password: string): string | null {
 }
 
 export function usernameRuleError(username: string): string | null {
-    return USERNAME_PATTERN.test(username) ? null : cat().errors.rules.username;
+    // Ruling 35: checked in NFC, the form useAuth and renameGuest send (a decomposed č, c + U+030C, is one č)
+    return USERNAME_PATTERN.test(username.normalize('NFC')) ? null : cat().errors.rules.username;
 }

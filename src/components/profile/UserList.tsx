@@ -10,6 +10,7 @@ import { useAuth } from '../../hooks/useAuth';
 import type { User } from '../../types/user';
 import { errorMessage } from '../../utils/errorMessage';
 import { useT } from '../../i18n/t';
+import { displayName } from '../common/displayName';
 
 // The server searches; wait for a pause in typing before asking it.
 const SEARCH_DEBOUNCE_MS = 300;
@@ -34,7 +35,7 @@ interface PlayerRowProps {
 
 function PlayerRow({ player, rank, isMe, meId, friends, compact }: PlayerRowProps) {
     const t = useT();
-    const name = player.username || t.common.unknownPlayer;
+    const name = displayName(player.username || t.common.unknownPlayer);
     const games = player.gamesPlayed ?? 0;
     const rankTag = isRanked(player) && player.rank ? <RankChip rank={player.rank} /> : null;
     return (

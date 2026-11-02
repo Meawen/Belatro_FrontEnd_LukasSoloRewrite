@@ -1,8 +1,11 @@
-import { describe, test, expect, vi } from 'vitest'
+import { describe, test, expect, vi, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation, type InitialEntry } from 'react-router-dom'
 import { AuthPage } from './AuthPage'
+import { authService } from '../../services/authService'
+import { ApiError } from '../../services/api'
+import { setLang } from '../../i18n/lang'
 
 vi.mock('../../hooks/useAuth', () => ({
     useAuth: () => ({ isAuthenticated: false, login: vi.fn(), isLoginLoading: false }),
@@ -74,5 +77,45 @@ describe('Sign in and sign up are two URLs (X-2)', () => {
         await userEvent.setup().click(link)
         expect(screen.getByTestId('where')).toHaveTextContent('/login {"from":"/lobby/abc"}')
         expect(screen.getByRole('heading', { level: 1, name: 'Welcome Back' })).toBeInTheDocument()
+    })
+})
+
+describe("Sign-in from a friend's table link, signed out (spec §3.2)", () => {
+    afterEach(() => {
+        vi.restoreAllMocks()
+        setLang('en')
+    })
+
+    test("sign-in from a friend's table link offers to sit down as a guest, and does (spec §3.2)", async () => {
+        const start = vi.spyOn(authService, 'startGuest').mockResolvedValue({ token: 'g-tok', user: { id: 'g1', username: 'gost_4821', guest: true }, message: null })
+        renderAuth({ pathname: '/login', state: { from: '/lobby/abc' } })
+        expect(screen.getByText('No account? You can sit at this table as a guest.')).toBeInTheDocument()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Sit down as a guest' }))
+        expect(start).toHaveBeenCalledWith('en')
+        expect(screen.getByTestId('where').textContent).toMatch(/^\/lobby\/abc /)
+    })
+
+    test('no door on a plain sign-in, nor from another page', () => {
+        const { unmount } = render(<MemoryRouter initialEntries={['/login']}><AuthPage /></MemoryRouter>)
+        expect(screen.queryByRole('button', { name: 'Sit down as a guest' })).toBeNull()
+        unmount()
+        renderAuth({ pathname: '/login', state: { from: '/friends' } })
+        expect(screen.queryByRole('button', { name: 'Sit down as a guest' })).toBeNull()
+    })
+
+    test('a refused guest (429) says so, and the page stays', async () => {
+        vi.spyOn(authService, 'startGuest').mockRejectedValue(new ApiError({ message: 'Too many requests, try again later', status: 429, code: 'RATE_LIMITED' }))
+        renderAuth({ pathname: '/login', state: { from: '/lobby/abc' } })
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Sit down as a guest' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent('Too many tries. Wait a little, then try again.')
+        expect(screen.getByTestId('where').textContent).toMatch(/^\/login /)
+        expect(screen.getByRole('button', { name: 'Sit down as a guest' })).toBeEnabled()
+    })
+
+    test('the door in Croatian', () => {
+        setLang('hr')
+        renderAuth({ pathname: '/login', state: { from: '/lobby/abc' } })
+        expect(screen.getByText('Nemaš račun? Za ovaj stol možeš sjesti i kao gost.')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Sjedni kao gost' })).toBeInTheDocument()
     })
 })

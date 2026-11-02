@@ -74,6 +74,8 @@ export interface UserDto {
     deletionRequested: boolean | null;
     /** spec §1.1 (B1); absent from an older server: no account preference. */
     language?: Lang | null;
+    /** spec §3 (B4): true for a guest; absent from an older server. */
+    guest?: boolean | null;
 }
 
 export interface ChangeEmailRequest {

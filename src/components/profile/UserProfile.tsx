@@ -10,6 +10,7 @@ import { ClimbPanel } from '../rank/ClimbPanel';
 import { RankBlock } from '../rank/RankBlock';
 import { nextRankName } from '../rank/rankNames';
 import { useT } from '../../i18n/t';
+import { displayName } from '../common/displayName';
 
 /** How many of the player's newest matches the profile lists (spec §4.10: size=5). */
 export const PROFILE_RECENT_MATCHES = 5;
@@ -92,7 +93,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
         );
     }
 
-    const name = player.username || t.common.unknownPlayer;
+    const name = displayName(player.username || t.common.unknownPlayer);
     const matches = recent.data?.content;
     let recentList;
     if (recent.error) {

@@ -269,8 +269,39 @@ describe('Match details hands (spec §4.9 items 5, 7, States)', () => {
     })
 })
 
+/** details() whose team B lists a removed account first (backend AccountAnonymiser: obrisan_ and 8 hex), who called trump. */
+function withRemovedPlayer(result: string): Record<string, unknown> {
+    const removed = 'obrisan_3fa9c2d1'
+    const hands = [hand(1, summary(162, 0, [20, 0]), 8), hand(2, summary(1001, 650, [20, 50]), 5)]
+        .map((h) => ({ ...h, trumpCalls: [{ order: 1, player: removed, trump: 'HERC' as const }] }))
+    return {
+        ...details(result),
+        [MATCH_URL]: { ...match(result), teamB: [{ id: 'u3', username: removed }, { id: 'u4', username: 'dan' }] },
+        [`${MATCH_URL}/structured-moves`]: hands,
+    }
+}
+
+describe('Match details: a removed player (spec §3.1)', () => {
+    test("a removed player's seat reads Guest, and the page never shows obrisan_ (spec §3.1)", async () => {
+        serve(withRemovedPlayer('Team A wins 1001–650'))
+        renderAt(MATCH_URL)
+        await screen.findByTestId('final-a')
+        expect(within(screen.getByRole('region', { name: 'Team B' })).getByText('Guest')).toBeInTheDocument()
+        expect(screen.queryByText(/obrisan_/)).toBeNull()
+    })
+})
+
 describe('Match details in Croatian (open beta §1.1, §1.4)', () => {
     afterEach(() => setLang('en'))
+
+    test('a removed player is Gost (§1.4)', async () => {
+        setLang('hr')
+        serve(withRemovedPlayer('Team A wins 1001–650'))
+        renderAt(MATCH_URL)
+        await screen.findByTestId('final-a')
+        expect(within(screen.getByRole('region', { name: 'Ekipa B' })).getByText('Gost')).toBeInTheDocument()
+        expect(screen.queryByText(/obrisan_/)).toBeNull()
+    })
 
     test('the match in Croatian, its result rebuilt from the parse', async () => {
         setLang('hr')

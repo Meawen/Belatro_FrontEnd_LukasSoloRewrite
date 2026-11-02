@@ -6,6 +6,7 @@ import { RankedQueueProvider } from './components/game/RankedQueueProvider';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './routing/ProtectedRoute';
 import { PublicRoute } from './routing/PublicRoute';
+import { MemberRoute } from './routing/MemberRoute';
 
 // One module per route (src/pages/); each page's phase owns its module
 import { LoginPage } from './pages/LoginPage';
@@ -89,16 +90,17 @@ function App() {
 
                     {/* Every other signed-in page sits in the shell: navigation, banners, footer (spec §4.1) */}
                     <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
-                        <Route path="/dashboard" element={<HomePage />} />
-                        <Route path="/play" element={<PlayPage />} />
-                        <Route path="/lobbies" element={<LobbiesPage />} />
+                        <Route path="/dashboard" element={<MemberRoute area="home"><HomePage /></MemberRoute>} />
+                        <Route path="/play" element={<MemberRoute area="ranked"><PlayPage /></MemberRoute>} />
+                        <Route path="/lobbies" element={<MemberRoute area="tables"><LobbiesPage /></MemberRoute>} />
+                        {/* spec §3.2: a guest reaches a table only by its link, and plays */}
                         <Route path="/lobby/:lobbyId" element={<LobbyPage />} />
-                        <Route path="/matches" element={<MatchesPage />} />
-                        <Route path="/matches/:id" element={<MatchDetailsPage />} />
-                        <Route path="/profile" element={<ProfilePage />} />
-                        <Route path="/profile/:userId" element={<UserProfilePage />} />
-                        <Route path="/friends" element={<FriendsPage />} />
-                        <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="/matches" element={<MemberRoute area="matches"><MatchesPage /></MemberRoute>} />
+                        <Route path="/matches/:id" element={<MemberRoute area="matches"><MatchDetailsPage /></MemberRoute>} />
+                        <Route path="/profile" element={<MemberRoute area="profile"><ProfilePage /></MemberRoute>} />
+                        <Route path="/profile/:userId" element={<MemberRoute area="profile"><UserProfilePage /></MemberRoute>} />
+                        <Route path="/friends" element={<MemberRoute area="friends"><FriendsPage /></MemberRoute>} />
+                        <Route path="/settings" element={<MemberRoute area="settings"><SettingsPage /></MemberRoute>} />
                         <Route path="/admin" element={<AdminPage />} />
                     </Route>
 

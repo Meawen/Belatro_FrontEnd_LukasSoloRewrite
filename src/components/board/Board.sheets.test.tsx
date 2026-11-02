@@ -61,6 +61,12 @@ describe('Board: the end of the game (GameTable cases, R-20, R-25, R-31)', () =>
         expect(screen.getByRole('heading', { name: 'Game over' })).toBeInTheDocument()
         expect(screen.queryByRole('heading', { name: 'Match cancelled' })).not.toBeInTheDocument()
     })
+
+    test("a guest's end sheet leaves out Match details, a member-only page (spec §3.3)", () => {
+        renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A', teamAScore: 1001, teamBScore: 640 }), guest: true })
+        expect(screen.queryByRole('link', { name: 'Match details' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Back to tables' })).toBeInTheDocument()
+    })
 })
 
 describe('Board: Play again after the game (GameTable cases, R-45)', () => {

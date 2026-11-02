@@ -3,6 +3,7 @@ import type { UserSimpleDTO } from '../../types/user';
 import { cat } from '../../i18n/t';
 import { formatRelative } from '../../i18n/format';
 import { fold } from '../../utils/fold';
+import { displayName } from '../common/displayName';
 
 /**
  * The server's cap counts people, Unassigned included: a fifth person's join is answered 409 "Lobby is full"
@@ -98,7 +99,7 @@ export function filterLobbies(lobbies: LobbyDTO[], term: string): LobbyDTO[] {
 /** A row's accessible name (spec §4.6 AC 6): "Kod Mire, host mira_z, 3 of 4, private". */
 export function lobbyRowLabel(lobby: LobbyDTO, userId: string | null | undefined): string {
     const c = cat().tables;
-    const parts = [lobbyName(lobby), c.host(lobby.hostUser?.username ?? c.unknownHost), countLabel(lobby)];
+    const parts = [lobbyName(lobby), c.host(displayName(lobby.hostUser?.username ?? c.unknownHost)), countLabel(lobby)];
     if (lobby.privateLobby) parts.push(c.rowPrivate);
     if (isMember(lobby, userId)) parts.push(c.rowYoureIn);
     return parts.join(', ');

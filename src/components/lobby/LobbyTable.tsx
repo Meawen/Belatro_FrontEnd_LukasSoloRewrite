@@ -8,6 +8,7 @@ import { useReducedMotion } from '../../motion/useReducedMotion';
 import { cat, useT } from '../../i18n/t';
 import { botCount, isBot, peopleCount } from './lobbyModel';
 import { canAddBot, isHost, isReadyToStart, seatAction, seatLabel, seatedCount, tableSeats, takesBots, type SeatKey, type SeatPosition, type TableSeat } from './seats';
+import { displayName } from '../common/displayName';
 
 /**
  * The request running at the table: a seat's join, switch or bot, and what that seat reads meanwhile ("Joining…",
@@ -235,7 +236,7 @@ function SeatFace({ seat, lobby, viewerId, canSit, pressable, busyLabel, mini = 
     const own = player !== null && viewerId !== null && player.id === viewerId;
     const host = player !== null && isHost(lobby, player.id);
     const bot = isBot(player);
-    const title = busyLabel ?? (player ? (player.username ?? t.common.unknown) : canSit ? t.table.seat.sitHere : t.table.seat.open);
+    const title = busyLabel ?? (player ? displayName(player.username ?? t.common.unknown) : canSit ? t.table.seat.sitHere : t.table.seat.open);
     // a bot's tag names its team too, so the team shows by more than colour (spec §3.9); one line, which the 104-px seat
     // fits with the plate's own padding
     const tag = own ? t.common.you : host ? t.tables.hostLabel : bot ? t.table.seat.tagBot(seat.team) : t.common.team(seat.team);
@@ -245,7 +246,7 @@ function SeatFace({ seat, lobby, viewerId, canSit, pressable, busyLabel, mini = 
                 {host && <PixelIcon name="crown" className="absolute -top-3 left-1/2 z-[1] -translate-x-1/2 text-accent" />}
                 {player ? (
                     <Avatar
-                        initial={player.username ?? '?'}
+                        initial={displayName(player.username ?? '?')}
                         icon={bot ? 'robot' : undefined}
                         tone={seat.team === 'A' ? 'team-a' : 'team-b'}
                         size={mini ? 'sm' : 'lg'}

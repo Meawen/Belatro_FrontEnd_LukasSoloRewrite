@@ -9,6 +9,7 @@ import { TricksPlayed } from './TricksPlayed';
 import { teamOfPlayer } from './trickReplay';
 import { useT } from '../../i18n/t';
 import type { Catalog } from '../../i18n/catalog/types';
+import { displayName } from '../common/displayName';
 
 /** A bid as a chip: the suit called, in its suit's colour (spec §3.2 suit chips); anything else as written, e.g. PASS. */
 export function CallTag({ call }: { call: string | null }) {
@@ -65,7 +66,7 @@ function HandSummaryBox({ hand, summary }: { hand: HandDTO; summary: HandSummary
  */
 function zvanjaLine(zvanja: ZvanjaView, me: string | null, t: Catalog): string {
     const c = t.matchDetails.zvanja;
-    const name = (playerId: string) => (playerId === me ? t.common.you : playerId);
+    const name = (playerId: string) => (playerId === me ? t.common.you : displayName(playerId));
     if (zvanja.belot) return c.belot(heldAllEight(name(zvanja.belot.playerId), zvanja.belot.suit));
     if (zvanja.winnerTeam === null) return c.none;
     const said = zvanja.seats.map((seat) => {

@@ -235,6 +235,6 @@ describe('SignupForm in Croatian (open beta §1.1)', () => {
         auth.signup.mockRejectedValue(new ApiError({ status: 400, message: 'That username is reserved', code: 'USERNAME_RESERVED' }))
         renderForm()
         await fillInCroatian('long-enough-1', 'long-enough-1', 'obrisan_x')
-        expect(await screen.findByText('Imena koja počinju s obrisan_ rezervirana su. Odaberi drugo.')).toBeInTheDocument()
+        expect(await screen.findByText('Imena koja počinju s obrisan_ rezervirana su. Odaberi drugo ime.')).toBeInTheDocument()
     })
 })

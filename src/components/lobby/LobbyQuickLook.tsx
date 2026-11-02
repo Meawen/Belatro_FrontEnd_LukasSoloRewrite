@@ -9,6 +9,7 @@ import { errorMessage } from '../../utils/errorMessage';
 import { cat, useT } from '../../i18n/t';
 import { LobbyTable } from './LobbyTable';
 import { createdAgo, isFull, isMember, lobbyName } from './lobbyModel';
+import { displayName } from '../common/displayName';
 
 export interface LobbyQuickLookProps {
     /** The lobby as the latest poll has it (the sheet follows it by id); null: closed. */
@@ -78,7 +79,7 @@ function QuickLookBody({ lobby, gone, onClose }: { lobby: LobbyDTO; gone: boolea
                 <li className="flex items-center gap-2">
                     <PixelIcon name="crown" className="text-accent" />
                     <span>{t.tables.hostLabel}</span>
-                    <strong className="font-semibold text-text">{lobby.hostUser?.username ?? t.common.unknown}</strong>
+                    <strong className="font-semibold text-text">{displayName(lobby.hostUser?.username ?? t.common.unknown)}</strong>
                 </li>
                 {created && <li>{t.tables.created(created)}</li>}
                 <li className="flex items-center gap-2">

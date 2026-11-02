@@ -7,12 +7,13 @@ import { useUser } from './hooks/useUser'
 import { userService } from './services/userService'
 import { captureConsole } from './test/captureConsole'
 
-// One switch for every test: signed in (the default) or signed out, and the stored token.
-const auth = vi.hoisted(() => ({ isAuthenticated: true, token: 'tok-1' }))
+// One switch for every test: signed in (the default) or signed out, a member (the default) or a guest, and the stored token.
+const auth = vi.hoisted(() => ({ isAuthenticated: true, guest: false, token: 'tok-1' }))
 vi.mock('./hooks/useAuth', () => ({
     useAuth: () => ({
-        user: auth.isAuthenticated ? { id: 'u1', username: 'ana' } : null,
+        user: !auth.isAuthenticated ? null : auth.guest ? { id: 'g1', username: 'gost_4821', guest: true } : { id: 'u1', username: 'ana' },
         isAuthenticated: auth.isAuthenticated,
+        isGuest: auth.isAuthenticated && auth.guest,
         isLoading: false,
         logout: vi.fn(),
         token: auth.isAuthenticated ? auth.token : null,
@@ -31,6 +32,11 @@ vi.mock('./components/match/MatchHistory', () => ({
 }))
 // The game page's table opens the game socket; here a stand-in (GamePageConnected's own tests cover it).
 vi.mock('./components/game/GamePageConnected', () => ({ default: () => <h1>The table</h1> }))
+// The one-click bot game (spec §6): its request is NeedsAccountPage's own test's; here a stub.
+const bots = vi.hoisted(() => ({ startBotGame: vi.fn() }))
+vi.mock('./services/botGame', () => ({ startBotGame: bots.startBotGame }))
+// A table's room polls its lobby; here a stand-in that names the table it was given.
+vi.mock('./components/lobby/LobbyRoom', () => ({ LobbyRoom: ({ lobbyId }: { lobbyId: string }) => <h1>The room {lobbyId}</h1> }))
 
 // Node 26's own localStorage global is unusable here; borrow jsdom's (see api.test.ts)
 const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }).window
@@ -43,7 +49,9 @@ function renderAt(path: string) {
 
 beforeEach(() => {
     auth.isAuthenticated = true
+    auth.guest = false
     auth.token = 'tok-1'
+    bots.startBotGame.mockReset()
     vi.mocked(useUser).mockReturnValue({ user: null, isLoading: false, error: null, refetch: vi.fn() } as never)
     vi.stubGlobal('localStorage', jsdomStorage)
     // The shell's own requests (GET /user/me, …) get an empty 204, never a network
@@ -247,5 +255,85 @@ describe('The shell (spec §4.1)', () => {
         renderAt('/users')
         expect(screen.getByText('Please log in to view the user leaderboard.')).toBeInTheDocument()
         expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument()
+    })
+})
+
+describe('A guest (spec §3.2, §3.3)', () => {
+    beforeEach(() => {
+        auth.guest = true
+    })
+
+    test.each([
+        ['/dashboard', 'Home'],
+        ['/play', 'Ranked'],
+        ['/lobbies', 'Tables'],
+        ['/matches', 'Matches'],
+        ['/matches/m1', 'Matches'],
+        ['/friends', 'Friends'],
+        ['/users', 'Leaderboard'],
+        ['/profile', 'Profile'],
+        ['/profile/u7', 'Profile'],
+        ['/settings', 'Settings'],
+    ])('%s: a guest sees what it is and how to unlock it, in the shell', (path, name) => {
+        renderAt(path)
+        expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(new RegExp(`^${name}$`))
+        expect(screen.getByText('This needs an account')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Sign up' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Play against bots as a guest' })).toBeInTheDocument()
+        expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
+        expect(document.title).toBe(`${name} · Stiglja`)
+    })
+
+    test('Sign up leads to the sign-up form, not back here (PublicRoute and AuthPage let a guest through)', async () => {
+        renderAt('/friends')
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Sign up' }))
+        expect(window.location.pathname).toBe('/signup')
+        expect(await screen.findByRole('heading', { name: 'Create Account' })).toBeInTheDocument()
+        expect((window.history.state as { usr?: { from?: string } } | null)?.usr?.from).toBe('/friends')
+    })
+
+    test('Play against bots as a guest opens the new game', async () => {
+        bots.startBotGame.mockResolvedValue({ gameId: 'g7', lobbyId: 'l7' })
+        renderAt('/play')
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Play against bots as a guest' }))
+        expect(await screen.findByRole('heading', { name: 'The table' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/game/g7')
+    })
+
+    test("a guest opens a friend's table and a game (spec §3.2)", async () => {
+        renderAt('/lobby/abc')
+        expect(screen.getByRole('heading', { name: 'The room abc' })).toBeInTheDocument()
+        expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
+        expect(screen.queryByText('This needs an account')).not.toBeInTheDocument()
+        cleanup()
+        renderAt('/game/g1')
+        expect(await screen.findByRole('heading', { name: 'The table' })).toBeInTheDocument()
+    })
+
+    test('a guest sees no email banner, and on /dashboard still gets the way back to a running game', async () => {
+        vi.spyOn(userService, 'getMe').mockResolvedValue({
+            id: 'g1', username: 'gost_4821', email: null, pendingEmail: null, emailVerified: false, roles: ['ROLE_GUEST'], deletionRequested: false, guest: true,
+        } as never)
+        vi.spyOn(userService, 'getActiveGame').mockResolvedValue('g1')
+        renderAt('/dashboard')
+        expect(await screen.findByRole('region', { name: 'Game in progress' })).toBeInTheDocument()
+        await act(async () => {})
+        expect(screen.queryByRole('region', { name: 'Email confirmation' })).not.toBeInTheDocument()
+    })
+
+    test('the shell asks nothing about the guest by id: GET /user/{id} refuses a guest (B4)', async () => {
+        const fetch = vi.fn(async () => new Response(null, { status: 204 }))
+        vi.stubGlobal('fetch', fetch)
+        renderAt('/lobby/abc')
+        await act(async () => {})
+        expect(vi.mocked(useUser)).not.toHaveBeenCalledWith('g1')
+        expect(fetch.mock.calls.map(([url]) => String(url))).not.toContainEqual(expect.stringMatching(/\/user\/g1/))
+    })
+
+    test('a member still gets the page itself', () => {
+        auth.guest = false
+        renderAt('/settings')
+        expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument()
+        expect(screen.queryByText('This needs an account')).not.toBeInTheDocument()
     })
 })

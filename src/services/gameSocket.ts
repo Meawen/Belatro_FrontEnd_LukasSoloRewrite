@@ -1,8 +1,8 @@
 import { Client, type IFrame, type IMessage, type StompConfig, type StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-// Uses apiClient and ApiError lazily, inside functions only; never use them at module top
+// Uses apiClient, ApiError and signGuestBackIn lazily, inside functions only; never use them at module top
 // level: import cycle with api.ts.
-import { apiClient, ApiError } from './api';
+import { apiClient, ApiError, signGuestBackIn, type GuestResume } from './api';
 import { WS_URL } from '../config';
 
 /**
@@ -97,6 +97,8 @@ export function createGameSocket(
     endSession: () => void = signOutToLogin,
     // a refused CONNECT does not say why; GET /user/me does (a 401 there ends the session in api.ts)
     checkSession: () => Promise<unknown> = () => apiClient.get('/user/me'),
+    // Ruling 32: a guest's sign-in with its secret (api.ts); null when there is none to try
+    signBackIn: () => Promise<GuestResume> | null = () => signGuestBackIn(),
 ) {
     let state: GameSocketState = { isConnected: false, isConnecting: false, isReconnecting: false, error: null };
     const listeners = new Set<() => void>();
@@ -112,6 +114,8 @@ export function createGameSocket(
     let pendingChange: { revokedToken: string | null } | null = null;
     // The GET /user/me check after a refused CONNECT; close() drops it, as it drops retryTimer.
     let pendingCheck: Promise<void> | null = null;
+    // A guest signing back in with its secret (resumeGuest), once at a time.
+    let resuming: Promise<GuestResume> | null = null;
 
     const setState = (next: Partial<GameSocketState>) => {
         state = { ...state, ...next };
@@ -224,8 +228,43 @@ export function createGameSocket(
             if (holders > 0) open();
             return;
         }
+        // Ruling 32: a guest that still holds its secret signs back in before its session ends
+        if (resumeGuest(token)) return;
         setState({ isReconnecting: false, error: SESSION_ENDED_MESSAGE });
         endSession();
+    };
+
+    /**
+     * Ruling 32: the guest signs back in with its secret, and meanwhile a 401 or a 1008 waits for the answer, as during
+     * a password change. Signed back in: the socket reopens on the new token. Refused: the secret is gone, so the
+     * session ends the one way sessions end. No answer: nothing ends; the socket, if held, tries again later, as does the
+     * next request or renewal. Null, and nothing held, when the stored user is not a guest holding a secret, or while a
+     * password change or a guest's new name is held (its own answer decides).
+     */
+    const resumeGuest = (token: string): Promise<GuestResume> | null => {
+        if (resuming) return resuming;
+        if (pendingChange) return null;
+        const signingIn = signBackIn();
+        if (!signingIn) return null;
+        const change: { revokedToken: string | null } = { revokedToken: null };
+        pendingChange = change;
+        const resumed = signingIn.then((outcome) => {
+            resuming = null;
+            if (pendingChange === change) pendingChange = null;
+            if (outcome === 'resumed') {
+                // as reconnect() after a password change: reopen on the token now in storage
+                reconnectAttempts = 0;
+                close();
+                if (holders > 0) open();
+            } else if (outcome === 'refused') {
+                tokenRevoked(token);
+            } else if (holders > 0 && !client) {
+                retryLater();
+            }
+            return outcome;
+        });
+        resuming = resumed;
+        return resumed;
     };
 
     const close = () => {
@@ -332,6 +371,13 @@ export function createGameSocket(
 
         /** Try to connect now if held and down with no attempt under way (ReconnectBanner's Retry). */
         retryNow,
+
+        /**
+         * Ruling 32: sign a guest whose token (the one passed) has expired back in with its secret: tokenRenewal calls it
+         * at start, when the tab is shown and every minute. Resolves with the outcome once it has been acted on (the
+         * socket reopened, or the session ended); null at once when there is nothing to try.
+         */
+        resumeGuest,
 
         /** Reopen with the token now in storage (after a password change rotated it). */
         reconnect(): void {

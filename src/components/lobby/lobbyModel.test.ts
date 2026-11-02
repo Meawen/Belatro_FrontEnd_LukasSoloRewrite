@@ -155,3 +155,9 @@ describe('lobbyModel in Croatian (open beta §1.1)', () => {
         expect(createdAgo('not a date', now)).toBeNull()
     })
 })
+
+describe('lobbyModel and removed accounts (spec §3.1)', () => {
+    test("a removed host reads Guest in the row's name", () => {
+        expect(lobbyRowLabel(lobby({ hostUser: { id: 'u5', username: 'obrisan_3fa9c2d1' } }), null)).toContain('host Guest')
+    })
+})

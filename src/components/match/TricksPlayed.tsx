@@ -8,6 +8,7 @@ import type { HandDTO, MatchDTO } from '../../types/match';
 import { replayColumns, replayTricks, type ReplayCell, type ReplayColumn } from './trickReplay';
 import './trickGrid.css';
 import { useT } from '../../i18n/t';
+import { displayName } from '../common/displayName';
 
 const TINT = { A: 'mh-team-a', B: 'mh-team-b' } as const;
 // a trump's ring around the card, in its suit's colour (spec §3.2 suit tokens)
@@ -19,8 +20,8 @@ function ColumnHead({ column }: { column: ReplayColumn }) {
     const team = column.team ? t.common.teamCaps(column.team) : '';
     return (
         <div className={cx('mh-tile flex min-w-0 flex-col items-center gap-1 px-1 py-2 text-center', column.team && TINT[column.team])}>
-            <Avatar initial={column.player} tone={column.team === 'A' ? 'team-a' : column.team === 'B' ? 'team-b' : 'neutral'} size="sm" />
-            <span className="t-footnote w-full truncate font-semibold">{column.player}</span>
+            <Avatar initial={displayName(column.player)} tone={column.team === 'A' ? 'team-a' : column.team === 'B' ? 'team-b' : 'neutral'} size="sm" />
+            <span className="t-footnote w-full truncate font-semibold">{displayName(column.player)}</span>
             <span className="t-caption text-text-2">{column.me ? `${t.common.youCaps} · ${team}` : team}</span>
         </div>
     );

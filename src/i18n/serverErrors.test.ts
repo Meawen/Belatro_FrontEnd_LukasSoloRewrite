@@ -16,11 +16,12 @@ afterEach(() => {
     vi.restoreAllMocks()
 })
 
-// copied from backend exceptions/ErrorCodes.java at d187ebd (B3 added USERNAME_RESERVED); a later task that adds a code
-// adds it here and a line in both catalogs (Ruling 4)
+// copied from backend exceptions/ErrorCodes.java at 7592319 (B3 added USERNAME_RESERVED, B4 added IN_GAME and GUEST_ONLY),
+// plus ALREADY_IN_GAME, B5's code for "You already have a game in progress" (Ruling 4: its line lands before B5 commits);
+// a later task that adds a code adds it here and a line in both catalogs (Ruling 4)
 const BACKEND_CODES = [
     'SESSION_EXPIRED', 'UNAUTHENTICATED', 'BAD_CREDENTIALS', 'WRONG_PASSWORD', 'ACCESS_DENIED', 'RATE_LIMITED',
-    'SERVICE_UNAVAILABLE', 'INVITE_CODE_INVALID', 'USERNAME_TAKEN', 'USERNAME_RESERVED', 'EMAIL_TAKEN', 'LINK_INVALID', 'NOTHING_TO_CONFIRM',
+    'SERVICE_UNAVAILABLE', 'INVITE_CODE_INVALID', 'USERNAME_TAKEN', 'USERNAME_RESERVED', 'IN_GAME', 'GUEST_ONLY', 'EMAIL_TAKEN', 'LINK_INVALID', 'NOTHING_TO_CONFIRM',
     'EMAIL_UNCHANGED', 'PASSWORD_BLANK', 'EMAIL_NOT_VERIFIED', 'PAGE_INVALID', 'SEARCH_INVALID', 'BOT_NOT_DELETABLE',
     'FRIEND_USER_REQUIRED', 'FRIEND_SELF', 'FRIEND_IS_BOT', 'FRIENDSHIP_NOT_YOURS', 'FRIEND_SENDER_ONLY',
     'FRIEND_RECIPIENT_ONLY', 'FRIENDSHIP_FINAL', 'LOBBY_ID_REQUIRED', 'LOBBY_NOT_FOUND', 'HOST_CANNOT_LEAVE',
@@ -28,7 +29,7 @@ const BACKEND_CODES = [
     'LOBBY_CLOSED', 'LOBBY_FULL', 'TEAM_REQUIRED', 'TEAM_INVALID', 'TEAM_FULL', 'TEAMS_INCOMPLETE', 'PLAYERS_UNASSIGNED',
     'BOTS_CASUAL_ONLY', 'NO_BOT_FREE', 'NO_SEAT_TO_FILL', 'ALREADY_QUEUED', 'DECLINE_TOO_LATE', 'HOST_ONLY',
     'DECLINE_COOLDOWN', 'NOT_A_PARTICIPANT', 'USER_NOT_FOUND', 'FRIENDSHIP_NOT_FOUND', 'MATCH_NOT_FOUND', 'SORT_UNKNOWN',
-    'VALIDATION',
+    'VALIDATION', 'ALREADY_IN_GAME',
 ]
 
 // copied from backend ErrorCodesTest.STOMP_SENTENCES / STOMP_PREFIXES (a prefix followed by a game id)
@@ -58,7 +59,7 @@ describe("server errors in the site's language (spec §1.1, §8)", () => {
     test('every code the backend sends, and every game refusal, has a line in both catalogs, and nothing else does', async () => {
         const { en, hr } = await load()
         const expected = [...new Set([...BACKEND_CODES, ...STOMP.map(([, code]) => code)])].sort()
-        expect(expected).toHaveLength(60)
+        expect(expected).toHaveLength(63)
         expect(Object.keys(en.errors.codes).sort()).toEqual(expected)
         expect(Object.keys(hr.errors.codes).sort()).toEqual(expected)
     })
@@ -129,7 +130,7 @@ describe("server errors in the site's language (spec §1.1, §8)", () => {
         const { localiseApiError, ApiError, setLang } = await load()
         const rules = [
             [PASSWORD_SENTENCE, 'Lozinka mora imati najmanje 8 znakova i najviše 72 bajta.'],
-            [USERNAME_SENTENCE, 'Korisničko ime mora imati 3–20 znakova: slova (i č ć š ž đ), brojke ili donju crtu.'],
+            [USERNAME_SENTENCE, 'Korisničko ime mora imati 3–20 znakova: slova (uključujući č ć š ž đ), brojke ili donju crtu.'],
         ]
         for (const code of ['VALIDATION', undefined]) {
             for (const [sentence] of rules) {

@@ -184,3 +184,13 @@ describe('FriendsList in Croatian (open beta §1.1)', () => {
         expect(screen.getByText('Nema zahtjeva na čekanju')).toBeInTheDocument()
     })
 })
+
+describe('FriendsList and removed accounts (spec §3.1)', () => {
+    test('a removed friend reads Guest', () => {
+        const removed = { id: 'u5', username: 'obrisan_3fa9c2d1', eloRating: 1200, level: 1, gamesPlayed: 0 }
+        mockFriends([{ id: 'f9', fromUser: ana, toUser: removed, status: 'ACCEPTED', createdAt: '2026-10-01T10:00:00Z' }])
+        renderFriends()
+        expect(screen.getByText('Guest', { selector: 'p' })).toBeInTheDocument()
+        expect(screen.queryByText(/obrisan_/)).toBeNull()
+    })
+})

@@ -914,6 +914,29 @@ export const hr = {
             note: 'Točno onako kako ih provodi poslužitelj igre.',
         },
     },
+    guest: {
+        removed: 'Gost',
+        needsAccount: {
+            title: 'Za ovo ti treba račun',
+            what: {
+                home: 'Tvoja statistika, zadnje partije i sve igre na jednom mjestu.',
+                ranked: 'Rangirane partije protiv ljudi, s rejtingom i rangom koji rastu kad pobjeđuješ.',
+                tables: 'Otvoreni stolovi: sjedni s drugim igračima ili otvori svoj stol.',
+                matches: 'Sve tvoje partije, dijeljenje po dijeljenje.',
+                friends: 'Igrači koje dodaš za pajdaše i zahtjevi koje ti pošalju.',
+                leaderboard: 'Rang i rejting svakog igrača.',
+                profile: 'Tvoj rang, kretanje rejtinga i partije te profili drugih igrača.',
+                settings: 'E-adresa, lozinka, efekti stola i tvoj račun. Jezik možeš mijenjati i kao gost, odmah ispod.',
+            },
+            unlock: 'Besplatan račun to otključava. Kao gost već sad možeš igrati protiv botova ili sjesti za stol prijatelja preko poveznice koju ti pošalje.',
+            signUp: 'Registriraj se',
+            bots: 'Igraj protiv botova kao gost',
+        },
+        tableDoor: {
+            lead: 'Nemaš račun? Za ovaj stol možeš sjesti i kao gost.',
+            sitDown: 'Sjedni kao gost',
+        },
+    },
     time: {
         justNow: 'maloprije',
     },
@@ -928,7 +951,7 @@ export const hr = {
         },
         rules: {
             password: 'Lozinka mora imati najmanje 8 znakova i najviše 72 bajta.',
-            username: 'Korisničko ime mora imati 3–20 znakova: slova (i č ć š ž đ), brojke ili donju crtu.',
+            username: 'Korisničko ime mora imati 3–20 znakova: slova (uključujući č ć š ž đ), brojke ili donju crtu.',
         },
         codes: {
             SESSION_EXPIRED: 'Sesija je istekla. Prijavi se ponovno.',
@@ -939,8 +962,10 @@ export const hr = {
             RATE_LIMITED: 'Previše pokušaja. Pričekaj malo pa pokušaj ponovno.',
             SERVICE_UNAVAILABLE: 'Poslužitelj trenutno ne odgovara. Pokušaj ponovno za minutu.',
             INVITE_CODE_INVALID: 'Pozivni kod nije ispravan. Provjeri ga i pokušaj ponovno.',
-            USERNAME_TAKEN: 'To korisničko ime već je zauzeto. Imena koja se razlikuju samo po velikim slovima ili po č ć š ž đ računaju se kao isto ime. Odaberi drugo.',
-            USERNAME_RESERVED: 'Imena koja počinju s obrisan_ rezervirana su. Odaberi drugo.',
+            USERNAME_TAKEN: 'To korisničko ime već je zauzeto. Imena koja se razlikuju samo po velikim i malim slovima ili po kvačicama (č ć š ž đ) smatraju se istim imenom. Odaberi drugo.',
+            USERNAME_RESERVED: 'Imena koja počinju s obrisan_ rezervirana su. Odaberi drugo ime.',
+            IN_GAME: 'Ime ne možeš mijenjati dok sjediš za stolom ili igraš partiju. Napusti stol ili dovrši partiju pa pokušaj ponovno.',
+            GUEST_ONLY: 'Ime na ovaj način može promijeniti samo gost.',
             EMAIL_TAKEN: 'Ta se e-adresa već koristi. Upiši drugu.',
             LINK_INVALID: 'Ova poveznica ne vrijedi ili je istekla.',
             NOTHING_TO_CONFIRM: 'Nema e-adrese koja čeka potvrdu.',
@@ -979,6 +1004,7 @@ export const hr = {
             BOTS_CASUAL_ONLY: 'Botovi igraju samo za nerangiranim stolovima.',
             NO_BOT_FREE: 'Trenutno nema slobodnog bota. Pokušaj malo kasnije.',
             NO_SEAT_TO_FILL: 'Nema praznog mjesta za bota.',
+            ALREADY_IN_GAME: 'Već imaš partiju u tijeku. Prvo se vrati u nju.',
             EMAIL_NOT_VERIFIED: 'Za rangirane partije prvo potvrdi e-adresu. Otvori poveznicu za potvrdu ako je imaš ili zatraži novu pa pokušaj ponovno.',
             ALREADY_QUEUED: 'Već čekaš rangiranu partiju.',
             DECLINE_COOLDOWN: (seconds: number) =>

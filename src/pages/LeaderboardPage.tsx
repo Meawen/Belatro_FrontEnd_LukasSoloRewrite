@@ -7,6 +7,7 @@ import { Page } from '../components/layout/Page';
 import { PublicFrame } from '../components/layout/PublicFrame';
 import { Button, EmptyState, Panel } from '../components/ui';
 import { useT } from '../i18n/t';
+import { MemberRoute } from '../routing/MemberRoute';
 
 /**
  * /users (spec §4.12), readable without a session: the leaderboard inside the shell when signed in;
@@ -40,13 +41,15 @@ export function LeaderboardPage() {
 
     return (
         <AppShell>
-            <Page title={t.titles.leaderboard}>
-                {/* ranks spec §7.1: the ladder in a panel above the list */}
-                <div className="flex flex-col gap-6">
-                    <LadderPanel />
-                    <UserList />
-                </div>
-            </Page>
+            <MemberRoute area="leaderboard">
+                <Page title={t.titles.leaderboard}>
+                    {/* ranks spec §7.1: the ladder in a panel above the list */}
+                    <div className="flex flex-col gap-6">
+                        <LadderPanel />
+                        <UserList />
+                    </div>
+                </Page>
+            </MemberRoute>
         </AppShell>
     );
 }

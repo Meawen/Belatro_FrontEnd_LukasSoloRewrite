@@ -17,11 +17,11 @@ import { useT } from '../../i18n/t';
  */
 export function Sidebar() {
     const { pathname } = useLocation();
-    const { user, logout } = useAuth();
+    const { user, isGuest, logout } = useAuth();
     const isAdmin = useIsAdmin();
     const compact = useMediaQuery(SIDEBAR_ICONS_QUERY);
-    // the rank comes with GET /user/{id}, not /user/me (ranks spec §6.5)
-    const { user: profile } = useUser(user?.id ?? undefined);
+    // the rank comes with GET /user/{id}, not /user/me (ranks spec §6.5); a guest has no rank, and that route refuses it (B4)
+    const { user: profile } = useUser(isGuest ? undefined : user?.id ?? undefined);
     const t = useT();
 
     return (

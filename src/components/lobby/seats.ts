@@ -2,6 +2,7 @@ import type { LobbyDTO, LobbyTeam } from '../../types/lobby';
 import type { UserSimpleDTO } from '../../types/user';
 import { botCount, isBot, LOBBY_CAP, memberCount } from './lobbyModel';
 import { cat } from '../../i18n/t';
+import { displayName } from '../common/displayName';
 
 /** A table seat: A1 is Team A's first player in the server's list, B2 Team B's second. */
 export type SeatKey = 'A1' | 'B1' | 'A2' | 'B2';
@@ -106,7 +107,7 @@ export function seatLabel(seat: TableSeat, lobby: LobbyDTO, viewerId: string | n
     const c = cat().table.seat;
     const team = c.team(seat.team);
     if (seat.player === null) return `${seatAction(seat, lobby, viewerId) === 'sit' ? c.sitHere : c.open}, ${team}`;
-    const name = seat.player.username ?? cat().common.unknown;
+    const name = displayName(seat.player.username ?? cat().common.unknown);
     if (viewerId != null && seat.player.id === viewerId) return `${name} ${c.you}, ${team}`;
     if (isBot(seat.player)) return `${isHost(lobby, viewerId) ? c.remove(name) : name}, ${team}, ${c.bot}`;
     return isHost(lobby, seat.player.id) ? `${name}, ${team}, ${c.host}` : `${name}, ${team}`;
@@ -118,7 +119,7 @@ export function startReadiness(lobby: LobbyDTO): { ready: boolean; reason: strin
     const missing = LOBBY_CAP - memberCount(lobby);
     if (missing > 0) return { ready: false, reason: c.waitingFor(missing) };
     const standing = lobby.unassignedPlayers ?? [];
-    if (standing.length > 0) return { ready: false, reason: c.notSeatedYet(standing[0].username ?? c.someone) };
+    if (standing.length > 0) return { ready: false, reason: c.notSeatedYet(displayName(standing[0].username ?? c.someone)) };
     return { ready: isReadyToStart(lobby), reason: c.everyoneSeated };
 }
 

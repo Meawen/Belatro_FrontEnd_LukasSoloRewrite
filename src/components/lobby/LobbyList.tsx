@@ -19,6 +19,7 @@ import {
     sortLobbies,
     type LobbySort,
 } from './lobbyModel';
+import { displayName } from '../common/displayName';
 
 export interface LobbyListProps {
     /** The last good list (useOpenLobbies); null until the first answer. */
@@ -146,7 +147,7 @@ function useSteadyOrder(lobbies: LobbyDTO[], sort: LobbySort, term: string, froz
 
 function LobbyRow({ lobby, me, wide, onOpen }: { lobby: LobbyDTO; me: string | null; wide: boolean; onOpen: (lobby: LobbyDTO) => void }) {
     const t = useT();
-    const host = t.tables.host(lobby.hostUser?.username ?? t.tables.unknownHost);
+    const host = t.tables.host(displayName(lobby.hostUser?.username ?? t.tables.unknownHost));
     const facts = <RowFacts lobby={lobby} me={me} />;
     return (
         <ListRow

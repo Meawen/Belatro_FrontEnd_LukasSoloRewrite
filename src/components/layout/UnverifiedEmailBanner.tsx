@@ -8,8 +8,9 @@ import { useT } from '../../i18n/t';
 
 /** Unverified accounts may play casual, not ranked; say so on every page until confirmed. */
 export const UnverifiedEmailBanner: React.FC = () => {
-    const { isAuthenticated } = useAuth();
-    const { data: me, refetch } = useMe(isAuthenticated);
+    const { isAuthenticated, isGuest } = useAuth();
+    // a guest has no address and no Settings (spec §3.3): nothing to confirm, so nothing to ask
+    const { data: me, refetch } = useMe(isAuthenticated && !isGuest);
     const t = useT();
     // The address a resend answered 409 "Nothing to confirm" for: it can never be confirmed
     // (for example a malformed legacy value), so stop asking to confirm it.
@@ -29,7 +30,8 @@ export const UnverifiedEmailBanner: React.FC = () => {
         return () => window.removeEventListener(ME_CHANGED, onMeChanged);
     }, [isAuthenticated]);
 
-    if (!isAuthenticated || !me || me.emailVerified) return null;
+    // a guest has no address and no Settings (spec §3.3): nothing to confirm
+    if (!isAuthenticated || isGuest || !me || me.emailVerified) return null;
 
     const address = me.pendingEmail ?? me.email;
 

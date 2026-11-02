@@ -12,15 +12,17 @@ export interface EndSheetProps {
     rematch?: RematchState;
     /** "Back to lobbies". */
     onLeave: () => void;
+    /** A guest (spec §3.3): no Match details, a member-only page. */
+    guest?: boolean;
 }
 
 /**
  * The end of the game (spec §5.4, R-20, R-25, R-45, US-38, US-39): a non-modal sheet docked at the
  * bottom of the board. The winner line or why it ended (`end-reason`), the final score (no test ids),
  * then Play again with the votes and Leave after a game a rematch may follow, else Back to lobbies,
- * and Match details.
+ * and Match details (not for a guest).
  */
-export function EndSheet({ model, open, rematch, onLeave }: EndSheetProps) {
+export function EndSheet({ model, open, rematch, onLeave, guest }: EndSheetProps) {
     const t = useT();
     const end = model.end;
     const mine = model.myTeam ?? 'A';
@@ -57,10 +59,12 @@ export function EndSheet({ model, open, rematch, onLeave }: EndSheetProps) {
                             <Button onClick={onLeave}>{t.table.backToTables}</Button>
                         </div>
                     )}
-                    <Link to={`/matches/${model.gameId}`} className="board-end__details t-callout font-semibold text-accent">
-                        {t.titles.matchDetails}
-                        <PixelIcon name="chevron" />
-                    </Link>
+                    {!guest && (
+                        <Link to={`/matches/${model.gameId}`} className="board-end__details t-callout font-semibold text-accent">
+                            {t.titles.matchDetails}
+                            <PixelIcon name="chevron" />
+                        </Link>
+                    )}
                 </div>
             )}
         </Sheet>

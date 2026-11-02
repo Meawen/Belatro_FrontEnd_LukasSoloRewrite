@@ -44,7 +44,7 @@ function ReconnectStrip() {
 function GamePage({ gameId }: { gameId: string }) {
     const t = useT();
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, isGuest } = useAuth();
 
     const { view, publicView, isConnected, connectionError, error, notAvailable, actions } =
         useGameViews(gameId, () => navigate('/lobbies'));
@@ -98,6 +98,7 @@ function GamePage({ gameId }: { gameId: string }) {
                 hands={hands}
                 rematch={rematch}
                 onLeave={() => navigate('/lobbies')}
+                guest={isGuest}
             />
             <ReconnectStrip />
         </>

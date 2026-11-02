@@ -7,6 +7,7 @@ import type { User } from '../../types/user';
 import type { Friendship } from '../../types/friendship';
 import { errorMessage } from '../../utils/errorMessage';
 import { useT } from '../../i18n/t';
+import { displayName } from '../common/displayName';
 
 export type FriendStatus = 'none' | 'incoming' | 'outgoing' | 'friends' | 'closed';
 
@@ -79,7 +80,7 @@ export function FriendActions({ user, meId, friends, compact = false, className 
     if (!meId || !user.id || user.id === meId || status === 'closed') return null;
     const toUserId = user.id;
     const friendshipId = friendship?.id ?? null;
-    const name = user.username || t.friends.thisPlayer;
+    const name = displayName(user.username || t.friends.thisPlayer);
 
     const run = async (action: Busy, work: () => Promise<unknown>, fallback: string) => {
         if (busy) return;

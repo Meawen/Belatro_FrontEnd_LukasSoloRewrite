@@ -1204,6 +1204,35 @@ export const en = {
             note: 'Every rule, as the server enforces it.',
         },
     },
+    // a guest (spec §3): the page a guest gets in place of a member-only one (NeedsAccountPage), the guest door on sign-in from a table's link, and the name a removed account shows under
+    guest: {
+        // a removed account's name (obrisan_…, spec §3.1, §1.4 Guest) in lists, seats and history (components/common/displayName)
+        removed: 'Guest',
+        // NeedsAccountPage: its h1 is the area's own name (titles.*); then this title, the area's line and the unlock line, and two buttons
+        needsAccount: {
+            title: 'This needs an account',
+            // one line per locked area: what it is
+            what: {
+                home: 'Your stats, your recent games and all the ways to play, in one place.',
+                ranked: 'Ranked games against people, with a rating and a rank that climb as you win.',
+                tables: 'The open tables: sit down with other players, or open a table of your own.',
+                matches: 'All your games, hand by hand.',
+                friends: 'The players you add as friends, and the requests they send you.',
+                leaderboard: "Every player's rank and rating.",
+                profile: "Your rank, how your rating moves and your games, and other players' profiles.",
+                settings: 'Your email, your password, table effects and your account. You can change the language as a guest too, just below.',
+            },
+            unlock: "A free account unlocks it. As a guest you can already play against bots, or sit at a friend's table from the link they send you.",
+            // to /signup, which becomes the waitlist when signup is full (Ruling 6: S11 words it from signup-status)
+            signUp: 'Sign up',
+            bots: 'Play against bots as a guest',
+        },
+        // sign-in, reached from a friend's table link (/lobby/…) with no session (spec §3.2); only with call 5
+        tableDoor: {
+            lead: 'No account? You can sit at this table as a guest.',
+            sitDown: 'Sit down as a guest',
+        },
+    },
     // relative times ("5 minutes ago"), wherever a time is shown
     time: {
         justNow: 'just now',
@@ -1239,9 +1268,13 @@ export const en = {
             RATE_LIMITED: 'Too many tries. Wait a little, then try again.',
             SERVICE_UNAVAILABLE: "The server isn't answering right now. Try again in a minute.",
             INVITE_CODE_INVALID: 'Invalid invite code. Check it and try again.',
-            USERNAME_TAKEN: 'Username is already taken. Names that differ only in capitals or in č ć š ž đ count as the same name. Choose another one.',
+            USERNAME_TAKEN: 'Username is already taken. Names that differ only in capitals or in the marks on č ć š ž đ count as the same name. Choose another one.',
             // sign-up (and later a guest's new name): obrisan_… is the name a removed account gets
             USERNAME_RESERVED: 'Names starting with obrisan_ are reserved. Choose another one.',
+            // a guest's new name (and, from B7, a guest claiming it at sign-up) while at a table or in a game
+            IN_GAME: "You can't change your name while you're at a table or in a game. Leave the table or finish the game, then try again.",
+            // a member at a guest's own name route (B4); the SPA offers it only to a guest
+            GUEST_ONLY: 'Only a guest can change their name this way.',
             EMAIL_TAKEN: 'That email address is already in use. Use another one.',
             LINK_INVALID: 'This link is invalid or has expired',
             NOTHING_TO_CONFIRM: "There's no email address waiting to be confirmed.",
@@ -1284,6 +1317,8 @@ export const en = {
             BOTS_CASUAL_ONLY: 'Bots play only at casual tables.',
             NO_BOT_FREE: 'No bot is free right now. Try again in a moment.',
             NO_SEAT_TO_FILL: "There's no empty seat for a bot.",
+            // the one-click bot game (spec §6)
+            ALREADY_IN_GAME: 'You already have a game in progress. Go back to it first.',
             // ranked (the queue, a found match, match history)
             EMAIL_NOT_VERIFIED: 'Verify your email to play ranked. Open your confirmation link if you have one, or ask for a new one, then try again.',
             ALREADY_QUEUED: "You're already in the queue.",

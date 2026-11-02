@@ -10,7 +10,9 @@ import type { PrivateGameView, PublicGameView } from '../../types/game'
 import { captureConsole } from '../../test/captureConsole'
 import { setLang } from '../../i18n/lang'
 
-vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u3', username: 'carol' } }) }))
+// carol, a member unless a test makes her a guest
+const auth = vi.hoisted(() => ({ isGuest: false }))
+vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u3', username: 'carol' }, isGuest: auth.isGuest }) }))
 vi.mock('../../hooks/useGameViews', () => ({ useGameViews: vi.fn() }))
 // The banner reads the real socket store; here it is a marker that shows where the page mounts it
 vi.mock('./ReconnectBanner', () => ({ ReconnectBanner: () => <p>Reconnect banner slot</p> }))
@@ -73,6 +75,7 @@ vi.setConfig({ testTimeout: 20_000 })
 
 beforeEach(() => {
     vi.clearAllMocks()
+    auth.isGuest = false
     rematchMock.useRematch.mockReturnValue(rematchMock.state)
     // jsdom draws nothing: no 2D context for the arena's canvas
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
@@ -265,5 +268,17 @@ describe('GamePageConnected', () => {
         expect(rematchMock.useRematch).toHaveBeenLastCalledWith('g1', true)
         await user.click(screen.getByRole('button', { name: 'Play again' }))
         expect(rematchMock.state.playAgain).toHaveBeenCalledTimes(1)
+    })
+
+    test("a guest's game-over sheet has no Match details (spec §3.3)", () => {
+        vi.mocked(useGameViews).mockReturnValue(views({ ...publicView, gameState: 'COMPLETED', winnerTeamId: 'A' }))
+        auth.isGuest = true
+        renderPage()
+        expect(screen.getByRole('button', { name: 'Play again' })).toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'Match details' })).not.toBeInTheDocument()
+        cleanup()
+        auth.isGuest = false
+        renderPage()
+        expect(screen.getByRole('link', { name: 'Match details' })).toHaveAttribute('href', '/matches/g1')
     })
 })

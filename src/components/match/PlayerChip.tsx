@@ -2,6 +2,7 @@ import { Avatar } from '../ui';
 import type { MatchDTO } from '../../types/match';
 import { teamOfPlayer } from './trickReplay';
 import { useT } from '../../i18n/t';
+import { displayName } from '../common/displayName';
 
 /** A player in a hand's details (spec §4.9 item 6): the initial on the team colour, the name, YOU on mine. */
 export function PlayerChip({ player, match, me }: { player: string | null; match: Pick<MatchDTO, 'teamA' | 'teamB'>; me: string | null }) {
@@ -9,8 +10,8 @@ export function PlayerChip({ player, match, me }: { player: string | null; match
     const t = useT();
     return (
         <span className="inline-flex min-w-0 items-center gap-1.5">
-            <Avatar initial={player || '?'} tone={team === 'A' ? 'team-a' : team === 'B' ? 'team-b' : 'neutral'} size="sm" />
-            <span className="truncate">{player || t.common.unknown}</span>
+            <Avatar initial={displayName(player || '?')} tone={team === 'A' ? 'team-a' : team === 'B' ? 'team-b' : 'neutral'} size="sm" />
+            <span className="truncate">{displayName(player || t.common.unknown)}</span>
             {player !== null && player === me && <span className="t-caption text-accent">{t.common.youCaps}</span>}
         </span>
     );

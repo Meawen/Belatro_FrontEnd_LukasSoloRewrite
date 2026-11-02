@@ -16,6 +16,7 @@ import { byBelot, parseMatchResult, resultText, yourResult } from './matchResult
 import { matchesPath, pageFromState } from './matchesPath';
 import { useMatchDetails, type MatchDetailsData } from './useMatchDetails';
 import { useT } from '../../i18n/t';
+import { displayName } from '../common/displayName';
 
 // The result colour on the hero's tile and title (spec §4.9), as on the list's rows; text pairs on --surface
 const TONE: Record<MatchOutcome, { tile: string; word: string; icon: IconName }> = {
@@ -79,8 +80,8 @@ function TeamPanel({ team, members, myId }: { team: 'A' | 'B'; members: UserSimp
                     const me = !!myId && player.id === myId;
                     return (
                         <li key={player.id ?? index} className={cx('notch flex items-center gap-3 bg-bg px-2 py-2', me && 'shadow-[inset_0_0_0_2px_var(--accent)]')}>
-                            <Avatar initial={player.username || '?'} tone={team === 'A' ? 'team-a' : 'team-b'} size="sm" />
-                            <span className="t-callout min-w-0 truncate">{player.username || t.common.unknown}</span>
+                            <Avatar initial={displayName(player.username || '?')} tone={team === 'A' ? 'team-a' : 'team-b'} size="sm" />
+                            <span className="t-callout min-w-0 truncate">{displayName(player.username || t.common.unknown)}</span>
                             {me && <span className="t-caption text-accent">{t.common.youCaps}</span>}
                         </li>
                     );
@@ -165,7 +166,7 @@ function RawMoves({ moves }: { moves: MoveDTO[] }) {
                         {moves.map((move, index) => (
                             <tr key={index} className="shadow-[inset_0_-1px_0_var(--surface-3)]">
                                 <td className="px-2 py-1 tabular-nums">{move.order}</td>
-                                <td className="px-2 py-1">{move.player}</td>
+                                <td className="px-2 py-1">{move.player && displayName(move.player)}</td>
                                 <td className="px-2 py-1 font-mono text-accent">{move.card}</td>
                             </tr>
                         ))}

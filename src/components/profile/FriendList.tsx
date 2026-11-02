@@ -12,6 +12,7 @@ import { errorMessage } from '../../utils/errorMessage';
 import { formatDate } from '../../i18n/format';
 import { useT } from '../../i18n/t';
 import { fold } from '../../utils/fold';
+import { displayName } from '../common/displayName';
 
 type Tab = 'friends' | 'pending' | 'sent';
 type Busy = 'accept' | 'reject' | 'cancel' | 'remove';
@@ -31,7 +32,7 @@ interface FriendRowProps {
 
 function FriendRow({ friendship, other, tab, busy, onAccept, onReject, onCancel, onRemove, onViewProfile }: FriendRowProps) {
     const t = useT();
-    const name = other.username || t.common.unknownPlayer;
+    const name = displayName(other.username || t.common.unknownPlayer);
     // the row's other actions wait while one of its requests runs; other rows never do
     const held = (kind: Busy) => busy !== undefined && busy !== kind;
     return (
@@ -230,7 +231,7 @@ export const FriendsList: React.FC = () => {
                                     onAccept={() => run(id, 'accept', () => acceptFriendRequest(id), t.friends.failed.accept)}
                                     onReject={() => run(id, 'reject', () => rejectFriendRequest(id), t.friends.failed.reject)}
                                     onCancel={() => run(id, 'cancel', () => cancelFriendRequest(id), t.friends.failed.cancel)}
-                                    onRemove={() => setRemoving({ id, name: otherUser.username || t.friends.someone })}
+                                    onRemove={() => setRemoving({ id, name: displayName(otherUser.username || t.friends.someone) })}
                                     onViewProfile={() => navigate(`/profile/${otherUser.id}`)}
                                 />
                             </li>

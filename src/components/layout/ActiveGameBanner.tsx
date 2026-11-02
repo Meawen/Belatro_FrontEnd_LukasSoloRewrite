@@ -15,14 +15,15 @@ export const ACTIVE_GAME_POLL_MS = 30_000;
  * while signed in; a failed check keeps the last answer, because a failure is not "no game".
  */
 export const ActiveGameBanner: React.FC = () => {
-    const { isAuthenticated, token } = useAuth();
+    const { isAuthenticated, isGuest, token } = useAuth();
     const { pathname } = useLocation();
     const navigate = useNavigate();
     const t = useT();
     const [gameId, setGameId] = useState<string | null>(null);
     const onGamePage = pathname.startsWith('/game/');
-    // Home shows the "Return to your game" card in the banner's place and asks for itself (spec §2.5 R-33)
-    const onHome = pathname === '/dashboard';
+    // Home shows the "Return to your game" card in the banner's place and asks for itself (spec §2.5 R-33); a guest's
+    // /dashboard is the needs-an-account page, which has no card
+    const onHome = pathname === '/dashboard' && !isGuest;
     // No token, or an expired one: its 401 would sign the tab out, and on /rules, /privacy and /terms
     // send a reader who needs no session to /login. App pages end a dead session on their own requests.
     const canAsk = isAuthenticated && !!token && !isExpired(token);

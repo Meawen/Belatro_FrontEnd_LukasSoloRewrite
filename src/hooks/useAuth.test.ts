@@ -139,3 +139,52 @@ describe('useAuth and the site language (spec §1.1)', () => {
         expect(authService.signup).toHaveBeenCalledWith(expect.objectContaining({ language: 'hr' }))
     })
 })
+
+describe('useAuth and guests (spec §3)', () => {
+    beforeEach(() => {
+        vi.stubGlobal('localStorage', jsdomStorage)
+        vi.spyOn(userService, 'getMe').mockResolvedValue(ME)
+    })
+    afterEach(() => { jsdomStorage.clear(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
+
+    test('a stored guest is a guest; a member, and a member stored before guests existed, are not', () => {
+        jsdomStorage.setItem('authToken', 'tok-1')
+        for (const [user, guest] of [
+            [{ id: 'g1', username: 'gost_4821', guest: true }, true],
+            [{ id: 'u1', username: 'ana', guest: false }, false],
+            [{ id: 'u1', username: 'ana' }, false],
+            // Ruling 38: the flag decides, never the name
+            [{ id: 'u2', username: 'gost_1234', guest: false }, false],
+        ] as const) {
+            jsdomStorage.setItem('user', JSON.stringify(user))
+            const { result, unmount } = renderHook(() => useAuth())
+            expect(result.current.isGuest, user.username).toBe(guest)
+            unmount()
+        }
+    })
+
+    test('a typed name goes out in NFC: a decomposed č (Matic + U+030C) is sent as Matič, at sign-in and at sign-up (Ruling 35)', async () => {
+        vi.spyOn(authService, 'login').mockResolvedValue(issued)
+        vi.spyOn(authService, 'signup').mockResolvedValue(issued)
+        captureConsole()
+        const { result } = renderHook(() => useAuth())
+        await act(async () => { await result.current.login({ username: 'Matic\u030C', password: PASSWORD }) })
+        expect(authService.login).toHaveBeenCalledWith({ username: 'Mati\u010D', password: PASSWORD })
+        await act(async () => { await result.current.signup({ username: 'Matic\u030C', email: 'm@example.com', password: PASSWORD }) })
+        expect(authService.signup).toHaveBeenCalledWith(expect.objectContaining({ username: 'Mati\u010D' }))
+    })
+
+    test("logging out forgets the guest's secret with its token and user (Ruling 32)", async () => {
+        jsdomStorage.setItem('authToken', 'tok-g')
+        jsdomStorage.setItem('user', JSON.stringify({ id: 'g1', username: 'gost_4821', guest: true }))
+        jsdomStorage.setItem('stiglja:guestSecret', 'secret')
+        vi.spyOn(authService, 'logout').mockResolvedValue('Successfully logged out.')
+        vi.stubGlobal('location', { ...window.location, assign: vi.fn() })
+        captureConsole()
+        const { result } = renderHook(() => useAuth())
+        await act(async () => { await result.current.logout() })
+        expect(jsdomStorage.getItem('stiglja:guestSecret')).toBeNull()
+        expect(jsdomStorage.getItem('authToken')).toBeNull()
+        expect(jsdomStorage.getItem('user')).toBeNull()
+    })
+})

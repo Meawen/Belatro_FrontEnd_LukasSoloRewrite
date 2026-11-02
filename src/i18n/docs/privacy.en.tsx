@@ -55,8 +55,9 @@ export const doc: LegalDoc = {
                     <li>
                         <strong>In your browser:</strong> when you sign in, the site keeps a sign-in token and
                         your user id and username in your browser's local storage, so that you stay signed in.
-                        Signing out removes them. If you play as a guest, the site keeps the guest there in the same way. It also
-                        keeps your language and your table effects setting there. For a private table you create, it keeps the
+                        Signing out removes them. If you play as a guest, the site keeps the guest there in the same way, with the
+                        guest's secret key, which signs you back in as that guest when your sign-in runs out; signing out removes it
+                        too. It also keeps your language and your table effects setting there. For a private table you create, it keeps the
                         password in the tab's session storage until you close the tab, so that you can share it. Stiglja sets no
                         advertising or analytics cookies and uses no trackers.
                     </li>
@@ -154,7 +155,10 @@ export const doc: LegalDoc = {
                             A running game: up to 24 hours after its last move; a finished one: 10 minutes. Its
                             record then stays in your match history.
                         </li>
-                        <li>IP addresses held to limit attempts: dropped within about an hour, and whenever the server restarts.</li>
+                        <li>
+                            IP addresses and waitlist email addresses held in the server's memory to limit attempts: dropped from
+                            memory within about an hour, and whenever the server restarts.
+                        </li>
                         <li>Server logs: only as long as our hosting provider, Fly.io, keeps them.</li>
                     </ul>
                     <p>

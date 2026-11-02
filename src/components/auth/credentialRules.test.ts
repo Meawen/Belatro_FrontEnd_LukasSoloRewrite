@@ -42,10 +42,15 @@ describe('usernameRuleError (mirrors SignupRequestDTO @Pattern)', () => {
         for (const name of ['Matić', 'ĐURO_7', 'abc', 'ž'.repeat(20), 'mišo', 'ŠĐŽČĆšđžčćŠĐŽČĆšđžčć']) {
             expect(usernameRuleError(name), name).toBeNull()
         }
-        // 'c\u030Cevapi' is a decomposed č (c + U+030C, combining caron), which the server refuses too
-        for (const name of ['ab', 'a'.repeat(21), 'ž'.repeat(21), 'bad name!', 'miño', 'Bot-Ana', 'c\u030Cevapi']) {
+        for (const name of ['ab', 'a'.repeat(21), 'ž'.repeat(21), 'bad name!', 'miño', 'Bot-Ana']) {
             expect(usernameRuleError(name), name).toBe(USERNAME_RULE_MESSAGE)
         }
+    })
+    test('a decomposed č (c + U+030C, combining caron) is checked in NFC, the form it is sent in (Ruling 35)', () => {
+        expect(usernameRuleError('Matic\u030C')).toBeNull()
+        expect(usernameRuleError('c\u030Cevapi')).toBeNull()
+        // NFC composes only a letter that has a composed form: a caron on x stays two characters, and is refused
+        expect(usernameRuleError('x\u030Cevapi')).toBe(USERNAME_RULE_MESSAGE)
     })
     test('the reserved obrisan_ prefix is left to the server (USERNAME_RESERVED)', () => {
         expect(usernameRuleError('obrisan_x')).toBeNull()
@@ -60,7 +65,7 @@ describe('the rules in Croatian', () => {
         setLang('hr')
         try {
             expect(passwordRuleError('1234567')).toBe('Lozinka mora imati najmanje 8 znakova i najviše 72 bajta.')
-            expect(usernameRuleError('ab')).toBe('Korisničko ime mora imati 3–20 znakova: slova (i č ć š ž đ), brojke ili donju crtu.')
+            expect(usernameRuleError('ab')).toBe('Korisničko ime mora imati 3–20 znakova: slova (uključujući č ć š ž đ), brojke ili donju crtu.')
         } finally {
             setLang('en')
         }

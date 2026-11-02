@@ -9,6 +9,7 @@ import type {
     JwtResponseDTO,
     UserLoginDetailsDTO,
 } from '../types';
+import { GUEST_SECRET_KEY } from '../services/guestSecret';
 
 interface AuthState {
     user: UserLoginDetailsDTO | null;
@@ -104,7 +105,8 @@ export function useAuth() {
         try {
             setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
-            const response = await loginMutation.mutate(credentials);
+            // Ruling 35: the typed name in NFC (a decomposed č is c + U+030C), the form the server stores
+            const response = await loginMutation.mutate({ ...credentials, username: credentials.username?.normalize('NFC') ?? null });
 
             // Store user data in localStorage
             if (response.user) {
@@ -143,7 +145,12 @@ export function useAuth() {
             setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
             // spec §1.1: signup records the language the site was in
-            const response = await signupMutation.mutate({ ...userData, language: userData.language ?? getLang() });
+            // Ruling 35: the typed name in NFC, as at sign-in
+            const response = await signupMutation.mutate({
+                ...userData,
+                username: userData.username?.normalize('NFC') ?? null,
+                language: userData.language ?? getLang(),
+            });
 
             // Store user data in localStorage
             if (response.user) {
@@ -179,6 +186,8 @@ export function useAuth() {
             // Always clear ALL auth-related local storage items
             localStorage.removeItem('user');
             localStorage.removeItem('authToken');
+            // Ruling 32: a guest's sign-out ends the guest, so its secret goes too
+            localStorage.removeItem(GUEST_SECRET_KEY);
 
             setAuthState({
                 user: null,
@@ -194,6 +203,9 @@ export function useAuth() {
 
     return {
         ...authState,
+        // spec §3: the stored user of a guest carries guest: true (POST /api/auth/guest, B4); never read from the name
+        // (Ruling 38)
+        isGuest: authState.user?.guest === true,
         token: getToken(),
         login,
         signup,

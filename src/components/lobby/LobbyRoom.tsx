@@ -19,6 +19,7 @@ import { ConfirmSheet, OptionsSheet, PasswordSheet, SeatSheet } from './LobbyShe
 import { LobbyTable, type SeatBusy } from './LobbyTable';
 import { isBot, isMember, lobbyName } from './lobbyModel';
 import { fillableSeats, hostHint, isHost, lobbyHint, memberStatus, seatAction, startReadiness, tableSeats, takesBots, teamOf, type SeatPosition, type TableSeat } from './seats';
+import { displayName } from '../common/displayName';
 
 export interface LobbyRoomProps {
     lobbyId: string;
@@ -428,9 +429,9 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
             <ConfirmSheet
                 open={sheet === 'remove'}
                 onClose={closeSheet}
-                title={t.table.removeTitle(removing)}
+                title={t.table.removeTitle(displayName(removing))}
                 body={t.table.removeBody}
-                confirmLabel={t.table.removeConfirm(removing)}
+                confirmLabel={t.table.removeConfirm(displayName(removing))}
                 confirmIcon="x"
                 onConfirm={kick}
                 fallbackError={t.table.failed.kick}
@@ -465,7 +466,7 @@ function LobbyChips({ lobby }: { lobby: LobbyDTO }) {
         <span className="flex flex-wrap gap-1.5">
             <Chip>{lobby.gameMode === 'RANKED' ? t.table.ranked : t.table.casual}</Chip>
             {lobby.privateLobby && <Chip icon="lock">{t.tables.private}</Chip>}
-            {lobby.hostUser?.username && <Chip icon="crown">{lobby.hostUser.username}</Chip>}
+            {lobby.hostUser?.username && <Chip icon="crown">{displayName(lobby.hostUser.username)}</Chip>}
         </span>
     );
 }
@@ -482,7 +483,7 @@ function NotSeated({ lobby, viewerId, hostView, onRemove }: { lobby: LobbyDTO; v
                 const you = viewerId !== null && player.id === viewerId;
                 const chip = (
                     <Chip>
-                        {player.username}
+                        {player.username && displayName(player.username)}
                         {you && <span className="text-accent"> · {t.table.youSuffix}</span>}
                     </Chip>
                 );

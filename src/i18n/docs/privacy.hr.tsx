@@ -53,7 +53,8 @@ export const doc: LegalDoc = {
                     <li>
                         <strong>U tvojem pregledniku:</strong> kad se prijaviš, stranica u lokalnoj pohrani preglednika čuva token za
                         prijavu, tvoj korisnički ID i korisničko ime, da prijava ostane aktivna. Odjava ih briše. Ako igraš kao
-                        gost, stranica ondje na isti način čuva gosta. Ondje pamti i tvoj jezik i postavku efekata stola. Lozinku
+                        gost, stranica ondje na isti način čuva gosta i njegov tajni ključ, kojim te preglednik ponovno prijavljuje
+                        kao tog gosta kad prijava istekne; odjava briše i njega. Ondje pamti i tvoj jezik i postavku efekata stola. Lozinku
                         Stola za ekipu koji otvoriš čuva u pohrani kartice preglednika dok ne zatvoriš karticu, da se može
                         podijeliti. Stiglja ne postavlja kolačiće za oglašavanje ni za analitiku i ne koristi alate za praćenje.
                     </li>
@@ -151,8 +152,9 @@ export const doc: LegalDoc = {
                             u tvojem zapisniku.
                         </li>
                         <li>
-                            IP adrese koje držimo radi ograničavanja pokušaja: odbacujemo ih u roku od otprilike sat vremena i pri
-                            svakom ponovnom pokretanju poslužitelja.
+                            IP adrese i e-adrese upisane u Red za stol koje držimo u memoriji poslužitelja radi ograničavanja
+                            pokušaja: iz memorije ih odbacujemo u roku od otprilike sat vremena i pri svakom ponovnom pokretanju
+                            poslužitelja.
                         </li>
                         <li>Zapisi poslužitelja: samo onoliko dugo koliko ih čuva naš pružatelj hostinga, Fly.io.</li>
                     </ul>

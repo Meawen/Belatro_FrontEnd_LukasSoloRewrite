@@ -88,4 +88,35 @@ describe('the catalogs (spec §1.2)', () => {
             'Odigraj još 7 rangiranih partija da se svrstaš.',
         ])
     })
+
+    test("the guest's words: Gost (§1.4) and the after-guide buttons (spec §7.4)", () => {
+        expect(hr.guest.removed).toBe('Gost')
+        expect(en.guest.removed).toBe('Guest')
+        expect(hr.guest.needsAccount.signUp).toBe('Registriraj se')
+        expect(hr.guest.needsAccount.bots).toBe('Igraj protiv botova kao gost')
+    })
+
+    test("the guest codes' lines: what happened, then what to do (Ruling 4)", () => {
+        const lines = (c: typeof en) => [c.errors.codes.IN_GAME, c.errors.codes.GUEST_ONLY, c.errors.codes.ALREADY_IN_GAME]
+        expect(lines(en)).toEqual([
+            "You can't change your name while you're at a table or in a game. Leave the table or finish the game, then try again.",
+            'Only a guest can change their name this way.',
+            // B5's sentence, then what to do
+            'You already have a game in progress. Go back to it first.',
+        ])
+        expect(lines(hr)).toEqual([
+            'Ime ne možeš mijenjati dok sjediš za stolom ili igraš partiju. Napusti stol ili dovrši partiju pa pokušaj ponovno.',
+            'Ime na ovaj način može promijeniti samo gost.',
+            'Već imaš partiju u tijeku. Prvo se vrati u nju.',
+        ])
+    })
+
+    test("S7's username lines, corrected (Ruling 34)", () => {
+        expect(en.errors.codes.USERNAME_TAKEN).toBe(
+            'Username is already taken. Names that differ only in capitals or in the marks on č ć š ž đ count as the same name. Choose another one.')
+        expect(hr.errors.codes.USERNAME_TAKEN).toBe(
+            'To korisničko ime već je zauzeto. Imena koja se razlikuju samo po velikim i malim slovima ili po kvačicama (č ć š ž đ) smatraju se istim imenom. Odaberi drugo.')
+        expect(hr.errors.codes.USERNAME_RESERVED).toBe('Imena koja počinju s obrisan_ rezervirana su. Odaberi drugo ime.')
+        expect(hr.errors.rules.username).toBe('Korisničko ime mora imati 3–20 znakova: slova (uključujući č ć š ž đ), brojke ili donju crtu.')
+    })
 })

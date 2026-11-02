@@ -61,6 +61,9 @@ describe('Rules, Privacy and Terms (spec §4.15)', () => {
             // Ruling 28: the waitlist's per-address limit, and every limited action under "Why we use it"
             "the email address you enter for the waitlist, also kept in the server's memory for up to an hour to limit how often one address can join (at most 3 times an hour);",
             "To keep Stiglja secure and working (our legitimate interest): limiting how often sign-in, signup, guest play, the waitlist and Bela school's counts can be used, and keeping logs to find faults and abuse.",
+            // Ruling 32: the guest's secret on the device; Ruling 34: the waitlist address in memory, in the retention list
+            "If you play as a guest, the site keeps the guest there in the same way, with the guest's secret key, which signs you back in as that guest when your sign-in runs out; signing out removes it too.",
+            "IP addresses and waitlist email addresses held in the server's memory to limit attempts: dropped from memory within about an hour, and whenever the server restarts.",
         ]) expect(en, text).toContain(text)
         expect(en).not.toMatch(/invite/i)
         cleanup()
@@ -76,6 +79,8 @@ describe('Rules, Privacy and Terms (spec §4.15)', () => {
             'Ako želiš izaći iz Reda za stol, piši na support@stiglja.com s adrese koja je na popisu i uklonit ćemo je.',
             'e-adresu upisanu u Red za stol, koju također držimo u memoriji poslužitelja do sat vremena da bismo ograničili koliko se često ista adresa može upisati (najviše 3 puta na sat);',
             'Da Stiglja bude sigurna i da radi (naš legitimni interes): ograničavamo koliko se često mogu koristiti prijava, registracija, igra kao gost, Red za stol i brojanje Škole bele te vodimo zapise kako bismo pronašli pogreške i zlouporabe.',
+            'Ako igraš kao gost, stranica ondje na isti način čuva gosta i njegov tajni ključ, kojim te preglednik ponovno prijavljuje kao tog gosta kad prijava istekne; odjava briše i njega.',
+            'IP adrese i e-adrese upisane u Red za stol koje držimo u memoriji poslužitelja radi ograničavanja pokušaja: iz memorije ih odbacujemo u roku od otprilike sat vremena i pri svakom ponovnom pokretanju poslužitelja.',
         ]) expect(hr, text).toContain(text)
         expect(hr).not.toMatch(/pozivn/i)
     })
