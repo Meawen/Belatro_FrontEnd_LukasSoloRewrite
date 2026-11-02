@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { Panel, Segmented } from '../ui';
-import { setLang, useLang } from '../../i18n/lang';
-import { useT } from '../../i18n/t';
+import { useLang } from '../../i18n/lang';
+import { switchLang, useT } from '../../i18n/t';
 
 /** Language (open beta §1.1): the site's language, kept on this device and, signed in, on the account. */
 export function LanguageSection() {
@@ -21,7 +21,7 @@ export function LanguageSection() {
                     { value: 'en', label: t.settings.language.en },
                 ]}
                 value={lang}
-                onChange={setLang}
+                onChange={switchLang}
                 className="self-start"
             />
         </Panel>

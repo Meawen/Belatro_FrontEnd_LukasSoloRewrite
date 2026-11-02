@@ -1,6 +1,6 @@
 import { cx } from '../ui/cx';
-import { setLang, useLang, type Lang } from '../../i18n/lang';
-import { useT } from '../../i18n/t';
+import { useLang, type Lang } from '../../i18n/lang';
+import { switchLang, useT } from '../../i18n/t';
 
 /**
  * The compact HR · EN switch (spec §1.1) in the signed-in shell's top row and the public frame's header. A shell
@@ -16,8 +16,8 @@ export function LangSwitch() {
             aria-pressed={lang === code}
             className={cx('notch focus-inside press inline-flex min-h-11 min-w-11 items-center justify-center px-2', lang === code ? 'font-semibold text-text' : 'text-text-2 hover:text-text')}
             onClick={() => {
-                // the language already shown: nothing to store or send
-                if (lang !== code) setLang(code);
+                // the language already shown: nothing to store or send; English switches once its catalog is here
+                if (lang !== code) switchLang(code);
             }}
         >
             {text}

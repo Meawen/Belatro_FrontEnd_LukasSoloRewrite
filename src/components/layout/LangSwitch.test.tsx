@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { JSDOM } from 'jsdom'
 
@@ -18,6 +18,7 @@ afterEach(() => {
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
     vi.restoreAllMocks()
+    vi.doUnmock('../../i18n/catalog/loadEn.vitest')
 })
 
 async function renderSwitch() {
@@ -60,6 +61,26 @@ describe('the HR · EN switch (spec §1.1)', () => {
         expect(jsdomStorage.getItem(KEY)).toBeNull()
         expect(fetch).not.toHaveBeenCalled()
         expect(screen.getByRole('button', { name: 'EN' })).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    test('pressing EN on a Croatian page switches once the English catalog has arrived (it loads on demand)', async () => {
+        jsdomStorage.setItem(KEY, 'hr')
+        let arrive!: (catalog: unknown) => void
+        const loadEn = vi.fn(() => new Promise((resolve) => { arrive = resolve }))
+        // t.ts reaches the catalog through vitest.config.ts's stand-in for './catalog/loadEn'
+        vi.doMock('../../i18n/catalog/loadEn.vitest', () => ({ enNow: null, loadEn }))
+        const { en } = await import('../../i18n/catalog/en')
+        await renderSwitch()
+        expect(screen.getByText('Postavke')).toBeInTheDocument()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'EN' }))
+        expect(loadEn).toHaveBeenCalledTimes(1)
+        // nothing switches until the words are here: no page half in English
+        expect(screen.getByRole('button', { name: 'EN' })).toHaveAttribute('aria-pressed', 'false')
+        expect(screen.getByText('Postavke')).toBeInTheDocument()
+        await act(async () => arrive(en))
+        expect(screen.getByRole('button', { name: 'EN' })).toHaveAttribute('aria-pressed', 'true')
+        expect(screen.getByText('Settings')).toBeInTheDocument()
+        expect(jsdomStorage.getItem(KEY)).toBe('en')
     })
 
     test('each code is a 44-px target', async () => {

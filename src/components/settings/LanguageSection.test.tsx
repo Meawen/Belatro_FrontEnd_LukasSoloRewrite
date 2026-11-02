@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { JSDOM } from 'jsdom'
 
@@ -16,6 +16,7 @@ afterEach(() => {
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
     vi.restoreAllMocks()
+    vi.doUnmock('../../i18n/catalog/loadEn.vitest')
 })
 
 async function renderSection() {
@@ -41,5 +42,22 @@ describe('Settings: Language (spec §1.1)', () => {
         expect(screen.getByRole('button', { name: 'Hrvatski' })).toHaveAttribute('aria-pressed', 'true')
         expect(screen.getByRole('button', { name: 'English' })).toHaveAttribute('aria-pressed', 'false')
         expect(jsdomStorage.getItem('stiglja:lang')).toBe('hr')
+    })
+
+    test('picking English on a Croatian page switches once the English catalog has arrived (it loads on demand)', async () => {
+        jsdomStorage.setItem('stiglja:lang', 'hr')
+        let arrive!: (catalog: unknown) => void
+        const loadEn = vi.fn(() => new Promise((resolve) => { arrive = resolve }))
+        // t.ts reaches the catalog through vitest.config.ts's stand-in for './catalog/loadEn'
+        vi.doMock('../../i18n/catalog/loadEn.vitest', () => ({ enNow: null, loadEn }))
+        const { en } = await import('../../i18n/catalog/en')
+        await renderSection()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'English' }))
+        expect(loadEn).toHaveBeenCalledTimes(1)
+        expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Jezik')
+        await act(async () => arrive(en))
+        expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Language')
+        expect(screen.getByRole('button', { name: 'English' })).toHaveAttribute('aria-pressed', 'true')
+        expect(jsdomStorage.getItem('stiglja:lang')).toBe('en')
     })
 })

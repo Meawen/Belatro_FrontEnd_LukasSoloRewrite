@@ -73,7 +73,7 @@ describe('useAuth and the site language (spec §1.1)', () => {
         jsdomStorage.clear()
         vi.resetModules()
     })
-    afterEach(() => { jsdomStorage.clear(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks() })
+    afterEach(() => { jsdomStorage.clear(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); vi.doUnmock('../i18n/catalog/loadEn.vitest') })
 
     // as authService.login does: the token is stored before useAuth continues, so a setLang now would PUT
     const signIn = async () => {
@@ -126,6 +126,43 @@ describe('useAuth and the site language (spec §1.1)', () => {
         await act(async () => { response = await result.current.login({ username: 'ana', password: PASSWORD }) })
         expect(response).toBe(issued)
         expect(result.current.isAuthenticated).toBe(true)
+        expect(lang.getLang()).toBe('hr')
+    })
+
+    test("an English account on a Croatian device: the English catalog arrives before the switch (it loads on demand)", async () => {
+        jsdomStorage.setItem('stiglja:lang', 'hr')
+        let arrive!: (catalog: unknown) => void
+        const loadEn = vi.fn(() => new Promise((resolve) => { arrive = resolve }))
+        // t.ts reaches the catalog through vitest.config.ts's stand-in for './catalog/loadEn'
+        vi.doMock('../i18n/catalog/loadEn.vitest', () => ({ enNow: null, loadEn }))
+        const { useAuth, authService, userService, lang } = await load()
+        const { cat } = await import('../i18n/t')
+        const { en } = await import('../i18n/catalog/en')
+        vi.spyOn(authService, 'login').mockImplementation(signIn)
+        vi.spyOn(userService, 'getMe').mockResolvedValue({ ...ME, language: 'en' })
+        captureConsole()
+        const { result } = renderHook(() => useAuth())
+        let signedIn = false
+        act(() => { void result.current.login({ username: 'ana', password: PASSWORD }).then(() => { signedIn = true }) })
+        await vi.waitFor(() => expect(loadEn).toHaveBeenCalledTimes(1))
+        expect(lang.getLang()).toBe('hr')
+        await act(async () => arrive(en))
+        await vi.waitFor(() => expect(signedIn).toBe(true))
+        expect(lang.getLang()).toBe('en')
+        expect(cat().titles.settings).toBe('Settings')
+    })
+
+    test("an English account's catalog that fails to arrive keeps the device's language, and the sign-in", async () => {
+        jsdomStorage.setItem('stiglja:lang', 'hr')
+        vi.doMock('../i18n/catalog/loadEn.vitest', () => ({ enNow: null, loadEn: vi.fn(async () => { throw new Error('Failed to fetch dynamically imported module') }) }))
+        const { useAuth, authService, userService, lang } = await load()
+        vi.spyOn(authService, 'login').mockImplementation(signIn)
+        vi.spyOn(userService, 'getMe').mockResolvedValue({ ...ME, language: 'en' })
+        captureConsole()
+        const { result } = renderHook(() => useAuth())
+        let response: unknown
+        await act(async () => { response = await result.current.login({ username: 'ana', password: PASSWORD }) })
+        expect(response).toBe(issued)
         expect(lang.getLang()).toBe('hr')
     })
 
