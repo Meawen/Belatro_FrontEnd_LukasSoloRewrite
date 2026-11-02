@@ -1167,6 +1167,8 @@ export const en = {
         hand: {
             label: 'Your hand',
             list: (cards: string) => `Your hand: ${cards}`,
+            // a card Škola bele's coach marks (open beta §7.2, §7.3): its name for screen readers, "As Herc, highlighted"
+            marked: (card: string) => `${card}, highlighted`,
         },
         // the won-trick peek (Peek): my team's tricks this hand; the 8th is "Last trick" (spec §1.4)
         peek: {

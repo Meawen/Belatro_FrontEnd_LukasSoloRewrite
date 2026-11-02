@@ -877,6 +877,7 @@ export const hr = {
         hand: {
             label: 'Tvoje karte',
             list: (cards: string) => `Tvoje karte: ${cards}`,
+            marked: (card: string) => `${card}, istaknuto`,
         },
         peek: {
             title: 'Štihovi tvoje ekipe',

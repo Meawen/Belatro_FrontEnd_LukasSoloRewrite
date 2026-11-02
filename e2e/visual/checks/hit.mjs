@@ -2,13 +2,21 @@
 // 375×812, after the game menu has been opened and closed again, document.elementFromPoint at the centre of
 // each bid button, and at the middle of each hand card's exposed strip (the part the next card leaves
 // uncovered; the whole card for the last), returns that button. Board scenes come from /dev/board (Phase 4).
+// With the coach's panel up (coach=demo, open beta §7.2, §7.3), the bid buttons, every hand card and the panel's own
+// button still answer elementFromPoint.
 // Not the point 10 px in and 30 px down of the card's bounding box: at 1440 the fan tilts the right-hand cards
 // clockwise, so that corner of their box lies on the card to their left.
 
 const VIEWPORTS = ['1440x900', '375x812'];
-const board = (at) => ({ name: `hit-${at}`, path: `/dev/board?controls=0&skip=1&effects=off&seat=carol&at=${at}`, viewports: VIEWPORTS });
-// carol to bid after two passes (the bid panel up, six cards); carol to play in mid-trick (eight cards, enabled)
-const SCENES = [board('bid:bob:PASS'), board('play:bob:PIK-BABA')];
+const board = (at, coach = false) => ({
+    name: `hit-${at}${coach ? '-coach' : ''}`,
+    path: `/dev/board?controls=0&skip=1&effects=off&seat=carol&at=${at}${coach ? '&coach=demo' : ''}`,
+    viewports: VIEWPORTS,
+    coach,
+});
+// carol to bid after two passes (the bid panel up, six cards); carol to play in mid-trick (eight cards, enabled); both
+// again with the stand-in coach's panel and marks
+const SCENES = [board('bid:bob:PASS'), board('play:bob:PIK-BABA'), board('bid:bob:PASS', true), board('play:bob:PIK-BABA', true)];
 const BIDS = ['Pass', 'Call Herc', 'Call Karo', 'Call Pik', 'Call Tref'];
 
 /** Opens the game menu, closes it with Escape, and waits until it has left (unmounted after its exit). */
@@ -19,20 +27,18 @@ async function openAndCloseTheMenu(page) {
     await page.getByRole('dialog', { name: 'Game menu' }).waitFor({ state: 'detached' });
 }
 
-/** The points to test, in page coordinates, each with what must be hit there. */
-function targets(page, bidding) {
-    return page.evaluate(({ bids, bidding }) => {
+/** The points to test, in page coordinates, each with what must be hit there: the buttons named `names`, and every hand card. */
+function targets(page, names) {
+    return page.evaluate((names) => {
         const points = [];
-        if (bidding) {
-            for (const name of bids) {
-                const button = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === name || b.textContent.trim() === name);
-                if (!button) {
-                    points.push({ what: `the "${name}" button`, missing: true });
-                    continue;
-                }
-                const r = button.getBoundingClientRect();
-                points.push({ what: `the "${name}" button`, x: r.x + r.width / 2, y: r.y + r.height / 2, index: -1, name });
+        for (const name of names) {
+            const button = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === name || b.textContent.trim() === name);
+            if (!button) {
+                points.push({ what: `the "${name}" button`, missing: true });
+                continue;
             }
+            const r = button.getBoundingClientRect();
+            points.push({ what: `the "${name}" button`, x: r.x + r.width / 2, y: r.y + r.height / 2, index: -1, name });
         }
         const cards = [...document.querySelectorAll('[data-testid="hand-card"]')];
         cards.forEach((card, index) => {
@@ -42,12 +48,13 @@ function targets(page, bidding) {
             points.push({ what: `hand card ${card.dataset.card} in its strip's middle`, x: r.x + Math.min(strip, r.width) / 2, y: r.y + r.height / 2, index });
         });
         return { points, cards: cards.length };
-    }, { bids: BIDS, bidding });
+    }, names);
 }
 
 export default {
     name: 'hit',
-    about: 'closed sheets take no input: the bid buttons and every hand card answer elementFromPoint (1440, 375)',
+    about: 'closed sheets take no input: the bid buttons and every hand card answer elementFromPoint (1440, 375); with the '
+        + "coach's panel up, the bid buttons, every hand card and the panel's own button still do",
     async run(ctx) {
         const failures = [];
         for (const scene of SCENES) {
@@ -56,7 +63,7 @@ export default {
                 try {
                     await openAndCloseTheMenu(page);
                     const bidding = scene.name.includes('bid');
-                    const { points, cards } = await targets(page, bidding);
+                    const { points, cards } = await targets(page, [...(bidding ? BIDS : []), ...(scene.coach ? ['Coach preview'] : [])]);
                     if (cards !== (bidding ? 6 : 8)) failures.push(`${scene.name}@${viewport}: ${cards} hand cards, expected ${bidding ? 6 : 8}`);
                     for (const point of points) {
                         if (point.missing) {

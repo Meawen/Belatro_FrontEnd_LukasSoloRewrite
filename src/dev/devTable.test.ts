@@ -10,9 +10,11 @@ describe('the dev board’s data (spec §4.17)', () => {
         expect(parseDevOptions('')).toEqual({
             seat: 'alice', seed: 7, trump: 'HERC', hands: 2, scores: null, at: null, chaos: false, layout: 'fit',
             reduced: false, effects: null, controls: true, skip: false, play: false, speed: 1, names: false, fixture: null,
-            bots: [], live: false, t: 0, belot: null, challenge: null,
+            bots: [], live: false, t: 0, belot: null, challenge: null, coach: false,
         })
         expect(parseDevOptions('?fixture=recorded-k3f9q').fixture).toBe('recorded-k3f9q')
+        expect(parseDevOptions('?coach=demo').coach).toBe(true)
+        expect(parseDevOptions('?coach=1').coach).toBe(false)
         expect(parseDevOptions('?seat=carol&at=window-open&layout=812x375&motion=reduce&effects=off&chaos=1&controls=0&skip=1&play=1&speed=2&scores=990,900&trump=KARA'))
             .toMatchObject({ seat: 'carol', at: 'window-open', layout: '812x375', reduced: true, effects: 'off', chaos: true, controls: false, skip: true, play: true, speed: 2, scores: [990, 900], trump: 'KARA' })
         expect(parseDevOptions('?seat=eve&layout=1x1&effects=sparkly')).toMatchObject({ seat: 'alice', layout: 'fit', effects: 'full' })

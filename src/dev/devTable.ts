@@ -62,6 +62,8 @@ export interface DevOptions {
     belot: { player: string; suit: Boja } | null;
     /** `challenge=bob:2:wrong`, `dave:2:right`, `dave:window:right`: a challenge in hand 1, after its n-th card or in its window (§1). */
     challenge: ChallengeOption | null;
+    /** coach=demo: a stand-in coach (open beta §7.2, §7.3) for the hit check and a look at the marks. */
+    coach: boolean;
 }
 
 const one = <T extends string>(value: string | null, allowed: readonly T[], fallback: T): T =>
@@ -85,7 +87,7 @@ function parseChallenge(value: string | null): ChallengeOption | null {
     return { by, after: when, foul: outcome === 'right' };
 }
 
-/** `/dev/board?seat=carol&at=window-open&layout=375x812&effects=off&motion=reduce&chaos=1&controls=0&skip=1&play=1&speed=2&seed=7&trump=KARA&hands=2&scores=990,900&names=long&bots=bob,dave&live=1&t=700&belot=bob:PIK&challenge=dave:2:right` */
+/** `/dev/board?seat=carol&at=window-open&layout=375x812&effects=off&motion=reduce&chaos=1&controls=0&skip=1&play=1&speed=2&seed=7&trump=KARA&hands=2&scores=990,900&names=long&bots=bob,dave&live=1&t=700&belot=bob:PIK&challenge=dave:2:right&coach=demo` */
 export function parseDevOptions(search: string): DevOptions {
     const q = new URLSearchParams(search);
     const scores = (q.get('scores') ?? '').split(',').map(Number);
@@ -111,6 +113,7 @@ export function parseDevOptions(search: string): DevOptions {
         t: Math.max(0, Number(q.get('t')) || 0),
         belot: parseBelot(q.get('belot')),
         challenge: parseChallenge(q.get('challenge')),
+        coach: q.get('coach') === 'demo',
     };
 }
 

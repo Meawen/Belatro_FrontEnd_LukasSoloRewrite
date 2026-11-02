@@ -798,3 +798,38 @@
     flex-direction: column;
     gap: 8px;
 }
+
+/* Škola bele's coach (open beta §7.2, §7.3). A marked hand card rings in the success green on its ring layer (the
+   pending card's gold ring stays on top while it waits). The panel sits under the HUD at the top of the felt, its
+   bottom above the middle, so it never reaches my hand; above the seats, below everything painted after it (the HUD,
+   the bid panel, the moment, the banner, the error) and the sheets. The region takes no taps (board-region); only
+   the panel does. */
+.board-hand-card[data-marked] .board-card__ring {
+    box-shadow: 0 0 0 3px var(--success);
+    opacity: 1;
+}
+.board-coach {
+    z-index: var(--z-chips);
+}
+.board-coach__panel {
+    position: absolute;
+    top: 52px;
+    left: 50%;
+    translate: -50% 0;
+    width: min(420px, calc(100% - 32px));
+    max-height: calc(50% - 60px);
+    overflow: auto;
+    padding: 10px 14px 12px;
+    background: var(--material-ink);
+    color: var(--text);
+    clip-path: var(--notch-6);
+    box-shadow: inset 0 -3px 0 var(--accent-ledge);
+    pointer-events: auto;
+}
+/* a portrait phone while the HUD holds Challenge: it stacks over its info button under the HUD's chips (down to 152 px),
+   so the panel sits under that, its bottom where it was; while bidding (no Challenge) it stays at 52 px, clear of the
+   bid panel */
+.board[data-layout="portrait"]:has(.board-challenge--hud) .board-coach__panel {
+    top: 158px;
+    max-height: calc(50% - 166px);
+}

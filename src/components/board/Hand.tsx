@@ -27,6 +27,7 @@ interface HandCardProps {
  * (spring.quick); the hover lift and the bidding suit ring are CSS on inner layers (board.css, D-35).
  */
 function HandCard({ card, target, layoutId, entrance, from, instant, reduced, tabIndex, onPress, register }: HandCardProps) {
+    const t = useT();
     const arc = useArc();
     const present = useIsPresent();
     const off = !card.enabled || !present;
@@ -38,7 +39,8 @@ function HandCard({ card, target, layoutId, entrance, from, instant, reduced, ta
             data-testid={present ? 'hand-card' : undefined}
             data-card={card.id}
             data-suit={card.card.boja}
-            aria-label={card.label}
+            data-marked={card.marked || undefined}
+            aria-label={card.marked ? t.board.hand.marked(card.label) : card.label}
             disabled={off}
             aria-disabled={off}
             tabIndex={tabIndex}

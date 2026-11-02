@@ -77,6 +77,8 @@ export interface HandCardModel {
     pending: boolean;
     /** The trump K or Q with the other in hand: a click opens the bela prompt (R-32). */
     bela: boolean;
+    /** The coach marks it (open beta §7.2, §7.3): a ring and ", highlighted" in its name; the board sets it. */
+    marked: boolean;
 }
 
 export interface EndModel {
@@ -213,6 +215,7 @@ export function boardModel(state: BoardState, me: string, local: BoardLocal): Bo
             enabled: canPlay && pending === null,
             pending: pending?.kind === 'card' && pending.cardId === id && pending.lifted,
             bela: isBelaCard(card, held, trumpSuit),
+            marked: false,
         };
     });
 

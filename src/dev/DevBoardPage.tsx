@@ -11,6 +11,9 @@ import { MotionProvider } from '../motion/MotionProvider';
 import { useTableEffects, writeTableEffects, type TableEffects } from '../settings/tableEffects';
 import { LAYOUTS, SEATS, devHands, devStream, devTable, frameOf, parseDevOptions, recordedStream, resolveAt, seatId, type DevLayout, type DevOptions } from './devTable';
 import { RECORDINGS } from './recordings';
+import { cardId } from '../components/board/model/rules';
+import type { BoardState } from '../components/board/model/accept';
+import type { Coach } from '../components/board/coach';
 import type { FanOut } from '../test/fixtures/views/table';
 import type { GameActions } from '../hooks/useGameViews';
 import type { MatchHands } from '../hooks/useMatchHands';
@@ -23,6 +26,23 @@ const SPEEDS = [0.5, 1, 2, 4];
 /** Moves go nowhere: the table is a script. Each "goes out", so a played card lifts and waits. */
 const ACTIONS: GameActions = { bidTrump: () => true, passBid: () => true, play: () => true, challenge: () => true };
 const REMATCH: RematchState = { votes: 1, voted: false, cancelledBy: null, expired: false, playAgain: () => {}, leave: () => {} };
+
+/**
+ * coach=demo: a stand-in for Škola bele's coach (open beta §7.2, §7.3), for the hit check and a look at the marks. It
+ * allows every move, marks every other card of my private hand, and shows one line and one button in the panel.
+ */
+function demoCoach(state: BoardState): Coach {
+    return {
+        allowed: () => true,
+        marked: (state.privateView?.hand ?? []).filter((_, i) => i % 2 === 0).map(cardId),
+        panel: (
+            <>
+                <p className="t-callout">Coach preview: a lesson sits here, under the HUD.</p>
+                <Button size="sm" variant="secondary" className="mt-2">Coach preview</Button>
+            </>
+        ),
+    };
+}
 
 /**
  * The accepted state after a snapshot of fan-out `index` (the jump), and where the stream goes on from. The table's
@@ -166,6 +186,7 @@ export default function DevBoardPage() {
                             rematch={REMATCH}
                             onLeave={() => {}}
                             viewport={viewport}
+                            coach={options.coach ? demoCoach(state) : undefined}
                         />
                     </MotionProvider>
                 </div>
