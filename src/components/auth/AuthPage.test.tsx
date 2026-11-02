@@ -10,6 +10,8 @@ import { setLang } from '../../i18n/lang'
 vi.mock('../../hooks/useAuth', () => ({
     useAuth: () => ({ isAuthenticated: false, login: vi.fn(), isLoginLoading: false }),
 }))
+// /signup asks whether signup is open before it shows a form (spec §2.2); its request is betaService.test's
+vi.mock('../../services/betaService', () => ({ betaService: { signupStatus: vi.fn(async () => ({ open: true })) } }))
 
 /** Where the router is, and the state it carries. */
 function Where() {
@@ -67,12 +69,12 @@ describe('Sign in and sign up are two URLs (X-2)', () => {
         expect(link).toHaveAttribute('href', '/signup')
         await userEvent.setup().click(link)
         expect(screen.getByTestId('where')).toHaveTextContent('/signup {"from":"/lobby/abc"}')
-        expect(screen.getByRole('heading', { name: 'Create Account' })).toBeInTheDocument()
+        expect(await screen.findByRole('heading', { name: 'Create Account' })).toBeInTheDocument()
     })
 
     test('"Sign in" on /signup is a link back to /login, still carrying the return path', async () => {
         renderAuth({ pathname: '/signup', state: { from: '/lobby/abc' } })
-        const link = screen.getByRole('link', { name: 'Sign in' })
+        const link = await screen.findByRole('link', { name: 'Sign in' })
         expect(link).toHaveAttribute('href', '/login')
         await userEvent.setup().click(link)
         expect(screen.getByTestId('where')).toHaveTextContent('/login {"from":"/lobby/abc"}')

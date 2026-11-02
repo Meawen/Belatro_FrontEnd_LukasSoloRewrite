@@ -79,4 +79,16 @@ describe('format: dates, relative times and numbers follow the language (spec §
         expect(formatTime('not a date')).toBe('')
         expect(formatDayMonth('not a date')).toBe('')
     })
+
+    test('formatLongDate: the Zagreb day, in each language (the day the emails name)', async () => {
+        const { formatLongDate, setLang } = await load()
+        expect(formatLongDate('2026-11-06T10:00:00Z')).toBe('November 6, 2026')
+        // 23:30 UTC is already the next day in Zagreb (B7's MailService DAY_EN/DAY_HR)
+        expect(formatLongDate('2026-11-08T23:30:00Z')).toBe('November 9, 2026')
+        expect(formatLongDate('x')).toBe('')
+        setLang('hr')
+        expect(formatLongDate('2026-11-06T10:00:00Z')).toBe('6. studenoga 2026.')
+        expect(formatLongDate('2026-11-08T23:30:00Z')).toBe('9. studenoga 2026.')
+        expect(formatLongDate('x')).toBe('')
+    })
 })

@@ -27,6 +27,16 @@ export function formatDayMonth(d: Date | string | number): string {
     return new Intl.DateTimeFormat(lang, { day: 'numeric', month: lang === 'hr' ? 'long' : 'short' }).format(date);
 }
 
+/**
+ * en November 6, 2026, hr 6. studenoga 2026. (the dot is the Croatian ordinal's); the day in Zagreb, the day the
+ * server's emails name (MailService DAY_EN/DAY_HR). '' for an unparseable date.
+ */
+export function formatLongDate(d: Date | string | number): string {
+    const date = new Date(d);
+    if (!Number.isFinite(date.getTime())) return '';
+    return new Intl.DateTimeFormat(getLang(), { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Zagreb' }).format(date);
+}
+
 /** en 1,234,567, hr 1.234.567 */
 export function formatNumber(n: number): string {
     return new Intl.NumberFormat(getLang()).format(n);

@@ -23,6 +23,9 @@ vi.mock('../hooks/useAuth', () => ({
 // The one-click bot game (spec §6): its request is botGame.test's; here a stub
 const bots = vi.hoisted(() => ({ startBotGame: vi.fn() }))
 vi.mock('../services/botGame', () => ({ startBotGame: bots.startBotGame }))
+// Ruling 6: the Ljudi door's label reads GET /api/auth/signup-status; its request is betaService.test's
+const beta = vi.hoisted(() => ({ signupStatus: vi.fn() }))
+vi.mock('../services/betaService', () => ({ betaService: beta }))
 
 const GUEST = { id: 'g1', username: 'gost_4821', guest: true }
 
@@ -66,6 +69,8 @@ beforeEach(() => {
     auth.username = 'gost_4821'
     auth.token = 'tok-g'
     bots.startBotGame.mockReset()
+    beta.signupStatus.mockReset()
+    beta.signupStatus.mockResolvedValue({ open: true })
     // as S8's: the guest's token and user are stored before it answers
     vi.spyOn(authService, 'startGuest').mockImplementation(async () => {
         localStorage.setItem('authToken', 'g-new')
@@ -118,6 +123,27 @@ describe('The landing page (spec §4, option C)', () => {
             expect(screen.getByText(`at ${path}`), name).toBeInTheDocument()
             unmount()
         }
+    })
+
+    test('while signup is full, Ljudi reads Red za stol and opens /signup (Ruling 6)', async () => {
+        beta.signupStatus.mockResolvedValue({ open: false })
+        const user = userEvent.setup()
+        const { unmount } = renderLanding()
+        const doors = screen.getByRole('region', { name: 'Ways to start' })
+        expect(await within(doors).findByRole('button', { name: 'Waitlist' })).toBeInTheDocument()
+        expect(within(doors).getAllByRole('button').map((b) => b.textContent)).toEqual(['Teach me', 'Play now', 'Waitlist'])
+        await user.click(screen.getByRole('button', { name: 'Waitlist' }))
+        expect(screen.getByText('at /signup')).toBeInTheDocument()
+        expect(beta.signupStatus).toHaveBeenCalledTimes(1)
+        unmount()
+
+        setLang('hr')
+        const hr = renderLanding()
+        expect(await screen.findByRole('button', { name: 'Red za stol' })).toBeInTheDocument()
+        expect(within(screen.getByRole('region', { name: 'Kako početi' })).getAllByRole('button').map((b) => b.textContent))
+            .toEqual(['Navči me', 'Igraj odmah', 'Red za stol'])
+        // gone before the language is reset after the test
+        hr.unmount()
     })
 
     test("Play now makes this visitor a guest in the site's language, then starts a game against three bots and opens it (spec §6)", async () => {

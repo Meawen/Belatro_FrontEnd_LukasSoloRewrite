@@ -5,6 +5,7 @@ import { ME_CHANGED, useMe } from '../../hooks/useUser';
 import { ResendConfirmationButton } from '../auth/ResendConfirmationButton';
 import { Banner } from '../ui';
 import { useT } from '../../i18n/t';
+import { formatLongDate } from '../../i18n/format';
 
 /** Unverified accounts may play casual, not ranked; say so on every page until confirmed. */
 export const UnverifiedEmailBanner: React.FC = () => {
@@ -36,6 +37,9 @@ export const UnverifiedEmailBanner: React.FC = () => {
     if (!isAuthenticated || isGuest || !me || me.emailVerified || pathname === '/dashboard') return null;
 
     const address = me.pendingEmail ?? me.email;
+    // spec §2.1 (D-25): an unconfirmed account is removed on this day; null for one that never is (or an unreadable day)
+    const removeDay = formatLongDate(me.verifyBy ?? '');
+    const removal = removeDay ? t.shell.unverified.removeBy(removeDay) : null;
 
     // The button also fires ME_CHANGED, so the re-fetch above runs too: if the address was
     // confirmed in another tab since this page loaded, the banner goes.
@@ -48,17 +52,17 @@ export const UnverifiedEmailBanner: React.FC = () => {
             {address ? (
                 <span className="flex flex-col items-start gap-2">
                     {unconfirmable === address ? (
-                        <span>{t.shell.unverified.unconfirmable}</span>
+                        <span>{t.shell.unverified.unconfirmable}{removal && <>{' '}{removal}</>}</span>
                     ) : (
                         // no promise of a mail: an address another account holds is accepted but never mailed
-                        <span>{t.shell.unverified.confirm(address)}</span>
+                        <span>{t.shell.unverified.confirm(address)}{removal && <>{' '}{removal}</>}</span>
                     )}
                     {/* a new address gets a fresh button, not the old one's "nothing to confirm" */}
                     <ResendConfirmationButton key={address} onNothingToConfirm={handleNothingToConfirm} />
                 </span>
             ) : (
                 <span>
-                    {t.shell.unverified.noAddress}{' '}
+                    {t.shell.unverified.noAddress}{removal && <>{' '}{removal}</>}{' '}
                     {/* X-11: e-mail management lives in Settings → Account (D-32) */}
                     <Link to="/settings" className="inline-flex min-h-11 items-center font-semibold text-accent underline underline-offset-2">
                         {t.shell.unverified.openSettings}

@@ -1,11 +1,15 @@
 import React from 'react';
 import { AdminStats } from './AdminStats';
+import { BetaPanel } from './BetaPanel';
 import { UserManagement } from './UserManagement';
 import { useMe } from '../../hooks/useUser';
 import { ErrorState, Loader, Panel } from '../ui';
 import { useT } from '../../i18n/t';
 
-/** /admin (spec §4.14): only for ROLE_ADMIN per GET /user/me; the real statistics and the user management. */
+/**
+ * /admin (spec §4.14): only for ROLE_ADMIN per GET /user/me; the signup cap and the waitlist (open beta §2.2), the real
+ * statistics and the user management.
+ */
 export const AdminDashboard: React.FC = () => {
     // Roles come only from GET /user/me; the stored login user never carried them.
     const { data: me, error } = useMe();
@@ -27,6 +31,7 @@ export const AdminDashboard: React.FC = () => {
 
     return (
         <div className="flex flex-col gap-8">
+            <BetaPanel />
             <AdminStats />
             <UserManagement />
         </div>

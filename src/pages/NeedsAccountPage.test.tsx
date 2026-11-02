@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { NeedsAccountPage, type LockedArea } from './NeedsAccountPage'
@@ -8,6 +8,9 @@ import { setLang } from '../i18n/lang'
 
 const bots = vi.hoisted(() => ({ startBotGame: vi.fn() }))
 vi.mock('../services/botGame', () => ({ startBotGame: bots.startBotGame }))
+// Ruling 6: the sign-up door's label reads GET /api/auth/signup-status; its request is betaService.test's
+const beta = vi.hoisted(() => ({ signupStatus: vi.fn() }))
+vi.mock('../services/betaService', () => ({ betaService: beta }))
 
 /** Where the router is, and the state it carries. */
 function Where() {
@@ -27,7 +30,12 @@ function renderArea(area: LockedArea, path = '/friends') {
     )
 }
 
-beforeEach(() => bots.startBotGame.mockReset())
+beforeEach(() => {
+    bots.startBotGame.mockReset()
+    beta.signupStatus.mockReset()
+    // still asking: the door reads Sign up, as when signup is open; a test that needs an answer sets one
+    beta.signupStatus.mockReturnValue(new Promise(() => {}))
+})
 afterEach(() => setLang('en'))
 
 describe('NeedsAccountPage (spec §3.3, §8)', () => {
@@ -68,6 +76,34 @@ describe('NeedsAccountPage (spec §3.3, §8)', () => {
         await userEvent.setup().click(screen.getByRole('button', { name: 'Sign up' }))
         expect(screen.getByRole('heading', { name: 'Sign-up form' })).toBeInTheDocument()
         expect(screen.getByTestId('where')).toHaveTextContent('/signup {"from":"/friends"}')
+    })
+
+    test('while signup is full the door reads Waitlist, and still opens /signup (Ruling 6)', async () => {
+        beta.signupStatus.mockResolvedValueOnce({ open: true })
+        const open = renderArea('friends')
+        await act(async () => {})
+        expect(screen.getByRole('button', { name: 'Sign up' })).toBeInTheDocument()
+        open.unmount()
+
+        beta.signupStatus.mockResolvedValue({ open: false })
+        const { container, unmount } = renderArea('friends')
+        expect(await screen.findByRole('button', { name: 'Waitlist' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Sign up' })).not.toBeInTheDocument()
+        const primary = container.querySelectorAll('.ui-btn--primary')
+        expect(primary).toHaveLength(1)
+        expect(primary[0]).toHaveTextContent('Waitlist')
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Waitlist' }))
+        expect(screen.getByRole('heading', { name: 'Sign-up form' })).toBeInTheDocument()
+        expect(screen.getByTestId('where')).toHaveTextContent('/signup {"from":"/friends"}')
+        // once per mount: the open page's and this one's
+        expect(beta.signupStatus).toHaveBeenCalledTimes(2)
+        unmount()
+
+        setLang('hr')
+        const hr = renderArea('friends')
+        expect(await screen.findByRole('button', { name: 'Red za stol' })).toBeInTheDocument()
+        // gone before the language is reset after the test
+        hr.unmount()
     })
 
     test('the bot button starts a game against three bots and opens it (spec §6)', async () => {

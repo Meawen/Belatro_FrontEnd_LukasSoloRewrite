@@ -11,6 +11,7 @@ import { ReturningGuest } from '../components/landing/ReturningGuest';
 import { useActiveGame } from '../hooks/useActiveGame';
 import { useAuth } from '../hooks/useAuth';
 import { useBotGame } from '../hooks/useBotGame';
+import { useSignupStatus } from '../hooks/useSignupStatus';
 import { useMe } from '../hooks/useUser';
 import { usePageTitle } from '../routing/usePageTitle';
 import { authService } from '../services/authService';
@@ -40,6 +41,8 @@ export function LandingPage() {
     const { data: me } = useMe(canAsk);
     const { gameId, recheck } = useActiveGame(canAsk);
     const bots = useBotGame({ onAlreadyInGame: recheck });
+    // Ruling 6: the Ljudi door reads the waitlist's name while signup is full; under /api/auth/, so it needn't wait for canAsk
+    const signup = useSignupStatus();
     usePageTitle(t.titles.landing);
 
     // a visitor with no session becomes a guest first (spec §3); decided at click time from storage, not from this
@@ -101,10 +104,10 @@ export function LandingPage() {
                             </LandingDoor>
                         </li>
                         <li>
-                            {/* Ruling 6: every sign-up door goes to /signup (S11 words it from signup-status) */}
+                            {/* Ruling 6: every sign-up door goes to /signup, and reads the waitlist's name while signup is full */}
                             <LandingDoor icon="people" title={t.landing.people.title} body={t.landing.people.body}>
                                 <Button variant="secondary" onClick={() => navigate('/signup')}>
-                                    {t.landing.people.action}
+                                    {signup === 'full' ? t.auth.waitlist.title : t.landing.people.action}
                                 </Button>
                             </LandingDoor>
                         </li>

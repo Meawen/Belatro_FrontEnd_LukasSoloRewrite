@@ -225,6 +225,65 @@ describe('useAuth and guests (spec §3)', () => {
         }
     })
 
+    // a real apiClient on a stubbed fetch (authService.test's helpers), so the request's own headers are checked
+    function jsonResponse(status: number, body: unknown) {
+        return {
+            ok: status >= 200 && status < 300,
+            status,
+            statusText: `status-${status}`,
+            headers: { get: () => null },
+            json: () => Promise.resolve(body),
+            text: () => Promise.resolve(JSON.stringify(body)),
+        } as unknown as Response
+    }
+    const call = (fetch: ReturnType<typeof vi.fn>, n: number) => {
+        const [url, init] = fetch.mock.calls[n] as [string, RequestInit]
+        return { url, method: init.method, body: init.body, authorization: (init.headers as Record<string, string>).Authorization }
+    }
+    const GUEST = { id: 'g1', username: 'gost_4821', guest: true }
+
+    function storeGuest() {
+        jsdomStorage.setItem('authToken', 'g-tok')
+        jsdomStorage.setItem('user', JSON.stringify(GUEST))
+        jsdomStorage.setItem('stiglja:guestSecret', 'secret')
+    }
+
+    test("a guest's signup goes out on the guest's token, says wasGuest, and the guest ends with it (Rulings 5, 32)", async () => {
+        storeGuest()
+        const member = { id: 'u9', username: 'jura', guest: false }
+        const fetch = vi.fn(async () => jsonResponse(200, { token: 'm-tok', user: member, message: null }))
+        vi.stubGlobal('fetch', fetch)
+        captureConsole()
+        const { result } = renderHook(() => useAuth())
+        expect(result.current.isGuest).toBe(true)
+        await act(async () => { await result.current.signup({ username: 'jura', email: 'j@example.com', password: PASSWORD, wasGuest: true }) })
+        expect(fetch).toHaveBeenCalledTimes(1)
+        const sent = call(fetch, 0)
+        expect(sent.url).toMatch(/\/api\/auth\/signup$/)
+        expect(sent.method).toBe('POST')
+        expect(sent.authorization).toBe('Bearer g-tok')
+        expect(JSON.parse(String(sent.body))).toMatchObject({ username: 'jura', wasGuest: true, language: 'en' })
+        expect(jsdomStorage.getItem('authToken')).toBe('m-tok')
+        expect(JSON.parse(jsdomStorage.getItem('user') ?? 'null')).toEqual(member)
+        expect(jsdomStorage.getItem('stiglja:guestSecret')).toBeNull()
+        expect(result.current.isGuest).toBe(false)
+    })
+
+    test('a refused guest signup (409 SIGNUP_FULL) leaves the guest as it was', async () => {
+        storeGuest()
+        vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(409, { error: 'Signup is full', code: 'SIGNUP_FULL' })))
+        captureConsole()
+        const { result } = renderHook(() => useAuth())
+        await act(async () => {
+            await expect(result.current.signup({ username: 'jura', email: 'j@example.com', password: PASSWORD, wasGuest: true }))
+                .rejects.toMatchObject({ status: 409, code: 'SIGNUP_FULL' })
+        })
+        expect(jsdomStorage.getItem('authToken')).toBe('g-tok')
+        expect(JSON.parse(jsdomStorage.getItem('user') ?? 'null')).toEqual(GUEST)
+        expect(jsdomStorage.getItem('stiglja:guestSecret')).toBe('secret')
+        expect(result.current.isGuest).toBe(true)
+    })
+
     test("logging out forgets the guest's secret with its token and user (Ruling 32)", async () => {
         jsdomStorage.setItem('authToken', 'tok-g')
         jsdomStorage.setItem('user', JSON.stringify({ id: 'g1', username: 'gost_4821', guest: true }))

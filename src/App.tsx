@@ -12,6 +12,7 @@ import { MemberRoute } from './routing/MemberRoute';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { ConfirmEmailPage } from './pages/ConfirmEmailPage';
+import { WaitlistConfirmPage } from './pages/WaitlistConfirmPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { PrivacyPage } from './pages/PrivacyPage';
@@ -72,6 +73,7 @@ function App() {
 
                     {/* Email links: reachable signed in or out */}
                     <Route path="/confirm-email" element={<ConfirmEmailPage />} />
+                    <Route path="/waitlist/confirm" element={<WaitlistConfirmPage />} />
                     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                     <Route path="/reset-password" element={<ResetPasswordPage />} />
 

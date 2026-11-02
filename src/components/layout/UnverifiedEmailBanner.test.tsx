@@ -6,6 +6,7 @@ import { UnverifiedEmailBanner } from './UnverifiedEmailBanner'
 import { useMe, notifyMeChanged } from '../../hooks/useUser'
 import { userService } from '../../services/userService'
 import { ApiError } from '../../services/api'
+import { setLang } from '../../i18n/lang'
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAuthenticated: true }) }))
 vi.mock('../../hooks/useUser', async (importOriginal) => ({
@@ -96,6 +97,41 @@ describe('UnverifiedEmailBanner', () => {
         unmount()
         render(<MemoryRouter initialEntries={['/settings']}><UnverifiedEmailBanner /></MemoryRouter>)
         expect(screen.getByRole('region', { name: 'Email confirmation' })).toHaveTextContent('Confirm ana@example.com to play ranked:')
+    })
+
+    test('an unconfirmed signup is told the day the account goes, beside the resend (spec §2.1, US-26)', () => {
+        renderBanner({ ...base, pendingEmail: 'ana@example.com', verifyBy: '2026-11-06T10:00:00Z' })
+        const banner = screen.getByRole('region', { name: 'Email confirmation' })
+        expect(banner).toHaveTextContent(
+            'Confirm ana@example.com to play ranked: use the link if one arrived, or ask for a new one. If no email address is confirmed by November 6, 2026, the account will be removed.')
+        expect(screen.getByRole('button', { name: 'Resend confirmation email' })).toBeInTheDocument()
+    })
+
+    test('with no address too, before the way to Settings', () => {
+        renderBanner({ ...base, verifyBy: '2026-11-06T10:00:00Z' })
+        expect(screen.getByRole('region', { name: 'Email confirmation' })).toHaveTextContent(
+            'Add an email address to play ranked. If no email address is confirmed by November 6, 2026, the account will be removed. Open settings')
+        expect(screen.getByRole('link', { name: 'Open settings' })).toHaveAttribute('href', '/settings')
+    })
+
+    test('an account that is never removed gets no day', () => {
+        renderBanner({ ...base, email: 'old@example.com', verifyBy: null })
+        const banner = screen.getByRole('region', { name: 'Email confirmation' })
+        expect(banner).toHaveTextContent('Confirm old@example.com to play ranked:')
+        expect(banner).not.toHaveTextContent('will be removed')
+    })
+
+    test('in Croatian', () => {
+        setLang('hr')
+        const { unmount } = renderBanner({ ...base, pendingEmail: 'ana@example.com', verifyBy: '2026-11-06T10:00:00Z' })
+        try {
+            expect(screen.getByRole('region', { name: 'Potvrda e-adrese' })).toHaveTextContent(
+                'Ako do 6. studenoga 2026. ne potvrdiš e-adresu, račun ćemo obrisati.')
+        } finally {
+            // gone before the language is reset
+            unmount()
+            setLang('en')
+        }
     })
 
     test('stops listening for changes once unmounted', () => {

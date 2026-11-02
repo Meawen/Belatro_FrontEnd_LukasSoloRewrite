@@ -154,6 +154,24 @@ describe('Privacy and Terms (R-40)', () => {
     })
 })
 
+describe('The waitlist link (spec §2.2, B7)', () => {
+    test("/waitlist/confirm opens signed out and signed in, and asks nothing before the click (B7's link)", async () => {
+        for (const signedIn of [false, true]) {
+            auth.isAuthenticated = signedIn
+            const fetch = vi.fn(async () => new Response(null, { status: 204 }))
+            vi.stubGlobal('fetch', fetch)
+            renderAt('/waitlist/confirm?token=t1')
+            expect(screen.getByRole('heading', { level: 1, name: 'Confirm your place on the waitlist' }), String(signedIn)).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Confirm my place' })).toBeEnabled()
+            expect(document.title).toBe('Waitlist · Stiglja')
+            await act(async () => {})
+            const urls = fetch.mock.calls.map(([url]) => String(url))
+            expect(urls.filter((url) => url.endsWith('/waitlist/confirm')), String(signedIn)).toEqual([])
+            cleanup()
+        }
+    })
+})
+
 describe('Rules (R-41)', () => {
     test('/rules is readable signed out and says a challenge is per game (gameplay rules §1)', async () => {
         auth.isAuthenticated = false

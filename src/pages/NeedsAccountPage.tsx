@@ -5,6 +5,7 @@ import { ErrorAlert } from '../components/common/ErrorAlert';
 import { Button, EmptyState, Panel } from '../components/ui';
 import { useT } from '../i18n/t';
 import { useBotGame } from '../hooks/useBotGame';
+import { useSignupStatus } from '../hooks/useSignupStatus';
 
 /** The member-only areas a guest can reach (spec §3.3); each is a page title (titles.*), which names it. */
 export type LockedArea = 'home' | 'ranked' | 'tables' | 'matches' | 'friends' | 'leaderboard' | 'profile' | 'settings';
@@ -12,7 +13,8 @@ export type LockedArea = 'home' | 'ranked' | 'tables' | 'matches' | 'friends' | 
 /**
  * What a guest sees in place of a member-only page (spec §3.3, §8). The page's own name, what it is, and that a free
  * account unlocks it. Then two ways on:
- * - sign up, the primary one: /signup becomes the waitlist when signup is full (Ruling 6), and comes back here after;
+ * - sign up, the primary one: /signup becomes the waitlist when signup is full (Ruling 6), and this button then says
+ *   so; it comes back here after;
  * - a game against three bots at once (spec §6).
  * Settings keeps its language section, which a guest may use.
  */
@@ -22,6 +24,7 @@ export function NeedsAccountPage({ area }: { area: LockedArea }) {
     const { pathname, search } = useLocation();
     // spec §6: the one-click bot game, shared with Doma and the landing page
     const bots = useBotGame();
+    const signup = useSignupStatus();
 
     const c = t.guest.needsAccount;
     return (
@@ -34,7 +37,7 @@ export function NeedsAccountPage({ area }: { area: LockedArea }) {
                         body={<>{c.what[area]} {c.unlock}</>}
                         action={
                             <>
-                                <Button onClick={() => navigate('/signup', { state: { from: pathname + search } })}>{c.signUp}</Button>
+                                <Button onClick={() => navigate('/signup', { state: { from: pathname + search } })}>{signup === 'full' ? t.auth.waitlist.title : c.signUp}</Button>
                                 <Button variant="secondary" loading={bots.starting} onClick={() => void bots.play()}>{c.bots}</Button>
                             </>
                         }

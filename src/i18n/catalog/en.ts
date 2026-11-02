@@ -35,6 +35,8 @@ export const en = {
         notFound: 'Page not found',
         // the landing page (/) for a signed-out visitor or a guest: the browser tab only (its h1 is landing.headline)
         landing: 'Belot for four, online',
+        // the waitlist's confirm page (/waitlist/confirm, from B7's mail): the browser tab; spec §1.4's name
+        waitlist: 'Waitlist',
     },
     // the compact HR · EN switch at the top of the signed-in shell and of the public pages: its group's name for screen
     // readers
@@ -109,6 +111,8 @@ export const en = {
             noAddress: 'Add an email address to play ranked.',
             // the link after noAddress
             openSettings: 'Open settings',
+            // spec §2.1 (D-25): the day an unconfirmed account goes (GET /user/me verifyBy, i18n/format formatLongDate): the banner, Settings → Account, Doma's ranked lock
+            removeBy: (date: string) => `If no email address is confirmed by ${date}, the account will be removed.`,
         },
         // the footer of every page but the game: "© {year} Stiglja · {cardArt}"
         footer: {
@@ -176,9 +180,8 @@ export const en = {
             confirmPassword: 'Confirm Password',
             confirmPasswordPlaceholder: 'Confirm your password',
             confirmPasswordRequired: 'Please confirm your password',
-            inviteCode: 'Invite code',
-            inviteCodePlaceholder: 'From your invitation',
-            inviteCodeInvalid: 'Invalid invite code',
+            // under the h1 on /signup?invite=… (the personal link from the waitlist's spot email)
+            inviteSubtitle: 'A place has opened for you. Create your account with this link.',
             failed: 'Registration failed',
             submitting: 'Creating Account...',
             // the legal line under the button: "{termsBefore} [termsLink]{termsBetween} [privacyLink]."
@@ -193,7 +196,20 @@ export const en = {
                 heading: 'Check your inbox',
                 before: 'If this address can be used, a confirmation link is on its way to',
                 after: '. Check your inbox (and spam). Confirm it to play ranked; casual games work right away.',
+                // the panel's second line: the 7 days, as the signup email says them
+                removal: 'If the address is not confirmed within 7 days, the account will be removed.',
             },
+        },
+        // "Red za stol" (spec §2.2): /signup while signup is full (WaitlistForm); title is §1.4's name, also the sign-up doors' label while full (Ruling 6); its bot button is guest.needsAccount.bots, its joined heading auth.signUp.checkInbox.heading
+        waitlist: {
+            title: 'Waitlist',
+            lead: "Signup is full for now. Leave your email address and we'll write to you as soon as a place opens.",
+            confirmFirst: "First we'll send a link to confirm the address: it holds a place only once it's confirmed.",
+            submit: 'Join the waitlist',
+            guestNow: "Don't want to wait? Play right now, as a guest.",
+            // after joining: "{joinedBefore} **the address**{joinedAfter}"
+            joinedBefore: 'If this address can join the waitlist, a link to confirm it is on its way to',
+            joinedAfter: ". Check your inbox (and spam) and confirm it within 7 days. When a place opens, we'll email you a signup link.",
         },
         // /forgot-password (ForgotPasswordPage)
         forgot: {
@@ -234,6 +250,16 @@ export const en = {
             // signed out: "[Sign in] {toNewLink}" or "[Sign in] {toChangeAddress}"
             toNewLink: 'to send a new link.',
             toChangeAddress: 'to change your email address.',
+        },
+        // /waitlist/confirm?token=…, the link in the waitlist's confirmation mail; the reload hints are auth.confirm.*
+        waitlistConfirm: {
+            heading: 'Confirm your place on the waitlist',
+            button: 'Confirm my place',
+            confirmed: "Your address is on the waitlist. When a place opens, we'll email you a personal signup link, valid for 7 days.",
+            // a network or server failure
+            failed: "We couldn't confirm your place.",
+            // after a dead link (none, expired or unknown): back to /signup, which shows whichever form applies
+            again: 'Join the waitlist again',
         },
         // the "Resend confirmation email" button: the unconfirmed-email banner and Settings → Account
         resend: {
@@ -472,7 +498,7 @@ export const en = {
         enter: 'Go to table',
         // the quick-look's disabled button at a table of four people
         fullButton: 'Table full',
-        // the create sheet's switch, and the title of the password sheet in a table's room
+        // the create sheet's switch, the title of the password sheet in a table's room, and the empty Birtija's primary button
         privateTable: 'Private table',
         // the Create table sheet (CreateLobbySheet)
         form: {
@@ -881,6 +907,24 @@ export const en = {
             tables: 'Active Tables',
             deletions: 'Pending Deletions',
         },
+        // the signup cap and the waitlist (BetaPanel, spec §2.2, US-17); S15 adds the counts
+        beta: {
+            title: 'Signups and the waitlist',
+            loading: 'Loading signup numbers...',
+            loadFailed: "Couldn't load the signup numbers",
+            // the four tiles: accounts (against the cap: "12 / 50"), confirmed addresses waiting, addresses not yet confirmed, personal links sent but unused
+            accounts: 'Accounts',
+            waiting: 'Waiting (confirmed)',
+            unconfirmed: 'Not confirmed yet',
+            invites: 'Links sent, not used yet',
+            // the cap's field, its helper, and its save
+            cap: 'Signup cap',
+            capHelper: "The most accounts the beta takes; bots and guests don't count. Leave it empty for no cap. Raising it emails the next people on the waitlist at once.",
+            save: 'Save cap',
+            saved: 'Cap saved.',
+            // a network or server failure
+            saveFailed: "The cap wasn't saved. Try again.",
+        },
         // the user management (UserManagement): the list, its columns and tags, and the delete dialog
         users: {
             title: 'User Management',
@@ -1240,7 +1284,7 @@ export const en = {
                 settings: 'Your email, your password, table effects and your account. You can change the language as a guest too, just below.',
             },
             unlock: "A free account unlocks it. As a guest you can already play against bots, or sit at a friend's table from the link they send you.",
-            // to /signup, which becomes the waitlist when signup is full (Ruling 6: S11 words it from signup-status)
+            // to /signup, which becomes the waitlist when signup is full (Ruling 6: auth.waitlist.title while signup is full)
             signUp: 'Sign up',
             bots: 'Play against bots as a guest',
         },
@@ -1267,7 +1311,7 @@ export const en = {
             body: 'I know how to play: a game against three bots, right now, as a guest.',
             action: 'Play now',
         },
-        // door 3: sign up (Ruling 6: S11 words it from signup-status)
+        // door 3: sign up (Ruling 6: auth.waitlist.title while signup is full)
         people: {
             title: 'People',
             body: 'Ranked and friends. An account is free.',
@@ -1370,6 +1414,10 @@ export const en = {
             IN_GAME: "You can't change your name while you're at a table or in a game. Leave the table or finish the game, then try again.",
             // a member at a guest's own name route (B4); the SPA offers it only to a guest
             GUEST_ONLY: 'Only a guest can change their name this way.',
+            // the cap and the waitlist (B7): /signup turns into the waitlist under SIGNUP_FULL or INVITE_LINK_INVALID; WAITLIST_LINK_INVALID on the confirm page (expired and unknown alike, Ruling 42)
+            SIGNUP_FULL: "Signup is full, so no account was created. Join the waitlist below, and we'll email you when a place opens.",
+            INVITE_LINK_INVALID: 'This signup link is invalid or has expired, and signup is full right now. Join the waitlist again below, or play as a guest.',
+            WAITLIST_LINK_INVALID: 'This waitlist link is invalid or has expired. Join the waitlist again to get a new one.',
             EMAIL_TAKEN: 'That email address is already in use. Use another one.',
             LINK_INVALID: 'This link is invalid or has expired',
             NOTHING_TO_CONFIRM: "There's no email address waiting to be confirmed.",
@@ -1383,6 +1431,8 @@ export const en = {
             SORT_UNKNOWN: "The list can't be sorted that way. Choose another order.",
             USER_NOT_FOUND: "We couldn't find that player. They may no longer have an account.",
             BOT_NOT_DELETABLE: "Bot accounts can't be deleted.",
+            // the admin's signup cap (BetaPanel): the server's refusal and the field's own check
+            CAP_INVALID: 'The signup cap must be a whole number, 0 or more. Leave it empty for no cap.',
             // friends
             FRIEND_USER_REQUIRED: 'Choose who to add as a friend.',
             FRIEND_SELF: "You can't add yourself as a friend.",
@@ -1393,8 +1443,8 @@ export const en = {
             FRIENDSHIP_FINAL: 'This request has already been answered. Reload the page.',
             FRIENDSHIP_NOT_FOUND: 'That friend request no longer exists. Reload the page.',
             // tables (Tables and a table's room)
-            LOBBY_ID_REQUIRED: "Something's wrong with this table's link. Open the table again from Tables.",
-            LOBBY_NOT_FOUND: 'This table no longer exists. Choose another one in Tables.',
+            LOBBY_ID_REQUIRED: 'This table no longer exists.',
+            LOBBY_NOT_FOUND: 'This table no longer exists.',
             LOBBY_CLOSED: 'This table is closed. Choose another one in Tables.',
             LOBBY_FULL: 'This table is full. Choose another one, or open your own.',
             LOBBY_PASSWORD_REQUIRED: 'This is a private table. Enter its password.',

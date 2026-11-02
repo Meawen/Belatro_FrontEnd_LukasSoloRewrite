@@ -11,6 +11,7 @@ import { useMutation } from '../../hooks/useApi';
 import { userService } from '../../services/userService';
 import { errorMessage } from '../../utils/errorMessage';
 import { cat, useT } from '../../i18n/t';
+import { formatLongDate } from '../../i18n/format';
 
 /**
  * Settings → Account (spec §4.13 item 2; D-32): the address, its confirmation, the change of address and of
@@ -30,6 +31,8 @@ export function AccountSection() {
     // no address at all (e.g. a new account that changed its password before confirming): resend has nothing to send
     const emailAction = me && !me.email && !me.pendingEmail ? t.settings.account.addEmail : t.settings.account.changeEmail;
     const requestForgetMutation = useMutation(() => userService.requestForget());
+    // spec §2.1 (D-25): the day an unconfirmed account goes; '' for one that never is (or an unreadable day)
+    const removeDay = formatLongDate(me?.verifyBy ?? '');
 
     const handleRequestDeletion = async () => {
         try {
@@ -68,6 +71,8 @@ export function AccountSection() {
                             {t.settings.account.pending(me.pendingEmail)}
                         </p>
                     )}
+                    {/* spec §2.1 (D-25): the day an unconfirmed account goes, beside its resend */}
+                    {removeDay && <p data-testid="verify-by" className="t-footnote break-words text-accent">{t.shell.unverified.removeBy(removeDay)}</p>}
                     {(me.pendingEmail || (me.email && !me.emailVerified)) && (
                         <div className="mt-1">
                             {/* keyed on the pending address: a new one starts a fresh button, not a stale "nothing to confirm" */}

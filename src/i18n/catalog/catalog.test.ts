@@ -160,4 +160,16 @@ describe('the catalogs (spec §1.2)', () => {
         expect(hr.errors.codes.USERNAME_RESERVED).toBe('Imena koja počinju s obrisan_ rezervirana su. Odaberi drugo ime.')
         expect(hr.errors.rules.username).toBe('Korisničko ime mora imati 3–20 znakova: slova (uključujući č ć š ž đ), brojke ili donju crtu.')
     })
+
+    test("the waitlist is Red za stol / Waitlist (§1.4), and the invite field's keys are gone (spec §2.1)", () => {
+        expect(hr.auth.waitlist.title).toBe('Red za stol')
+        expect(hr.titles.waitlist).toBe('Red za stol')
+        expect(en.auth.waitlist.title).toBe('Waitlist')
+        expect(en.titles.waitlist).toBe('Waitlist')
+        for (const signUp of [en.auth.signUp, hr.auth.signUp]) {
+            expect(Object.keys(signUp).filter((key) => key.startsWith('inviteCode'))).toEqual([])
+        }
+        // the server still answers it while signup.invite-code is set (B7, flag 7)
+        expect(en.errors.codes.INVITE_CODE_INVALID).toBeTruthy()
+    })
 })

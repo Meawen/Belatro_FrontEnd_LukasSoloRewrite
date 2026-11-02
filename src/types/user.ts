@@ -76,6 +76,8 @@ export interface UserDto {
     language?: Lang | null;
     /** spec §3 (B4): true for a guest; absent from an older server. */
     guest?: boolean | null;
+    /** spec §2.1 (B7): when an unconfirmed account is removed (ISO instant); null or absent when it never is. */
+    verifyBy?: string | null;
 }
 
 export interface ChangeEmailRequest {

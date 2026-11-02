@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
-import { Button, Input } from '../ui';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Button, Input, Loader } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { useAuth } from '../../hooks/useAuth';
 import { ApiError } from '../../services/api';
@@ -9,6 +9,8 @@ import { EMAIL_PATTERN, passwordRuleError, usernameRuleError } from './credentia
 import { AUTH_LINK } from './AuthFrame';
 import { useReturnState } from './returnState';
 import { cat, useT } from '../../i18n/t';
+import { WaitlistForm } from './WaitlistForm';
+import { useSignupStatus } from '../../hooks/useSignupStatus';
 
 export interface SignupFormProps {
     onSuccess?: () => void;
@@ -17,21 +19,30 @@ export interface SignupFormProps {
 /** A link inside running text (the R-40 line): underlined, in the accent. */
 const TEXT_LINK = 'text-accent underline underline-offset-2 hover:text-text';
 
-/** Create an account (spec §4.2). "Sign in" is the other URL (X-2) and carries the return path (§4.1). */
+/**
+ * Create an account (spec §4.2). "Sign in" is the other URL (X-2) and carries the return path (§4.1). While signup is
+ * full it is the waitlist (WaitlistForm, spec §2.2); `?invite=` is a personal link that signs up anyway.
+ */
 export function SignupForm({ onSuccess }: SignupFormProps) {
     const [formData, setFormData] = useState({
         username: '',
         email: '',
         password: '',
         confirmPassword: '',
-        inviteCode: '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [createdEmail, setCreatedEmail] = useState<string | null>(null);
 
-    const { signup, isSignupLoading } = useAuth();
+    const { signup, isSignupLoading, isGuest } = useAuth();
     const returnState = useReturnState();
     const t = useT();
+    const [searchParams] = useSearchParams();
+    // spec §2.2: the personal link from the waitlist's spot email (/signup?invite=…); it admits even while signup is full
+    const invite = (searchParams.get('invite') ?? '').trim();
+    // with a personal link the open form's state doesn't matter (B7), so nothing is asked
+    const status = useSignupStatus(!invite);
+    // the form turned into the waitlist after a submit: full meanwhile, or a dead link while full; the line says which
+    const [waitlistNotice, setWaitlistNotice] = useState<string | null>(null);
 
     const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -86,14 +97,16 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         try {
             setErrors({}); // Clear any previous errors
 
-            const inviteCode = formData.inviteCode.trim();
             await signup({
                 // the backend validates the raw value, so stray spaces would be a 400
                 username: formData.username.trim(),
                 email: formData.email.trim(),
                 password: formData.password,
-                // R-11: the server requires it only while SIGNUP_INVITE_CODE is set; sent when typed
-                ...(inviteCode ? { inviteCode } : {}),
+                // spec §2.2: the personal link's token
+                ...(invite ? { waitlistToken: invite } : {}),
+                // spec §9: this browser was a guest. Its token goes with the request (api.ts), so the server may let it keep its
+                // own name, and ends that guest after the account exists (Rulings 5, 42)
+                ...(isGuest ? { wasGuest: true } : {}),
             });
 
             // The account works now; the address still needs its confirmation link.
@@ -101,14 +114,15 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         } catch (error) {
             console.error('Signup error:', error);
             // a 500 while the backend's session store is down, or no answer: not the raw text
-            const status = error instanceof ApiError ? error.status : 0;
-            // R-11: signup's only 403 is a missing or wrong invite code ("Invalid invite code")
-            if (status === 403) {
-                setErrors({ inviteCode: errorMessage(error, cat().auth.signUp.inviteCodeInvalid) });
+            const httpStatus = error instanceof ApiError ? error.status : 0;
+            const code = error instanceof ApiError ? error.code : undefined;
+            // spec §2.2, §8: full meanwhile (Review focus 2), or a dead personal link while full: the waitlist, saying which
+            if (code === 'SIGNUP_FULL' || code === 'INVITE_LINK_INVALID') {
+                setWaitlistNotice(errorMessage(error, cat().errors.generic));
                 return;
             }
             setErrors({
-                submit: isNetworkOrServerFailure(status) ? cat().errors.generic : errorMessage(error, cat().auth.signUp.failed)
+                submit: isNetworkOrServerFailure(httpStatus) ? cat().errors.generic : errorMessage(error, cat().auth.signUp.failed)
             });
         }
     };
@@ -122,6 +136,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
                 <p className="t-body text-text-2">
                     {t.auth.signUp.checkInbox.before}{' '}<strong className="text-text">{createdEmail}</strong>{t.auth.signUp.checkInbox.after}
                 </p>
+                <p className="t-body text-text-2">{t.auth.signUp.checkInbox.removal}</p>
                 <Button block onClick={() => onSuccess?.()}>
                     {t.common.continue}
                 </Button>
@@ -129,11 +144,15 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         );
     }
 
+    if (waitlistNotice !== null) return <WaitlistForm initialEmail={formData.email.trim()} notice={waitlistNotice} />;
+    if (status === 'full') return <WaitlistForm />;
+    if (status === 'asking') return <Loader text={t.common.loading} />;
+
     return (
         <>
             <div className="mb-6 text-center">
                 <h1 className="t-title">{t.auth.signUp.createAccount}</h1>
-                <p className="t-callout mt-2 text-text-2">{t.auth.signUp.subtitle}</p>
+                <p className="t-callout mt-2 text-text-2">{invite ? t.auth.signUp.inviteSubtitle : t.auth.signUp.subtitle}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -175,20 +194,6 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
                     onChange={handleChange}
                     error={errors.confirmPassword}
                     placeholder={t.auth.signUp.confirmPasswordPlaceholder}
-                />
-
-                <Input
-                    label={t.auth.signUp.inviteCode}
-                    name="inviteCode"
-                    type="text"
-                    value={formData.inviteCode}
-                    onChange={handleChange}
-                    error={errors.inviteCode}
-                    placeholder={t.auth.signUp.inviteCodePlaceholder}
-                    autoComplete="off"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
                 />
 
                 <ErrorAlert message={errors.submit ?? null} />

@@ -190,13 +190,15 @@ describe('Doma (spec §5, option B)', () => {
     })
 
     test('an unverified address locks Play ranked, says why, and offers to resend the email (spec §5, §8)', async () => {
-        vi.mocked(userService.getMe).mockResolvedValue({ ...VERIFIED, emailVerified: false, pendingEmail: 'ana@example.com', email: null })
+        vi.mocked(userService.getMe).mockResolvedValue({ ...VERIFIED, emailVerified: false, pendingEmail: 'ana@example.com', email: null, verifyBy: '2026-11-06T10:00:00Z' })
         renderHome()
         await settle()
         const half = screen.getByRole('region', { name: 'Against people' })
         const ranked = within(half).getByRole('button', { name: 'Play ranked' })
         expect(ranked).toBeDisabled()
-        expect(within(half).getByText('Confirm ana@example.com to play ranked: use the link if one arrived, or ask for a new one.')).toBeInTheDocument()
+        // spec §2.1 (US-26): the day the account goes, on the first screen after signing up (the banner gives way here)
+        expect(within(half).getByText(/Confirm ana@example\.com to play ranked/)).toHaveTextContent(
+            'Confirm ana@example.com to play ranked: use the link if one arrived, or ask for a new one. If no email address is confirmed by November 6, 2026, the account will be removed.')
         expect(ranked).toHaveAccessibleDescription(/Confirm ana@example\.com to play ranked/)
         expect(within(half).getByRole('button', { name: 'Resend confirmation email' })).toBeInTheDocument()
         await userEvent.setup().click(ranked)

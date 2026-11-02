@@ -17,11 +17,13 @@ afterEach(() => {
 })
 
 // copied from backend exceptions/ErrorCodes.java at 7592319 (B3 added USERNAME_RESERVED, B4 added IN_GAME and GUEST_ONLY),
-// plus ALREADY_IN_GAME, B5's code for "You already have a game in progress" (Ruling 4: its line lands before B5 commits);
+// plus ALREADY_IN_GAME, B5's code for "You already have a game in progress" (Ruling 4: its line lands before B5 commits),
+// and at 00f0401 (B7 added SIGNUP_FULL, INVITE_LINK_INVALID, WAITLIST_LINK_INVALID and CAP_INVALID);
 // a later task that adds a code adds it here and a line in both catalogs (Ruling 4)
 const BACKEND_CODES = [
     'SESSION_EXPIRED', 'UNAUTHENTICATED', 'BAD_CREDENTIALS', 'WRONG_PASSWORD', 'ACCESS_DENIED', 'RATE_LIMITED',
-    'SERVICE_UNAVAILABLE', 'INVITE_CODE_INVALID', 'USERNAME_TAKEN', 'USERNAME_RESERVED', 'IN_GAME', 'GUEST_ONLY', 'EMAIL_TAKEN', 'LINK_INVALID', 'NOTHING_TO_CONFIRM',
+    'SERVICE_UNAVAILABLE', 'INVITE_CODE_INVALID', 'USERNAME_TAKEN', 'USERNAME_RESERVED', 'IN_GAME', 'GUEST_ONLY',
+    'SIGNUP_FULL', 'INVITE_LINK_INVALID', 'WAITLIST_LINK_INVALID', 'CAP_INVALID', 'EMAIL_TAKEN', 'LINK_INVALID', 'NOTHING_TO_CONFIRM',
     'EMAIL_UNCHANGED', 'PASSWORD_BLANK', 'EMAIL_NOT_VERIFIED', 'PAGE_INVALID', 'SEARCH_INVALID', 'BOT_NOT_DELETABLE',
     'FRIEND_USER_REQUIRED', 'FRIEND_SELF', 'FRIEND_IS_BOT', 'FRIENDSHIP_NOT_YOURS', 'FRIEND_SENDER_ONLY',
     'FRIEND_RECIPIENT_ONLY', 'FRIENDSHIP_FINAL', 'LOBBY_ID_REQUIRED', 'LOBBY_NOT_FOUND', 'HOST_CANNOT_LEAVE',
@@ -59,7 +61,7 @@ describe("server errors in the site's language (spec §1.1, §8)", () => {
     test('every code the backend sends, and every game refusal, has a line in both catalogs, and nothing else does', async () => {
         const { en, hr } = await load()
         const expected = [...new Set([...BACKEND_CODES, ...STOMP.map(([, code]) => code)])].sort()
-        expect(expected).toHaveLength(63)
+        expect(expected).toHaveLength(67)
         expect(Object.keys(en.errors.codes).sort()).toEqual(expected)
         expect(Object.keys(hr.errors.codes).sort()).toEqual(expected)
     })
@@ -202,9 +204,19 @@ describe("server errors in the site's language (spec §1.1, §8)", () => {
     test('the table lines name Birtija and „Ajmo još jednu!” (carried)', async () => {
         const { localiseApiError, localiseStompError, ApiError, setLang } = await load()
         setLang('hr')
-        expect(localiseApiError(new ApiError({ status: 400, message: 'x', code: 'LOBBY_ID_REQUIRED' })))
-            .toBe('Poveznica stola nije ispravna. Otvori stol ponovno iz Birtije.')
+        expect(localiseApiError(new ApiError({ status: 400, message: 'x', code: 'LOBBY_CLOSED' })))
+            .toBe('Ovaj je stol zatvoren. Odaberi drugi u Birtiji.')
         expect(localiseStompError('Rematch is not available for game g1'))
             .toBe('„Ajmo još jednu!” za ovu partiju više nije moguće. Vrati se u Birtiju i sjedni za novi stol.')
+    })
+
+    test("a table that's gone reads the same to a member and a guest: no way on that a guest can't take (S10's review)", async () => {
+        const { localiseApiError, ApiError, setLang } = await load()
+        const gone = (code: string) => localiseApiError(new ApiError({ status: 404, message: 'x', code }))
+        expect(gone('LOBBY_NOT_FOUND')).toBe('This table no longer exists.')
+        expect(gone('LOBBY_ID_REQUIRED')).toBe('This table no longer exists.')
+        setLang('hr')
+        expect(gone('LOBBY_NOT_FOUND')).toBe('Ovog stola više nema.')
+        expect(gone('LOBBY_ID_REQUIRED')).toBe('Ovog stola više nema.')
     })
 })

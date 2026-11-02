@@ -13,6 +13,7 @@ import { useActiveGame } from '../hooks/useActiveGame';
 import { useBotGame } from '../hooks/useBotGame';
 import { lobbyService } from '../services/lobbyService';
 import { useT } from '../i18n/t';
+import { formatLongDate } from '../i18n/format';
 
 /** How many of the newest matches Home lists (spec §4.4: `size=3`). */
 export const RECENT_MATCHES = 3;
@@ -80,6 +81,9 @@ export function HomePage() {
     // spec §5: ranked needs a confirmed address; while GET /user/me loads nothing is locked (PlayPage handles the 403)
     const locked = me != null && !me.emailVerified;
     const address = me ? me.pendingEmail ?? me.email : null;
+    // spec §2.1 (US-26): the day an unconfirmed account goes, as in the banner, on the first screen after signing up
+    const removeDay = formatLongDate(me?.verifyBy ?? '');
+    const removal = removeDay ? t.shell.unverified.removeBy(removeDay) : null;
 
     let recent;
     if (matchesError) {
@@ -144,7 +148,7 @@ export function HomePage() {
                             <div id={lockId} className="flex flex-col items-start gap-2">
                                 <p className="t-callout flex items-start gap-2 text-text-2">
                                     <PixelIcon name="lock" className="mt-0.5" />
-                                    <span>{address ? t.shell.unverified.confirm(address) : t.shell.unverified.noAddress}</span>
+                                    <span>{address ? t.shell.unverified.confirm(address) : t.shell.unverified.noAddress}{removal && <>{' '}{removal}</>}</span>
                                 </p>
                                 {address ? (
                                     <ResendConfirmationButton />

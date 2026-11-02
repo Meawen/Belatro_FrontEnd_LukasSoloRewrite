@@ -12,6 +12,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 export const SAMPLES = {
     'common.pager.pageOf': [[1, 3], [2, 3]],
     'shell.unverified.confirm': [['ana@example.com']],
+    'shell.unverified.removeBy': [['6. studenoga 2026.']],
     'settings.account.pending': [['ana@example.com']],
     'settings.account.emailNotice': [['ana@example.com']],
     'settings.signedInAs': [['ana']],

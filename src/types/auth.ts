@@ -9,10 +9,12 @@ export interface SignupRequestDTO {
     username: string | null;
     email: string | null;
     password: string | null;
-    /** R-11: required by the server while SIGNUP_INVITE_CODE is set; absent otherwise. */
-    inviteCode?: string | null;
     /** spec §1.1: the language the site was in; a server before B1 ignores it. */
     language?: Lang;
+    /** spec §2.2 (B7): the personal link's token, from /signup?invite=…; it admits even while signup is full. */
+    waitlistToken?: string | null;
+    /** spec §9 (B7, B9): this browser was a guest; sent only then. */
+    wasGuest?: boolean | null;
 }
 
 export interface UserLoginDetailsDTO {
