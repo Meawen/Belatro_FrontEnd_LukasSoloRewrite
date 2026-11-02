@@ -3,20 +3,25 @@
 // each bid button, and at the middle of each hand card's exposed strip (the part the next card leaves
 // uncovered; the whole card for the last), returns that button. Board scenes come from /dev/board (Phase 4).
 // With the coach's panel up (coach=demo, open beta §7.2, §7.3), the bid buttons, every hand card and the panel's own
-// button still answer elementFromPoint.
+// button still answer elementFromPoint, the panel scrolled to its end (a lesson's "do" line comes last), and the
+// panel's bottom stays above the bid panel. coach=long brings a lesson taller than the room above the bid panel (it
+// must scroll), at 375×812 and 812×375.
 // Not the point 10 px in and 30 px down of the card's bounding box: at 1440 the fan tilts the right-hand cards
 // clockwise, so that corner of their box lies on the card to their left.
 
 const VIEWPORTS = ['1440x900', '375x812'];
-const board = (at, coach = false) => ({
-    name: `hit-${at}${coach ? '-coach' : ''}`,
-    path: `/dev/board?controls=0&skip=1&effects=off&seat=carol&at=${at}${coach ? '&coach=demo' : ''}`,
-    viewports: VIEWPORTS,
+const board = (at, coach = null, viewports = VIEWPORTS) => ({
+    name: `hit-${at}${coach === 'demo' ? '-coach' : coach ? `-coach-${coach}` : ''}`,
+    path: `/dev/board?controls=0&skip=1&effects=off&seat=carol&at=${at}${coach ? `&coach=${coach}` : ''}`,
+    viewports,
     coach,
 });
 // carol to bid after two passes (the bid panel up, six cards); carol to play in mid-trick (eight cards, enabled); both
-// again with the stand-in coach's panel and marks
-const SCENES = [board('bid:bob:PASS'), board('play:bob:PIK-BABA'), board('bid:bob:PASS', true), board('play:bob:PIK-BABA', true)];
+// again with the stand-in coach's panel and marks; and bidding under a long lesson, on a portrait and a landscape phone
+const SCENES = [
+    board('bid:bob:PASS'), board('play:bob:PIK-BABA'), board('bid:bob:PASS', 'demo'), board('play:bob:PIK-BABA', 'demo'),
+    board('bid:bob:PASS', 'long', ['375x812', '812x375']),
+];
 const BIDS = ['Pass', 'Call Herc', 'Call Karo', 'Call Pik', 'Call Tref'];
 
 /** Opens the game menu, closes it with Escape, and waits until it has left (unmounted after its exit). */
@@ -25,6 +30,17 @@ async function openAndCloseTheMenu(page) {
     await page.getByRole('dialog', { name: 'Game menu' }).waitFor();
     await page.keyboard.press('Escape');
     await page.getByRole('dialog', { name: 'Game menu' }).waitFor({ state: 'detached' });
+}
+
+/** Scrolls the coach's panel to its end; its bottom, whether it scrolls, and the bid panel's top (null without one). */
+function coachPanel(page) {
+    return page.evaluate(() => {
+        const panel = document.querySelector('.board-coach__panel');
+        if (!panel) return null;
+        panel.scrollTop = panel.scrollHeight;
+        const bid = document.querySelector('.board-bid');
+        return { bottom: panel.getBoundingClientRect().bottom, scrolls: panel.scrollHeight > panel.clientHeight, bidTop: bid ? bid.getBoundingClientRect().top : null };
+    });
 }
 
 /** The points to test, in page coordinates, each with what must be hit there: the buttons named `names`, and every hand card. */
@@ -54,7 +70,8 @@ function targets(page, names) {
 export default {
     name: 'hit',
     about: 'closed sheets take no input: the bid buttons and every hand card answer elementFromPoint (1440, 375); with the '
-        + "coach's panel up, the bid buttons, every hand card and the panel's own button still do",
+        + "coach's panel up, the bid buttons, every hand card and the panel's own button still do, and a long lesson scrolls "
+        + 'above the bid panel (375, 812×375)',
     async run(ctx) {
         const failures = [];
         for (const scene of SCENES) {
@@ -62,6 +79,18 @@ export default {
                 const { context, page } = await ctx.open(scene, viewport);
                 try {
                     await openAndCloseTheMenu(page);
+                    let coachLine = '';
+                    if (scene.coach) {
+                        const panel = await coachPanel(page);
+                        if (!panel) failures.push(`${scene.name}@${viewport}: no coach panel`);
+                        else {
+                            if (panel.bidTop !== null && panel.bottom > panel.bidTop) {
+                                failures.push(`${scene.name}@${viewport}: the coach panel (bottom ${Math.round(panel.bottom)}) runs under the bid panel (top ${Math.round(panel.bidTop)})`);
+                            }
+                            if (scene.coach === 'long' && !panel.scrolls) failures.push(`${scene.name}@${viewport}: the long lesson fits without scrolling, so the scene proves nothing`);
+                            coachLine = `; coach panel bottom ${Math.round(panel.bottom)}${panel.bidTop === null ? '' : `, bid panel top ${Math.round(panel.bidTop)}`}${panel.scrolls ? ', scrolled to its end' : ''}`;
+                        }
+                    }
                     const bidding = scene.name.includes('bid');
                     const { points, cards } = await targets(page, [...(bidding ? BIDS : []), ...(scene.coach ? ['Coach preview'] : [])]);
                     if (cards !== (bidding ? 6 : 8)) failures.push(`${scene.name}@${viewport}: ${cards} hand cards, expected ${bidding ? 6 : 8}`);
@@ -81,7 +110,7 @@ export default {
                         }, point);
                         if (hit) failures.push(`${scene.name}@${viewport}: ${point.what} (${Math.round(point.x)}, ${Math.round(point.y)}) hits ${hit}`);
                     }
-                    ctx.log(`${scene.name}@${viewport}: ${points.length} points`);
+                    ctx.log(`${scene.name}@${viewport}: ${points.length} points${coachLine}`);
                 } finally {
                     await context.close();
                 }

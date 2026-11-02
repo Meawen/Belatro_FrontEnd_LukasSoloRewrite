@@ -300,7 +300,8 @@ export function Board(props: BoardProps) {
         if (!coach.allowed(move)) return coach.onRefused?.(move);
         if (!coach.confirm) return go();
         asking.current = true;
-        coach.confirm(move).then((yes) => yes, () => false).then((yes) => {
+        // a confirm that throws becomes a rejection, so the guard always clears
+        Promise.resolve().then(() => coach.confirm!(move)).then((yes) => yes, () => false).then((yes) => {
             asking.current = false;
             if (yes && mounted.current) go();
         });

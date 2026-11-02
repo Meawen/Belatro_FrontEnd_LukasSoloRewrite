@@ -30,14 +30,23 @@ const REMATCH: RematchState = { votes: 1, voted: false, cancelledBy: null, expir
 /**
  * coach=demo: a stand-in for Škola bele's coach (open beta §7.2, §7.3), for the hit check and a look at the marks. It
  * allows every move, marks every other card of my private hand, and shows one line and one button in the panel.
+ * coach=long: the same with a lesson taller than the room above the bid panel, its button last (as a lesson's "do"
+ * line comes last), so the hit check scrolls to it.
  */
-function demoCoach(state: BoardState): Coach {
+function demoCoach(state: BoardState, long: boolean): Coach {
     return {
         allowed: () => true,
         marked: (state.privateView?.hand ?? []).filter((_, i) => i % 2 === 0).map(cardId),
         panel: (
             <>
                 <p className="t-callout">Coach preview: a lesson sits here, under the HUD.</p>
+                {long && (
+                    <>
+                        <p className="t-callout mt-2">A long lesson keeps going: what the table shows, why it matters, and what a good player looks at before choosing.</p>
+                        <p className="t-callout mt-2">It never runs under the bid panel: the panel stops above it and scrolls, so every line can still be read.</p>
+                        <p className="t-callout mt-2">The last line says what to do, so it is the one that must stay within reach.</p>
+                    </>
+                )}
                 <Button size="sm" variant="secondary" className="mt-2">Coach preview</Button>
             </>
         ),
@@ -186,7 +195,7 @@ export default function DevBoardPage() {
                             rematch={REMATCH}
                             onLeave={() => {}}
                             viewport={viewport}
-                            coach={options.coach ? demoCoach(state) : undefined}
+                            coach={options.coach ? demoCoach(state, options.coach === 'long') : undefined}
                         />
                     </MotionProvider>
                 </div>

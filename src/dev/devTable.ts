@@ -62,8 +62,11 @@ export interface DevOptions {
     belot: { player: string; suit: Boja } | null;
     /** `challenge=bob:2:wrong`, `dave:2:right`, `dave:window:right`: a challenge in hand 1, after its n-th card or in its window (§1). */
     challenge: ChallengeOption | null;
-    /** coach=demo: a stand-in coach (open beta §7.2, §7.3) for the hit check and a look at the marks. */
-    coach: boolean;
+    /**
+     * coach=demo: a stand-in coach (open beta §7.2, §7.3) for the hit check and a look at the marks; coach=long: the same
+     * with a lesson taller than the room above the bid panel (it scrolls); else none.
+     */
+    coach: 'demo' | 'long' | null;
 }
 
 const one = <T extends string>(value: string | null, allowed: readonly T[], fallback: T): T =>
@@ -113,7 +116,7 @@ export function parseDevOptions(search: string): DevOptions {
         t: Math.max(0, Number(q.get('t')) || 0),
         belot: parseBelot(q.get('belot')),
         challenge: parseChallenge(q.get('challenge')),
-        coach: q.get('coach') === 'demo',
+        coach: q.get('coach') === 'demo' || q.get('coach') === 'long' ? (q.get('coach') as 'demo' | 'long') : null,
     };
 }
 

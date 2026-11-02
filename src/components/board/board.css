@@ -833,3 +833,16 @@
     top: 158px;
     max-height: calc(50% - 166px);
 }
+/* while the bid panel shows (layer 50, painted above this one), the panel ends above it and the lesson scrolls in the
+   room left, so its last line (a lesson's "do" line) never hides under it. The bid panel (.board-bid above) is centred
+   at 44%, 46% landscape, 36% portrait; half its height is 50 px (10 + 18 note + 8 + 52 suits + 10 = 98, rounded up), 76
+   on portrait phones (Pass on its own 44-px row and an 8-px gap: 150); 60 px is the panel's 52-px top and an 8-px gap */
+.board:has(.board-bid) .board-coach__panel {
+    max-height: calc(44% - 50px - 60px);
+}
+.board[data-layout="landscape"]:has(.board-bid) .board-coach__panel {
+    max-height: calc(46% - 50px - 60px);
+}
+.board[data-layout="portrait"]:has(.board-bid) .board-coach__panel {
+    max-height: calc(36% - 76px - 60px);
+}

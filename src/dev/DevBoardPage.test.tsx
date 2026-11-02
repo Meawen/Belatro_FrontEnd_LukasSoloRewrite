@@ -107,4 +107,13 @@ describe('/dev/board (spec §4.17)', () => {
         expect(screen.queryByTestId('coach-panel')).not.toBeInTheDocument()
         expect(document.querySelectorAll('[data-marked]')).toHaveLength(0)
     })
+
+    test('coach=long: the same stand-in with a lesson taller than the room above the bid panel, its button last', () => {
+        open('?seat=carol&at=bid:bob:PASS&controls=0&skip=1&coach=long')
+        const panel = screen.getByTestId('coach-panel')
+        expect(panel.querySelectorAll('p')).toHaveLength(4)
+        expect(panel.lastElementChild).toBe(within(panel).getByRole('button', { name: 'Coach preview' }))
+        expect(screen.getByRole('group', { name: 'Your bid' })).toBeInTheDocument()
+        expect(document.querySelectorAll('[data-testid="hand-card"][data-marked]')).toHaveLength(3)
+    })
 })

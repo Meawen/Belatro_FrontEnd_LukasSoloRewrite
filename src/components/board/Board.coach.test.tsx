@@ -300,4 +300,87 @@ describe('Board: the coach (open beta §7.2, §7.3)', () => {
         // bottom where it was (Chromium's hit check: the panel's button at 375×812 hit the Challenge's column)
         expect(css).toMatch(/\.board\[data-layout="portrait"\]:has\(\.board-challenge--hud\) \.board-coach__panel \{[^}]*top: 158px;[^}]*max-height: calc\(50% - 166px\);/)
     })
+
+    test('while the bid panel shows, the panel stops above it and its lesson scrolls in the room left', () => {
+        renderBoard({ state: bidding(), coach: { allowed: () => true, panel: <p>Lesson</p> } })
+        const panel = screen.getByTestId('coach-panel')
+        const bid = screen.getByRole('group', { name: 'Your bid' })
+        // the bid panel comes later (and on --z-bid): painted above the slot, so the slot must end before it
+        expect(bid).toHaveClass('board-bid')
+        expect(panel.compareDocumentPosition(bid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        // the bid panel's centre per layout, as the caps below read it (if it moves, move them with it)
+        expect(css).toMatch(/\.board-bid \{\s*left: 50%;\s*top: 44%;/)
+        expect(css).toMatch(/\.board\[data-layout="landscape"\] \.board-bid \{\s*top: 46%;/)
+        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-bid \{\s*top: 36%;/)
+        // its centre, less half its height (98 px; 150 on portrait phones, rounded up), less an 8-px gap and the 52-px top
+        expect(css).toMatch(/\.board:has\(\.board-bid\) \.board-coach__panel \{[^}]*max-height: calc\(44% - 50px - 60px\);/)
+        expect(css).toMatch(/\.board\[data-layout="landscape"\]:has\(\.board-bid\) \.board-coach__panel \{[^}]*max-height: calc\(46% - 50px - 60px\);/)
+        expect(css).toMatch(/\.board\[data-layout="portrait"\]:has\(\.board-bid\) \.board-coach__panel \{[^}]*max-height: calc\(36% - 76px - 60px\);/)
+    })
+
+    test('a confirm that throws or rejects sends nothing and clears the guard: the next press asks again and goes', async () => {
+        const user = userEvent.setup()
+        const moves = actions()
+        const unhandled = vi.fn()
+        process.on('unhandledRejection', unhandled)
+        try {
+            const confirm = vi.fn<(move: CoachMove) => Promise<boolean>>()
+                .mockImplementationOnce(() => { throw new Error('the warning broke') })
+                .mockImplementationOnce(() => Promise.reject(new Error('the warning closed')))
+                .mockImplementation(() => Promise.resolve(true))
+            renderBoard({ state: playing(), actions: moves, coach: { allowed: () => true, confirm } })
+            await user.click(card('As Karo'))
+            await act(async () => {})
+            expect(confirm).toHaveBeenCalledTimes(1)
+            expect(moves.play).not.toHaveBeenCalled()
+            handCards().forEach((one) => expect(one).toBeEnabled())
+
+            await user.click(card('As Karo'))
+            await act(async () => {})
+            expect(confirm).toHaveBeenCalledTimes(2)
+            expect(moves.play).not.toHaveBeenCalled()
+
+            await user.click(card('As Karo'))
+            await act(async () => {})
+            expect(confirm).toHaveBeenCalledTimes(3)
+            expect(moves.play).toHaveBeenCalledTimes(1)
+            expect(moves.play).toHaveBeenCalledWith({ boja: 'KARA', rank: 'AS' }, false)
+            // a rejection reports as unhandled only after the microtasks: wait a task
+            await new Promise((done) => setTimeout(done, 0))
+            expect(unhandled).not.toHaveBeenCalled()
+        } finally {
+            process.off('unhandledRejection', unhandled)
+        }
+    })
+
+    test('a bela answer and the Challenge each go through confirm', async () => {
+        const user = userEvent.setup()
+        const moves = actions()
+        const bela = deferredConfirm()
+        renderBoard({ state: playing(), actions: moves, coach: { allowed: () => true, confirm: bela.confirm } })
+        // the prompt opens without asking (nothing leaves yet); its answer asks
+        await user.click(card('Baba Herc'))
+        expect(bela.confirm).not.toHaveBeenCalled()
+        await user.click(card('Play + Bela'))
+        expect(bela.confirm).toHaveBeenCalledWith({ kind: 'play', card: { boja: 'HERC', rank: 'BABA' }, bela: true })
+        expect(moves.play).not.toHaveBeenCalled()
+        expect(screen.getByTestId('bela-prompt')).toBeInTheDocument()
+        await bela.settle(true)
+        expect(moves.play).toHaveBeenCalledTimes(1)
+        expect(moves.play).toHaveBeenCalledWith({ boja: 'HERC', rank: 'BABA' }, true)
+        expect(screen.queryByTestId('bela-prompt')).toBeNull()
+        cleanup()
+
+        const challenge = deferredConfirm()
+        renderBoard({ state: challenging(), actions: moves, coach: { allowed: () => true, confirm: challenge.confirm } })
+        await user.click(card('Challenge'))
+        expect(challenge.confirm).toHaveBeenCalledWith({ kind: 'challenge' })
+        expect(moves.challenge).not.toHaveBeenCalled()
+        // nothing waits while it is open: the button stays as it was
+        expect(card('Challenge')).toBeEnabled()
+        expect(card('Challenge')).not.toHaveAttribute('aria-busy')
+        await challenge.settle(true)
+        expect(moves.challenge).toHaveBeenCalledTimes(1)
+        expect(card('Challenge')).toBeDisabled()
+    })
 })
