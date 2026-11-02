@@ -52,6 +52,16 @@ describe('authService email routes', () => {
         expect(jsdomStorage.getItem('authToken')).toBeNull()
         expect(jsdomStorage.getItem('user')).toBeNull()
     })
+
+    test("resetPassword forgets a guest's secret with the rest of the session (Ruling 44: one forgetSession)", async () => {
+        vi.stubGlobal('localStorage', jsdomStorage)
+        jsdomStorage.setItem('authToken', 'g-tok')
+        jsdomStorage.setItem('user', '{"id":"g1","username":"gost_4821","guest":true}')
+        jsdomStorage.setItem(GUEST_SECRET_KEY, 'secret-g')
+        vi.spyOn(apiClient, 'post').mockResolvedValue({})
+        await authService.resetPassword('tok-2', 'brand-new-pass')
+        expect([jsdomStorage.getItem('authToken'), jsdomStorage.getItem('user'), jsdomStorage.getItem(GUEST_SECRET_KEY)]).toEqual([null, null, null])
+    })
 })
 
 describe('authService.logout', () => {
@@ -121,6 +131,15 @@ describe('authService and guests (spec §3)', () => {
         expect(JSON.parse(jsdomStorage.getItem('user') ?? 'null')).toEqual(GUEST)
         // the key the report names for S9
         expect(GUEST_SECRET_KEY).toBe('stiglja:guestSecret')
+        expect(jsdomStorage.getItem(GUEST_SECRET_KEY)).toBe(SECRET)
+    })
+
+    test('startGuest keeps the secret to itself: its callers get the token and the user, never the secret (Ruling 44)', async () => {
+        vi.stubGlobal('localStorage', jsdomStorage)
+        vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, { token: 'g-tok', user: GUEST, message: null, guestSecret: SECRET })))
+        const started = await authService.startGuest('en')
+        expect(started).toEqual({ token: 'g-tok', user: GUEST, message: null })
+        expect(JSON.stringify(started)).not.toContain(SECRET)
         expect(jsdomStorage.getItem(GUEST_SECRET_KEY)).toBe(SECRET)
     })
 

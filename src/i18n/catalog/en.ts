@@ -33,6 +33,8 @@ export const en = {
         resetPassword: 'Reset password',
         confirmEmail: 'Confirm email',
         notFound: 'Page not found',
+        // the landing page (/) for a signed-out visitor or a guest: the browser tab only (its h1 is landing.headline)
+        landing: 'Belot for four, online',
     },
     // the compact HR · EN switch at the top of the signed-in shell and of the public pages: its group's name for screen
     // readers
@@ -1231,6 +1233,84 @@ export const en = {
         tableDoor: {
             lead: 'No account? You can sit at this table as a guest.',
             sitDown: 'Sit down as a guest',
+        },
+    },
+    // the landing page (/, spec §4): signed out or a guest. The top row's "Sign in" is titles.signIn; the doors' errors are table.botsUnavailable and errors.*
+    landing: {
+        headline: 'Belot for four, online.',
+        lead: 'Your table is ready: three bots are waiting, or bring your crew.',
+        doors: 'Ways to start',
+        // door 1 (highlighted): Škola bele
+        learn: {
+            title: 'Bela school',
+            body: 'Play your first hand with a guide, step by step. No account needed.',
+            action: 'Teach me',
+        },
+        // door 2: a bot game now, as a guest
+        bots: {
+            title: 'Bots',
+            body: 'I know how to play: a game against three bots, right now, as a guest.',
+            action: 'Play now',
+        },
+        // door 3: sign up (Ruling 6: S11 words it from signup-status)
+        people: {
+            title: 'People',
+            body: 'Ranked and friends. An account is free.',
+            action: 'Sign up',
+        },
+        // the line above the doors after a guest session ended for good (Ruling 7); label names the region
+        ended: {
+            label: 'Guest session ended',
+            body: 'Your guest session has ended. Choose below how to start again.',
+        },
+        // a returning guest's panel above the doors; with a game running it shows shell.activeGame.body and .action
+        guest: {
+            continueAs: (name: string) => `Continue as ${name}`,
+            body: "This browser remembers your guest name. Change it whenever you like: it's the name everyone at the table sees.",
+            rename: 'Change name',
+        },
+        // the sheet that changes a guest's name (its field is forms.username)
+        rename: {
+            title: 'Change your guest name',
+            save: 'Save',
+            failed: "Your name wasn't changed. Try again in a moment.",
+        },
+    },
+    // Doma (/dashboard, spec §5); the game card is shell.activeGame, the ranked lock is shell.unverified, the stat "Level" is common.level, and "Elo" stays as on the profile
+    home: {
+        greeting: (name: string) => `Hi, ${name}! What are we playing?`,
+        greetingNoName: 'Hi! What are we playing?',
+        // the half "Protiv botova"; its seats are common.you and bot
+        bots: {
+            title: 'Against bots',
+            body: "Three bots, and the game starts at once. It doesn't change your rating.",
+            seats: 'Seats at the table',
+            bot: 'Bot',
+            play: 'Play now',
+        },
+        // the half "Protiv ljudi": ranked (primary), Stol za ekipu, Birtija (n)
+        people: {
+            title: 'Against people',
+            body: 'Real players: ranked for your rating, tables for company.',
+            ranked: 'Play ranked',
+            private: 'Private table',
+            tables: (n: number) => `Tables (${n})`,
+        },
+        stats: {
+            games: 'Games',
+        },
+        // the recent matches beside the stats
+        recent: {
+            title: 'Recent matches',
+            all: 'All matches',
+            failed: "Couldn't load your recent matches.",
+            loading: 'Loading matches...',
+            none: 'No matches yet',
+        },
+        // under everything: to Škola bele
+        newToBela: {
+            title: 'New to bela?',
+            action: 'Bela school',
         },
     },
     // relative times ("5 minutes ago"), wherever a time is shown

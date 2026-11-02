@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { ME_CHANGED, useMe } from '../../hooks/useUser';
 import { ResendConfirmationButton } from '../auth/ResendConfirmationButton';
@@ -12,6 +12,7 @@ export const UnverifiedEmailBanner: React.FC = () => {
     // a guest has no address and no Settings (spec §3.3): nothing to confirm, so nothing to ask
     const { data: me, refetch } = useMe(isAuthenticated && !isGuest);
     const t = useT();
+    const { pathname } = useLocation();
     // The address a resend answered 409 "Nothing to confirm" for: it can never be confirmed
     // (for example a malformed legacy value), so stop asking to confirm it.
     const [unconfirmable, setUnconfirmable] = useState<string | null>(null);
@@ -31,7 +32,8 @@ export const UnverifiedEmailBanner: React.FC = () => {
     }, [isAuthenticated]);
 
     // a guest has no address and no Settings (spec §3.3): nothing to confirm
-    if (!isAuthenticated || isGuest || !me || me.emailVerified) return null;
+    // Doma's ranked button says the same and offers the same resend (spec §5)
+    if (!isAuthenticated || isGuest || !me || me.emailVerified || pathname === '/dashboard') return null;
 
     const address = me.pendingEmail ?? me.email;
 

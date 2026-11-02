@@ -89,6 +89,15 @@ describe('UnverifiedEmailBanner', () => {
         expect(screen.getByRole('region', { name: 'Email confirmation' }).outerHTML).not.toMatch(RAW_PALETTE)
     })
 
+    test('on Doma the banner gives way to the ranked lock (spec §5)', () => {
+        vi.mocked(useMe).mockReturnValue({ data: { ...base, pendingEmail: 'ana@example.com' }, refetch } as never)
+        const { container, unmount } = render(<MemoryRouter initialEntries={['/dashboard']}><UnverifiedEmailBanner /></MemoryRouter>)
+        expect(container).toBeEmptyDOMElement()
+        unmount()
+        render(<MemoryRouter initialEntries={['/settings']}><UnverifiedEmailBanner /></MemoryRouter>)
+        expect(screen.getByRole('region', { name: 'Email confirmation' })).toHaveTextContent('Confirm ana@example.com to play ranked:')
+    })
+
     test('stops listening for changes once unmounted', () => {
         const { unmount } = renderBanner({ ...base, pendingEmail: 'ana@example.com' })
         unmount()

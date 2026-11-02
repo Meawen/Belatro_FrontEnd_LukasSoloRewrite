@@ -174,6 +174,20 @@ describe('useAuth and guests (spec §3)', () => {
         expect(authService.signup).toHaveBeenCalledWith(expect.objectContaining({ username: 'Mati\u010D' }))
     })
 
+    test("a stored session it can't read is forgotten whole, a guest's secret included (Ruling 44: one forgetSession)", () => {
+        vi.spyOn(authService, 'logout').mockResolvedValue('Successfully logged out.')
+        captureConsole()
+        for (const user of [null, '{not json']) {
+            jsdomStorage.setItem('authToken', 'tok-g')
+            if (user !== null) jsdomStorage.setItem('user', user)
+            jsdomStorage.setItem('stiglja:guestSecret', 'secret')
+            const { result, unmount } = renderHook(() => useAuth())
+            expect(result.current.isAuthenticated, String(user)).toBe(false)
+            expect([jsdomStorage.getItem('authToken'), jsdomStorage.getItem('user'), jsdomStorage.getItem('stiglja:guestSecret')], String(user)).toEqual([null, null, null])
+            unmount()
+        }
+    })
+
     test("logging out forgets the guest's secret with its token and user (Ruling 32)", async () => {
         jsdomStorage.setItem('authToken', 'tok-g')
         jsdomStorage.setItem('user', JSON.stringify({ id: 'g1', username: 'gost_4821', guest: true }))

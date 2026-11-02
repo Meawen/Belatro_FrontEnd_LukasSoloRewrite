@@ -68,6 +68,28 @@ describe('/lobbies (spec §4.6)', () => {
         expect(screen.getByRole('dialog', { name: 'Create table' })).toBeInTheDocument()
     })
 
+    test("?create=private opens the create sheet with Private table on (Doma's Stol za ekipu)", () => {
+        for (const [create, on] of [['private', true], ['1', false]] as const) {
+            const { unmount } = render(
+                <MemoryRouter initialEntries={[`/lobbies?create=${create}`]}>
+                    <Routes>
+                        <Route path="/lobbies" element={<LobbiesPage />} />
+                    </Routes>
+                </MemoryRouter>,
+            )
+            const dialog = screen.getByRole('dialog', { name: 'Create table' })
+            const privateTable = within(dialog).getByRole('switch', { name: 'Private table' })
+            if (on) {
+                expect(privateTable).toBeChecked()
+                expect(within(dialog).getByLabelText('Password')).toBeInTheDocument()
+            } else {
+                expect(privateTable).not.toBeChecked()
+                expect(within(dialog).queryByLabelText('Password')).not.toBeInTheDocument()
+            }
+            unmount()
+        }
+    })
+
     test('a guest opens a row, joins in the quick-look and lands in the lobby (US-8)', async () => {
         const user = userEvent.setup()
         renderAt('/lobbies')

@@ -1,21 +1,13 @@
-import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Page } from '../components/layout/Page';
 import { LanguageSection } from '../components/settings/LanguageSection';
 import { ErrorAlert } from '../components/common/ErrorAlert';
 import { Button, EmptyState, Panel } from '../components/ui';
-import { ApiError } from '../services/api';
-import { startBotGame } from '../services/botGame';
-import { errorMessage, isNetworkOrServerFailure } from '../utils/errorMessage';
-import { cat, useT } from '../i18n/t';
+import { useT } from '../i18n/t';
+import { useBotGame } from '../hooks/useBotGame';
 
 /** The member-only areas a guest can reach (spec §3.3); each is a page title (titles.*), which names it. */
 export type LockedArea = 'home' | 'ranked' | 'tables' | 'matches' | 'friends' | 'leaderboard' | 'profile' | 'settings';
-
-/** Why the bot game didn't start, worded as LobbyRoom's botFailure words it: no answer or a 5xx means the bots are away. */
-function botGameFailure(e: unknown): string {
-    return e instanceof ApiError && isNetworkOrServerFailure(e.status) ? cat().table.botsUnavailable : errorMessage(e, cat().errors.generic);
-}
 
 /**
  * What a guest sees in place of a member-only page (spec §3.3, §8). The page's own name, what it is, and that a free
@@ -28,20 +20,8 @@ export function NeedsAccountPage({ area }: { area: LockedArea }) {
     const t = useT();
     const navigate = useNavigate();
     const { pathname, search } = useLocation();
-    const [starting, setStarting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const playBots = async () => {
-        setStarting(true);
-        setError(null);
-        try {
-            const { gameId } = await startBotGame();
-            navigate(`/game/${gameId}`);
-        } catch (e) {
-            setError(botGameFailure(e));
-            setStarting(false);
-        }
-    };
+    // spec §6: the one-click bot game, shared with Doma and the landing page
+    const bots = useBotGame();
 
     const c = t.guest.needsAccount;
     return (
@@ -55,11 +35,11 @@ export function NeedsAccountPage({ area }: { area: LockedArea }) {
                         action={
                             <>
                                 <Button onClick={() => navigate('/signup', { state: { from: pathname + search } })}>{c.signUp}</Button>
-                                <Button variant="secondary" loading={starting} onClick={() => void playBots()}>{c.bots}</Button>
+                                <Button variant="secondary" loading={bots.starting} onClick={() => void bots.play()}>{c.bots}</Button>
                             </>
                         }
                     />
-                    <ErrorAlert message={error} className="mx-4 mb-6" />
+                    <ErrorAlert message={bots.error} className="mx-4 mb-6" />
                 </Panel>
                 {area === 'settings' && <LanguageSection />}
             </div>

@@ -42,6 +42,25 @@ describe('the catalogs (spec §1.2)', () => {
         expect(en.ranked.searching).toBe('Finding players…')
     })
 
+    test('the §1.4 names S9 shows', () => {
+        expect(hr.landing.learn.action).toBe('Navči me')
+        expect(en.landing.learn.action).toBe('Teach me')
+        expect(hr.landing.learn.title).toBe('Škola bele')
+        expect(en.landing.learn.title).toBe('Bela school')
+        expect(hr.home.people.ranked).toBe('Igraj rangirano')
+        expect(hr.home.people.private).toBe('Stol za ekipu')
+        expect(en.home.people.private).toBe('Private table')
+        expect(hr.home.people.tables(3)).toBe('Birtija (3)')
+        expect(hr.home.newToBela.action).toBe('Škola bele')
+    })
+
+    test("Ruling 44's Croatian for the needs-an-account lines", () => {
+        expect(hr.guest.needsAccount.what.home).toBe('Tvoja statistika, zadnje partije i svi načini igre na jednom mjestu.')
+        expect(en.guest.needsAccount.what.home).toBe('Your stats, your recent games and all the ways to play, in one place.')
+        expect(hr.guest.needsAccount.what.profile).toBe('Tvoj rang, kretanje rejtinga, tvoje partije i profili drugih igrača.')
+        expect(hr.guest.needsAccount.what.tables).toBe('Otvoreni stolovi: sjedni za stol s drugim igračima ili otvori svoj stol.')
+    })
+
     test("S4's counts: three Croatian forms around 11–14 and 21–24", () => {
         expect([1, 2, 5, 11, 12, 21, 22, 25].map(hr.matches.count)).toEqual(
             ['1 partija', '2 partije', '5 partija', '11 partija', '12 partija', '21 partija', '22 partije', '25 partija'])

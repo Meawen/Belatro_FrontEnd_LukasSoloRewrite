@@ -115,6 +115,9 @@ export const SAMPLES = {
     'board.hand.list': [['As Herc, 10 Karo']],
     'board.end.votes': [[1], [3]],
     'board.seat.cards': [[1], [2], [5], [11], [21], [22]],
+    'home.greeting': [['ana_k']],
+    'landing.guest.continueAs': [['gost_4821']],
+    'home.people.tables': [[0], [3]],
 };
 
 const DEFAULT_SAMPLES = [[1], [2], [5]];

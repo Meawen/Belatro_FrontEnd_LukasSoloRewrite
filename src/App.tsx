@@ -45,6 +45,7 @@ import { FriendsPage } from './pages/FriendsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AdminPage } from './pages/AdminPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { LandingPage } from './pages/LandingPage';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -78,6 +79,8 @@ function App() {
                     <Route path="/privacy" element={<PrivacyPage />} />
                     <Route path="/terms" element={<TermsPage />} />
                     <Route path="/rules" element={<RulesPage />} />
+                    {/* Škola bele (spec §7): its doors are in (S9); until its page lands (S13) they open the Rules and their guide */}
+                    <Route path="/learn" element={<Navigate to="/rules" replace />} />
                     {/* The leaderboard: in the shell signed in, its prompt in the public frame signed out (M-13) */}
                     <Route path="/users" element={<LeaderboardPage />} />
 
@@ -86,11 +89,12 @@ function App() {
                     {/* The dev board (spec §4.17): outside the shell, no sign-in, dev builds only */}
                     {DevBoardPage && <Route path="/dev/board" element={<Suspense fallback={<Loader layout="page" />}><DevBoardPage /></Suspense>} />}
 
-                    <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
+                    {/* spec §4: the landing page for a signed-out visitor or a guest; a member goes to Doma (PublicRoute) */}
+                    <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
 
                     {/* Every other signed-in page sits in the shell: navigation, banners, footer (spec §4.1) */}
                     <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
-                        <Route path="/dashboard" element={<MemberRoute area="home"><HomePage /></MemberRoute>} />
+                        <Route path="/dashboard" element={<MemberRoute area="home" guestTo="/"><HomePage /></MemberRoute>} />
                         <Route path="/play" element={<MemberRoute area="ranked"><PlayPage /></MemberRoute>} />
                         <Route path="/lobbies" element={<MemberRoute area="tables"><LobbiesPage /></MemberRoute>} />
                         {/* spec §3.2: a guest reaches a table only by its link, and plays */}

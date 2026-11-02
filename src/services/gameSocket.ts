@@ -4,6 +4,7 @@ import SockJS from 'sockjs-client';
 // level: import cycle with api.ts.
 import { apiClient, ApiError, signGuestBackIn, type GuestResume } from './api';
 import { WS_URL } from '../config';
+import { forgetSession } from './guestSecret';
 
 /**
  * The one STOMP connection of this browser tab.
@@ -65,11 +66,40 @@ export const AUTH_REQUIRED_MESSAGE = 'Authentication required';
  * How a session ends, for a 401 from the API and a 1008 alike: forget the token, then reload into
  * the login page, which says why. Only the token: storage is shared by the browser's tabs, and a
  * password change in another tab may store a new token next to the same user. useAuth logs out a
- * token it finds without a user, which would revoke that new token.
+ * token it finds without a user, which would revoke that new token. A guest's goes to the landing
+ * page instead (endGuestSession).
  */
 function signOutToLogin(): void {
+    if (storedGuest()) {
+        endGuestSession();
+        return;
+    }
     localStorage.removeItem('authToken');
     window.location.assign('/login?reason=session-ended');
+}
+
+/** Ruling 44: the pages that need no session; a guest whose session ends while reading one stays on it. */
+const SESSION_FREE_PATHS = ['/privacy', '/terms', '/rules', '/confirm-email', '/reset-password'];
+
+/**
+ * How a guest's session ends for good (spec §3.1, §8 "guest expired"; Rulings 7, 32): the server refused its token,
+ * or refused the sign-in with its secret. A guest has no password, so /login has nothing for them: forget the guest
+ * (its token, its user and its secret) and reload into the landing page, which says so above its doors. On a page that
+ * needs no session the reader stays where they are (Ruling 44): someone who never had an account meets no sign-in wall.
+ */
+export function endGuestSession(): void {
+    forgetSession();
+    if (SESSION_FREE_PATHS.includes(window.location.pathname)) return;
+    window.location.assign('/?reason=guest-ended');
+}
+
+/** The stored user is a guest (POST /api/auth/guest stores user.guest true). Never throws. */
+function storedGuest(): boolean {
+    try {
+        return JSON.parse(localStorage.getItem('user') ?? 'null')?.guest === true;
+    } catch {
+        return false;
+    }
 }
 
 export function stompConfig(token: string, handlers: StompClientHandlers): StompConfig {

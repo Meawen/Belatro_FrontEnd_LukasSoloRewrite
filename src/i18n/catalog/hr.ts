@@ -29,6 +29,7 @@ export const hr = {
         resetPassword: 'Nova lozinka',
         confirmEmail: 'Potvrda e-adrese',
         notFound: 'Stranica nije pronađena',
+        landing: 'Bela za četvero, online',
     },
     langSwitch: {
         label: 'Jezik stranice',
@@ -919,13 +920,13 @@ export const hr = {
         needsAccount: {
             title: 'Za ovo ti treba račun',
             what: {
-                home: 'Tvoja statistika, zadnje partije i sve igre na jednom mjestu.',
+                home: 'Tvoja statistika, zadnje partije i svi načini igre na jednom mjestu.',
                 ranked: 'Rangirane partije protiv ljudi, s rejtingom i rangom koji rastu kad pobjeđuješ.',
-                tables: 'Otvoreni stolovi: sjedni s drugim igračima ili otvori svoj stol.',
+                tables: 'Otvoreni stolovi: sjedni za stol s drugim igračima ili otvori svoj stol.',
                 matches: 'Sve tvoje partije, dijeljenje po dijeljenje.',
                 friends: 'Igrači koje dodaš za pajdaše i zahtjevi koje ti pošalju.',
                 leaderboard: 'Rang i rejting svakog igrača.',
-                profile: 'Tvoj rang, kretanje rejtinga i partije te profili drugih igrača.',
+                profile: 'Tvoj rang, kretanje rejtinga, tvoje partije i profili drugih igrača.',
                 settings: 'E-adresa, lozinka, efekti stola i tvoj račun. Jezik možeš mijenjati i kao gost, odmah ispod.',
             },
             unlock: 'Besplatan račun to otključava. Kao gost već sad možeš igrati protiv botova ili sjesti za stol prijatelja preko poveznice koju ti pošalje.',
@@ -935,6 +936,72 @@ export const hr = {
         tableDoor: {
             lead: 'Nemaš račun? Za ovaj stol možeš sjesti i kao gost.',
             sitDown: 'Sjedni kao gost',
+        },
+    },
+    landing: {
+        headline: 'Bela za četvero, online.',
+        lead: 'Stol je spreman: tri bota te čekaju, a možeš pozvati i svoju ekipu.',
+        doors: 'Kako početi',
+        learn: {
+            title: 'Škola bele',
+            body: 'Odigraj prvo dijeljenje uz vodiča, korak po korak. Račun ti ne treba.',
+            action: 'Navči me',
+        },
+        bots: {
+            title: 'Botovi',
+            body: 'Znam igrati: partija protiv tri bota, odmah i kao gost.',
+            action: 'Igraj odmah',
+        },
+        people: {
+            title: 'Ljudi',
+            body: 'Rangirano i prijatelji. Račun je besplatan.',
+            action: 'Registriraj se',
+        },
+        ended: {
+            label: 'Gostovanje je završilo',
+            body: 'Tvoje gostovanje je završilo. Ispod odaberi kako ćeš krenuti ispočetka.',
+        },
+        guest: {
+            continueAs: (name: string) => `Nastavi kao ${name}`,
+            body: 'Ovaj preglednik pamti tvoje gostujuće ime. Promijeni ga kad god želiš: to ime vide svi za stolom.',
+            rename: 'Promijeni ime',
+        },
+        rename: {
+            title: 'Promijeni gostujuće ime',
+            save: 'Spremi',
+            failed: 'Ime nije promijenjeno. Pokušaj ponovno za koji trenutak.',
+        },
+    },
+    home: {
+        greeting: (name: string) => `Bok, ${name}! Što igramo?`,
+        greetingNoName: 'Bok! Što igramo?',
+        bots: {
+            title: 'Protiv botova',
+            body: 'Tri bota i partija kreće odmah. Rejting ti se ne mijenja.',
+            seats: 'Mjesta za stolom',
+            bot: 'Bot',
+            play: 'Igraj odmah',
+        },
+        people: {
+            title: 'Protiv ljudi',
+            body: 'Pravi igrači: rangirano za rejting, stolovi za društvo.',
+            ranked: 'Igraj rangirano',
+            private: 'Stol za ekipu',
+            tables: (n: number) => `Birtija (${n})`,
+        },
+        stats: {
+            games: 'Partije',
+        },
+        recent: {
+            title: 'Zadnje partije',
+            all: 'Cijeli Zapisnik',
+            failed: 'Zadnje partije nismo uspjeli učitati.',
+            loading: 'Učitavamo partije…',
+            none: 'Još nema partija',
+        },
+        newToBela: {
+            title: 'Novi u beli?',
+            action: 'Škola bele',
         },
     },
     time: {

@@ -6,7 +6,7 @@ import type {
     JwtResponseDTO,
 } from '../types';
 import type { Lang } from '../i18n/lang';
-import { GUEST_SECRET_KEY } from './guestSecret';
+import { GUEST_SECRET_KEY, forgetSession } from './guestSecret';
 
 export const authService = {
     async login(credentials: LoginRequestDTO): Promise<JwtResponseDTO> {
@@ -37,13 +37,14 @@ export const authService = {
     // spec §3 (B4): a guest for a visitor with no session; the answer is the login shape with user.guest true, and the
     // guest's secret (Ruling 32), kept to sign it back in later. Stores the token and the user, the pair useAuth reads
     // (it logs out a token it finds without a user).
-    async startGuest(language: Lang): Promise<JwtResponseDTO> {
-        const response = await apiClient.post<JwtResponseDTO>('/api/auth/guest', { language });
+    async startGuest(language: Lang): Promise<Omit<JwtResponseDTO, 'guestSecret'>> {
+        const { guestSecret, ...response } = await apiClient.post<JwtResponseDTO>('/api/auth/guest', { language });
         if (response.token) apiClient.setToken(response.token);
         if (response.user) localStorage.setItem('user', JSON.stringify(response.user));
         // never an earlier guest's secret beside this guest
-        if (response.guestSecret) localStorage.setItem(GUEST_SECRET_KEY, response.guestSecret);
+        if (guestSecret) localStorage.setItem(GUEST_SECRET_KEY, guestSecret);
         else localStorage.removeItem(GUEST_SECRET_KEY);
+        // Ruling 44: the secret stays in storage; no caller is handed it
         return response;
     },
 
@@ -85,8 +86,8 @@ export const authService = {
     // A reset ends every session of the account, this browser's included.
     async resetPassword(token: string, newPassword: string): Promise<void> {
         await apiClient.post<void>('/api/auth/reset-password', { token, newPassword });
-        apiClient.clearToken();
-        localStorage.removeItem('user');
+        // Ruling 44: the whole session, a guest's secret too
+        forgetSession();
     },
 
     // Helper method to check if user is authenticated

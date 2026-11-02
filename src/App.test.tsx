@@ -6,6 +6,7 @@ import App from './App'
 import { useUser } from './hooks/useUser'
 import { userService } from './services/userService'
 import { captureConsole } from './test/captureConsole'
+import { authService } from './services/authService'
 
 // One switch for every test: signed in (the default) or signed out, a member (the default) or a guest, and the stored token.
 const auth = vi.hoisted(() => ({ isAuthenticated: true, guest: false, token: 'tok-1' }))
@@ -169,10 +170,11 @@ describe('Rules (R-41)', () => {
         expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument()
     })
 
-    test('"Read Guide" on the dashboard opens the rules', async () => {
+    test('"Bela school" on Doma opens Škola bele, the Rules until S13 (call 1)', async () => {
         renderAt('/dashboard')
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Read Guide' }))
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Bela school' }))
         expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/rules')
     })
 
     test('an expired stored token: /rules asks nothing, signs nobody out and stays readable', async () => {
@@ -264,7 +266,6 @@ describe('A guest (spec §3.2, §3.3)', () => {
     })
 
     test.each([
-        ['/dashboard', 'Home'],
         ['/play', 'Ranked'],
         ['/lobbies', 'Tables'],
         ['/matches', 'Matches'],
@@ -310,13 +311,18 @@ describe('A guest (spec §3.2, §3.3)', () => {
         expect(await screen.findByRole('heading', { name: 'The table' })).toBeInTheDocument()
     })
 
-    test('a guest sees no email banner, and on /dashboard still gets the way back to a running game', async () => {
+    test('a guest sees no email banner, and from /dashboard (the landing page, call 3) still gets the way back to a running game', async () => {
         vi.spyOn(userService, 'getMe').mockResolvedValue({
             id: 'g1', username: 'gost_4821', email: null, pendingEmail: null, emailVerified: false, roles: ['ROLE_GUEST'], deletionRequested: false, guest: true,
         } as never)
         vi.spyOn(userService, 'getActiveGame').mockResolvedValue('g1')
         renderAt('/dashboard')
-        expect(await screen.findByRole('region', { name: 'Game in progress' })).toBeInTheDocument()
+        expect(await screen.findByRole('button', { name: 'Return to your game' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/')
+        await act(async () => {})
+        expect(screen.queryByRole('region', { name: 'Email confirmation' })).not.toBeInTheDocument()
+        cleanup()
+        renderAt('/lobby/abc')
         await act(async () => {})
         expect(screen.queryByRole('region', { name: 'Email confirmation' })).not.toBeInTheDocument()
     })
@@ -335,5 +341,85 @@ describe('A guest (spec §3.2, §3.3)', () => {
         renderAt('/settings')
         expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument()
         expect(screen.queryByText('This needs an account')).not.toBeInTheDocument()
+    })
+})
+
+describe('The landing page and Doma (spec §4, §5)', () => {
+    const unverified = { id: 'u1', username: 'ana', email: null, pendingEmail: 'ana@example.com', emailVerified: false, roles: ['ROLE_USER'], deletionRequested: false }
+
+    test('signed out, / is the landing page, and each door goes where it says', async () => {
+        auth.isAuthenticated = false
+        const user = userEvent.setup()
+        renderAt('/')
+        expect(screen.getByRole('heading', { level: 1, name: 'Belot for four, online.' })).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Teach me' }))
+        // call 1: /learn opens the Rules until Škola bele's page lands (S13)
+        expect(await screen.findByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/rules')
+        cleanup()
+
+        renderAt('/')
+        await user.click(screen.getByRole('button', { name: 'Sign up' }))
+        expect(window.location.pathname).toBe('/signup')
+        expect(await screen.findByRole('heading', { name: 'Create Account' })).toBeInTheDocument()
+        cleanup()
+
+        // as S8's: the guest's token and user are stored before it answers, and from then on this is a guest
+        const startGuest = vi.spyOn(authService, 'startGuest').mockImplementation(async () => {
+            jsdomStorage.setItem('authToken', 'g-tok')
+            jsdomStorage.setItem('user', JSON.stringify({ id: 'g1', username: 'gost_4821', guest: true }))
+            auth.isAuthenticated = true
+            auth.guest = true
+            return { token: 'g-tok', user: { id: 'g1', username: 'gost_4821', guest: true }, message: null }
+        })
+        bots.startBotGame.mockResolvedValue({ gameId: 'g7', lobbyId: 'l7' })
+        renderAt('/')
+        await user.click(screen.getByRole('button', { name: 'Play now' }))
+        expect(await screen.findByRole('heading', { name: 'The table' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/game/g7')
+        expect(startGuest).toHaveBeenCalledTimes(1)
+        expect(bots.startBotGame).toHaveBeenCalledTimes(1)
+    })
+
+    test('a member at / goes to Doma', () => {
+        renderAt('/')
+        expect(window.location.pathname).toBe('/dashboard')
+        expect(screen.getByRole('heading', { level: 1, name: 'Hi, ana! What are we playing?' })).toBeInTheDocument()
+    })
+
+    test('a guest at / sees the landing page as themselves, and a guest at /dashboard goes there too (call 3)', async () => {
+        auth.guest = true
+        renderAt('/')
+        expect(await screen.findByRole('heading', { level: 2, name: 'Continue as gost_4821' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/')
+        cleanup()
+        renderAt('/dashboard')
+        expect(window.location.pathname).toBe('/')
+        expect(await screen.findByRole('heading', { level: 2, name: 'Continue as gost_4821' })).toBeInTheDocument()
+        expect(screen.queryByText('This needs an account')).not.toBeInTheDocument()
+    })
+
+    test('neither page asks GET /user/{own id} for a guest (B4)', async () => {
+        auth.guest = true
+        const fetch = vi.fn(async () => new Response(null, { status: 204 }))
+        vi.stubGlobal('fetch', fetch)
+        for (const path of ['/', '/dashboard']) {
+            renderAt(path)
+            await act(async () => {})
+            cleanup()
+        }
+        expect(fetch).toHaveBeenCalled()
+        expect(fetch.mock.calls.map(([url]) => String(url))).not.toContainEqual(expect.stringMatching(/\/user\/g1$/))
+        expect(vi.mocked(useUser)).not.toHaveBeenCalledWith('g1')
+    })
+
+    test("an unverified member's Doma shows the ranked lock, not the shell's email banner (call 6)", async () => {
+        vi.spyOn(userService, 'getMe').mockResolvedValue(unverified as never)
+        renderAt('/dashboard')
+        const people = screen.getByRole('region', { name: 'Against people' })
+        expect(await within(people).findByRole('button', { name: 'Resend confirmation email' })).toBeInTheDocument()
+        await act(async () => {})
+        expect(screen.queryByRole('region', { name: 'Email confirmation' })).not.toBeInTheDocument()
+        expect(screen.getAllByRole('button', { name: 'Resend confirmation email' })).toHaveLength(1)
     })
 })

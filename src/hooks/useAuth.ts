@@ -9,7 +9,7 @@ import type {
     JwtResponseDTO,
     UserLoginDetailsDTO,
 } from '../types';
-import { GUEST_SECRET_KEY } from '../services/guestSecret';
+import { forgetSession } from '../services/guestSecret';
 
 interface AuthState {
     user: UserLoginDetailsDTO | null;
@@ -59,8 +59,8 @@ export function useAuth() {
                         // Token exists but no user data - this shouldn't happen normally
                         // Clear invalid state
                         authService.logout();
-                        localStorage.removeItem('user');
-                        localStorage.removeItem('authToken');
+                        // Ruling 44: the whole session, a guest's secret too
+                        forgetSession();
                         setAuthState({
                             user: null,
                             isAuthenticated: false,
@@ -73,8 +73,7 @@ export function useAuth() {
                     if (isMounted) {
                         // Clear invalid data
                         authService.logout();
-                        localStorage.removeItem('user');
-                        localStorage.removeItem('authToken');
+                        forgetSession();
                         setAuthState({
                             user: null,
                             isAuthenticated: false,
@@ -184,10 +183,8 @@ export function useAuth() {
             console.error('Logout request failed:', error);
         } finally {
             // Always clear ALL auth-related local storage items
-            localStorage.removeItem('user');
-            localStorage.removeItem('authToken');
             // Ruling 32: a guest's sign-out ends the guest, so its secret goes too
-            localStorage.removeItem(GUEST_SECRET_KEY);
+            forgetSession();
 
             setAuthState({
                 user: null,

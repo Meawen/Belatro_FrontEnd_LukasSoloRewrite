@@ -20,4 +20,11 @@ describe('safeReturnPath (spec §4.1, D-20)', () => {
             expect(safeReturnPath(from)).toBe('/dashboard')
         }
     })
+
+    test('the landing page is never a return path: / goes to Doma', () => {
+        for (const from of ['/', '/?reason=x', `${window.location.origin}/`]) {
+            expect(safeReturnPath(from), from).toBe('/dashboard')
+        }
+        expect(safeReturnPath('/lobby/abc')).toBe('/lobby/abc')
+    })
 })

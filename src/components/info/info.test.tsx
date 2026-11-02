@@ -79,7 +79,7 @@ describe('Rules, Privacy and Terms (spec §4.15)', () => {
             'Ako želiš izaći iz Reda za stol, piši na support@stiglja.com s adrese koja je na popisu i uklonit ćemo je.',
             'e-adresu upisanu u Red za stol, koju također držimo u memoriji poslužitelja do sat vremena da bismo ograničili koliko se često ista adresa može upisati (najviše 3 puta na sat);',
             'Da Stiglja bude sigurna i da radi (naš legitimni interes): ograničavamo koliko se često mogu koristiti prijava, registracija, igra kao gost, Red za stol i brojanje Škole bele te vodimo zapise kako bismo pronašli pogreške i zlouporabe.',
-            'Ako igraš kao gost, stranica ondje na isti način čuva gosta i njegov tajni ključ, kojim te preglednik ponovno prijavljuje kao tog gosta kad prijava istekne; odjava briše i njega.',
+            'Ako igraš kao gost, stranica ondje na isti način čuva gosta i njegov tajni ključ, kojim te preglednik ponovno prijavljuje kao tog gosta kad prijava istekne; odjava briše i ključ.',
             'IP adrese i e-adrese upisane u Red za stol koje držimo u memoriji poslužitelja radi ograničavanja pokušaja: iz memorije ih odbacujemo u roku od otprilike sat vremena i pri svakom ponovnom pokretanju poslužitelja.',
         ]) expect(hr, text).toContain(text)
         expect(hr).not.toMatch(/pozivn/i)

@@ -16,7 +16,7 @@ vi.mock('./gameSocket', async (importOriginal) => {
     }
 })
 
-import { apiClient } from './api'
+import { apiClient, signGuestBackIn } from './api'
 import { authService } from './authService'
 import { gameSocket } from './gameSocket'
 import { GUEST_SECRET_KEY } from './guestSecret'
@@ -76,6 +76,7 @@ beforeEach(() => {
 
 afterEach(() => {
     gameSocket.disconnect()
+    vi.useRealTimers()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     jsdomStorage.clear()
@@ -151,11 +152,13 @@ describe("a guest's session comes back with its secret (Ruling 32)", () => {
         const fetch = vi.fn(async (url: string) => (url.endsWith('/api/auth/login') ? badCredentials() : sessionExpired()))
         vi.stubGlobal('fetch', fetch)
         await expect(apiClient.get('/lobbies/l1')).rejects.toMatchObject({ status: 401 })
-        await vi.waitFor(() => expect(assign).toHaveBeenCalledWith('/login?reason=session-ended'))
+        // S9: a guest's end is the landing page and its line (Rulings 7, 32), never sign-in
+        await vi.waitFor(() => expect(assign).toHaveBeenCalledWith('/?reason=guest-ended'))
         expect(assign).toHaveBeenCalledTimes(1)
         expect(logins(fetch)).toHaveLength(1)
         expect(jsdomStorage.getItem(GUEST_SECRET_KEY)).toBeNull()
         expect(jsdomStorage.getItem('authToken')).toBeNull()
+        expect(jsdomStorage.getItem('user')).toBeNull()
     })
 
     test('no answer to the sign-in ends nothing: the token and the secret stay for the next try', async () => {
@@ -190,5 +193,110 @@ describe("a guest's session comes back with its secret (Ruling 32)", () => {
         expect(logins(fetch)).toEqual([])
         expect(assign).not.toHaveBeenCalled()
         expect(jsdomStorage.getItem('authToken')).toBe('new-tok')
+    })
+})
+
+// Ruling 44 (S8's review): the resume never overwrites a newer session, never waits forever, and never floods the
+// server's sign-in (10 a minute per address) from a page that polls every 2 s
+describe('the resume, bounded (Ruling 44)', () => {
+    test('concurrent 401s and a 1008 sign the guest back in once', async () => {
+        jsdomStorage.setItem('authToken', 'g-many')
+        const release = gameSocket.acquire()
+        sockets.clients[sockets.clients.length - 1].handlers.onConnect()
+        let answer: (response: Response) => void = () => {}
+        const fetch = vi.fn((url: string, init: RequestInit): Promise<Response> => {
+            // the sign-in is held until all three refusals have landed
+            if (url.endsWith('/api/auth/login')) return new Promise((resolve) => (answer = resolve))
+            return Promise.resolve((init.headers as Record<string, string>).Authorization === 'Bearer g-many-new' ? jsonResponse(200, {}) : sessionExpired())
+        })
+        vi.stubGlobal('fetch', fetch)
+        try {
+            await Promise.all([
+                expect(apiClient.get('/lobbies/l1')).rejects.toMatchObject({ status: 401 }),
+                expect(apiClient.get('/user/me/active-game')).rejects.toMatchObject({ status: 401 }),
+            ])
+            sockets.clients[sockets.clients.length - 1].handlers.onWebSocketClose(1008)
+            await vi.waitFor(() => expect(logins(fetch)).toHaveLength(1))
+            answer(signedBackIn('g-many-new'))
+            await vi.waitFor(() => expect(jsdomStorage.getItem('authToken')).toBe('g-many-new'))
+            await vi.waitFor(() => expect(sockets.clients[sockets.clients.length - 1].token).toBe('g-many-new'))
+            expect(logins(fetch)).toHaveLength(1)
+            expect(assign).not.toHaveBeenCalled()
+        } finally {
+            release()
+        }
+    })
+
+    test("a sign-in that answers after this browser's session changed stores nothing", async () => {
+        const member = JSON.stringify({ id: 'u1', username: 'ana' })
+        // another tab signed in as a member while the guest's sign-in was out
+        jsdomStorage.setItem('authToken', 'g-race')
+        vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+            if (!url.endsWith('/api/auth/login')) return sessionExpired()
+            jsdomStorage.setItem('authToken', 'member-tok')
+            jsdomStorage.setItem('user', member)
+            return signedBackIn('g-race-new')
+        }))
+        await expect(gameSocket.resumeGuest('g-race')).resolves.toBe('unavailable')
+        expect(jsdomStorage.getItem('authToken')).toBe('member-tok')
+        expect(jsdomStorage.getItem('user')).toBe(member)
+
+        // another tab signed the guest out of its secret meanwhile (the same token still stored)
+        jsdomStorage.setItem('authToken', 'g-race-2')
+        jsdomStorage.setItem('user', JSON.stringify(GUEST))
+        jsdomStorage.setItem(GUEST_SECRET_KEY, SECRET)
+        vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+            if (!url.endsWith('/api/auth/login')) return sessionExpired()
+            jsdomStorage.removeItem(GUEST_SECRET_KEY)
+            return signedBackIn('g-race-2-new')
+        }))
+        await expect(gameSocket.resumeGuest('g-race-2')).resolves.toBe('unavailable')
+        expect(jsdomStorage.getItem('authToken')).toBe('g-race-2')
+        expect(assign).not.toHaveBeenCalled()
+    })
+
+    test('a sign-in with no answer gives up after about 10 s, and the same token waits before it tries again', async () => {
+        jsdomStorage.setItem('authToken', 'g-slow')
+        // AbortSignal.timeout's clock is not the test's: hand out signals this test aborts itself
+        const timeouts: { ms: number; controller: AbortController }[] = []
+        vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+            const controller = new AbortController()
+            timeouts.push({ ms, controller })
+            return controller.signal
+        })
+        const fetch = vi.fn((url: string, init: RequestInit): Promise<Response> => {
+            if (!url.endsWith('/api/auth/login')) return Promise.resolve(sessionExpired())
+            return new Promise((_resolve, reject) =>
+                init.signal?.addEventListener('abort', () => reject(new DOMException('The operation timed out.', 'TimeoutError'))))
+        })
+        vi.stubGlobal('fetch', fetch)
+
+        const resumed = gameSocket.resumeGuest('g-slow')
+        await vi.waitFor(() => expect(logins(fetch)).toHaveLength(1))
+        expect(timeouts.map((t) => t.ms)).toEqual([10_000])
+        expect((fetch.mock.calls[0][1] as RequestInit).signal).toBe(timeouts[0].controller.signal)
+        timeouts[0].controller.abort()
+        await expect(resumed).resolves.toBe('unavailable')
+
+        // a polling page's next 401s: no new sign-in during the cool-down, and nothing ends
+        for (let i = 0; i < 3; i++) await expect(apiClient.get('/lobbies/l1')).rejects.toMatchObject({ status: 401 })
+        await expect(gameSocket.resumeGuest('g-slow')).resolves.toBe('unavailable')
+        expect(logins(fetch)).toHaveLength(1)
+        expect(assign).not.toHaveBeenCalled()
+        expect(jsdomStorage.getItem('authToken')).toBe('g-slow')
+        expect(jsdomStorage.getItem(GUEST_SECRET_KEY)).toBe(SECRET)
+
+        // a little later the same token tries again
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(Date.now() + 15_001)
+        const again = gameSocket.resumeGuest('g-slow')
+        await vi.waitFor(() => expect(logins(fetch)).toHaveLength(2))
+        timeouts[1].controller.abort()
+        await expect(again).resolves.toBe('unavailable')
+        // and another stored token (a new session) is never held back by this one's cool-down
+        jsdomStorage.setItem('authToken', 'g-other')
+        vi.mocked(AbortSignal.timeout).mockImplementation(() => new AbortController().signal)
+        vi.stubGlobal('fetch', vi.fn(async () => signedBackIn('g-other-new')))
+        await expect(signGuestBackIn()).resolves.toBe('resumed')
     })
 })

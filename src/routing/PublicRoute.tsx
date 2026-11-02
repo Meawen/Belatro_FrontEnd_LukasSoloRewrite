@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Loader } from '../components/ui';
 import { useT } from '../i18n/t';
 
-/** The sign-in and sign-up pages: a member who is signed in already goes to /dashboard; a guest may sign in or sign up (spec §3.3). */
+/** The sign-in and sign-up pages: a member who is signed in already goes to /dashboard; a guest may sign in or sign up (spec §3.3), and the landing page (spec §4). */
 export function PublicRoute({ children }: { children: ReactNode }) {
     const { isAuthenticated, isGuest, isLoading } = useAuth();
     const t = useT();
