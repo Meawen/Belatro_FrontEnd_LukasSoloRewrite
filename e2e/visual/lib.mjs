@@ -126,7 +126,7 @@ function answer(route, table, unanswered, origin) {
  * contrast, forcedColors, …). Phones (the short side at most 500 px) get a touch screen at 2× unless the scene
  * says `dpr`; `css` is a style sheet added once the page has loaded, followed by a resize event so that layouts
  * measured in script (the board's safe-area insets) measure again; it needs !important to beat the page's own.
- * The caller closes the returned `context`.
+ * The site's language is the scene's `lang` ('en' unless it says 'hr'). The caller closes the returned `context`.
  */
 export async function openScene(browser, origin, scene, viewport, { context: extra = {}, animate = false, css = null } = {}) {
     const { width, height } = parseViewport(viewport);
@@ -145,12 +145,12 @@ export async function openScene(browser, origin, scene, viewport, { context: ext
     const unanswered = new Set();
     try {
         await context.clock.setFixedTime(FROZEN_TIME);
-        await context.addInitScript(({ token, user, devOnlyCss, skip }) => {
+        await context.addInitScript(({ token, user, devOnlyCss, skip, lang }) => {
             window.__visualSkipAnimations = skip;
             try {
                 localStorage.setItem('stiglja:table-effects', 'off');
-                // the scenes are English: outside vitest the SPA opens in Croatian (open beta §1.1)
-                localStorage.setItem('stiglja:lang', 'en');
+                // the scenes are English unless they say lang: 'hr': outside vitest the SPA opens in Croatian (open beta §1.1)
+                localStorage.setItem('stiglja:lang', lang);
                 if (token) {
                     localStorage.setItem('authToken', token);
                     localStorage.setItem('user', JSON.stringify(user));
@@ -163,7 +163,7 @@ export async function openScene(browser, origin, scene, viewport, { context: ext
                 style.textContent = devOnlyCss;
                 document.head.append(style);
             });
-        }, { token: scene.user ? fakeToken(scene.user) : null, user: scene.user ?? null, devOnlyCss: DEV_ONLY_CSS, skip: !animate });
+        }, { token: scene.user ? fakeToken(scene.user) : null, user: scene.user ?? null, devOnlyCss: DEV_ONLY_CSS, skip: !animate, lang: scene.lang ?? 'en' });
         await context.route('**/*', (route) => answer(route, table, unanswered, origin));
         await context.routeWebSocket(/\/ws(\/|$)/, (socket) => socket.close());
         const page = await context.newPage();
