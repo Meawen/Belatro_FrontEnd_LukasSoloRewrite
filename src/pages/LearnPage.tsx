@@ -10,6 +10,7 @@ import { LessonPanel } from '../components/guide/LessonPanel';
 import { PLAIN_HIGH_FIRST, TRUMP_HIGH_FIRST, cardPoints } from '../components/info/rulesData';
 import { Button } from '../components/ui/Button';
 import { Panel } from '../components/ui/Panel';
+import { useActiveGame } from '../hooks/useActiveGame';
 import { useAuth } from '../hooks/useAuth';
 import { useBotGame } from '../hooks/useBotGame';
 import { usePageTitle } from '../routing/usePageTitle';
@@ -112,10 +113,17 @@ function GuideHand({ member, exit, onDone }: { member: boolean; exit: { line: st
     );
 }
 
-/** The end of hand 1 (S14 completes it): what was learned, then hand 2 against bots, Replay, or Exit. */
+/**
+ * The end of hand 1, the hand-2 intro: what was learned and how hand 2 differs, then hand 2 against bots in guide mode,
+ * Replay, or Exit. A refused start says why and keeps the button; a game already running is offered, as a plain game.
+ */
 function End({ signedOut, onAgain, exit }: { signedOut: boolean; onAgain: () => void; exit: { line: string; onExit: () => void } }) {
     const t = useT();
-    const bots = useBotGame();
+    const navigate = useNavigate();
+    // nothing is asked before "Igraj drugo dijeljenje": the running game is looked up only after ALREADY_IN_GAME
+    const [lookUp, setLookUp] = useState(false);
+    const { gameId: running } = useActiveGame(lookUp);
+    const bots = useBotGame({ guide: true, onAlreadyInGame: () => setLookUp(true) });
     // a visitor with no session becomes a guest first, as the landing page's Botovi (decided at click time, from storage)
     const play = () => void bots.play(authService.isAuthenticated() ? undefined : () => authService.startGuest(getLang()));
     return (
@@ -123,8 +131,11 @@ function End({ signedOut, onAgain, exit }: { signedOut: boolean; onAgain: () => 
             <h1 className="t-display">{t.guide.end.title}</h1>
             <p className="t-callout">{t.guide.end.learned}</p>
             <p className="t-callout">{t.guide.end.next}</p>
+            <p className="t-callout">{t.guide.end.hints}</p>
+            <p className="t-callout">{t.guide.end.after}</p>
             {signedOut && <p className="t-callout text-text-2">{t.guide.end.guest}</p>}
             <ErrorAlert message={bots.error} />
+            {running && <Button block variant="secondary" onClick={() => navigate(`/game/${running}`)}>{t.shell.activeGame.action}</Button>}
             <Button block loading={bots.starting} onClick={play}>{t.guide.end.play}</Button>
             <Button block variant="secondary" onClick={onAgain}>{t.guide.end.again}</Button>
             <Exit {...exit} />

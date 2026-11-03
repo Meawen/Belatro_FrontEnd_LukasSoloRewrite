@@ -350,3 +350,23 @@ describe('in Croatian (open beta §1.2, §1.3)', () => {
         ])
     })
 })
+
+describe('the way in to Škola bele (open beta §7.1)', () => {
+    test('a link at the top opens Škola bele (spec §7.1)', async () => {
+        await renderRules()
+        const learn = screen.getByRole('link', { name: 'Rather learn by playing? Try Bela school ›' })
+        expect(learn).toHaveAttribute('href', '/learn')
+        // the same tab: the guide links back here in a new one
+        expect(learn).not.toHaveAttribute('target')
+        const guide = screen.getByRole('heading', { level: 2, name: 'How to play' })
+        expect(learn.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    test('the link shows before the rules arrive, and in Croatian', async () => {
+        setLang('hr')
+        const view = render(<MemoryRouter initialEntries={['/rules']}><RulesPage /></MemoryRouter>)
+        expect(screen.getByRole('link', { name: 'Lakše učiš kroz igru? Probaj Školu bele ›' })).toHaveAttribute('href', '/learn')
+        await screen.findByRole('heading', { level: 2, name: 'Kako se igra' })
+        view.unmount()
+    })
+})

@@ -169,7 +169,10 @@ describe('Škola bele hand 1: the recording and its steps (open beta §7.2)', ()
             // a stop from the foul on (Ruling 69): a challenge would be right there (ivo held Kralj Tref)
             ['foul', true, { kind: 'challenge' }, 'challengeFoul'],
             ['foulSeen', true, { kind: 'challenge' }, 'challengeFoul'],
-            ['padanje', true, { kind: 'challenge' }, 'challengeFoul'],
+            // the hand is over at padanje: its 10 seconds are the real time to challenge (Ruling 70)
+            ['padanje', true, { kind: 'challenge' }, 'challengeNow'],
+            // on the way to it, the last trick may still be on: a right challenge would end the hand
+            ['padanje', false, { kind: 'challenge' }, 'challengeFoul'],
             // on the way to the foul stop, before ivo's card is fed: no foul yet
             ['foul', false, { kind: 'challenge' }, 'challengeEarly'],
             // while the table moves: a card has nothing to say; a challenge says the rule by where the hand is

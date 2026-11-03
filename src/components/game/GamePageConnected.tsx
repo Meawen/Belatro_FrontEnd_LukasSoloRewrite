@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useGameViews } from '../../hooks/useGameViews';
 import { useMatchHands } from '../../hooks/useMatchHands';
@@ -13,6 +13,10 @@ import { Panel } from '../ui/Panel';
 import { ReconnectBanner } from './ReconnectBanner';
 import { rematchOffered } from './gameView';
 import { cat, useT } from '../../i18n/t';
+import { useHand2Coach } from '../../guide/useHand2Coach';
+import { GuideEndSheet } from '../guide/GuideEndSheet';
+import { firstHandOver } from '../../guide/hand2';
+import { useSignupStatus } from '../../hooks/useSignupStatus';
 
 export default function GamePageConnected() {
     const t = useT();
@@ -45,6 +49,9 @@ function GamePage({ gameId }: { gameId: string }) {
     const t = useT();
     const navigate = useNavigate();
     const { user, isGuest } = useAuth();
+    const [params] = useSearchParams();
+    // Škola bele hand 2 (open beta §7.3, §7.4): the URL holds guide mode, so a refresh or a reconnect keeps it
+    const guide = params.get('guide') === '1';
     // spec §6: the game page's ways out. A member goes Doma; a guest goes to the landing page (a guest can't open the
     // Birtija or Doma) and may also sign up (Ruling 6). While a rematch is on offer, going also declines it for
     // everyone (R-45), as Leave did.
@@ -58,6 +65,11 @@ function GamePage({ gameId }: { gameId: string }) {
         if (offered) rematch.leave(to);
         else navigate(to);
     };
+    const hand2 = useHand2Coach(guide ? view : null, { guest: isGuest, onExit: () => go(home) });
+    // the guide's end (spec §7.4): after hand 2's first hand, until "Nastavi ovu igru" drops ?guide=1 (call 4)
+    const guideOver = guide && publicView !== null && firstHandOver(publicView);
+    // Ruling 6/47: the guest's sign-up button reads "Red za stol" when full; asked once, only in a guest's guide game
+    const signup = useSignupStatus(guide && isGuest);
     const hands = useMatchHands(gameId, publicView);
 
     // spec §3.6: all 39 images decoded once on entering the game, no React state per image
@@ -109,7 +121,10 @@ function GamePage({ gameId }: { gameId: string }) {
                 onLeave={() => go(home)}
                 guest={isGuest}
                 onSignUp={isGuest ? () => go('/signup') : undefined}
+                coach={hand2.coach}
             />
+            {hand2.warning}
+            <GuideEndSheet open={guideOver} guest={isGuest} signupFull={signup === 'full'} onContinue={() => navigate(`/game/${gameId}`, { replace: true })} onGo={go} />
             <ReconnectStrip />
         </>
     );

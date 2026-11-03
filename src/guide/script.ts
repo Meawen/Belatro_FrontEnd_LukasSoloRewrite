@@ -110,21 +110,21 @@ export function matches(move: GuideMove, m: CoachMove): boolean {
 }
 
 /** Why a move isn't the step's move: the panel's line for it (LessonPanel). */
-export type RefusalKind = 'illegal' | 'otherCard' | 'bela' | 'bid' | 'pass' | 'challengeEarly' | 'challengeFoul' | 'readFirst';
+export type RefusalKind = 'illegal' | 'otherCard' | 'bela' | 'bid' | 'pass' | 'challengeEarly' | 'challengeFoul' | 'challengeNow' | 'readFirst';
 
 /**
  * Why `m` was refused while the learner works toward step `index` (`ready`: they are at it). A Challenge outside the
  * challenge step states the real rule: before the foul it would be wrong; once the foul is on the table (its own stop
  * included, Ruling 69) it would be right, and would end the hand; at a stop before it, read first. A card the rules
  * forbid gets the rule it breaks, a card they allow the reason the lesson picks another; null while the table moves
- * (nothing to say about a card then).
+ * (nothing to say about a card then). At the padanje stop the hand is over: a challenge there is on time (Ruling 70).
  */
 export function refusalOf(steps: readonly GuideStep[], index: number, ready: boolean, m: CoachMove): RefusalKind | null {
     const step = steps[index] as GuideStep | undefined;
     if (m.kind === 'challenge' && step?.move?.kind !== 'challenge') {
         // the foul's frame comes with its stop: it is on the table once that stop is reached
         const foul = steps.findIndex((each) => each.lesson === 'foul');
-        if (foul >= 0 && (index > foul || (index === foul && ready))) return 'challengeFoul';
+        if (foul >= 0 && (index > foul || (index === foul && ready))) return ready && step?.lesson === 'padanje' ? 'challengeNow' : 'challengeFoul';
         return ready && step && step.move === null ? 'readFirst' : 'challengeEarly';
     }
     if (!ready || !step) return null;

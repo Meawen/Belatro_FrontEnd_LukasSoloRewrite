@@ -15,8 +15,9 @@ export function botGameFailure(e: unknown): string {
  * needs-an-account page. `before` runs first (the landing page makes a visitor a guest). A refusal is worded for the
  * page; ALREADY_IN_GAME also tells the page to look for the running game at once. `play` resolves true once the game
  * page opens, false after a refusal (Ruling 48: the landing page shows a guest it made only then).
+ * `guide`: open the game in Škola bele's guide mode (/game/<id>?guide=1, open beta §7.3).
  */
-export function useBotGame({ onAlreadyInGame }: { onAlreadyInGame?: () => void } = {}): {
+export function useBotGame({ onAlreadyInGame, guide = false }: { onAlreadyInGame?: () => void; guide?: boolean } = {}): {
     play: (before?: () => Promise<unknown>) => Promise<boolean>;
     starting: boolean;
     error: string | null;
@@ -31,7 +32,7 @@ export function useBotGame({ onAlreadyInGame }: { onAlreadyInGame?: () => void }
         try {
             await before?.();
             const { gameId } = await startBotGame();
-            navigate(`/game/${gameId}`);
+            navigate(guide ? `/game/${gameId}?guide=1` : `/game/${gameId}`);
             return true;
         } catch (e) {
             if (e instanceof ApiError && e.code === 'ALREADY_IN_GAME') onAlreadyInGame?.();

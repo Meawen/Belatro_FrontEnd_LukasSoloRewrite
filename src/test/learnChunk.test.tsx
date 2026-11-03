@@ -57,6 +57,21 @@ describe('Škola bele loads on demand (open beta §7, §10)', () => {
         expect(outside).toEqual([])
     })
 
+    test("hand 2's guide mode rides in the game chunk", () => {
+        const imports = staticImports()
+        const hand2 = ['src/guide/hand2', 'src/guide/useHand2Coach', 'src/components/guide/Hand2Panel', 'src/components/guide/FoulWarning', 'src/components/guide/GuideEndSheet']
+        const isHand2 = (path: string) => hand2.includes(path.replace(/\.tsx?$/, ''))
+        // the check itself, so it can't pass by matching nothing
+        expect(imports).toContainEqual(['src/components/game/GamePageConnected.tsx', 'src/guide/useHand2Coach'])
+        expect(imports).toContainEqual(['src/components/game/GamePageConnected.tsx', 'src/components/guide/GuideEndSheet'])
+        const outside = imports.filter(([path, target]) => isHand2(target) && path !== 'src/components/game/GamePageConnected.tsx' && !isHand2(path))
+        expect(outside).toEqual([])
+        // and the game page itself only from GamePage, which App.tsx reaches lazily (gameChunk.test.tsx)
+        const connected = imports.filter(([, target]) => target === 'src/components/game/GamePageConnected')
+        expect(connected).toContainEqual(['src/pages/GamePage.tsx', 'src/components/game/GamePageConnected'])
+        expect(connected.map(([path]) => path)).toEqual(['src/pages/GamePage.tsx'])
+    })
+
     test('/learn shows the first frame while its chunk loads, then the intro', async () => {
         window.history.pushState({}, '', '/learn')
         render(<App />)

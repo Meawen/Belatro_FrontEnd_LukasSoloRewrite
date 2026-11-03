@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useReducedMotion } from '../../motion/useReducedMotion';
 import { isExpired } from '../../services/tokenRenewal';
@@ -58,6 +58,8 @@ export const RulesPage: React.FC = () => {
 
     if (isLoading) return null;
 
+    // the way in to Škola bele (spec §7.1), in this tab: the guide links back here in a new one; before the rules arrive
+    const learn = <p><Link to="/learn" className="t-callout font-semibold text-accent">{t.rules.learn}</Link></p>;
     const rules = doc && (
         <>
             <p>{doc.intro}</p>
@@ -89,11 +91,11 @@ export const RulesPage: React.FC = () => {
 
     // an expired stored token reads as signed out here: the shell's requests would 401 and sign the reader out of
     // a page anyone may read (R-41)
-    if (!isAuthenticated || (token && isExpired(token))) return <PublicPage title={t.titles.rules}>{rules}</PublicPage>;
+    if (!isAuthenticated || (token && isExpired(token))) return <PublicPage title={t.titles.rules}>{learn}{rules}</PublicPage>;
     return (
         <AppShell>
             <Page title={t.titles.rules} width="read">
-                <div className="t-body space-y-8">{rules}</div>
+                <div className="t-body space-y-8">{learn}{rules}</div>
             </Page>
         </AppShell>
     );

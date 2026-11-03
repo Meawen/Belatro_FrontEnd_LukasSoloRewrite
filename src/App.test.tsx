@@ -212,6 +212,18 @@ describe('Rules (R-41)', () => {
         expect(window.location.pathname).toBe('/learn')
     })
 
+    test("the Rules page's top link opens Škola bele, signed in and out", async () => {
+        const user = userEvent.setup()
+        for (const signedIn of [true, false]) {
+            auth.isAuthenticated = signedIn
+            renderAt('/rules')
+            await user.click(screen.getByRole('link', { name: 'Rather learn by playing? Try Bela school ›' }))
+            expect(await screen.findByRole('heading', { level: 1, name: 'Bela school' }), signedIn ? 'signed in' : 'signed out').toBeInTheDocument()
+            expect(window.location.pathname).toBe('/learn')
+            cleanup()
+        }
+    })
+
     test('an expired stored token: /rules asks nothing, signs nobody out and stays readable', async () => {
         captureConsole()
         // a JWT whose exp passed an hour ago (the SPA reads exp without checking the signature)

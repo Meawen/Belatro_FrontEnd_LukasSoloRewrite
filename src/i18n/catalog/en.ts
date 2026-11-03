@@ -1269,6 +1269,8 @@ export const en = {
             heading: 'Full rules',
             note: 'Every rule, as the server enforces it.',
         },
+        // the Rules page's top link into Škola bele (spec §7.1)
+        learn: 'Rather learn by playing? Try Bela school ›',
     },
     // a guest (spec §3): the page a guest gets in place of a member-only one (NeedsAccountPage), the guest door on sign-in from a table's link, and the name a removed account shows under
     guest: {
@@ -1410,7 +1412,7 @@ export const en = {
             mustTrump: { title: 'Trump it', body: 'Ivo led 9 Karo. You have no Karo, so you must trump with Herc; nobody has trumped yet, so any Herc will do.' },
             lead: { title: 'Your lead', body: 'The trick is yours: even the smallest trump beats every other suit. Whoever takes a trick leads the next, so you may play any card. The As Tref has been played, so 10 Tref is now the best Tref left.' },
             foul: { title: 'Watch this trick', body: "Ivo trumps with 9 Herc. That's allowed only if he has no Tref; if he has one, it's a foul." },
-            bela: { title: 'Bela', body: "Ivo led Decko Herc, the top trump: follow with any Herc. Kralj and Baba of trump are bela, 20 points, but the game doesn't count it for you." },
+            bela: { title: 'Bela', body: 'Ivo led Decko Herc, the top trump: follow with any Herc. Kralj and Baba of trump are bela, 20 points, but you have to call it yourself.' },
             foulSeen: { title: 'He had Tref after all', body: "Ivo led Kralj Tref: he held Tref, yet trumped in the third trick. That's a foul." },
             followAfterCut: { title: 'After someone trumps', body: 'Ana has no Tref, so she trumped. You must follow with Tref, but once someone has trumped, any Tref will do: give her the Decko, worth 2.' },
             followTrump: { title: 'Trump on trump', body: 'Ana led As Herc, a trump. When trump is led you must follow with trump, higher if you can: your only Herc is the Baba.' },
@@ -1457,6 +1459,8 @@ export const en = {
             pass: "You can't pass: when everyone else passes, the dealer must call trump.",
             challengeEarly: 'In a real game you may challenge from the first card. But nobody has broken a rule yet: the challenge would be wrong and use up your only one for the game.',
             challengeFoul: 'Well spotted! In a real game a right challenge now would end the hand at once. Here we play it out so you see the scoring too, and you challenge after the hand.',
+            // at the padanje stop the hand is over: its 10 seconds are the real time to challenge (Ruling 70)
+            challengeNow: 'Right time: in a real game you\'d challenge now, within 10 seconds. Read this first, then press "Next".',
             readFirst: 'Read this first, then press "Next".',
             card: 'Here, play the highlighted card.',
         },
@@ -1478,6 +1482,56 @@ export const en = {
             guest: "You'll play as a guest: no account needed.",
             play: 'Play hand 2',
             again: 'Replay Bela school',
+            // the hand-2 intro (S14): how hand 2 differs, and that the guide ends with it
+            hints: 'This time the deal is random and the moves are yours. On your turn the cards you may play are highlighted, and Hint says why. Before an illegal card you get a warning, but the choice is yours.',
+            after: 'The guide ends with that hand; then you choose how to go on.',
+        },
+        // hand 2 on the game page (/game/:id?guide=1, spec §7.3): the panel under the HUD, the hint (why the marked cards:
+        // the rule the server applied), the trump tip, and the warning before an illegal card (D-24)
+        hand2: {
+            title: 'Hand 2',
+            wait: 'Play as in a real game. On your turn, the cards you may play are highlighted.',
+            play: 'The highlighted cards are the ones you may play.',
+            tip: 'Call the suit you hold most of, best with its Decko or 9, the top trumps. Nothing good? Pass. The team that calls trump must end the hand with more points.',
+            tipMust: 'Everyone passed, so you call: pick the suit you hold most of, best with its Decko or 9.',
+            done: 'The hand is over. Look at the result; then you choose how to go on.',
+            hint: 'Hint',
+            // the rule behind the marked cards, by what the server allowed; the suits as the board names them
+            why: {
+                lead: 'You lead this trick, so any card may go.',
+                follow: (suit: string) => `${suit} was led and you hold ${suit}, so you must follow suit. Any ${suit} of yours may go here.`,
+                beat: (suit: string) => `${suit} was led and you can beat the best ${suit} on the table, so you must: play a higher one.`,
+                followTrump: 'Trump was led and you hold trump, so you must follow with trump. Any of yours may go here.',
+                overTrump: 'Trump was led and you can beat the best trump on the table, so you must: play a higher trump.',
+                cut: (suit: string, trump: string) => `You have no ${suit}, so you must trump: play a ${trump}.`,
+                overCut: (suit: string) => `You have no ${suit}, so you must trump, higher than the trump already in the trick, since you can.`,
+                any: (suit: string) => `You have no ${suit} and no trump, so any card may go.`,
+                noTrump: 'Trump was led and you have no trump, so any card may go.',
+                other: 'The highlighted cards are the ones the rules allow now.',
+            },
+            // before a card outside the highlighted ones: it still goes if they say so
+            warning: {
+                title: 'An illegal card',
+                body: 'Against people, someone could challenge this card. Bots never challenge.',
+                anyway: 'Play it anyway',
+                other: 'Choose another card',
+            },
+        },
+        // the guide's end, over the game after hand 2's first hand (spec §7.4, Ruling 9); the sign-up button is
+        // guest.needsAccount.signUp or auth.waitlist.title
+        done: {
+            title: 'Bela school is done',
+            lead: 'You know how to play now. Choose where to go next.',
+            guestCan: 'As a guest you can already:',
+            guestBots: 'play against bots, any time',
+            guestFriends: "sit at a friend's table from the link they send you",
+            accountAdds: 'What a free account adds:',
+            addsRanked: 'Ranked, and a rank of your own',
+            addsFriends: 'Friends',
+            addsMatches: 'Matches: every game you play',
+            addsName: "a name that's yours for good",
+            clock: "The game goes on meanwhile: on your turn, if you're away, the timer plays for you.",
+            continue: 'Continue this game',
         },
     },
     // relative times ("5 minutes ago"), wherever a time is shown

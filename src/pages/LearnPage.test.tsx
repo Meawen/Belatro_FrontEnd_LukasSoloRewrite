@@ -1,11 +1,12 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { LearnPage } from './LearnPage'
 import { advance, click, playHand1 } from '../guide/testing'
 import { authService } from '../services/authService'
 import { ApiError } from '../services/api'
+import { userService } from '../services/userService'
 import { Toaster } from '../components/ui/Toast'
 import { en } from '../i18n/catalog/en'
 import { setLang } from '../i18n/lang'
@@ -50,9 +51,10 @@ const ROLES = [
     { name: 'a member', isAuthenticated: true, guest: false, line: 'Back to Home', note: en.guide.exit.menuHome, to: '/dashboard' },
 ] as const
 
-/** Where the page went: each other route prints its path. */
+/** Where the page went: each other route prints its path, and its search (hand 2's guide mode is in it). */
 function Where() {
-    return <p>{`at ${useLocation().pathname}`}</p>
+    const { pathname, search } = useLocation()
+    return <p>{`at ${pathname + search}`}</p>
 }
 
 function renderLearn() {
@@ -171,8 +173,9 @@ describe('Škola bele, hand 1 (open beta §7.1, §7.2)', () => {
         await playHand1({ from: 'bela', until: 'padanje' })
         await advance(10_000)
         click(within(screen.getByTestId('hand-result')).getByRole('button', { name: 'Challenge' }))
-        // from the foul on, a challenge would be right: the line says so (Ruling 69)
-        expect(refusal()).toHaveTextContent(en.guide.refuse.challengeFoul)
+        // the hand is over: its 10 seconds are the real time to challenge (Ruling 70)
+        expect(refusal()).toHaveTextContent(en.guide.refuse.challengeNow)
+        expect(refusal()).toHaveTextContent('Right time: in a real game you\'d challenge now, within 10 seconds. Read this first, then press "Next".')
         await advance(2000)
         expect(panel()).toHaveAttribute('data-lesson', 'padanje')
         expect(within(screen.getByTestId('hand-result')).getByText('Fell! You fell.')).toBeInTheDocument()
@@ -228,7 +231,7 @@ describe('Škola bele, hand 1 (open beta §7.1, §7.2)', () => {
         expect(authService.startGuest).toHaveBeenCalledTimes(1)
         expect(authService.startGuest).toHaveBeenCalledWith('en')
         expect(bots.startBotGame).toHaveBeenCalledTimes(1)
-        expect(screen.getByText('at /game/g7')).toBeInTheDocument()
+        expect(screen.getByText('at /game/g7?guide=1')).toBeInTheDocument()
         cleanup()
         vi.useRealTimers()
 
@@ -349,5 +352,106 @@ describe('Škola bele, hand 1 (open beta §7.1, §7.2)', () => {
         await playHand1({ from: 'mus', until: 'padanje' })
         await advance(10_000)
         expect(within(panel()).getByRole('link', { name: 'More in the Rules ›' })).toHaveAttribute('href', '/rules#rules-scoring')
+    })
+})
+
+describe('the hand-2 intro (open beta §7.3, §8)', () => {
+    test('the hand-2 intro says what changes and that the guide ends with the hand', async () => {
+        fake()
+        renderLearn()
+        await playHand1()
+        expect(screen.getByRole('heading', { level: 1, name: 'Hand 1 done' })).toBeInTheDocument()
+        expect(screen.getByText(en.guide.end.hints)).toBeInTheDocument()
+        expect(screen.getByText(en.guide.end.after)).toBeInTheDocument()
+        // one primary: Play hand 2; Replay and Exit stay
+        expect(button('Play hand 2')).toHaveClass('ui-btn--primary')
+        expect(button('Replay Bela school')).toHaveClass('ui-btn--secondary')
+        expect(button('Exit')).toBeInTheDocument()
+    })
+
+    test('Play hand 2 opens the game in guide mode', async () => {
+        bots.startBotGame.mockResolvedValue({ gameId: 'g7', lobbyId: 'l7' })
+        for (const member of [false, true]) {
+            Object.assign(auth, { isAuthenticated: member, guest: false })
+            vi.mocked(authService.startGuest).mockClear()
+            bots.startBotGame.mockClear()
+            fake()
+            renderLearn()
+            await playHand1()
+            click(button('Play hand 2'))
+            await advance(0)
+            expect(authService.startGuest, member ? 'a member' : 'signed out').toHaveBeenCalledTimes(member ? 0 : 1)
+            expect(bots.startBotGame).toHaveBeenCalledTimes(1)
+            expect(screen.getByText('at /game/g7?guide=1')).toBeInTheDocument()
+            cleanup()
+            vi.useRealTimers()
+        }
+    })
+
+    test('a failed start keeps a way on (spec §8): the limit, the bots away, a guest that can’t be made, and a game already running', async () => {
+        const stillThere = (line: string) => {
+            expect(screen.getByRole('alert'), line).toHaveTextContent(line)
+            expect(button('Play hand 2'), line).toBeEnabled()
+            expect(button('Replay Bela school'), line).toBeEnabled()
+            expect(button('Exit'), line).toBeEnabled()
+        }
+        // signed out: each refusal says what happened, and Play hand 2 tries again
+        fake()
+        renderLearn()
+        await playHand1()
+        bots.startBotGame
+            .mockRejectedValueOnce(new ApiError({ status: 429, message: 'Too many requests, try again later', code: 'RATE_LIMITED' }))
+            .mockRejectedValueOnce(new ApiError({ status: 503, message: 'Service Unavailable' }))
+        click(button('Play hand 2'))
+        await advance(0)
+        stillThere('Too many tries. Wait a little, then try again.')
+        click(button('Play hand 2'))
+        await advance(0)
+        stillThere("Bots aren't available right now. Try again later.")
+        // the guest can't be made: the same limit's line
+        vi.mocked(authService.startGuest).mockRejectedValueOnce(new ApiError({ status: 429, message: 'Too many requests, try again later', code: 'RATE_LIMITED' }))
+        click(button('Play hand 2'))
+        await advance(0)
+        stillThere('Too many tries. Wait a little, then try again.')
+        expect(bots.startBotGame).toHaveBeenCalledTimes(2)
+        // a retry starts the game
+        bots.startBotGame.mockResolvedValueOnce({ gameId: 'g7', lobbyId: 'l7' })
+        click(button('Play hand 2'))
+        await advance(0)
+        expect(screen.getByText('at /game/g7?guide=1')).toBeInTheDocument()
+        cleanup()
+        vi.useRealTimers()
+
+        // a member with a game running: the way back to it, as a plain game; nothing is asked before the refusal
+        Object.assign(auth, { isAuthenticated: true, guest: false })
+        const active = vi.spyOn(userService, 'getActiveGame').mockResolvedValue('g-old')
+        fake()
+        renderLearn()
+        await playHand1()
+        expect(active).not.toHaveBeenCalled()
+        expect(screen.queryByRole('button', { name: 'Return to your game' })).not.toBeInTheDocument()
+        bots.startBotGame.mockRejectedValueOnce(new ApiError({ status: 409, message: 'You already have a game in progress', code: 'ALREADY_IN_GAME' }))
+        click(button('Play hand 2'))
+        await advance(0)
+        stillThere('You already have a game in progress. Go back to it first.')
+        expect(active).toHaveBeenCalledTimes(1)
+        expect(button('Return to your game')).toHaveClass('ui-btn--secondary')
+        click(button('Return to your game'))
+        expect(screen.getByText('at /game/g-old')).toBeInTheDocument()
+    })
+
+    test('Croatian: the hand-2 intro', async () => {
+        fake()
+        renderLearn()
+        await playHand1()
+        try {
+            act(() => setLang('hr'))
+            expect(screen.getByText('Ovaj put su karte nasumične, a potezi su tvoji. Kad si na redu, istaknute su karte koje smiješ baciti, a „Savjet” kaže zašto baš one. Prije nedopuštene karte dobit ćeš upozorenje, ali odluka je tvoja.')).toBeInTheDocument()
+            expect(screen.getByText('Vodič završava s tim dijeljenjem, a zatim biraš kako dalje.')).toBeInTheDocument()
+            expect(button('Igraj drugo dijeljenje')).toBeInTheDocument()
+            cleanup()
+        } finally {
+            setLang('en')
+        }
     })
 })

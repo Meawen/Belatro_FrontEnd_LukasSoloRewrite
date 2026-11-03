@@ -210,6 +210,31 @@ describe('the catalogs (spec §1.2)', () => {
         expect(en.guide.next).toBe('Next')
     })
 
+    test('the words S14 shows (spec §7.3, §7.4, Ruling 9)', () => {
+        expect(hr.guide.done.continue).toBe('Nastavi ovu igru')
+        expect(en.guide.done.continue).toBe('Continue this game')
+        expect(hr.guide.hand2.warning.anyway).toBe('Odigraj svejedno')
+        expect(hr.guide.hand2.warning.other).toBe('Odaberi drugu')
+        expect(en.guide.hand2.warning.anyway).toBe('Play it anyway')
+        expect(hr.guide.end.again).toBe('Ponovi Školu bele')
+        expect(hr.guest.needsAccount.signUp).toBe('Registriraj se')
+        expect(hr.auth.waitlist.title).toBe('Red za stol')
+        expect(hr.titles.ranked).toBe('Rangirano')
+        expect(hr.titles.home).toBe('Doma')
+        expect(hr.guide.done.addsFriends).toBe('Pajdaši')
+        expect(hr.guide.done.addsMatches).toContain('Zapisnik')
+        expect(hr.guide.done.addsRanked).toContain('Rangirano')
+    })
+
+    test("Ruling 70: the challenge at padanje has its own line, and bela says you call it yourself", () => {
+        expect(en.guide.refuse.challengeNow).toBe('Right time: in a real game you\'d challenge now, within 10 seconds. Read this first, then press "Next".')
+        expect(hr.guide.refuse.challengeNow).toBe('Pravi trenutak: u pravoj igri sad bi bilo vrijeme za prijavu, u roku od 10 sekundi. Prvo pročitaj ovo, pa pritisni „Nastavi”.')
+        expect(hr.guide.refuse.challengeNow).toContain(hr.guide.refuse.readFirst)
+        expect(en.guide.refuse.challengeNow).toContain(en.guide.refuse.readFirst)
+        expect(en.guide.lessons.bela.body).toContain('but you have to call it yourself.')
+        expect(en.guide.lessons.bela.body).not.toContain("doesn't count it for you")
+    })
+
     test("Ruling 69's corrections to Škola bele's copy: the 152/162 count, and the Croatian found by its text", () => {
         expect(en.guide.intro.lastTrick).toBe("The last trick is worth 10 more: a hand's cards are worth 152, and 162 with the last trick.")
         expect(hr.guide.intro.lastTrick).toBe('Zadnji štih vrijedi još 10: karte jednog dijeljenja vrijede 152 boda, a sa zadnjim štihom 162.')

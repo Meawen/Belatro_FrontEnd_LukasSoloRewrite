@@ -122,6 +122,11 @@ export const SAMPLES = {
     'home.people.tables': [[0], [3]],
     'guide.intro.trumpOrder': [['Dečko, 9, As, 10, Kralj, Baba, 8, 7']],
     'guide.intro.plainOrder': [['As, 10, Kralj, Baba, Dečko, 9, 8, 7']],
+    'guide.hand2.why.follow': [['Tref']],
+    'guide.hand2.why.beat': [['Tref']],
+    'guide.hand2.why.cut': [['Karo', 'Herc']],
+    'guide.hand2.why.overCut': [['Karo']],
+    'guide.hand2.why.any': [['Pik']],
     'tables.form.privateName': [['ana_k']],
     'table.sharePassword': [['kuna7']],
 };
