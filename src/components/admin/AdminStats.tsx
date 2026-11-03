@@ -1,11 +1,12 @@
 import React, { useId } from 'react';
-import { Loader, Panel, PixelIcon, type IconName } from '../ui';
+import { Loader, type IconName } from '../ui';
 import { useAllMatches } from '../../hooks/useMatch';
 import { useLobbies } from '../../hooks/useLobby';
 import { useAdmin } from '../../hooks/useAdmin';
 import type { UserDto } from '../../types/user';
 import { useT } from '../../i18n/t';
 import { formatNumber } from '../../i18n/format';
+import { StatTile } from './StatTile';
 
 export const AdminStats: React.FC = () => {
     const { matches, isLoading: matchesLoading } = useAllMatches();
@@ -42,13 +43,7 @@ export const AdminStats: React.FC = () => {
             </h2>
             <dl className="grid grid-cols-2 gap-2 lg:grid-cols-4">
                 {stats.map((stat) => (
-                    <Panel key={stat.label} padding="none" className="flex items-center gap-3 px-4 py-3">
-                        <PixelIcon name={stat.icon} scale={3} className="shrink-0 text-text-3" />
-                        <div className="flex min-w-0 flex-col-reverse">
-                            <dt className="t-caption text-text-2">{stat.label}</dt>
-                            <dd className="t-score tabular-nums">{formatNumber(stat.value)}</dd>
-                        </div>
-                    </Panel>
+                    <StatTile key={stat.label} label={stat.label} value={formatNumber(stat.value)} icon={stat.icon} />
                 ))}
             </dl>
         </section>

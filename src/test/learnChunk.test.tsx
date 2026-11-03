@@ -6,9 +6,22 @@ import { fileURLToPath } from 'node:url'
 import App from '../App'
 import { playHand1 } from '../guide/testing'
 import { shippedSources } from './sourceFiles'
+import { captureConsole } from './captureConsole'
+
+/** A hand-built answer, as authService.test's jsonResponse. */
+function jsonResponse(status: number, body: unknown) {
+    return {
+        ok: status >= 200 && status < 300,
+        status,
+        statusText: `status-${status}`,
+        headers: { get: () => null },
+        json: () => Promise.resolve(body),
+        text: () => Promise.resolve(JSON.stringify(body)),
+    } as unknown as Response
+}
 
 // Škola bele (open beta §7, §10): /learn and its recording are their own chunk, fetched when /learn opens, so none of
-// it reaches the entry; and hand 1, signed out, asks the server nothing
+// it reaches the entry; and hand 1, signed out, asks the server nothing but its two counts (spec §9)
 
 vi.setConfig({ testTimeout: 60_000 })
 
@@ -81,16 +94,38 @@ describe('Škola bele loads on demand (open beta §7, §10)', () => {
         expect(document.title).toBe('Bela school · Stiglja')
     })
 
-    test('signed out, the whole of hand 1 asks the server nothing', async () => {
-        // the real useAuth over empty storage: a visitor with no session
+    test('signed out, hand 1 asks the server for nothing but its two guide counts, and a failed count changes nothing (spec §9)', async () => {
+        // the real useAuth and the real services/guideEvents over empty storage: a visitor with no session
         localStorage.clear()
+        const logged = captureConsole()
+        const fetch = vi.fn()
+            .mockResolvedValueOnce(jsonResponse(429, { error: 'Too many requests, try again later', code: 'RATE_LIMITED' }))
+            .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        vi.stubGlobal('fetch', fetch)
         window.history.pushState({}, '', '/learn')
         render(<App />)
         expect(await screen.findByRole('heading', { level: 1, name: 'Bela school' })).toBeInTheDocument()
         vi.useFakeTimers()
         await playHand1()
         expect(screen.getByRole('heading', { level: 1, name: 'Hand 1 done' })).toBeInTheDocument()
-        // S15 allows exactly one request here: POST …/api/public/guide-events
-        expect(fetch).not.toHaveBeenCalled()
+        // the only two requests: the start at the deal and hand 1's end (spec §9), with no token
+        const json = { 'Content-Type': 'application/json' }
+        expect(fetch.mock.calls.map(([url, init]) => [url, init.method, init.body, init.headers])).toEqual([
+            [expect.stringMatching(/\/api\/public\/guide-events$/), 'POST', '{"event":"started"}', json],
+            [expect.stringMatching(/\/api\/public\/guide-events$/), 'POST', '{"event":"hand1"}', json],
+        ])
+        // the 429 and the failure said nothing, anywhere
+        expect(screen.queryByRole('alert')).toBeNull()
+        expect(logged.text()).not.toContain('guide-events')
+        expect(localStorage.length).toBe(0)
+    })
+
+    test("the guide's counts ride with the guide, never in the entry", () => {
+        const imports = staticImports()
+        const counting = imports.filter(([, target]) => target.replace(/\.ts$/, '') === 'src/services/guideEvents').map(([path]) => path)
+        // the check itself, so it can't pass by matching nothing
+        expect(counting).toContain('src/pages/LearnPage.tsx')
+        expect(counting).toContain('src/components/game/GamePageConnected.tsx')
+        expect(counting.sort()).toEqual(['src/components/game/GamePageConnected.tsx', 'src/pages/LearnPage.tsx'])
     })
 })

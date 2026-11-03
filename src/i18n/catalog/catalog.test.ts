@@ -184,8 +184,9 @@ describe('the catalogs (spec §1.2)', () => {
             'Najviše računa u beti; botovi i gosti se ne broje. Ostavi prazno ako ograničenja nema. Kad povećaš ograničenje, sljedeći u redu odmah dobivaju e-poruku.')
         expect(hr.errors.codes.SIGNUP_FULL).toBe(
             'Slobodnih mjesta više nema pa račun nije izrađen. Ispod se upiši u Red za stol i javit ćemo ti se e-porukom čim se oslobodi mjesto.')
+        // Ruling 64: "Ispod se ponovno upiši", in SIGNUP_FULL's order ("Ispod se upiši")
         expect(hr.errors.codes.INVITE_LINK_INVALID).toBe(
-            'Ova poveznica za registraciju ne vrijedi ili je istekla, a slobodnih mjesta trenutno nema. Ponovno se upiši ispod u Red za stol ili igraj kao gost.')
+            'Ova poveznica za registraciju ne vrijedi ili je istekla, a slobodnih mjesta trenutno nema. Ispod se ponovno upiši u Red za stol ili igraj kao gost.')
     })
 
     test("the line when English didn't load (Ruling 62): what happened, and what to do", () => {

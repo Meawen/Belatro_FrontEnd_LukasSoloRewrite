@@ -64,10 +64,11 @@ export const doc: LegalDoc = {
                     <li>
                         <strong>Simple counts:</strong> to see whether the beta works, the server keeps a few daily totals: how many
                         games finished with two or more people at the table, how often Bela school was started and each of its two
-                        hands finished, and how many guests signed up. These are numbers only. To count the players who come back,
-                        it also notes which accounts and guests played on which day, by user id only, and deletes each note after
-                        40 days. When you use Bela school, your browser tells the server when you start it and when you finish each
-                        hand; the server only adds one to that day's total and does not record who you are.
+                        hands finished, how many guests signed up, and how many waitlist signup links were sent and used. These are
+                        numbers only. To count the players who come back, it also notes which accounts and guests played on which
+                        day, by user id only, and deletes each note after 40 days. When you use Bela school, your browser tells the
+                        server when you start it and when you finish each hand; the server only adds one to that day's total and
+                        does not record who you are.
                     </li>
                 </ul>
             ),

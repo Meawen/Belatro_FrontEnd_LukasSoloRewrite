@@ -54,4 +54,35 @@ describe('usePageTitle and the site language (open beta §1.1)', () => {
         expect(document.documentElement.lang).toBe('hr')
         expect(meta.content).toBe('Stiglja: bela za četvero, online.')
     })
+
+    test("the document's language is the catalog's it shows: Croatian until English arrives (Ruling 64)", async () => {
+        jsdomStorage.setItem('stiglja:lang', 'en')
+        let arrive!: (catalog: unknown) => void
+        // i18n/t.ts's loader (vitest.config.ts puts the .vitest stand-in in its place): English not here yet
+        vi.doMock('../i18n/catalog/loadEn.vitest', () => ({ enNow: null, loadEn: () => new Promise((resolve) => { arrive = resolve }) }))
+        try {
+            const { usePageTitle: freshUsePageTitle } = await import('./usePageTitle')
+            const { ensureCatalog } = await import('../i18n/t')
+            const { getLang } = await import('../i18n/lang')
+            const { en } = await import('../i18n/catalog/en')
+            function FreshTitled({ title }: { title: string }) {
+                freshUsePageTitle(title)
+                return null
+            }
+            render(<FreshTitled title="Rules" />)
+            // English is chosen, but the page reads Croatian until its catalog is here: so does the document
+            expect(getLang()).toBe('en')
+            expect(meta.content).toBe('Stiglja: bela za četvero, online.')
+            expect(document.documentElement.lang).toBe('hr')
+            const loaded = ensureCatalog('en')
+            await act(async () => {
+                arrive(en)
+                await loaded
+            })
+            expect(document.documentElement.lang).toBe('en')
+            expect(meta.content).toBe('Stiglja: Belot for four, online.')
+        } finally {
+            vi.doUnmock('../i18n/catalog/loadEn.vitest')
+        }
+    })
 })

@@ -274,4 +274,66 @@ describe('English that loads late or fails still shows, or says so, and can be r
         expect(catalogReady('en')).toBe(true)
         expect(loadEn).toHaveBeenCalledTimes(2)
     })
+
+    test('everyone waiting on one English load shares one wait and one toast (Ruling 64)', async () => {
+        vi.useFakeTimers()
+        const chunk = deferred<typeof import('./catalog/en').en>()
+        const loadEn = vi.fn(() => chunk.promise)
+        vi.doMock('./catalog/loadEn', () => ({ enNow: null, loadEn }))
+        const { loadEnglish, catalogReady } = await import('./t')
+        const { currentToast, subscribeToToasts } = await import('../components/ui/toastStore')
+        const { en } = await import('./catalog/en')
+        // each toast shown, by its id (the store also tells its listeners when one goes)
+        const shown = new Set<number>()
+        const unsubscribe = subscribeToToasts(() => {
+            const now = currentToast()
+            if (now) shown.add(now.id)
+        })
+
+        // the first paint, a sign-in and another tab, all while one load is in flight
+        const first = [loadEnglish(), loadEnglish(), loadEnglish()]
+        expect(first[1]).toBe(first[0])
+        expect(first[2]).toBe(first[0])
+        expect(vi.getTimerCount()).toBe(1)
+        await vi.advanceTimersByTimeAsync(3000)
+        expect(await Promise.all(first)).toEqual([false, false, false])
+        expect(shown.size).toBe(1)
+        // the same load, still in flight: a later ask waits again, but it has already been said
+        const later = loadEnglish()
+        await vi.advanceTimersByTimeAsync(3000)
+        expect(await later).toBe(false)
+        expect(shown.size).toBe(1)
+        // and if it lands within that wait, the ask gets English
+        const meanwhile = loadEnglish()
+        await vi.advanceTimersByTimeAsync(1000)
+        chunk.resolve(en)
+        expect(await meanwhile).toBe(true)
+        expect(catalogReady('en')).toBe(true)
+        expect(loadEn).toHaveBeenCalledTimes(1)
+        expect(shown.size).toBe(1)
+        unsubscribe()
+    })
+
+    test('a new load after a failure is a new wait, and says so again if it fails (Ruling 64)', async () => {
+        vi.useFakeTimers()
+        const loadEn = vi.fn()
+            .mockRejectedValueOnce(new Error('Failed to fetch dynamically imported module'))
+            .mockRejectedValueOnce(new Error('Failed to fetch dynamically imported module'))
+        vi.doMock('./catalog/loadEn', () => ({ enNow: null, loadEn }))
+        const { loadEnglish } = await import('./t')
+        const { currentToast, subscribeToToasts } = await import('../components/ui/toastStore')
+        const shown = new Set<number>()
+        const unsubscribe = subscribeToToasts(() => {
+            const now = currentToast()
+            if (now) shown.add(now.id)
+        })
+        const one = [loadEnglish(), loadEnglish()]
+        expect(await Promise.all(one)).toEqual([false, false])
+        expect(shown.size).toBe(1)
+        // the failed load is gone: the next ask fetches again, and its failure is a new toast
+        expect(await loadEnglish()).toBe(false)
+        expect(loadEn).toHaveBeenCalledTimes(2)
+        expect(shown.size).toBe(2)
+        unsubscribe()
+    })
 })

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { LearnPage } from './LearnPage'
 import { advance, click, playHand1 } from '../guide/testing'
+import { LESSONS } from '../guide/script'
 import { authService } from '../services/authService'
 import { ApiError } from '../services/api'
 import { userService } from '../services/userService'
@@ -30,8 +31,13 @@ vi.mock('../hooks/useAuth', () => ({
 // the end screen's bot game (spec §6): its request is botGame's own test's; here a stub
 const bots = vi.hoisted(() => ({ startBotGame: vi.fn() }))
 vi.mock('../services/botGame', () => ({ startBotGame: bots.startBotGame }))
+// the guide's counts (spec §9): their request is guideEvents.test's; here what is counted, and when
+const counts = vi.hoisted(() => ({ reportGuideEvent: vi.fn(() => Promise.resolve()) }))
+vi.mock('../services/guideEvents', () => counts)
 
 beforeEach(() => {
+    counts.reportGuideEvent.mockClear()
+    counts.reportGuideEvent.mockImplementation(() => Promise.resolve())
     // jsdom has no canvas (the board's felt)
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
     vi.spyOn(authService, 'isAuthenticated').mockImplementation(() => auth.isAuthenticated)
@@ -352,6 +358,55 @@ describe('Škola bele, hand 1 (open beta §7.1, §7.2)', () => {
         await playHand1({ from: 'mus', until: 'padanje' })
         await advance(10_000)
         expect(within(panel()).getByRole('link', { name: 'More in the Rules ›' })).toHaveAttribute('href', '/rules#rules-scoring')
+    })
+})
+
+describe("the guide's counts (open beta spec §9)", () => {
+    const calls = () => counts.reportGuideEvent.mock.calls
+
+    test('the guide counts its start at the deal and hand 1 at its end, once each per run (spec §9)', async () => {
+        fake()
+        renderLearn()
+        // opening the guide isn't starting it
+        expect(calls()).toEqual([])
+        click(button('Deal the cards'))
+        expect(calls()).toEqual([['started']])
+        await playHand1({ from: LESSONS[0] })
+        expect(screen.getByRole('heading', { level: 1, name: 'Hand 1 done' })).toBeInTheDocument()
+        expect(calls()).toEqual([['started'], ['hand1']])
+        // Replay: the intro again, and nothing counted until the next deal starts a new run
+        click(button('Replay Bela school'))
+        expect(screen.getByRole('heading', { level: 1, name: 'Bela school' })).toBeInTheDocument()
+        expect(calls()).toHaveLength(2)
+        click(button('Deal the cards'))
+        expect(calls()).toEqual([['started'], ['hand1'], ['started']])
+        await advance(1000)
+        click(within(panel()).getByRole('button', { name: 'Exit' }))
+        expect(screen.getByText('at /')).toBeInTheDocument()
+        expect(calls()).toHaveLength(3)
+    })
+
+    test('opening the guide, and leaving from the intro, counts nothing', async () => {
+        const user = userEvent.setup()
+        renderLearn()
+        await user.click(button('Exit'))
+        expect(screen.getByText('at /')).toBeInTheDocument()
+        expect(calls()).toEqual([])
+    })
+
+    test('a count that never answers holds nothing up', async () => {
+        counts.reportGuideEvent.mockImplementation(() => new Promise(() => {}))
+        fake()
+        renderLearn()
+        await playHand1()
+        expect(screen.getByRole('heading', { level: 1, name: 'Hand 1 done' })).toBeInTheDocument()
+        expect(calls()).toEqual([['started'], ['hand1']])
+        // the end screen's way on is the learner's own request: no count
+        bots.startBotGame.mockResolvedValue({ gameId: 'g7', lobbyId: 'l7' })
+        click(button('Play hand 2'))
+        await advance(0)
+        expect(screen.getByText('at /game/g7?guide=1')).toBeInTheDocument()
+        expect(calls()).toHaveLength(2)
     })
 })
 

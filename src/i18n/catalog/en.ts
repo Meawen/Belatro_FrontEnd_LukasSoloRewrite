@@ -912,7 +912,7 @@ export const en = {
             tables: 'Active Tables',
             deletions: 'Pending Deletions',
         },
-        // the signup cap and the waitlist (BetaPanel, spec §2.2, US-17); S15 adds the counts
+        // the signup cap and the waitlist (BetaPanel, spec §2.2, US-17); its counts are spec §9's (S15)
         beta: {
             title: 'Signups and the waitlist',
             loading: 'Loading signup numbers...',
@@ -929,6 +929,37 @@ export const en = {
             saved: 'Cap saved.',
             // a network or server failure
             saveFailed: "The cap wasn't saved. Try again.",
+            // the beta's counts under the cap (BetaPanel's second section, spec §9, US-18; GET /admin/beta's counts from B9): ten numbers and the last 14 Zagreb days; an older backend sends none and the section doesn't show
+            counts: {
+                title: 'Beta counts',
+                lead: 'Is the beta working? Each number covers the last 7 days, today included, unless it says 28. Players who came back finished games on two or more different days, as accounts or guests. A game with people had at least two humans at the table, guests included.',
+                days: "The last 14 days in Zagreb time, newest first. Today's numbers can still grow.",
+                // the tiles, keyed by the wire's names: the last 7 days with today, unless the label says 28
+                tile: {
+                    returning7: 'Came back (7 days)',
+                    returning28: 'Came back (28 days)',
+                    casualWithHumans7: 'Casual games with people',
+                    ranked7: 'Ranked games',
+                    guideStarted7: 'Bela school started',
+                    guideHand1_7: 'Hand 1 finished',
+                    guideHand2_7: 'Hand 2 finished',
+                    guestSignups7: 'Guests who signed up',
+                    invitesSent7: 'Waitlist links sent',
+                    invitesUsed7: 'Waitlist links used',
+                },
+                // the table's columns, keyed by perDay's names
+                column: {
+                    day: 'Day',
+                    casualWithHumans: 'Casual with people',
+                    ranked: 'Ranked',
+                    guideStarted: 'School: started',
+                    guideHand1: 'School: hand 1',
+                    guideHand2: 'School: hand 2',
+                    guestSignups: 'Guest signups',
+                    invitesSent: 'Links sent',
+                    invitesUsed: 'Links used',
+                },
+            },
         },
         // the user management (UserManagement): the list, its columns and tags, and the delete dialog
         users: {
@@ -1595,6 +1626,8 @@ export const en = {
             BOT_NOT_DELETABLE: "Bot accounts can't be deleted.",
             // the admin's signup cap (BetaPanel): the server's refusal and the field's own check
             CAP_INVALID: 'The signup cap must be a whole number, 0 or more. Leave it empty for no cap.',
+            // B9's guide count route (POST /api/public/guide-events): never shown, since the counts fail silently (S15); here so every code has a line (Ruling 4)
+            GUIDE_EVENT_INVALID: "The server didn't recognise this Bela school event, so nothing was recorded.",
             // friends
             FRIEND_USER_REQUIRED: 'Choose who to add as a friend.',
             FRIEND_SELF: "You can't add yourself as a friend.",

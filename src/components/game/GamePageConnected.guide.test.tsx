@@ -28,6 +28,9 @@ vi.mock('../../services/cardArt', async (importOriginal) => ({ ...(await importO
 // the guest's sign-up button reads signup-status (Ruling 6/47); its request is betaService.test's
 const beta = vi.hoisted(() => ({ signupStatus: vi.fn() }))
 vi.mock('../../services/betaService', () => ({ betaService: beta }))
+// the guide's counts (spec §9): their request is guideEvents.test's; here what is counted, and when
+const counts = vi.hoisted(() => ({ reportGuideEvent: vi.fn(() => Promise.resolve()) }))
+vi.mock('../../services/guideEvents', () => counts)
 
 const actions = { bidTrump: vi.fn(), passBid: vi.fn(), play: vi.fn(), challenge: vi.fn() }
 const seating = ['alice', 'bob', 'carol', 'dave'].map((id) => ({ id, cardsLeft: 6 }))
@@ -369,5 +372,108 @@ describe("the guide's end, after hand 2's first hand (open beta §7.4)", () => {
         } finally {
             setLang('en')
         }
+    })
+})
+
+describe("hand 2's count (open beta spec §9)", () => {
+    const calls = () => counts.reportGuideEvent.mock.calls
+    /** A view of the game at this state and these game totals (BIDDING 0–0 is hand 2's own deal). */
+    const at = (gameState: string, teamAScore: number, teamBScore: number, stateVersion: number, more: Partial<PublicGameView> = {}) => {
+        const pub = { ...publicView, gameState, teamAScore, teamBScore, stateVersion, ...more } as PublicGameView
+        return views(pub, { publicPart: pub, hand: HAND, yourTurn: false, challengeUsed: false, legalCards: null })
+    }
+    /** The page now sees this view, as a newer state arriving over the socket. */
+    function show(page: { rerenderPage: () => void }, next: GameViews) {
+        vi.mocked(useGameViews).mockReturnValue(next)
+        page.rerenderPage()
+    }
+
+    test("hand 2's end counts once, when the end screen opens (spec §9)", async () => {
+        const user = userEvent.setup()
+        vi.mocked(useGameViews).mockReturnValue(at('PLAYING', 0, 0, 5))
+        const page = renderPage()
+        expect(calls()).toEqual([])
+        show(page, at('HAND_COMPLETE', 162, 0, 20))
+        expect(guideEnd()).toBeNull()
+        expect(calls()).toEqual([])
+        show(page, at('BIDDING', 162, 70, 40))
+        expect(guideEnd()).not.toBeNull()
+        expect(calls()).toEqual([['hand2']])
+        show(page, at('PLAYING', 162, 70, 41))
+        expect(calls()).toHaveLength(1)
+        await user.click(within(guideEnd()!).getByRole('button', { name: 'Continue this game' }))
+        await waitFor(() => expect(guideEnd()).toBeNull())
+        expect(calls()).toHaveLength(1)
+    })
+
+    test("an end screen left open closes at each later hand's result and opens again at its deal, and still counts once", async () => {
+        vi.mocked(useGameViews).mockReturnValue(at('PLAYING', 0, 0, 5))
+        const page = renderPage()
+        show(page, at('BIDDING', 162, 70, 40))
+        expect(calls()).toEqual([['hand2']])
+        for (const [a, b, version] of [[300, 150, 80], [400, 280, 120]]) {
+            show(page, at('HAND_COMPLETE', a, b, version))
+            await waitFor(() => expect(guideEnd(), `result ${a}–${b}`).toBeNull())
+            show(page, at('BIDDING', a, b, version + 1))
+            expect(guideEnd(), `deal ${a}–${b}`).not.toBeNull()
+        }
+        expect(calls()).toEqual([['hand2']])
+    })
+
+    test("a refresh on the end screen doesn't count it again", async () => {
+        // a fresh page straight at the end screen saw no play: nothing to count, then or at any later opening
+        vi.mocked(useGameViews).mockReturnValue(at('BIDDING', 162, 70, 40))
+        const fresh = renderPage()
+        expect(guideEnd()).not.toBeNull()
+        expect(calls()).toEqual([])
+        show(fresh, at('HAND_COMPLETE', 300, 150, 80))
+        await waitFor(() => expect(guideEnd()).toBeNull())
+        show(fresh, at('BIDDING', 300, 150, 81))
+        expect(guideEnd()).not.toBeNull()
+        expect(calls()).toEqual([])
+        cleanup()
+
+        // after a page that counted it: unmount, and the same URL again at the end screen
+        vi.mocked(useGameViews).mockReturnValue(at('PLAYING', 0, 0, 5))
+        const page = renderPage()
+        show(page, at('HAND_COMPLETE', 162, 0, 20))
+        show(page, at('BIDDING', 162, 70, 40))
+        expect(calls()).toEqual([['hand2']])
+        page.unmount()
+        vi.mocked(useGameViews).mockReturnValue(at('BIDDING', 162, 70, 40))
+        renderPage()
+        expect(guideEnd()).not.toBeNull()
+        expect(calls()).toEqual([['hand2']])
+    })
+
+    test('a refresh during hand 2 still counts its end once', () => {
+        vi.mocked(useGameViews).mockReturnValue(at('PLAYING', 0, 0, 5))
+        renderPage().unmount()
+        vi.mocked(useGameViews).mockReturnValue(at('PLAYING', 0, 0, 5))
+        const page = renderPage()
+        show(page, at('BIDDING', 162, 70, 40))
+        expect(guideEnd()).not.toBeNull()
+        expect(calls()).toEqual([['hand2']])
+        // the sheet's opening animation goes with the page, not after the test
+        page.unmount()
+    })
+
+    test('nothing is counted outside guide mode or in a game that ends', () => {
+        vi.mocked(useGameViews).mockReturnValue(at('PLAYING', 0, 0, 5))
+        const plain = renderPage('/game/g1')
+        show(plain, at('BIDDING', 162, 70, 40))
+        expect(guideEnd()).toBeNull()
+        expect(calls()).toEqual([])
+        cleanup()
+
+        // a game that ends inside hand 2: a belot wins it, or it is called off
+        for (const end of [at('COMPLETED', 1001, 0, 20, { winnerTeamId: 'A' }), at('CANCELLED', 0, 0, 20)]) {
+            vi.mocked(useGameViews).mockReturnValue(at('PLAYING', 0, 0, 5))
+            const over = renderPage()
+            show(over, end)
+            expect(guideEnd(), end.publicView!.gameState).toBeNull()
+            cleanup()
+        }
+        expect(calls()).toEqual([])
     })
 })

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import hand1 from '../guide/hand1.recording.json';
 import { stepsOf, type GuideStep, type LessonKey } from '../guide/script';
@@ -19,6 +19,7 @@ import { preloadCardArt } from '../services/cardArt';
 import { getLang } from '../i18n/lang';
 import { useT } from '../i18n/t';
 import type { Rank } from '../types/game';
+import { reportGuideEvent } from '../services/guideEvents';
 
 // B8's recording of a real server game, in this lazy chunk (no request): read once, when the chunk loads
 const HAND1 = stepsOf(hand1);
@@ -155,6 +156,8 @@ export function LearnPage() {
     const { isAuthenticated, isGuest } = useAuth();
     const member = isAuthenticated && !isGuest;
     const [phase, setPhase] = useState<Phase>('intro');
+    // spec §9 (S15): this run's counts. A run starts at "Deal the cards" and ends at the next one, so each count goes once
+    const run = useRef<{ hand1: boolean } | null>(null);
     usePageTitle(t.titles.learn);
 
     // spec §3.6: the card art decoded once, before the deal (from the CDN, no request to the server)
@@ -164,12 +167,25 @@ export function LearnPage() {
 
     const exit = { line: member ? t.guide.exit.home : t.guide.exit.start, onExit: () => navigate(member ? '/dashboard' : '/') };
 
-    if (phase === 'hand') return <GuideHand member={member} exit={exit} onDone={() => setPhase('end')} />;
+    const deal = () => {
+        run.current = { hand1: false };
+        void reportGuideEvent('started');
+        setPhase('hand');
+    };
+    const handDone = () => {
+        if (run.current && !run.current.hand1) {
+            run.current.hand1 = true;
+            void reportGuideEvent('hand1');
+        }
+        setPhase('end');
+    };
+
+    if (phase === 'hand') return <GuideHand member={member} exit={exit} onDone={handDone} />;
     return (
         <div className="felt flex min-h-dvh items-center justify-center p-4 text-text">
             <Panel padding="lg" className="w-full max-w-md">
                 {phase === 'intro'
-                    ? <Intro onStart={() => setPhase('hand')} exit={exit} />
+                    ? <Intro onStart={deal} exit={exit} />
                     : <End signedOut={!isAuthenticated} onAgain={() => setPhase('intro')} exit={exit} />}
             </Panel>
         </div>

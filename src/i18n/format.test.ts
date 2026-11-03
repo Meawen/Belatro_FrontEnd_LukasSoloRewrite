@@ -91,4 +91,27 @@ describe('format: dates, relative times and numbers follow the language (spec §
         expect(formatLongDate('2026-11-08T23:30:00Z')).toBe('9. studenoga 2026.')
         expect(formatLongDate('x')).toBe('')
     })
+
+    test("formatDay: the server's Zagreb day as it came, in each language, whatever the browser's zone", async () => {
+        const { formatDay, setLang } = await load()
+        const was = process.env.TZ
+        try {
+            // UTC+14 and UTC−11: a day read as local midnight would move to the day before or after
+            for (const zone of [was, 'Pacific/Kiritimati', 'Pacific/Pago_Pago']) {
+                if (zone === undefined) delete process.env.TZ
+                else process.env.TZ = zone
+                setLang('en')
+                expect(formatDay('2026-10-21'), zone).toBe('Wed, Oct 21')
+                expect(formatDay('2026-11-03'), zone).toBe('Tue, Nov 3')
+                expect(formatDay('x'), zone).toBe('x')
+                setLang('hr')
+                expect(formatDay('2026-10-21'), zone).toBe('sri, 21. listopada')
+                expect(formatDay('2026-11-03'), zone).toBe('uto, 3. studenoga')
+                expect(formatDay('x'), zone).toBe('x')
+            }
+        } finally {
+            if (was === undefined) delete process.env.TZ
+            else process.env.TZ = was
+        }
+    })
 })

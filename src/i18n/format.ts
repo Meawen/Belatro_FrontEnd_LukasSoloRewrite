@@ -28,6 +28,18 @@ export function formatDayMonth(d: Date | string | number): string {
 }
 
 /**
+ * A day the server keyed as yyyy-MM-dd (the beta counts' Europe/Zagreb days): en "Wed, Oct 21", hr "sri, 21. listopada".
+ * Formatted in UTC, so the browser's own time zone never moves it to another day; anything else shows as it came.
+ */
+export function formatDay(day: string): string {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+    if (!match) return day;
+    const lang = getLang();
+    return new Intl.DateTimeFormat(lang, { weekday: 'short', day: 'numeric', month: lang === 'hr' ? 'long' : 'short', timeZone: 'UTC' })
+        .format(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+}
+
+/**
  * en November 6, 2026, hr 6. studenoga 2026. (the dot is the Croatian ordinal's); the day in Zagreb, the day the
  * server's emails name (MailService DAY_EN/DAY_HR). '' for an unparseable date.
  */
