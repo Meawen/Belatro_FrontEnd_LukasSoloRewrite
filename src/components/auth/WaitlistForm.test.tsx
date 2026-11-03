@@ -122,9 +122,9 @@ describe('WaitlistForm, "Red za stol" (spec §2.2)', () => {
         setLang('hr')
         const { unmount } = renderWaitlist()
         expect(screen.getByRole('heading', { level: 1, name: 'Red za stol' })).toBeInTheDocument()
-        expect(screen.getByText('Registracija je zasad puna. Ostavi e-adresu i javit ćemo ti se čim se oslobodi mjesto.')).toBeInTheDocument()
+        expect(screen.getByText('Zasad nema slobodnih mjesta. Ostavi e-adresu i javit ćemo ti se čim se oslobodi mjesto.')).toBeInTheDocument()
         expect(screen.getByLabelText('E-adresa')).toHaveAccessibleDescription(
-            'Prvo ti šaljemo poveznicu za potvrdu: adresa drži mjesto u redu tek kad je potvrdiš.')
+            'Najprije ćemo ti poslati poveznicu za potvrdu. Mjesto ti čuvamo tek kad potvrdiš adresu.')
         expect(screen.getByText('Ne želiš čekati? Igraj odmah, kao gost.')).toBeInTheDocument()
         expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Upiši se u red', 'Igraj protiv botova kao gost'])
         expect(screen.getByRole('link', { name: 'Prijavi se' })).toHaveAttribute('href', '/login')

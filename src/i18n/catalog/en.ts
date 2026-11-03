@@ -42,6 +42,9 @@ export const en = {
     // readers
     langSwitch: {
         label: 'Site language',
+        // a toast when the English catalog (its own chunk, i18n/catalog/loadEn) failed or took over 3 s: the first paint,
+        // the switch, a sign-in; it shows in the page's language, so in Croatian (Ruling 62)
+        englishFailed: "English didn't load. Reload the page to try again.",
     },
     // generic words and fallbacks, the same at every site (S4 and S5 reuse them)
     common: {

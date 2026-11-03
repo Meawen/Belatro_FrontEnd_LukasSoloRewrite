@@ -80,9 +80,9 @@ function signOutToLogin(): void {
 
 /**
  * Ruling 44: the pages that need no session; a guest whose session ends while reading one stays on it. Ruling 48 adds
- * the forgotten-password, sign-in and sign-up forms and the leaderboard.
+ * the forgotten-password, sign-in and sign-up forms and the leaderboard, Ruling 62 the waitlist's confirm link.
  */
-const SESSION_FREE_PATHS = ['/privacy', '/terms', '/rules', '/confirm-email', '/reset-password', '/forgot-password', '/login', '/signup', '/users'];
+const SESSION_FREE_PATHS = ['/privacy', '/terms', '/rules', '/confirm-email', '/waitlist/confirm', '/reset-password', '/forgot-password', '/login', '/signup', '/users'];
 
 /**
  * How a guest's session ends for good (spec §3.1, §8 "guest expired"; Rulings 7, 32): the server refused its token,

@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { authService, userService } from '../services';
 import { adoptAccountLang, getLang } from '../i18n/lang';
-import { ensureCatalog } from '../i18n/t';
+import { loadEnglish } from '../i18n/t';
 import { useMutation } from './useApi';
 import type {
     LoginRequestDTO,
@@ -117,11 +117,11 @@ export function useAuth() {
             // (UserLoginDetailsDTO is {id, username}), so it comes from GET /user/me; best effort.
             try {
                 const { language } = await userService.getMe();
-                // the English catalog loads on demand: it is here before the switch, so no page is half in English
-                if (language === 'en') await ensureCatalog(language);
-                adoptAccountLang(language);
+                // the English catalog loads on demand: it is here before the switch, so no page is half in English. One
+                // that fails or takes over 3 s keeps the device's language, and a toast says so (Ruling 62)
+                if (language !== 'en' || (await loadEnglish())) adoptAccountLang(language);
             } catch {
-                // an older server, a failed read, or an English catalog that didn't arrive: the device's language stays
+                // an older server or a failed read: the device's language stays
             }
 
             setAuthState({

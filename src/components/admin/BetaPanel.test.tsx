@@ -126,9 +126,9 @@ describe('BetaPanel: the signup cap and the waitlist (spec §2.2, US-17)', () =>
         const { unmount } = render(<BetaPanel />)
         expect(await screen.findByRole('heading', { level: 2, name: 'Registracije i Red za stol' })).toBeInTheDocument()
         expect(screen.getByText('Računi', { selector: 'dt' }).nextElementSibling?.textContent).toBe('1.234 / 2.000')
-        expect(screen.getByText('Čekaju u redu', { selector: 'dt' })).toBeInTheDocument()
+        expect(screen.getByText('Čekaju u redu (potvrđeni)', { selector: 'dt' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Spremi ograničenje' })).toBeInTheDocument()
-        expect(screen.getByLabelText('Najviše računa')).toHaveValue('2000')
+        expect(screen.getByLabelText('Najveći broj računa')).toHaveValue('2000')
         // gone before the language is reset after the test
         unmount()
     })

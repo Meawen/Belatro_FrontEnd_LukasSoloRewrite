@@ -83,6 +83,23 @@ describe('the HR · EN switch (spec §1.1)', () => {
         expect(jsdomStorage.getItem(KEY)).toBe('en')
     })
 
+    test('a device whose English failed to load: EN, still pressed, tries again, and the page turns English (Ruling 62)', async () => {
+        jsdomStorage.setItem(KEY, 'en')
+        const loadEn = vi.fn().mockRejectedValueOnce(new Error('Failed to fetch dynamically imported module'))
+        vi.doMock('../../i18n/catalog/loadEn.vitest', () => ({ enNow: null, loadEn }))
+        const { en } = await import('../../i18n/catalog/en')
+        // main.tsx's first paint: English didn't arrive, so the page is Croatian under an EN choice
+        await (await import('../../i18n/t')).catalogForFirstPaint()
+        await renderSwitch()
+        expect(screen.getByText('Postavke')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'EN' })).toHaveAttribute('aria-pressed', 'true')
+        loadEn.mockResolvedValueOnce(en)
+        await userEvent.setup().click(screen.getByRole('button', { name: 'EN' }))
+        expect(await screen.findByText('Settings')).toBeInTheDocument()
+        expect(loadEn).toHaveBeenCalledTimes(2)
+        expect(jsdomStorage.getItem(KEY)).toBe('en')
+    })
+
     test('each code is a 44-px target', async () => {
         await renderSwitch()
         for (const button of screen.getAllByRole('button')) expect(button.className).toMatch(/\bmin-w-11\b/)

@@ -125,7 +125,7 @@ describe('WaitlistConfirmPage (/waitlist/confirm, spec §2.2)', () => {
         const { unmount } = renderAt('/waitlist/confirm?token=tok-w')
         expect(screen.getByRole('heading', { level: 1, name: 'Potvrdi adresu za Red za stol' })).toBeInTheDocument()
         expect(document.title).toBe('Red za stol · Stiglja')
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Potvrdi mjesto u redu' }))
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Potvrdi svoje mjesto' }))
         expect(await screen.findByText(
             'Tvoja je e-adresa u Redu za stol. Kad se oslobodi mjesto, poslat ćemo ti osobnu poveznicu za registraciju, koja vrijedi 7 dana.')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Igraj protiv botova kao gost' })).toBeInTheDocument()

@@ -37,6 +37,10 @@ vi.mock('./components/game/GamePageConnected', () => ({ default: () => <h1>The t
 // The one-click bot game (spec §6): its request is NeedsAccountPage's own test's; here a stub.
 const bots = vi.hoisted(() => ({ startBotGame: vi.fn() }))
 vi.mock('./services/botGame', () => ({ startBotGame: bots.startBotGame }))
+// The signup cap and the waitlist (spec §2): their requests are betaService.test's. Signup status stays asked unless a
+// test answers it (the doors read Sign up meanwhile), so no answer lands after a test that doesn't wait for one.
+const beta = vi.hoisted(() => ({ signupStatus: vi.fn(), confirmWaitlist: vi.fn() }))
+vi.mock('./services/betaService', () => ({ betaService: beta }))
 // A table's room polls its lobby; here a stand-in that names the table it was given (and notes each table it showed).
 const rooms = vi.hoisted(() => ({ shown: [] as string[] }))
 vi.mock('./components/lobby/LobbyRoom', () => ({
@@ -60,6 +64,9 @@ beforeEach(() => {
     auth.guest = false
     auth.token = 'tok-1'
     bots.startBotGame.mockReset()
+    beta.signupStatus.mockReset()
+    beta.signupStatus.mockReturnValue(new Promise(() => {}))
+    beta.confirmWaitlist.mockReset()
     rooms.shown = []
     vi.mocked(useUser).mockReturnValue({ user: null, isLoading: false, error: null, refetch: vi.fn() } as never)
     vi.stubGlobal('localStorage', jsdomStorage)
@@ -167,6 +174,7 @@ describe('The waitlist link (spec §2.2, B7)', () => {
             await act(async () => {})
             const urls = fetch.mock.calls.map(([url]) => String(url))
             expect(urls.filter((url) => url.endsWith('/waitlist/confirm')), String(signedIn)).toEqual([])
+            expect(beta.confirmWaitlist, String(signedIn)).not.toHaveBeenCalled()
             cleanup()
         }
     })
@@ -312,6 +320,7 @@ describe('A guest (spec §3.2, §3.3)', () => {
     })
 
     test('Sign up leads to the sign-up form, not back here (PublicRoute and AuthPage let a guest through)', async () => {
+        beta.signupStatus.mockResolvedValue({ open: true })
         renderAt('/friends')
         await userEvent.setup().click(screen.getByRole('button', { name: 'Sign up' }))
         expect(window.location.pathname).toBe('/signup')
@@ -384,6 +393,7 @@ describe('The landing page and Doma (spec §4, §5)', () => {
         expect(window.location.pathname).toBe('/rules')
         cleanup()
 
+        beta.signupStatus.mockResolvedValue({ open: true })
         renderAt('/')
         await user.click(screen.getByRole('button', { name: 'Sign up' }))
         expect(window.location.pathname).toBe('/signup')

@@ -73,7 +73,7 @@ describe('useAuth and the site language (spec §1.1)', () => {
         jsdomStorage.clear()
         vi.resetModules()
     })
-    afterEach(() => { jsdomStorage.clear(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); vi.doUnmock('../i18n/catalog/loadEn.vitest') })
+    afterEach(() => { vi.useRealTimers(); jsdomStorage.clear(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); vi.doUnmock('../i18n/catalog/loadEn.vitest') })
 
     // as authService.login does: the token is stored before useAuth continues, so a setLang now would PUT
     const signIn = async () => {
@@ -164,6 +164,27 @@ describe('useAuth and the site language (spec §1.1)', () => {
         await act(async () => { response = await result.current.login({ username: 'ana', password: PASSWORD }) })
         expect(response).toBe(issued)
         expect(lang.getLang()).toBe('hr')
+    })
+
+    test("an English account's catalog that stalls: after 3 s the sign-in finishes in the device's language, saying so (Ruling 62)", async () => {
+        vi.useFakeTimers()
+        jsdomStorage.setItem('stiglja:lang', 'hr')
+        vi.doMock('../i18n/catalog/loadEn.vitest', () => ({ enNow: null, loadEn: vi.fn(() => new Promise(() => {})) }))
+        const { useAuth, authService, userService, lang } = await load()
+        const { currentToast } = await import('../components/ui/toastStore')
+        vi.spyOn(authService, 'login').mockImplementation(signIn)
+        vi.spyOn(userService, 'getMe').mockResolvedValue({ ...ME, language: 'en' })
+        captureConsole()
+        const { result } = renderHook(() => useAuth())
+        let signedIn = false
+        act(() => { void result.current.login({ username: 'ana', password: PASSWORD }).then(() => { signedIn = true }) })
+        await act(async () => { await vi.advanceTimersByTimeAsync(2999) })
+        expect(signedIn).toBe(false)
+        await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+        expect(signedIn).toBe(true)
+        expect(lang.getLang()).toBe('hr')
+        expect(currentToast()?.message).toBe('Engleski se nije učitao. Ponovno učitaj stranicu pa pokušaj opet.')
+        vi.useRealTimers()
     })
 
     test('signup sends the language the site is in', async () => {

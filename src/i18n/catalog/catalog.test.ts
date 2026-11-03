@@ -172,4 +172,24 @@ describe('the catalogs (spec §1.2)', () => {
         // the server still answers it while signup.invite-code is set (B7, flag 7)
         expect(en.errors.codes.INVITE_CODE_INVALID).toBeTruthy()
     })
+
+    test("Ruling 62's Croatian for the waitlist and the cap: no 'u redu' that reads as 'okay', no 'puna registracija'", () => {
+        expect(hr.auth.waitlist.lead).toBe('Zasad nema slobodnih mjesta. Ostavi e-adresu i javit ćemo ti se čim se oslobodi mjesto.')
+        expect(hr.auth.waitlist.confirmFirst).toBe('Najprije ćemo ti poslati poveznicu za potvrdu. Mjesto ti čuvamo tek kad potvrdiš adresu.')
+        expect(hr.auth.waitlistConfirm.button).toBe('Potvrdi svoje mjesto')
+        expect(hr.auth.waitlistConfirm.failed).toBe('Tvoje mjesto nismo uspjeli potvrditi.')
+        expect(hr.admin.beta.waiting).toBe('Čekaju u redu (potvrđeni)')
+        expect(hr.admin.beta.cap).toBe('Najveći broj računa')
+        expect(hr.admin.beta.capHelper).toBe(
+            'Najviše računa u beti; botovi i gosti se ne broje. Ostavi prazno ako ograničenja nema. Kad povećaš ograničenje, sljedeći u redu odmah dobivaju e-poruku.')
+        expect(hr.errors.codes.SIGNUP_FULL).toBe(
+            'Slobodnih mjesta više nema pa račun nije izrađen. Ispod se upiši u Red za stol i javit ćemo ti se e-porukom čim se oslobodi mjesto.')
+        expect(hr.errors.codes.INVITE_LINK_INVALID).toBe(
+            'Ova poveznica za registraciju ne vrijedi ili je istekla, a slobodnih mjesta trenutno nema. Ponovno se upiši ispod u Red za stol ili igraj kao gost.')
+    })
+
+    test("the line when English didn't load (Ruling 62): what happened, and what to do", () => {
+        expect(en.langSwitch.englishFailed).toBe("English didn't load. Reload the page to try again.")
+        expect(hr.langSwitch.englishFailed).toBe('Engleski se nije učitao. Ponovno učitaj stranicu pa pokušaj opet.')
+    })
 })
