@@ -22,7 +22,8 @@ import { LeaderboardPage } from './pages/LeaderboardPage';
 import { lazy, Suspense } from 'react';
 import { Loader } from './components/ui/Loader';
 import { useT } from './i18n/t';
-// The game page and its board are their own chunk, fetched when a game opens (spec §3.8, O-5): no other page loads them
+// The game page and its board are their own chunks, fetched when a game opens (spec §3.8, O-5); only Škola bele's page
+// (below) shares the board's
 const GamePage = lazy(() => import('./pages/GamePage').then((module) => ({ default: module.GamePage })));
 // Škola bele (spec §7): its own chunk, with its recording, fetched when /learn opens; signed in or out, outside the shell
 const LearnPage = lazy(() => import('./pages/LearnPage').then((module) => ({ default: module.LearnPage })));

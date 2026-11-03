@@ -209,4 +209,38 @@ describe('the catalogs (spec §1.2)', () => {
         expect(hr.guide.next).not.toBe(hr.board.pass)
         expect(en.guide.next).toBe('Next')
     })
+
+    test("Ruling 69's corrections to Škola bele's copy: the 152/162 count, and the Croatian found by its text", () => {
+        expect(en.guide.intro.lastTrick).toBe("The last trick is worth 10 more: a hand's cards are worth 152, and 162 with the last trick.")
+        expect(hr.guide.intro.lastTrick).toBe('Zadnji štih vrijedi još 10: karte jednog dijeljenja vrijede 152 boda, a sa zadnjim štihom 162.')
+        expect(hr.guide.intro.deck).toMatch(/^Bela se igra s 32 karte: /)
+        expect(hr.guide.intro.trumpNote).toContain('na početku dijeljenja; ona tuče sve ostale boje.')
+        expect(hr.guide.lessons.dalje.body).toContain('a Ivo i Ana igraju protiv vas')
+        expect(hr.guide.lessons.dalje.body).toContain('Redom, počevši od igrača nakon djelitelja,')
+        expect(hr.guide.lessons.dalje.body).toContain('pa si na redu na kraju.')
+        expect(hr.guide.lessons.mus.body).toContain('Kad svi ostali kažu „Dalje”')
+        expect(hr.guide.lessons.mus.body).toContain('a Kralj i Baba aduta čine belu')
+        expect(hr.guide.lessons.zvanja.body).toContain('Igra sama pronalazi zvanja i objavljuje ih')
+        expect(hr.guide.lessons.followSuit.body).toContain('s tvojom kartom te četiri karte čine štih')
+        expect(hr.guide.lessons.bela.body).toContain('Kralj i Baba aduta čine belu')
+        expect(hr.guide.lessons.bela.body).toContain('igra sama ne broji belu')
+        expect(hr.guide.lessons.followTrump.body).toContain('Kad netko otvori adutom')
+        expect(hr.guide.lessons.lead.body).toContain('As Tref je već pao')
+        expect(hr.guide.lessons.padanje.body).toContain('tvoja ih nema više')
+        expect(hr.guide.lessons.padanje.body).toContain('sva 232 boda')
+        expect(hr.guide.illegal.bela).toBe('Ivo je otvorio Hercom, a ti ga imaš: moraš odgovoriti Hercom.')
+        expect(hr.guide.illegal.followTrump).toBe('Ana je otvorila adutom, a ti imaš Herc: moraš odgovoriti adutom.')
+        expect(hr.guide.refuse.bela).toContain('inače nećeš dobiti njezinih 20 bodova')
+        expect(hr.guide.refuse.challengeEarly).toMatch(/^U pravoj igri možeš prijaviti čim/)
+        expect(hr.guide.refuse.challengeFoul).toContain('točna bi prijava sad odmah završila')
+        expect(hr.guide.end.learned).toContain('zbrojiti bodove dijeljenja')
+        expect(en.guide.lessons.followSuit.body).toContain('with your card these four cards make a trick')
+        expect(en.guide.lessons.lead.body).toContain('The As Tref has been played, so')
+        // every "smiješ" says what you may do, and no "Smiješ i nju"
+        for (const [path, value] of leaves(hr.guide)) {
+            if (typeof value !== 'string') continue
+            expect(value, path).not.toMatch(/smiješ bilo/i)
+            expect(value, path).not.toContain('Smiješ i nju')
+        }
+    })
 })

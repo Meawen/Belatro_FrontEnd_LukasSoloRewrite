@@ -26,6 +26,8 @@ export interface GuideReplay {
     /** The learner is at `step` (its move or Nastavi is awaited). */
     ready: boolean;
     refusal: RefusalKind | null;
+    /** How many moves were refused so far: the same refusal twice is said twice (the panel's live region). */
+    refused: number;
     /** At a lesson-only stop: on to the next step. */
     next: () => void;
     /** storedHands of the frames fed so far. */
@@ -74,11 +76,15 @@ interface Run {
     index: number;
     opens: Opens;
     refusal: RefusalKind | null;
+    refused: number;
     /** The learner just moved: its result comes at once, not on the table's pace. */
     moved: boolean;
 }
 
-/** Feeds frames from the cursor until one private frame has been accepted (normally a public+private pair). */
+/**
+ * Feeds frames from the cursor until one private frame has been accepted (normally a public+private pair). A refusal
+ * said while the table moved ends when the next step is reached, so it never carries into its lesson.
+ */
 function feed(guide: Guide, run: Run, now: number): Run {
     let { accepted, cursor, opens } = run;
     while (cursor < guide.frames.length) {
@@ -89,12 +95,13 @@ function feed(guide: Guide, run: Run, now: number): Run {
         accepted = acceptFrame(accepted, out.frame, now);
         if (frame.channel === 'private') break;
     }
-    return { ...run, accepted, cursor, opens, moved: false };
+    const reached = run.index < guide.steps.length && cursor > guide.steps[run.index].frame;
+    return { ...run, accepted, cursor, opens, moved: false, refusal: reached ? null : run.refusal };
 }
 
 function start(guide: Guide): Run {
     // the deal (frames 0 and 1), accepted at once
-    return feed(guide, { accepted: NOTHING_ACCEPTED, cursor: 0, index: 0, opens: new Map(), refusal: null, moved: false }, Date.now());
+    return feed(guide, { accepted: NOTHING_ACCEPTED, cursor: 0, index: 0, opens: new Map(), refusal: null, refused: 0, moved: false }, Date.now());
 }
 
 /**
@@ -141,7 +148,8 @@ export function useGuideReplay(guide: Guide): GuideReplay {
         marked: move?.kind === 'play' ? [cardId(move.card)] : undefined,
         onRefused: (m) => {
             const refusal = refusalOf(steps, index, ready, m);
-            if (refusal !== null) setRun((r) => (r.refusal === refusal ? r : { ...r, refusal }));
+            // counted every time: the same refusal again is said again
+            if (refusal !== null) setRun((r) => ({ ...r, refusal, refused: r.refused + 1 }));
         },
     };
     const actions: GameActions = {
@@ -163,5 +171,5 @@ export function useGuideReplay(guide: Guide): GuideReplay {
         return { hands: stored, ended, loading: false, error: null, refresh: () => {} };
     }, [guide, cursor]);
 
-    return { state, coach, actions, step, ready, refusal: run.refusal, next, hands, done };
+    return { state, coach, actions, step, ready, refusal: run.refusal, refused: run.refused, next, hands, done };
 }

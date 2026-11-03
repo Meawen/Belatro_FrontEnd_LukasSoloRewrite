@@ -215,6 +215,28 @@ describe('useGuideReplay: hand 1 on rails (open beta §7.2)', () => {
         expect(result.current.state.publicView.currentTrick.plays.ti).toEqual(T9)
     })
 
+    test('a refusal is said again when repeated, and never carries into the next lesson (Ruling 69)', () => {
+        const { result } = renderHook(() => useGuideReplay(HAND1))
+        playTo(result, 'followSuit')
+        expect(result.current.refused).toBe(0)
+        act(() => result.current.coach.onRefused?.({ kind: 'play', card: H7, bela: false }))
+        act(() => result.current.coach.onRefused?.({ kind: 'play', card: H7, bela: false }))
+        // the same refusal twice: the same line, counted twice, so the panel says it again
+        expect(result.current.refusal).toBe('illegal')
+        expect(result.current.refused).toBe(2)
+        expect(send(result, { kind: 'play', card: T9, bela: false })).toBe(true)
+        after(0)
+        // while the table moves on, a Challenge is refused with the real rule
+        act(() => result.current.coach.onRefused?.({ kind: 'challenge' }))
+        expect(result.current.ready).toBe(false)
+        expect(result.current.refusal).toBe('challengeEarly')
+        // the next lesson starts with nothing refused
+        untilReady(result)
+        expect(result.current.step?.lesson).toBe('mustTrump')
+        expect(result.current.refusal).toBeNull()
+        expect(result.current.refused).toBe(3)
+    })
+
     test('an allowed move goes on at once, Next goes on from a stop, and the whole hand reaches done', () => {
         const { result } = renderHook(() => useGuideReplay(HAND1))
         const wrong: Partial<Record<LessonKey, CoachMove>> = {

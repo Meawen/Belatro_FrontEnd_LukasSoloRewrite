@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import hand1 from '../../guide/hand1.recording.json'
 import { stepsOf, type LessonKey, type RefusalKind } from '../../guide/script'
@@ -12,22 +12,23 @@ import { en } from '../../i18n/catalog/en'
 const { steps } = stepsOf(hand1)
 const stepOf = (lesson: LessonKey) => steps.find((step) => step.lesson === lesson)!
 
-function show(lesson: LessonKey | null, { ready = true, refusal = null as RefusalKind | null, member = false, folded = false, container = undefined as HTMLElement | undefined } = {}) {
+function show(lesson: LessonKey | null, { ready = true, refusal = null as RefusalKind | null, member = false, phone = false, refused = 0, container = undefined as HTMLElement | undefined } = {}) {
     const onNext = vi.fn()
     const onExit = vi.fn()
-    const { unmount } = render(
+    const panelFor = (count: number) => (
         <LessonPanel
             step={lesson ? stepOf(lesson) : null}
             ready={ready}
             refusal={refusal}
+            refused={count}
             onNext={onNext}
             exitLine={member ? en.guide.exit.home : en.guide.exit.start}
             onExit={onExit}
-            folded={folded}
-        />,
-        container ? { container } : undefined,
+            phone={phone}
+        />
     )
-    return { panel: screen.getByTestId('lesson-panel'), onNext, onExit, unmount }
+    const { unmount, rerender } = render(panelFor(refused), container ? { container } : undefined)
+    return { panel: screen.getByTestId('lesson-panel'), onNext, onExit, unmount, refuseAgain: (count: number) => rerender(panelFor(count)) }
 }
 
 /** Each element comes after the one before it in the document. */
@@ -49,10 +50,15 @@ describe('LessonPanel (open beta §7.2)', () => {
         const body = within(panel).getByText(en.guide.lessons.mus.body)
         const rules = within(panel).getByRole('link', { name: 'More in the Rules ›' })
         inOrder(title, doLine, refusal, body, rules)
-        // Exit in the title's row, saying where it goes
+        // the do line is said by the page's own live region (a panel per lesson can't announce what it mounts with)
+        expect(doLine.closest('[aria-live]')).toBeNull()
+        // Exit in the title's row, which stays at the top of the slot when a refusal scrolls it (Ruling 69)
         const exit = within(panel).getByRole('button', { name: 'Exit' })
-        expect(exit.parentElement).toBe(title.parentElement)
+        expect(title.parentElement).toContainElement(exit)
+        expect(title.parentElement).toHaveClass('sticky')
+        // off a phone it says where it goes, visibly (spec §7.1)
         expect(exit).toHaveAccessibleDescription('Back to the start page')
+        expect(within(panel).getByText('Back to the start page')).not.toHaveClass('sr-only')
         await user.click(exit)
         expect(onExit).toHaveBeenCalledTimes(1)
         // the Rules section in a new tab, so the guide keeps its place (US-23)
@@ -69,6 +75,7 @@ describe('LessonPanel (open beta §7.2)', () => {
         inOrder(title, next, within(panel).getByText(en.guide.lessons.dalje.body))
         expect(within(panel).queryByRole('button', { name: 'Pass' })).not.toBeInTheDocument()
         expect(within(panel).getByRole('button', { name: 'Exit' })).toHaveAccessibleDescription('Back to Home')
+        expect(within(panel).getByText('Back to Home')).not.toHaveClass('sr-only')
         await user.click(next)
         expect(onNext).toHaveBeenCalledTimes(1)
     })
@@ -78,28 +85,57 @@ describe('LessonPanel (open beta §7.2)', () => {
         const { panel } = show('followSuit', { refusal: 'illegal' })
         const fold = within(panel).getByRole('button', { name: 'Follow suit' })
         expect(fold).toHaveAttribute('aria-expanded', 'true')
+        const lesson = document.getElementById(fold.getAttribute('aria-controls')!)!
+        expect(lesson).toContainElement(within(panel).getByText(en.guide.lessons.followSuit.body))
         await user.click(fold)
         expect(fold).toHaveAttribute('aria-expanded', 'false')
-        expect(within(panel).queryByText(en.guide.lessons.followSuit.body)).not.toBeInTheDocument()
-        expect(within(panel).queryByRole('link', { name: 'More in the Rules ›' })).not.toBeInTheDocument()
+        // still there for aria-controls, hidden (Ruling 69)
+        expect(document.getElementById(fold.getAttribute('aria-controls')!)).toBe(lesson)
+        expect(lesson).toHaveAttribute('hidden')
+        expect(within(panel).getByText(en.guide.lessons.followSuit.body)).not.toBeVisible()
+        expect(within(panel).getByRole('link', { name: 'More in the Rules ›', hidden: true })).not.toBeVisible()
         // what to do and why the last move was refused stay
-        expect(within(panel).getByText('Play 9 Tref.')).toBeInTheDocument()
+        expect(within(panel).getByText('Play 9 Tref.')).toBeVisible()
         expect(within(panel).getByTestId('guide-refusal')).toHaveTextContent(en.guide.illegal.followSuit)
-        expect(within(panel).getByRole('button', { name: 'Exit' })).toBeInTheDocument()
+        expect(within(panel).getByRole('button', { name: 'Exit' })).toBeVisible()
         await user.click(fold)
         expect(fold).toHaveAttribute('aria-expanded', 'true')
-        expect(within(panel).getByText(en.guide.lessons.followSuit.body)).toBeInTheDocument()
+        expect(within(panel).getByText(en.guide.lessons.followSuit.body)).toBeVisible()
     })
 
-    test('it can start folded (a phone, where the lesson would cover the card being answered); the title opens it', async () => {
-        const user = userEvent.setup()
-        const { panel } = show('followTrump', { folded: true })
-        const fold = within(panel).getByRole('button', { name: 'Trump on trump' })
-        expect(fold).toHaveAttribute('aria-expanded', 'false')
-        expect(within(panel).getByText('Play Baba Herc.')).toBeInTheDocument()
-        expect(within(panel).queryByText(en.guide.lessons.followTrump.body)).not.toBeInTheDocument()
-        await user.click(fold)
-        expect(within(panel).getByText(en.guide.lessons.followTrump.body)).toBeInTheDocument()
+    test('on a phone the lesson starts open too, and Exit’s line is for screen readers only (the slot is short)', () => {
+        const { panel } = show('followSuit', { phone: true })
+        expect(within(panel).getByRole('button', { name: 'Follow suit' })).toHaveAttribute('aria-expanded', 'true')
+        expect(within(panel).getByText(en.guide.lessons.followSuit.body)).toBeVisible()
+        const exit = within(panel).getByRole('button', { name: 'Exit' })
+        expect(exit).toHaveAccessibleDescription('Back to the start page')
+        expect(within(panel).getByText('Back to the start page')).toHaveClass('sr-only')
+    })
+
+    test('the same refusal again is said again: its line is a new node in the live region (Ruling 69)', () => {
+        const { panel, refuseAgain } = show('followSuit', { refusal: 'illegal', refused: 1 })
+        const region = within(panel).getByTestId('guide-refusal')
+        expect(region).toHaveAttribute('aria-live', 'polite')
+        const first = region.firstElementChild
+        expect(first).toHaveTextContent(en.guide.illegal.followSuit)
+        refuseAgain(2)
+        expect(region.firstElementChild).toHaveTextContent(en.guide.illegal.followSuit)
+        expect(region.firstElementChild).not.toBe(first)
+    })
+
+    test('the title row covers what scrolls under it only once the slot has scrolled (no band over the felt before)', () => {
+        const slot = document.body.appendChild(document.createElement('div'))
+        let top = 0
+        Object.defineProperty(slot, 'scrollTop', { configurable: true, get: () => top, set: (value: number) => { top = value } })
+        const { panel } = show('mus', { container: slot })
+        const row = within(panel).getByRole('heading', { level: 2 }).parentElement!
+        expect(row).not.toHaveClass('bg-ink')
+        top = 32
+        fireEvent.scroll(slot)
+        expect(row).toHaveClass('bg-ink')
+        top = 0
+        fireEvent.scroll(slot)
+        expect(row).not.toHaveClass('bg-ink')
     })
 
     test('a new lesson starts at the top of the slot, whatever the last one scrolled to', () => {

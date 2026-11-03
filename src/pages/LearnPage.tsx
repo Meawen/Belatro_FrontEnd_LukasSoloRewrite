@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import hand1 from '../guide/hand1.recording.json';
-import { stepsOf, type GuideStep } from '../guide/script';
+import { stepsOf, type GuideStep, type LessonKey } from '../guide/script';
 import { useGuideReplay } from '../guide/useGuideReplay';
 import { Board } from '../components/board/Board';
 import { layoutFor } from '../components/board/model/cardTargets';
@@ -24,17 +24,7 @@ const HAND1 = stepsOf(hand1);
 
 type Phase = 'intro' | 'hand' | 'end';
 
-/** A play that answers a card already on the table (not a lead): the trick the lesson talks about is there. */
-function answers(step: GuideStep | null): boolean {
-    const frame = step?.move?.kind === 'play' ? HAND1.frames[step.frame] : undefined;
-    const plays = frame?.channel === 'private' ? Object.keys(frame.body.publicPart.currentTrick?.plays ?? {}).length : 0;
-    return plays % 4 !== 0;
-}
-
-/**
- * The board lays this window out for a phone (portrait or landscape, as layoutFor decides): there the open lesson
- * covers the trick (S12's measure), so one that answers a card on the table starts folded to its title and do line.
- */
+/** The board lays this window out for a phone (portrait or landscape, as layoutFor decides): its coach slot is short. */
 const onPhone = () => ['portrait', 'landscape'].includes(layoutFor({ width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio || 1 }).kind);
 
 /** Exit, and the line under it that says where it goes (spec §7.1). */
@@ -88,6 +78,13 @@ function Intro({ onStart, exit }: { onStart: () => void; exit: { line: string; o
     );
 }
 
+/** A step as the live region says it: its title, then its do line or Nastavi ("Bidding. Next"). */
+function spoken(t: ReturnType<typeof useT>, step: GuideStep): string {
+    const { title } = t.guide.lessons[step.lesson];
+    const action = step.move ? (t.guide.do as Partial<Record<LessonKey, string>>)[step.lesson] : t.guide.next;
+    return `${title}${/[.!?]$/.test(title) ? '' : '.'} ${action ?? ''}`.trim();
+}
+
 /** Hand 1 on rails: the replay on the real board, the lesson in the board's coach slot, Exit in the game menu too. */
 function GuideHand({ member, exit, onDone }: { member: boolean; exit: { line: string; onExit: () => void }; onDone: () => void }) {
     const t = useT();
@@ -98,14 +95,17 @@ function GuideHand({ member, exit, onDone }: { member: boolean; exit: { line: st
     }, [done, onDone]);
     const leave = { label: t.guide.exit.label, note: member ? t.guide.exit.menuHome : t.guide.exit.menuStart, onLeave: exit.onExit };
     const panel = (
-        // a fresh panel per lesson: open, or folded on a phone where it would hide the card being answered
-        <LessonPanel key={r.step?.index ?? -1} step={r.step} ready={r.ready} refusal={r.refusal} onNext={r.next} exitLine={exit.line} onExit={exit.onExit}
-            folded={answers(r.step) && onPhone()} />
+        // a fresh panel per lesson: each starts open, at the top of the slot
+        <LessonPanel key={r.step?.index ?? -1} step={r.step} ready={r.ready} refusal={r.refusal} refused={r.refused} onNext={r.next}
+            exitLine={exit.line} onExit={exit.onExit} phone={onPhone()} />
     );
     return (
         <>
             {/* one h1 per page (spec §3.9); the lesson panel names each step */}
             <h1 className="sr-only">{t.titles.learn}</h1>
+            {/* the lesson out loud: one region for the whole hand (a panel mounted with its words says nothing), its
+                title and what to do once the learner is at it */}
+            <p data-testid="guide-said" aria-live="polite" className="sr-only">{r.ready && r.step ? spoken(t, r.step) : ''}</p>
             <Board state={r.state} me={HAND1.me} actions={r.actions} error={null} isConnected hands={r.hands} onLeave={exit.onExit}
                 coach={{ ...r.coach, panel, leave }} />
         </>

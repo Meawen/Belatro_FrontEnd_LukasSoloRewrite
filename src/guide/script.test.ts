@@ -122,6 +122,32 @@ describe('Škola bele hand 1: the recording and its steps (open beta §7.2)', ()
         expect(LESSON_RULES.foulFound).toBe('rules-challenge')
     })
 
+    test('a lesson shown over a live trick fits beside it on a phone: about 130 characters in both catalogs (Ruling 69)', () => {
+        // the steps whose frame has a trick under way (1–3 cards): the panel sits over it on a portrait phone
+        const live = guide.steps.filter((step) => {
+            const frame = guide.frames[step.frame].body as PrivateGameView
+            const cards = Object.keys(frame.publicPart.currentTrick?.plays ?? {}).length
+            return cards > 0 && cards < 4
+        }).map((step) => step.lesson)
+        expect(live).toEqual(['followSuit', 'mustTrump', 'foul', 'bela', 'foulSeen', 'followAfterCut', 'followTrump', 'followPik', 'lastTrick'])
+        for (const lesson of live) {
+            for (const [name, catalog] of [['en', en], ['hr', hr]] as const) {
+                // three lines at 375 px (Chromium, fix round 1: a fourth line reaches the side cards)
+                expect(catalog.guide.lessons[lesson].body.length, `${name} ${lesson}`).toBeLessThanOrEqual(140)
+            }
+        }
+        // the two foul stops (Nastavi takes a row) are the card and the rule, so ivo's card stays in sight
+        for (const lesson of ['foul', 'foulSeen'] as const) {
+            expect(en.guide.lessons[lesson].body.length, `en ${lesson}`).toBeLessThanOrEqual(100)
+            expect(hr.guide.lessons[lesson].body.length, `hr ${lesson}`).toBeLessThanOrEqual(100)
+        }
+        // what the foul stop no longer says, the challenge lesson does (spec §7.2: real bots never foul)
+        expect(en.guide.lessons.challenge.body).toContain('the bots on Stiglja never play one')
+        expect(hr.guide.lessons.challenge.body).toContain('botovi na Stiglji nikad ne bacaju nedopuštene karte')
+        expect(en.guide.lessons.foul.body).not.toContain('bots')
+        expect(hr.guide.lessons.foul.body).not.toContain('botovi')
+    })
+
     test('refusalOf names the reason for each kind of wrong move', () => {
         const cases: [LessonKey, boolean, CoachMove, string | null][] = [
             ['followSuit', true, play('HERC', 'SEDMICA'), 'illegal'],
@@ -137,9 +163,15 @@ describe('Škola bele hand 1: the recording and its steps (open beta §7.2)', ()
             ['followSuit', true, { kind: 'challenge' }, 'challengeEarly'],
             // after the foul it would be right, and would end the hand at once
             ['bela', true, { kind: 'challenge' }, 'challengeFoul'],
-            // a stop: read it first
-            ['foul', true, { kind: 'challenge' }, 'readFirst'],
-            ['padanje', true, { kind: 'challenge' }, 'readFirst'],
+            // a stop before the foul: read it first
+            ['dalje', true, { kind: 'challenge' }, 'readFirst'],
+            ['zvanja', true, { kind: 'challenge' }, 'readFirst'],
+            // a stop from the foul on (Ruling 69): a challenge would be right there (ivo held Kralj Tref)
+            ['foul', true, { kind: 'challenge' }, 'challengeFoul'],
+            ['foulSeen', true, { kind: 'challenge' }, 'challengeFoul'],
+            ['padanje', true, { kind: 'challenge' }, 'challengeFoul'],
+            // on the way to the foul stop, before ivo's card is fed: no foul yet
+            ['foul', false, { kind: 'challenge' }, 'challengeEarly'],
             // while the table moves: a card has nothing to say; a challenge says the rule by where the hand is
             ['followSuit', false, play('HERC', 'SEDMICA'), null],
             ['followSuit', false, { kind: 'challenge' }, 'challengeEarly'],
