@@ -36,6 +36,14 @@ function GameFallback() {
         </div>
     );
 }
+// /admin (AdminDashboard with BetaPanel, StatTile and UserManagement): its own chunk, fetched when an admin opens it, to
+// keep the entry chunk within its limit (the R4 review's cheapest lever)
+const AdminPage = lazy(() => import('./pages/AdminPage').then((module) => ({ default: module.AdminPage })));
+// While that chunk loads, inside the shell: the page loader the route guards show (PublicRoute, ProtectedRoute)
+function PageFallback() {
+    const t = useT();
+    return <Loader layout="page" text={t.common.loading} />;
+}
 // The dev board playground (spec §4.17): only in dev or in a build with VITE_DEV_BOARD=1, never in production
 const DevBoardPage = import.meta.env.DEV || import.meta.env.VITE_DEV_BOARD === '1' ? lazy(() => import('./dev/DevBoardPage')) : null;
 import { HomePage } from './pages/HomePage';
@@ -47,7 +55,6 @@ import { MatchDetailsPage } from './pages/MatchDetailsPage';
 import { ProfilePage, UserProfilePage } from './pages/ProfilePage';
 import { FriendsPage } from './pages/FriendsPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { AdminPage } from './pages/AdminPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { LandingPage } from './pages/LandingPage';
 
@@ -110,7 +117,7 @@ function App() {
                         <Route path="/profile/:userId" element={<MemberRoute area="profile"><UserProfilePage /></MemberRoute>} />
                         <Route path="/friends" element={<MemberRoute area="friends"><FriendsPage /></MemberRoute>} />
                         <Route path="/settings" element={<MemberRoute area="settings"><SettingsPage /></MemberRoute>} />
-                        <Route path="/admin" element={<AdminPage />} />
+                        <Route path="/admin" element={<Suspense fallback={<PageFallback />}><AdminPage /></Suspense>} />
                     </Route>
 
                     {/* Not found: in the shell signed in, in the public frame signed out (spec §4.16) */}
