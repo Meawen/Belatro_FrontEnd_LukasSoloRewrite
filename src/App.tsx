@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -24,6 +24,8 @@ import { Loader } from './components/ui/Loader';
 import { useT } from './i18n/t';
 // The game page and its board are their own chunk, fetched when a game opens (spec §3.8, O-5): no other page loads them
 const GamePage = lazy(() => import('./pages/GamePage').then((module) => ({ default: module.GamePage })));
+// Škola bele (spec §7): its own chunk, with its recording, fetched when /learn opens; signed in or out, outside the shell
+const LearnPage = lazy(() => import('./pages/LearnPage').then((module) => ({ default: module.LearnPage })));
 // While that chunk loads: the game page's own first frame (GamePageConnected before a socket is up)
 function GameFallback() {
     const t = useT();
@@ -81,8 +83,8 @@ function App() {
                     <Route path="/privacy" element={<PrivacyPage />} />
                     <Route path="/terms" element={<TermsPage />} />
                     <Route path="/rules" element={<RulesPage />} />
-                    {/* Škola bele (spec §7): its doors are in (S9); until its page lands (S13) they open the Rules and their guide */}
-                    <Route path="/learn" element={<Navigate to="/rules" replace />} />
+                    {/* Škola bele (spec §7): signed in or out, outside the shell (the fallback is the felt and "Mešamo karte…") */}
+                    <Route path="/learn" element={<Suspense fallback={<GameFallback />}><LearnPage /></Suspense>} />
                     {/* The leaderboard: in the shell signed in, its prompt in the public frame signed out (M-13) */}
                     <Route path="/users" element={<LeaderboardPage />} />
 

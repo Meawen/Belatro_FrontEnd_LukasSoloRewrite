@@ -22,6 +22,8 @@ export interface Coach {
     onRefused?(move: CoachMove): void;
     /** Shown in the board's coach slot, under the HUD. */
     panel?: ReactNode;
+    /** The game menu's way out (Škola bele's Izađi, open beta §7.1): its button, the line under it, what it does. Without it, "Back to home" to Doma. */
+    leave?: { label: string; note: string; onLeave: () => void };
 }
 
 /** The board's move (input.ts) as the coach sees it. */

@@ -120,6 +120,8 @@ export const SAMPLES = {
     'home.greeting': [['ana_k']],
     'landing.guest.continueAs': [['gost_4821']],
     'home.people.tables': [[0], [3]],
+    'guide.intro.trumpOrder': [['Dečko, 9, As, 10, Kralj, Baba, 8, 7']],
+    'guide.intro.plainOrder': [['As, 10, Kralj, Baba, Dečko, 9, 8, 7']],
     'tables.form.privateName': [['ana_k']],
     'table.sharePassword': [['kuna7']],
 };

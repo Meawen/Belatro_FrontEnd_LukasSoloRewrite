@@ -35,6 +35,8 @@ export const en = {
         notFound: 'Page not found',
         // the landing page (/) for a signed-out visitor or a guest: the browser tab only (its h1 is landing.headline)
         landing: 'Belot for four, online',
+        // Škola bele (/learn): the tab and the intro's h1 (spec §1.4 Guided hand)
+        learn: 'Bela school',
         // the waitlist's confirm page (/waitlist/confirm, from B7's mail): the browser tab; spec §1.4's name
         waitlist: 'Waitlist',
     },
@@ -1373,6 +1375,109 @@ export const en = {
         newToBela: {
             title: 'New to bela?',
             action: 'Bela school',
+        },
+    },
+    // Škola bele (/learn, spec §7): the intro before the deal (its h1 is titles.learn), the lesson panel on the board,
+    // hand 1's lessons in order (D-19, Ruling 49), why a move isn't the step's move, the way out, and the end of hand 1.
+    // Players are named as in B8's recording; cards as the board names them.
+    guide: {
+        intro: {
+            lead: "You'll play one hand at a real table, step by step. First, meet the cards.",
+            deck: 'Belot uses 32 cards: 7, 8, 9, 10, Decko (jack), Baba (queen), Kralj (king) and As (ace), in four suits: Herc (hearts), Karo (diamonds), Pik (spades) and Tref (clubs).',
+            // the table: its caption and columns
+            caption: 'What each card is worth',
+            card: 'Card',
+            trump: 'In trump',
+            plain: 'In other suits',
+            trumpNote: 'Trump is the suit someone calls at the start of a hand, and it beats every other suit. In trump the Decko and the 9 jump to the top.',
+            // the two orders: "Decko, 9, As, 10, Kralj, Baba, 8, 7"
+            trumpOrder: (ranks: string) => `In trump, highest first: ${ranks}.`,
+            plainOrder: (ranks: string) => `In other suits, highest first: ${ranks}.`,
+            lastTrick: 'The last trick is worth 10 more, so a hand holds 162 points in cards.',
+            start: 'Deal the cards',
+        },
+        // the panel's title while the cards are dealt, before the first lesson
+        dealing: 'Dealing…',
+        // a lesson that waits for no move: on to the next (not "Pass", which is the bid)
+        next: 'Next',
+        // under every lesson: its section of the Rules, in a new tab (US-23)
+        rules: 'More in the Rules ›',
+        lessons: {
+            dalje: { title: 'Bidding', body: "You sit at the bottom. Mara, opposite you, is your partner; Ivo and Ana play against you. Everyone holds six cards; two more come once someone calls trump. In turn from the player after the dealer, each calls a trump suit or passes. Ivo passed. You're the dealer, so you go last." },
+            mus: { title: 'You must call trump.', body: "Mara and Ana passed too. When everyone passes, the dealer must call trump and can't pass. You may call any suit, but the team that calls trump must end the hand with more points than the other. Herc is your best: you hold three, and the Kralj and Baba of trump are bela, 20 more points." },
+            zvanja: { title: 'Declarations (zvanja)', body: "Everyone got two more cards. You now hold 9, 10, Decko and Baba of Tref in a row: a declaration worth 50. Ivo holds Decko, Baba and Kralj of Pik: 20. The game finds declarations for you and says them before the first card. Only the team with the best one scores, and it scores all of its own: yours is worth more than Ivo's, so your team scores 50 and Ivo and Ana nothing." },
+            followSuit: { title: 'Follow suit', body: 'Ivo led As Tref, and Mara and Ana played theirs; these four cards are a trick. You hold Tref, so you must follow with Tref, and beat the best card if you can. None of your Tref beats the As, so any Tref will do. Play the weakest: Ivo takes this trick anyway.' },
+            mustTrump: { title: 'Trump it', body: 'Ivo led 9 Karo. Mara and Ana had to play a higher Karo than the one on the table, because they had one. You have no Karo, so you must trump: play a Herc. While nobody has trumped, any Herc will do, and even the smallest trump beats every Karo.' },
+            lead: { title: 'Your lead', body: 'The trick is yours: even the smallest trump beats every other suit. Whoever takes a trick leads the next, so you may play any card. As Tref is gone, so 10 Tref is now the best Tref left.' },
+            foul: { title: 'Watch this trick', body: "Ivo trumps with 9 Herc. That's allowed only if he has no Tref; if he has one, it's a foul. The game doesn't block illegal cards; it records them, and you can challenge an opponent's foul. People slip up; the bots on Stiglja never play an illegal card. Remember this trick." },
+            bela: { title: 'Bela', body: 'Ivo led Decko Herc, the top trump. You must follow with Herc, and you have nothing higher than the Decko, so any Herc will do. The Kralj and Baba of trump in one hand are bela: 20 points for your team. The game doesn\'t count bela for you: when you play the first of the two, choose "Play + Bela".' },
+            foulSeen: { title: 'He had Tref after all', body: 'Ivo led Kralj Tref. So he held Tref in the third trick and trumped it anyway: that was a foul. In a real game you can challenge right away; here we play the hand out and you challenge after it.' },
+            followAfterCut: { title: 'After someone trumps', body: "Ana has no Tref, so she trumped with 10 Herc. You hold Tref, so you must follow with Tref, but once someone has trumped you needn't beat anything: any Tref will do. Ana takes this trick anyway, so give her less: Decko Tref is worth 2, the Baba 3." },
+            followTrump: { title: 'Trump on trump', body: 'Ana took the trick and led As Herc, a trump. When trump is led you must follow with trump, higher if you can. Your only Herc is the Baba, so you must play it.' },
+            followPik: { title: 'Follow suit again', body: "Ana took the trick again and led As Pik. You hold 7 Pik, so you must follow with Pik, even though it can't beat the As." },
+            lastTrick: { title: 'Last trick', body: "Ana led 9 Pik. You have no Pik and no trump, so any card will do, and Baba Tref is all you have left. The last trick is worth 10 more: a hand's cards are worth 152, and 162 with the last trick." },
+            padanje: { title: 'Fell! You fell.', body: "Mara took the last trick. Your team has 102 points: 5 and 17 from two tricks, 10 for the last trick, 50 for the declaration and 20 for bela. Ivo and Ana have 130. The team that calls trump must score more than the other; yours didn't, so it fell, and Ivo and Ana take all 232 points of the hand." },
+            challenge: { title: 'Challenge', body: "Now challenge Ivo's foul from the third trick. You challenge during a hand or in the 10 seconds after it; here the clock waits for you. Each player has one challenge per game. A right challenge stays yours, and your team takes the whole hand. A wrong one costs no points, but you lose your challenge for the rest of the game." },
+            foulFound: { title: 'Foul found', body: 'Ivo broke the rules, so your team takes the whole hand: 162 points in cards, 50 for the declaration and 20 for bela, 232 in all. Ivo and Ana score nothing, and you keep your challenge because you were right.' },
+        },
+        // what to do, on the steps that wait for a move (the board's own button and card names)
+        do: {
+            mus: 'Press "Call Herc".',
+            followSuit: 'Play 9 Tref.',
+            mustTrump: 'Play 7 Herc.',
+            lead: 'Play 10 Tref.',
+            bela: 'Tap Kralj Herc, then choose "Play + Bela".',
+            followAfterCut: 'Play Decko Tref.',
+            followTrump: 'Play Baba Herc.',
+            followPik: 'Play 7 Pik.',
+            lastTrick: 'Play Baba Tref.',
+            challenge: 'Press "Challenge".',
+        },
+        // why a tapped card isn't the move: it breaks a rule here
+        illegal: {
+            followSuit: 'You hold Tref, so you must follow with Tref.',
+            mustTrump: 'You have no Karo, so you must trump: play a Herc.',
+            bela: 'Herc was led and you hold Herc: you must follow with Herc.',
+            followAfterCut: 'You hold Tref, so you must follow with Tref, even though Ana trumped.',
+            followTrump: 'Trump was led and you hold Herc: you must follow with trump.',
+            followPik: 'You hold Pik, so you must follow with Pik.',
+        },
+        // why a tapped card isn't the move: it is allowed, but the lesson plays another
+        other: {
+            followSuit: "You may, but you can't beat the As, so don't give away points: 9 Tref is worth nothing outside trump.",
+            mustTrump: 'You may, but keep the Kralj and Baba of Herc for bela. Play 7 Herc.',
+            lead: 'You may lead any card, but here play 10 Tref.',
+            bela: 'You may play the Baba, but here play Kralj Herc and declare bela.',
+            followAfterCut: 'You may play the Baba, but Ana takes this trick, so give her less: play Decko Tref.',
+        },
+        // why a move isn't the step's move, whatever the lesson
+        refuse: {
+            bela: 'Right card, but declare bela too: choose "Play + Bela", or you miss its 20 points.',
+            bid: 'You may call any suit, but here call Herc: you hold three, the Kralj and Baba among them for bela.',
+            pass: "You can't pass: when everyone else passes, the dealer must call trump.",
+            challengeEarly: 'In a real game you may challenge from the first card. But nobody has broken a rule yet: the challenge would be wrong and use up your only one for the game.',
+            challengeFoul: 'Well spotted! In a real game a right challenge now would end the hand at once. Here we play it out so you see the scoring too, and you challenge after the hand.',
+            readFirst: 'Read this first, then press "Next".',
+            card: 'Here, play the highlighted card.',
+        },
+        // the way out: the button, where it goes (a member: Home; a guest or a visitor: the landing page), and the
+        // game menu's note
+        exit: {
+            label: 'Exit',
+            home: 'Back to Home',
+            start: 'Back to the start page',
+            menuHome: 'You go back Home. You can replay Bela school any time.',
+            menuStart: 'You go back to the start page. You can replay Bela school any time.',
+        },
+        // the end of hand 1 (S14 completes it): what was learned, what comes next, and the ways on
+        end: {
+            title: 'Hand 1 done',
+            learned: 'Now you know how to call trump, follow suit, trump, declare bela, count a hand and challenge a foul.',
+            next: 'Next is hand 2, against three bots, with a fresh deal.',
+            // signed out only: the game makes them a guest
+            guest: "You'll play as a guest: no account needed.",
+            play: 'Play hand 2',
+            again: 'Replay Bela school',
         },
     },
     // relative times ("5 minutes ago"), wherever a time is shown

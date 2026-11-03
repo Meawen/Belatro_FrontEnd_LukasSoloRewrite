@@ -204,11 +204,12 @@ describe('Rules (R-41)', () => {
         expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument()
     })
 
-    test('"Bela school" on Doma opens Škola bele, the Rules until S13 (call 1)', async () => {
+    test('"Bela school" on Doma opens Škola bele (spec §7.1)', async () => {
         renderAt('/dashboard')
         await userEvent.setup().click(screen.getByRole('button', { name: 'Bela school' }))
-        expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
-        expect(window.location.pathname).toBe('/rules')
+        // its own chunk (S13): the page comes once the chunk has loaded
+        expect(await screen.findByRole('heading', { level: 1, name: 'Bela school' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/learn')
     })
 
     test('an expired stored token: /rules asks nothing, signs nobody out and stays readable', async () => {
@@ -388,9 +389,9 @@ describe('The landing page and Doma (spec §4, §5)', () => {
         renderAt('/')
         expect(screen.getByRole('heading', { level: 1, name: 'Belot for four, online.' })).toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: 'Teach me' }))
-        // call 1: /learn opens the Rules until Škola bele's page lands (S13)
-        expect(await screen.findByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
-        expect(window.location.pathname).toBe('/rules')
+        // Škola bele (spec §7.1), signed out too
+        expect(await screen.findByRole('heading', { level: 1, name: 'Bela school' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/learn')
         cleanup()
 
         beta.signupStatus.mockResolvedValue({ open: true })
