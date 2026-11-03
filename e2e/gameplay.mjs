@@ -1,8 +1,33 @@
 #!/usr/bin/env node
 // Four-seat release-gate harness through the real SPA (spec R-44, plus the rig checks of R-10,
-// R-28, R-30, R-37 and R-45), on the redesigned SPA (UI-redesign spec §7.4).
+// R-28, R-30, R-37 and R-45), on the redesigned SPA (UI-redesign spec §7.4), with the open beta's
+// guest game and Škola bele (open-beta spec §11). Three flows, run in the order E2E_FLOWS names
+// them; the first failure stops the run:
+//   seats  the four-seat game below.
+//   guest  E2E_GUESTS signed-out visitors at once (open-beta spec §4, §6), each in its own
+//          context: the landing page's Bots door ("Play now"), a whole game against three bots
+//          (Herc called on each of the guest's bids, its first playable card played), then the end
+//          sheet ("You won!" or "Next time.", the winner at 1001 or more, no end reason, "Play with
+//          people" and "Back", no Match details), the guest's own structured moves (every hand with
+//          its 8 won tricks and summary, the last summary's scores the table's), and "Back" to the
+//          landing page, which greets the returning guest ("Continue as …").
+//   learn  a signed-out visitor's Škola bele (open-beta spec §7, §9): the landing page's Bela
+//          school door, "Deal the cards", hand 1 followed step by step from
+//          src/guide/hand1.recording.json (Next at a lesson-only stop, the step's bid, card, bela or
+//          Challenge otherwise; no refusal may show) to "Hand 1 done", with no request to the API
+//          until then but the guide's counts (no guest, no socket); then "Play hand 2" (a guest's
+//          bot game in guide mode), whose first hand is played with the marked cards only (no foul
+//          warning, one Hint opened) up to the guide's end ("Bela school is done"), where "Continue
+//          this game" drops ?guide=1. POST /api/public/guide-events must answer 204 exactly three
+//          times, started, hand1 and hand2 in that order (a cross-origin JSON POST: its preflight
+//          passed).
+// The guest and learn flows need the open-beta backend; E2E_FLOWS=seats gives the old four-seat
+// run. Every flow's tabs open in English at E2E_VIEWPORT's size, and a ?user= in any request or
+// socket URL fails the flow. Signup must be open: no invite code (the backend's SIGNUP_INVITE_CODE
+// unset) and no cap reached (the admin page's cap empty, or above the accounts); a refused or full
+// signup fails at once, naming which.
 //
-// Four isolated browser contexts sign up with the invite code and optionally confirm their
+// Four isolated browser contexts sign up and optionally confirm their
 // email address from the mail in Mailpit; the fourth seat then signs out and in again through
 // the login form. Each tab checks that /play opens exactly one STOMP socket. The host creates the
 // lobby ("Create table", then the sheet's "Create") and lands in it, seated in Team A. Each guest
@@ -32,9 +57,16 @@
 //   npm i --prefix <dir> playwright-core@1.62.1
 //   PLAYWRIGHT_CORE_DIR=<dir>/node_modules/playwright-core node e2e/gameplay.mjs
 // Env: SPA_URL (default http://localhost:5173), API_URL (default http://localhost:8080),
-// MAILPIT_URL (default http://localhost:8025), E2E_INVITE_CODE (the backend's
-// SIGNUP_INVITE_CODE; unset leaves the field empty), HEADLESS=0 to watch, E2E_ARTIFACTS for
-// failure screenshots. Modes, each off unless set:
+// MAILPIT_URL (default http://localhost:8025), HEADLESS=0 to watch, E2E_ARTIFACTS for failure
+// screenshots (<flow>-<tab>.png). Flows:
+//   E2E_FLOWS=seats,guest,learn   the default: a comma list of those names.
+//   E2E_GUESTS=1          the guest flow's games at once, 1 to 10 (one context each). Each needs
+//                         one of the backend's guests (10 an hour per IP, guest:ip, in memory: a
+//                         backend restart resets it) and one host under the bot-game ceiling (16
+//                         hosts in 20 minutes, stored in Mongo). Set without guest in E2E_FLOWS,
+//                         it is an error.
+// Modes, each off unless set; they belong to the seats flow, and one set without seats in
+// E2E_FLOWS is an error:
 //   E2E_CONFIRM_EMAIL=1   confirm every address from its mail, which must come from
 //                         "Stiglja <no-reply@stiglja.com>", with a "Stiglja: " subject and a
 //                         link to SPA_URL's origin.
@@ -68,7 +100,7 @@
 
 import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
-import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -79,7 +111,11 @@ const { chromium } = require(process.env.PLAYWRIGHT_CORE_DIR ?? 'playwright-core
 const SPA = process.env.SPA_URL ?? 'http://localhost:5173';
 const API = (process.env.API_URL ?? 'http://localhost:8080').replace(/\/+$/, '');
 const MAILPIT = process.env.MAILPIT_URL ?? 'http://localhost:8025';
-const INVITE_CODE = process.env.E2E_INVITE_CODE ?? '';
+const FLOW_NAMES = ['seats', 'guest', 'learn'];
+// the seats flow's modes: each set without seats in E2E_FLOWS is a usage error
+const SEATS_MODES = ['E2E_CONFIRM_EMAIL', 'E2E_SOCKJS_TRANSPORT', 'E2E_RESTART_CMD', 'E2E_EXPECT_RENEWAL', 'E2E_REMATCH', 'E2E_LANDSCAPE_CHECK', 'E2E_RECORD_VIEWS'];
+const FLOWS = parseFlows(process.env.E2E_FLOWS ?? 'seats,guest,learn');
+const GUESTS = parseGuests(process.env.E2E_GUESTS);
 const CONFIRM_EMAIL = process.env.E2E_CONFIRM_EMAIL === '1';
 const TRANSPORT = process.env.E2E_SOCKJS_TRANSPORT ?? '';
 const XHR = TRANSPORT === 'xhr-streaming';
@@ -143,10 +179,31 @@ if (XHR && (RESTART_CMD || EXPECT_RENEWAL)) {
 if (RESTART_CMD && EXPECT_RENEWAL) usage('E2E_RESTART_CMD and E2E_EXPECT_RENEWAL are separate runs');
 if (LANDSCAPE_CHECK && !VIEWPORT) usage('E2E_LANDSCAPE_CHECK=1 needs E2E_VIEWPORT, the size the tab turns back to');
 if (XHR && RECORD_VIEWS) usage('E2E_RECORD_VIEWS=1 reads WebSocket frames: it cannot be combined with E2E_SOCKJS_TRANSPORT=xhr-streaming');
+for (const mode of SEATS_MODES) {
+    if (process.env[mode] && !FLOWS.includes('seats')) usage(`${mode} is a mode of the seats flow: add seats to E2E_FLOWS`);
+}
+if (process.env.E2E_GUESTS !== undefined && !FLOWS.includes('guest')) usage('E2E_GUESTS sizes the guest flow: add guest to E2E_FLOWS');
 
 function usage(message) {
     console.error(message);
     process.exit(2);
+}
+
+// E2E_FLOWS: a comma list of FLOW_NAMES, each once, run in the order given.
+function parseFlows(value) {
+    const names = value.split(',').map((name) => name.trim());
+    for (const name of names) {
+        if (!FLOW_NAMES.includes(name)) usage(`E2E_FLOWS takes a comma list of ${FLOW_NAMES.join(', ')}; got "${value}"`);
+    }
+    if (new Set(names).size !== names.length) usage(`E2E_FLOWS names a flow twice: "${value}"`);
+    return names;
+}
+
+// E2E_GUESTS: the guest flow's games at once, a whole number from 1 to 10 (default 1).
+function parseGuests(value) {
+    if (value === undefined) return 1;
+    if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > 10) usage(`E2E_GUESTS must be a whole number from 1 to 10, got "${value}"`);
+    return Number(value);
 }
 
 function parseViewport(value) {
@@ -341,17 +398,32 @@ function saveRecording(recording, username) {
 
 async function signUp(page, username) {
     await page.goto(`${SPA}/signup`);
-    await page.getByLabel('Username', { exact: true }).fill(username);
+    // The beta signs up without an invite code: a backend that still wants one refuses the account, and a full
+    // signup shows the waitlist instead of the form (on load, or after the submit). Either fails at once.
+    const refused = page.getByText(/^Invalid invite code/).first();
+    const full = page.getByRole('button', { name: 'Join the waitlist', exact: true });
+    const refusal = async () => {
+        if (await refused.isVisible().catch(() => false)) {
+            throw new Error(`signup refused (${username}): the backend still has SIGNUP_INVITE_CODE set; the beta signs up without one`);
+        }
+        if (await full.isVisible().catch(() => false)) {
+            throw new Error(`signup is full (${username}): remove the cap on the admin page (PUT /admin/beta/cap {"cap":null})`);
+        }
+    };
+    const usernameField = page.getByLabel('Username', { exact: true });
+    await waitUntil(async () => {
+        await refusal();
+        return usernameField.isVisible().catch(() => false);
+    }, 15000, `${username}'s signup form shows`);
+    await usernameField.fill(username);
     await page.getByLabel('Email', { exact: true }).fill(emailOf(username));
     await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
     await page.getByLabel('Confirm Password', { exact: true }).fill(PASSWORD);
-    if (INVITE_CODE) await page.locator('input[name="inviteCode"]').fill(INVITE_CODE);
     await page.getByRole('button', { name: 'Create Account', exact: true }).click();
     // From the email lane on, a "check your inbox" panel comes first.
     const proceed = page.getByRole('button', { name: 'Continue', exact: true });
-    const refused = page.getByText('Invalid invite code').first();
     await waitUntil(async () => {
-        if (await refused.isVisible().catch(() => false)) throw new Error(`signup refused: Invalid invite code (${username})`);
+        await refusal();
         return page.url().endsWith('/dashboard') || (await proceed.isVisible().catch(() => false));
     }, 15000, `${username} signed up`);
     if (!page.url().endsWith('/dashboard')) {
@@ -566,17 +638,21 @@ async function playFirstHandBids(pages, mobile) {
 // an illegal card (as a foul), so a clicked card still in the hand while the turn stays is a lost
 // click and fails the run. Null once the card left the hand, or when a token renewal had the
 // socket down at the click (the table says NOT_SENT; the next round clicks again). "<seat> <card>"
-// when the turn passed without the click: the turn timer moved first.
-async function playOneCard(page, label, stats) {
+// when the turn passed without the click: the turn timer moved first. `marked` (Škola bele's hand 2)
+// clicks only the cards the server marks legal.
+async function playOneCard(page, label, stats, { marked } = {}) {
     const cards = page.getByTestId('hand-card');
+    const choice = marked ? '[data-testid="hand-card"][data-marked="true"]' : '[data-testid="hand-card"]';
+    const choices = page.locator(choice);
     const belaPrompt = page.getByRole('button', { name: 'Play + Bela', exact: true });
     // Gameplay rules §4: after a trump call with declarations the lead's turn already shows, but every
     // card stays disabled until play opens (about 5 s): wait for a playable card, or for the turn to pass.
-    await waitUntil(async () => (await page.locator('[data-testid="hand-card"]:enabled').count()) > 0 || !(await myTurn(page)),
+    await waitUntil(async () => (await page.locator(`${choice}:enabled`).count()) > 0 || !(await myTurn(page)),
         10000, `${label} has a playable card`).catch(() => {});
     const count = await cards.count();
-    for (let i = 0; i < count; i++) {
-        const card = cards.nth(i);
+    const choiceCount = await choices.count();
+    for (let i = 0; i < choiceCount; i++) {
+        const card = choices.nth(i);
         if (await card.isDisabled().catch(() => true)) continue;
         const id = await card.getAttribute('data-card');
         await card.click({ position: cardClickPoint(await cardGeometry(card)) });
@@ -646,7 +722,7 @@ async function landscapePlay(pages, stats, mobile) {
 // turn timer took while its seat was playing it fails the run at the end, except the first move
 // after a restart: its timer was re-armed while the tabs were still reconnecting (spec R-21), and
 // that auto-played card is harmless.
-async function playToTheEnd(pages, stats, restart) {
+async function playToTheEnd(pages, stats, restart, labels = PLAYERS) {
     let firstMove = true;
     for (;;) {
         if (stats.plays > MAX_PLAYS) throw new Error(`no end after ${stats.plays} cards`);
@@ -660,7 +736,7 @@ async function playToTheEnd(pages, stats, restart) {
                 return true;
             }
             const cancelled = phases.indexOf('CANCELLED');
-            if (cancelled >= 0) throw new Error(`${PLAYERS[cancelled]}'s table says the game was cancelled (after ${stats.plays} cards)`);
+            if (cancelled >= 0) throw new Error(`${labels[cancelled]}'s table says the game was cancelled (after ${stats.plays} cards)`);
             for (const [i, page] of pages.entries()) {
                 if ((phases[i] === 'BIDDING' || phases[i] === 'PLAYING') && (await myTurn(page))) {
                     actor = i;
@@ -675,11 +751,11 @@ async function playToTheEnd(pages, stats, restart) {
             return;
         }
         if (actorPhase === 'BIDDING') {
-            await bid(pages[actor], PLAYERS[actor], 'Call Herc');
+            await bid(pages[actor], labels[actor], 'Call Herc');
             stats.trumpCalls += 1;
         } else {
             if (EXPECT_RENEWAL) await sleep(RENEWAL_PACE_MS);
-            const lost = await playOneCard(pages[actor], PLAYERS[actor], stats);
+            const lost = await playOneCard(pages[actor], labels[actor], stats);
             if (lost && restart && firstMove) restart.firstMoveLostToTimer = lost;
             else if (lost) stats.lostTurns.push(lost);
         }
@@ -703,7 +779,9 @@ async function matchDetailsScores(context, gameId) {
 }
 
 // UI-redesign spec §6.3 on the real stack: every hand played is stored with its 8 tricks, each with
-// its winner, and with its summary; no empty hand follows the last one.
+// its winner, and with its summary; no empty hand follows the last one. A null `handsPlayed` takes
+// any count from 1 (a guest's game, whose hands the harness doesn't count). `last` is the last
+// hand's summary: its finalScoreA/finalScoreB are the game's totals.
 async function checkStoredHands(gameId, token, handsPlayed) {
     const response = await fetch(`${API}/matches/${gameId}/structured-moves`, { headers: { Authorization: `Bearer ${token}` } });
     if (!response.ok) throw new Error(`GET /matches/${gameId}/structured-moves answered ${response.status}`);
@@ -711,11 +789,13 @@ async function checkStoredHands(gameId, token, handsPlayed) {
     const tricks = hands.map((hand) => (hand.tricks ?? []).length);
     const unwon = hands.flatMap((hand) => (hand.tricks ?? []).filter((trick) => !trick.winnerId).map((trick) => `${hand.handNo}.${trick.trickNo}`));
     const unsummed = hands.filter((hand) => !hand.handSummary).map((hand) => hand.handNo);
-    if (hands.length !== handsPlayed || !tricks.every((n) => n === 8) || unwon.length || unsummed.length) {
-        throw new Error(`structured moves of ${gameId}: ${hands.length} hands (played ${handsPlayed}), tricks per hand ${tricks.join(',')}, `
+    const counted = handsPlayed === null ? hands.length >= 1 : hands.length === handsPlayed;
+    if (!counted || !tricks.every((n) => n === 8) || unwon.length || unsummed.length) {
+        throw new Error(`structured moves of ${gameId}: ${hands.length} hands (played ${handsPlayed ?? 'at least 1'}), tricks per hand ${tricks.join(',')}, `
             + `tricks without a winner ${unwon.join(',') || 'none'}, hands without a summary ${unsummed.join(',') || 'none'}`);
     }
-    return { hands: hands.length, tricks };
+    const last = hands.at(-1).handSummary;
+    return { hands: hands.length, tricks, last: { finalScoreA: last.finalScoreA, finalScoreB: last.finalScoreB } };
 }
 
 // The end: every seat shows the same winner and scores, the backend's match record says the same
@@ -851,20 +931,27 @@ const socketTrace = (seats) => seats.map((seat) => seat.sockets.map((socket) => 
     refreshesBeforeState: socket.refreshesBeforeState,
 })));
 
-async function main() {
-    mkdirSync(ARTIFACTS, { recursive: true });
-    const browser = await chromium.launch({ headless: process.env.HEADLESS !== '0' });
-    const leaks = [];
-    const contexts = await Promise.all(PLAYERS.map(() => browser.newContext(VIEWPORT ? { viewport: VIEWPORT } : {})));
+// A context for one tab of any flow, at E2E_VIEWPORT's size.
+async function englishContext(browser) {
+    const context = await browser.newContext(VIEWPORT ? { viewport: VIEWPORT } : {});
     // Outside vitest the SPA opens in Croatian (open beta §1.1); this harness reads the English, so every page starts
     // with the language stored as English (also after logInAgain clears the storage).
-    await Promise.all(contexts.map((context) => context.addInitScript(() => {
+    await context.addInitScript(() => {
         try {
             localStorage.setItem('stiglja:lang', 'en');
         } catch {
             // about:blank has no storage
         }
-    })));
+    });
+    return context;
+}
+
+// The four-seat game. Its tabs go into `run` (for a failure's screenshots); a failure carries what was
+// observed up to it as `error.observed`.
+async function seatsFlow(browser, run) {
+    const leaks = [];
+    const contexts = await Promise.all(PLAYERS.map(() => englishContext(browser)));
+    run.contexts.push(...contexts);
     if (XHR) {
         // SockJS takes its websocket transport whenever the browser has WebSocket; without it,
         // xhr-streaming comes next (spec R-28: both must work across origins).
@@ -874,6 +961,7 @@ async function main() {
         })));
     }
     const pages = await Promise.all(contexts.map((context) => context.newPage()));
+    pages.forEach((page, i) => run.pages.push({ label: PLAYERS[i], page }));
     const seats = pages.map((page, i) => watch(page, PLAYERS[i], leaks));
     const recording = RECORD_VIEWS ? recordViews(pages[0]) : null;
     const stats = { plays: 0, trumpCalls: 0, belaPrompts: 0, notSent: 0, missedPlays: 0, lostTurns: [] };
@@ -949,8 +1037,7 @@ async function main() {
         const final = await checkTheEnd(pages, stats.trumpCalls + 1);
         const rematchReport = REMATCH ? await rematch(pages) : null;
         const recorded = recording ? saveRecording(recording, PLAYERS[0]) : null;
-        console.log(JSON.stringify({
-            ok: true,
+        return {
             players: PLAYERS,
             transport: XHR ? 'xhr-streaming' : 'websocket',
             confirmedEmail: CONFIRM_EMAIL,
@@ -967,14 +1054,295 @@ async function main() {
             final,
             rematch: rematchReport,
             recorded,
-        }, null, 2));
+        };
     } catch (error) {
-        await Promise.all(pages.map((page, i) =>
-            page.screenshot({ path: join(ARTIFACTS, `${PLAYERS[i]}.png`), fullPage: true }).catch(() => undefined)));
-        console.error(`FAILED: ${error.message} (screenshots in ${ARTIFACTS})`);
         // what was observed up to the failure (no URLs or frames: nothing that can carry a token)
-        console.error(JSON.stringify({ ok: false, players: PLAYERS, ...stats, follow: followOf(), restart, sockets: socketTrace(seats) }, null, 2));
-        process.exitCode = 1;
+        error.observed = { ok: false, players: PLAYERS, ...stats, follow: followOf(), restart, sockets: socketTrace(seats) };
+        throw error;
+    }
+}
+
+const newStats = () => ({ plays: 0, trumpCalls: 0, belaPrompts: 0, notSent: 0, missedPlays: 0, lostTurns: [] });
+
+// Open-beta spec §4, §6: E2E_GUESTS signed-out visitors at once, each from the landing page's Bots door through a whole
+// game against bots to the end sheet and back. Every game runs to its own end; the flow fails if any failed.
+async function guestFlow(browser, run) {
+    const leaks = [];
+    const startedAt = Date.now();
+    const labels = Array.from({ length: GUESTS }, (_, i) => `guest${i + 1}`);
+    const games = labels.map((label) => ({ label }));
+    const settled = await Promise.allSettled(games.map((game) => guestGame(browser, run, game, leaks)));
+    const wallMs = Date.now() - startedAt;
+    const failures = settled.flatMap((result, i) => (result.status === 'rejected' ? [`${labels[i]}: ${result.reason.message}`] : []));
+    if (!failures.length && leaks.length) failures.push(`?user= seen: ${leaks.join(' | ')}`);
+    if (failures.length) {
+        const error = new Error(failures.join(' | '));
+        error.observed = { ok: false, games, wallMs };
+        throw error;
+    }
+    return { games, wallMs };
+}
+
+async function guestGame(browser, run, game, leaks) {
+    const { label } = game;
+    const context = await englishContext(browser);
+    run.contexts.push(context);
+    const page = await context.newPage();
+    run.pages.push({ label, page });
+    watch(page, label, leaks);
+    const stats = newStats();
+    game.stats = stats;
+    await page.goto(`${SPA}/`);
+    // the Bots door (Doma's "Play now" reads the same, so the door is found by its heading)
+    const door = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Bots', exact: true }) });
+    const clickedAt = Date.now();
+    await door.getByRole('button', { name: 'Play now', exact: true }).click();
+    // a guest, POST /lobbies/bot-game, then the table; a refusal shows on the door (503: the ceiling or no bots, 429: a limit)
+    const refusal = door.locator('[role="alert"]');
+    await waitUntil(async () => {
+        if (await refusal.isVisible().catch(() => false)) throw new Error(`the Bots door says "${(await refusal.textContent()).trim()}"`);
+        return gameIdOf(page) !== null;
+    }, 30000, `${label} reaches its table`);
+    game.gameId = gameIdOf(page);
+    game.username = await page.evaluate(() => JSON.parse(localStorage.getItem('user') ?? 'null')?.username ?? null);
+    // the guest calls Herc on its bids and plays its first playable card; bots never challenge
+    await playToTheEnd([page], stats, null, [label]);
+    game.msToEnd = Date.now() - clickedAt;
+
+    // the end sheet: non-modal, so a region named by its title
+    const sheet = page.getByRole('region', { name: /^(You won!|Next time\.)$/ });
+    await sheet.waitFor({ timeout: 10000 });
+    const line = (await page.getByText(/^Team [AB] wins/).first().textContent({ timeout: 10000 })).trim();
+    const winner = /^Team ([AB]) wins/.exec(line)[1];
+    const teamA = Number((await page.getByTestId('score-a').textContent({ timeout: 5000 })).trim());
+    const teamB = Number((await page.getByTestId('score-b').textContent({ timeout: 5000 })).trim());
+    Object.assign(game, { winner, teamA, teamB });
+    if ((teamA > teamB) !== (winner === 'A')) throw new Error(`the table names Team ${winner} the winner at ${teamA}:${teamB}`);
+    if (Math.max(teamA, teamB) < TARGET_SCORE) throw new Error(`the game ended at ${teamA}:${teamB}, before either team reached ${TARGET_SCORE}`);
+    const reasons = await page.getByTestId('end-reason').allTextContents();
+    if (reasons.length) throw new Error(`the game was not played out: ${JSON.stringify(reasons)}`);
+    for (const name of ['Play with people', 'Back']) {
+        if (!(await sheet.getByRole('button', { name, exact: true }).isVisible())) throw new Error(`the end sheet has no "${name}"`);
+    }
+    // bots accept a rematch at once (Ruling 41), so Play again may be on offer
+    game.rematchOffered = await sheet.getByRole('button', { name: 'Play again', exact: true }).isVisible();
+    if (await page.getByRole('link', { name: 'Match details' }).count()) throw new Error('a guest\'s end sheet links to Match details');
+
+    // GET /matches/{id} and Match details answer a guest 403 by design; its own structured moves are allowed (Ruling 30)
+    const stored = await checkStoredHands(game.gameId, await storedToken(page), null);
+    game.hands = stored.hands;
+    if (stored.last.finalScoreA !== teamA || stored.last.finalScoreB !== teamB) {
+        throw new Error(`the last stored hand totals ${stored.last.finalScoreA}:${stored.last.finalScoreB}, the table ${teamA}:${teamB}`);
+    }
+    // the way out (spec §8): Back (it declines a rematch on offer) to the landing page, which greets the returning guest
+    await sheet.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.waitForURL(`${SPA}/`, { timeout: 15000 });
+    await page.getByRole('heading', { level: 2, name: /^Continue as / }).waitFor({ timeout: 15000 });
+    if (stats.lostTurns.length) throw new Error(`the turn timer took turns the harness was playing: ${stats.lostTurns.join(', ')}`);
+    delete game.stats;
+    Object.assign(game, { plays: stats.plays, trumpCalls: stats.trumpCalls, belaPrompts: stats.belaPrompts });
+    return game;
+}
+
+// Škola bele's counts (open-beta spec §9): fire-and-forget POSTs, one per event, in this order.
+const GUIDE_EVENTS = `${API}/api/public/guide-events`;
+const GUIDE_EVENT_BODIES = ['{"event":"started"}', '{"event":"hand1"}', '{"event":"hand2"}'];
+
+// Open-beta spec §7: a signed-out visitor's Škola bele, hand 1 on rails to its end, then hand 2's first hand against
+// bots up to the guide's end.
+async function learnFlow(browser, run) {
+    const label = 'learner';
+    const leaks = [];
+    const context = await englishContext(browser);
+    run.contexts.push(context);
+    const page = await context.newPage();
+    run.pages.push({ label, page });
+    watch(page, label, leaks);
+    const report = { steps: [], hand1Ms: null, requestsBeforeHand2: [], hand2: null, events: [], answeredThenAborted: 0 };
+    const failedEvents = [];
+    // from /learn to "Hand 1 done", every request to the API and every socket (spec §9: the guide alone makes no guest);
+    // one the page didn't send from /learn names where it was sent from
+    let recording = false;
+    page.on('request', (request) => {
+        if (!recording || !request.url().startsWith(API)) return;
+        const from = new URL(request.frame().url()).pathname;
+        report.requestsBeforeHand2.push(`${request.method()} ${new URL(request.url()).pathname}${from === '/learn' ? '' : ` (from ${from})`}`);
+    });
+    page.on('websocket', (ws) => {
+        if (recording) report.requestsBeforeHand2.push(`websocket ${new URL(ws.url()).pathname}`);
+    });
+    page.on('response', (response) => {
+        if (response.url() === GUIDE_EVENTS && response.request().method() === 'POST') {
+            report.events.push({ status: response.status(), body: response.request().postData() });
+        }
+    });
+    // A count lost on the way (CORS, the network) gets no answer. Chromium also reports an answered POST as failed
+    // (net::ERR_ABORTED) once the page drops the 204 it never reads: that count arrived, and isn't a failure.
+    page.on('requestfailed', async (request) => {
+        if (request.url() !== GUIDE_EVENTS) return;
+        const answered = await request.response().catch(() => null);
+        if (!answered) failedEvents.push(`${request.method()} ${request.failure()?.errorText ?? 'failed'}`);
+        else report.answeredThenAborted += 1;
+    });
+    try {
+        // B8's recording, as the page itself replays it: 16 steps from dalje to foulFound
+        const { steps } = JSON.parse(readFileSync(new URL('../src/guide/hand1.recording.json', import.meta.url), 'utf8'));
+        if (steps.length !== 16 || steps[0].lesson !== 'dalje' || steps.at(-1).lesson !== 'foulFound') {
+            throw new Error(`hand1.recording.json has ${steps.length} steps, ${steps[0]?.lesson} to ${steps.at(-1)?.lesson}; expected 16, dalje to foulFound`);
+        }
+        await page.goto(`${SPA}/`);
+        const door = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Bela school', exact: true }) });
+        await door.getByRole('button', { name: 'Teach me', exact: true }).click();
+        await page.waitForURL('**/learn', { timeout: 15000 });
+        recording = true;
+        await page.getByRole('button', { name: 'Deal the cards', exact: true }).click();
+        const dealtAt = Date.now();
+        const said = page.getByTestId('guide-said');
+        const refusal = page.getByTestId('guide-refusal');
+        const refused = async () => ((await refusal.first().textContent({ timeout: 1000 }).catch(() => '')) ?? '').trim();
+        for (const step of steps) {
+            const stepAt = Date.now();
+            const panel = page.locator(`[data-testid="lesson-panel"][data-lesson="${step.lesson}"]`);
+            // the step's lesson shows, and the learner is at it (the live line is said only then)
+            await waitUntil(async () => {
+                const line = await refused();
+                if (line) throw new Error(`Škola bele refused a move before the step ${step.lesson}: "${line}"`);
+                return (await panel.count()) > 0 && ((await said.textContent({ timeout: 1000 }).catch(() => '')) ?? '').trim() !== '';
+            }, 30000, `Škola bele reaches the step ${step.lesson}`);
+            const move = step.move ?? null;
+            if (move === null) {
+                await panel.getByRole('button', { name: 'Next', exact: true }).click();
+            } else if (move.kind === 'bid') {
+                if (move.trump !== 'HERC') throw new Error(`the recording bids ${move.trump}; the harness calls Herc only`);
+                await page.getByRole('button', { name: 'Call Herc', exact: true }).click();
+            } else if (move.kind === 'play') {
+                const id = `${move.card.boja}-${move.card.rank}`;
+                const card = page.locator(`[data-testid="hand-card"][data-card="${id}"]`);
+                // play opens about 5 s after the deal (the declaration pause)
+                await page.locator(`[data-testid="hand-card"][data-card="${id}"]:enabled`).waitFor({ timeout: 30000 });
+                await card.click({ position: cardClickPoint(await cardGeometry(card)) });
+                if (move.declareBela) await page.getByRole('button', { name: 'Play + Bela', exact: true }).click({ timeout: 5000 });
+                await waitUntil(async () => (await card.count()) === 0, 5000, `${id} leaves the learner's hand`);
+            } else if (move.kind === 'challenge') {
+                // the hand result is non-modal and holds Challenge once the hand is complete
+                await page.getByTestId('hand-result').getByRole('button', { name: 'Challenge', exact: true }).click();
+            } else {
+                throw new Error(`the step ${step.lesson} has an unknown move ${JSON.stringify(move)}`);
+            }
+            const line = await refused();
+            if (line) throw new Error(`Škola bele refused the step ${step.lesson}: "${line}"`);
+            report.steps.push({ lesson: step.lesson, ms: Date.now() - stepAt });
+        }
+        await page.getByRole('heading', { level: 1, name: 'Hand 1 done', exact: true }).waitFor({ timeout: 15000 });
+        report.hand1Ms = Date.now() - dealtAt;
+        // started and hand1 are fire-and-forget: their answers may still be on the way
+        await waitUntil(() => report.events.length >= 2, 5000, 'the started and hand1 counts are answered').catch(() => {});
+        recording = false;
+        const others = report.requestsBeforeHand2.filter((request) => request !== `POST ${new URL(GUIDE_EVENTS).pathname}`);
+        if (others.length) throw new Error(`before hand 2 the guide asked the API for more than its counts: ${others.join(', ')}`);
+
+        // hand 2: a guest's bot game in guide mode
+        await page.getByRole('button', { name: 'Play hand 2', exact: true }).click();
+        await page.waitForURL(/\/game\/[^/?]+\?guide=1$/, { timeout: 30000 });
+        const hand2Panel = page.getByTestId('hand2-panel');
+        await hand2Panel.waitFor({ timeout: 15000 });
+        const stats = newStats();
+        report.hand2 = { gameId: /^\/game\/([^/?]+)/.exec(new URL(page.url()).pathname)[1], plays: 0, trumpCalls: 0, marked: [], hint: null };
+        const markedCards = page.locator('[data-testid="hand-card"][data-marked="true"]');
+        const score = async (testId) => Number(((await page.getByTestId(testId).textContent({ timeout: 1000 }).catch(() => '0')) ?? '0').trim()) || 0;
+        for (;;) {
+            if (stats.plays > MAX_PLAYS) throw new Error(`no end of hand 2's first hand after ${stats.plays} cards`);
+            let action = null;
+            await waitUntil(async () => {
+                // only marked cards are clicked, so the guide never has to warn of a foul
+                if (await page.getByTestId('foul-warning').isVisible().catch(() => false)) throw new Error('the foul warning showed in hand 2');
+                const phase = await phaseOf(page);
+                if (phase === 'CANCELLED' || phase === 'COMPLETED') throw new Error(`hand 2's game says ${phase} before the guide's end`);
+                // the first hand is over once a later deal is on and the totals moved (hand2.ts firstHandOver);
+                // the guide's end sheet is modal, so nothing is clicked behind it
+                if (['BIDDING', 'DECLARATIONS', 'PLAYING'].includes(phase) && (await score('score-a')) + (await score('score-b')) > 0) {
+                    action = 'end';
+                    return true;
+                }
+                if ((phase === 'BIDDING' || phase === 'PLAYING') && (await myTurn(page))) {
+                    action = phase;
+                    return true;
+                }
+                return false;
+            }, NEXT_MOVE_TIMEOUT_MS, `the learner can act in hand 2, or its first hand is over (after ${stats.plays} cards)`);
+            if (action === 'end') break;
+            if (action === 'BIDDING') {
+                await bid(page, label, 'Call Herc');
+                stats.trumpCalls += 1;
+                continue;
+            }
+            // a playing turn: the server's legal cards are marked, and the panel says play
+            await waitUntil(async () => (await markedCards.count()) > 0 && (await hand2Panel.getAttribute('data-phase')) === 'play',
+                10000, 'the learner\'s playing turn marks its legal cards and the panel says play');
+            report.hand2.marked.push(await markedCards.count());
+            if (report.hand2.hint === null) {
+                const hint = hand2Panel.getByRole('button', { name: 'Hint', exact: true });
+                await hint.click();
+                const why = page.locator(`[id="${await hint.getAttribute('aria-controls')}"]`);
+                await waitUntil(async () => (await why.isVisible()) && ((await why.textContent()) ?? '').trim() !== '', 5000, 'the hint\'s reason shows');
+                report.hand2.hint = (await why.textContent()).trim();
+            }
+            const lost = await playOneCard(page, label, stats, { marked: true });
+            if (lost) stats.lostTurns.push(lost);
+        }
+        Object.assign(report.hand2, { plays: stats.plays, trumpCalls: stats.trumpCalls, belaPrompts: stats.belaPrompts });
+        if (stats.lostTurns.length) throw new Error(`the turn timer took turns the harness was playing: ${stats.lostTurns.join(', ')}`);
+
+        // the guide's end (spec §7.4): every button goes somewhere; "Continue this game" keeps playing, as a plain game
+        await page.getByTestId('guide-end').waitFor({ timeout: 15000 });
+        const end = page.getByRole('dialog', { name: 'Bela school is done', exact: true });
+        for (const name of ['Sign up', 'Continue this game', 'Replay Bela school']) {
+            if (!(await end.getByRole('button', { name, exact: true }).isVisible())) throw new Error(`the guide's end has no "${name}"`);
+        }
+        await end.getByRole('button', { name: 'Continue this game', exact: true }).click();
+        await waitUntil(async () => !new URL(page.url()).search.includes('guide=1') && !(await end.isVisible().catch(() => false)),
+            10000, '"Continue this game" drops ?guide=1 and closes the sheet');
+
+        // exactly three counts, each a 204 (a cross-origin JSON POST: its preflight passed)
+        await waitUntil(() => report.events.length >= 3, 5000, 'the guide\'s three counts are answered').catch(() => {});
+        const expected = report.events.length === 3 && report.events.every((event, i) => event.status === 204 && event.body === GUIDE_EVENT_BODIES[i]);
+        if (!expected || failedEvents.length) {
+            throw new Error(`the guide's counts: ${JSON.stringify(report.events)}${failedEvents.length ? `, failed ${failedEvents.join(', ')}` : ''}; `
+                + `expected 204 for ${GUIDE_EVENT_BODIES.join(', ')}`);
+        }
+        if (leaks.length) throw new Error(`?user= seen: ${leaks.join(' | ')}`);
+        return report;
+    } catch (error) {
+        error.observed = { ok: false, learn: report, failedEvents };
+        throw error;
+    }
+}
+
+// Runs E2E_FLOWS in order; the first failure stops the run. One JSON summary on stdout: the seats
+// flow's keys at the top level (as before the flows), then `guest` and `learn`.
+async function main() {
+    mkdirSync(ARTIFACTS, { recursive: true });
+    const browser = await chromium.launch({ headless: process.env.HEADLESS !== '0' });
+    const results = { seats: {}, guest: null, learn: null };
+    const flowOf = { seats: seatsFlow, guest: guestFlow, learn: learnFlow };
+    try {
+        for (const flow of FLOWS) {
+            // the flow's tabs, as { label, page }, and its contexts
+            const run = { pages: [], contexts: [] };
+            try {
+                results[flow] = await flowOf[flow](browser, run);
+            } catch (error) {
+                await Promise.all(run.pages.map(({ label, page }) =>
+                    page.screenshot({ path: join(ARTIFACTS, `${flow}-${label}.png`), fullPage: true }).catch(() => undefined)));
+                console.error(`FAILED (${flow}): ${error.message} (screenshots in ${ARTIFACTS})`);
+                if (error.observed) console.error(JSON.stringify(error.observed, null, 2));
+                process.exitCode = 1;
+                return;
+            } finally {
+                await Promise.all(run.contexts.map((context) => context.close().catch(() => undefined)));
+            }
+        }
+        console.log(JSON.stringify({ ok: true, flows: FLOWS, ...results.seats, guest: results.guest, learn: results.learn }, null, 2));
     } finally {
         await browser.close();
     }
