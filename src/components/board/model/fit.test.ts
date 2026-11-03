@@ -293,8 +293,6 @@ describe('fits: the trick, my hand and the seat columns at a candidate size (boa
 const LANDSCAPE_OPEN: Record<string, string[]> = {
     '800x300@3': [
         "slot me [360.6, 135.1, 78.7, 100.6] outside the band [0, 44, 800.0, 232.4]",
-        "your turn [340.0, 200.4, 120.0, 26.0] meets slot right [410.3, 104.7, 78.7, 100.6] by 49.7×4.9",
-        "your turn [340.0, 200.4, 120.0, 26.0] meets slot left [310.9, 104.7, 78.7, 100.6] by 49.7×4.9",
         "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:0 [355.6, 36.4, 32.8, 41.2] by 27.8×3.3",
         "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:1 [364.2, 36.8, 31.6, 40.3] by 31.6×2.8",
         "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:2 [372.8, 37.3, 30.3, 39.4] by 30.3×2.4",
@@ -307,8 +305,6 @@ const LANDSCAPE_OPEN: Record<string, string[]> = {
     ],
     '740x300@3': [
         "slot me [330.6, 135.1, 78.7, 100.6] outside the band [0, 44, 740.0, 232.4]",
-        "your turn [310.0, 200.4, 120.0, 26.0] meets slot right [380.3, 104.7, 78.7, 100.6] by 49.7×4.9",
-        "your turn [310.0, 200.4, 120.0, 26.0] meets slot left [280.9, 104.7, 78.7, 100.6] by 49.7×4.9",
         "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:0 [325.6, 36.4, 32.8, 41.2] by 27.8×3.3",
         "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:1 [334.2, 36.8, 31.6, 40.3] by 31.6×2.8",
         "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:2 [342.8, 37.3, 30.3, 39.4] by 30.3×2.4",
@@ -347,8 +343,8 @@ describe('phones held sideways (board-fit spec §3.4, §4.2, §7; owner 2026-11-
         }
     })
 
-    test('a coarse landscape grid: from 310 px tall (dpr 2, 2.625, 2.75) or 317 (dpr 3; 310 from 740 wide) up to 500, every window 700–932 wide fits; just under, some does not', () => {
-        const floor: [number, number][] = [[2, 310], [2.625, 310], [2.75, 310], [3, 317]]
+    test('a coarse landscape grid: from 307 px tall (dpr 2, 2.625, 2.75) or 317 (dpr 3; 307 from 740 wide) up to 500, every window 700–932 wide fits; just under, some does not', () => {
+        const floor: [number, number][] = [[2, 307], [2.625, 307], [2.75, 307], [3, 317]]
         for (const [dpr, from] of floor) {
             for (let width = 700; width <= 932; width += 29) {
                 for (let height = from; height <= 500; height += 19) expect(misfits(layoutFor({ width, height, dpr })), `${width}x${height}@${dpr}`).toEqual([])

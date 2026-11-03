@@ -17,6 +17,8 @@ const TIMER = 3
 const PLATE_ROW = PLATE + GAP + TIMER
 const CHIP_ROW = 20
 const MY_PLATE = 180
+/** On phones my plate reads "Your turn" on my turn (owner, 2026-11-03): about 218 at its widest. */
+const MY_TURN_PLATE = 218
 const LONG_PLATE = 230
 const ZVANJA = 124
 const DECLARED = 6
@@ -60,7 +62,7 @@ export function busyBoxes(layout: Layout, declaredTeam: 'mine' | 'theirs'): Busy
         const add = (part: BusyBox['part'], box: Box) => out.push({ id: position, part, box })
         const room = spot.maxWidth ?? Infinity
         if (position === 'me') {
-            const plate = Math.min(MY_PLATE, room)
+            const plate = Math.min(layout.kind === 'portrait' || layout.kind === 'landscape' ? MY_TURN_PLATE : MY_PLATE, room)
             add('plate', rect(spot.left, spot.top, plate, PLATE_ROW))
             const from = spot.left + (spot.cardsFrom ?? 0)
             if (layout.kind === 'portrait') {

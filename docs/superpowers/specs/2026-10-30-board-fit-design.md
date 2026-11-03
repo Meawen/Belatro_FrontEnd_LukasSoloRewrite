@@ -146,6 +146,10 @@ The trick keeps its cross in every layout. Its slots stay relative to the card s
   under the fans, on their own edge, clear of the side trick slots. This is the owner's approved mockup
   (companion screen `02-phone-options.html`, option A).
 - **Me:** my tag stays over my pile, bottom left, above the hand, with my declared cards over it as today.
+- **"Your turn" on phones** (portrait and landscape; owner 2026-11-03, option B, from screenshots): my own tag reads
+  "Your turn" in place of "You" while it is my turn, with its countdown, and there is no separate label over my hand.
+  My chips beside my tag start past it at its widest, so they never shift as it widens. On tablets and desktops the
+  label over my hand stays.
 - The HUD's Challenge and info buttons (the column under the HUD on the left in portrait) keep their place. The left
   seat's tag and chips must not meet them (G2).
 

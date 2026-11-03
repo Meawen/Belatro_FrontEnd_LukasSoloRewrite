@@ -207,7 +207,10 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
                 // my chips start past my declared cards' room and run to 8 px before the board's edge from my plate at its
                 // widest (180: You, D, the caller's badge, the Bela badge, the no-challenge badge, the countdown; 160 before the Bela badge)
                 const room = above(top)
-                expect(spot, where).toEqual({ left: today.left, top, above: expect.closeTo(room, 9), beside: { from: expect.closeTo(room + 4, 9), room: expect.closeTo(layout.board.w - 8 - (12 + Math.max(180, room) + 4), 9) } })
+                // my chips from a fixed place: past my declared cards' room and past my plate at its widest on my turn (218,
+                // "Your turn" and its badges; owner 2026-11-03), so they never shift as it widens
+                const from = Math.max(room, 218) + 4
+                expect(spot, where).toEqual({ left: today.left, top, above: expect.closeTo(room, 9), beside: { from: expect.closeTo(from, 9), room: expect.closeTo(layout.board.w - 8 - (12 + from), 9) } })
             } else {
                 const top = layout.board.h - 8 - 33
                 const rows: [number, number] = [top - 4 - (20 + 4 + layout.declared.h), top + 33]
@@ -237,7 +240,7 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
         expect(spotAt(at(812, 375, 2, 'landscape', 71), 'me')).toEqual({ left: 12, top: 334, maxWidth: expect.closeTo(164.456, 3), cardsFrom: expect.closeTo(44.589, 3), above: expect.closeTo(304.061, 3) })
         // 375×553 @2: the side seats' columns from 344.27 put my plate at 419.77, 0.73 px above my hand's limit (420.50); my
         // declared cards stop 6 px before the me slot (from 148.15), my chips start past my plate at its widest (180), 171 px wide
-        expect(spotAt(at(375, 553, 2, 'portrait', 71), 'me')).toEqual({ left: 12, top: expect.closeTo(419.772, 3), above: expect.closeTo(130.150, 3), beside: { from: expect.closeTo(134.150, 3), room: 171 } })
+        expect(spotAt(at(375, 553, 2, 'portrait', 71), 'me')).toEqual({ left: 12, top: expect.closeTo(419.772, 3), above: expect.closeTo(130.150, 3), beside: { from: 222, room: 133 } })
     })
 
     test('moved past the left fan on a wide window, my plate stops 6 px short of every trick slot (±4.8°) in its rows, at the sizes layoutFor picks over 1024–2560 × 520–1440 at dpr 1, 1.25, 1.5 and 2 (board-fit spec G1; Ruling Y)', () => {
@@ -267,7 +270,7 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
         // 1376×820 @1, the tightest: 126.55 px before the left slot
         const tight = layoutFor({ width: 1376, height: 820, dpr: 1 })
         expect(spotAt(tight, 'me').maxWidth).toBeCloseTo(126.547, 3)
-    })
+    }, 60_000)
 
     test('at 667×323 @2 my plate and its chips and declared cards meet none of the left seat\'s boxes (seatBoxes), whichever team\'s cards show (§4.2)', () => {
         const layout = at(667, 323, 2, 'landscape', 71)

@@ -1,5 +1,6 @@
 import { ART_W } from '../../ui/cardWidth';
 import { seatBoxes } from '../seatSpot';
+import { turnOnPlate } from '../yourTurn';
 import {
     LANDSCAPE_EXACT, bandBottom, boundsOf, cardSize, exactSideways, fanPlaces, hudBoxes, layoutAt, tableTargets, yourTurnBox, type Layout, type LayoutKind, type Rect, type Target, type Viewport,
 } from './cardTargets';
@@ -73,7 +74,8 @@ export function layoutFor(viewport: Viewport): Layout {
  * - every hand card leaves its strip (`STRIP`) and the hand stays within the board's width;
  * - the four trick slots, each at its widest tilt, lie inside the board below the HUD and above `bandBottom`, and meet
  *   none of my hand, the fans, the piles, the HUD's boxes or the seats' columns;
- * - "Your turn" meets none of the partner's or side slots (my own it may: Ruling E);
+ * - on tablets and desktops "Your turn" meets none of the partner's or side slots (my own it may: Ruling E); on phones it
+ *   is my plate's name (owner 2026-11-03);
  * - where a fine pointer lifts a hovered hand card (tablet, desktop), the lifted card meets none of the partner's or
  *   side slots (my own it may: Ruling P, as Ruling E: the lift shows only on enabled cards, on my turn);
  * - the piles meet no fan of 7 backs (a pile draws nothing until a trick is taken, and by then a seat holds 7 at most);
@@ -164,10 +166,13 @@ function walk(layout: Layout, found: string[] | null): boolean {
             && miss(() => `slot ${position} ${show(box)} outside the band [0, ${layout.hud}, ${W.toFixed(1)}, ${band.toFixed(1)}]`)) return false;
     }
 
-    // "Your turn" over my full hand: never on the partner's or a side slot (Ruling E)
-    const label: Box = boxOf(yourTurnBox(layout));
-    for (const { position, box } of slots) {
-        if (position !== 'me' && meets(label, box) && miss(() => `your turn ${show(label)} meets slot ${position} ${show(box)} by ${by(label, box)}`)) return false;
+    // "Your turn" over my full hand, on tablets and desktops: never on the partner's or a side slot (Ruling E); on phones
+    // it is my plate's name instead (owner 2026-11-03)
+    if (!turnOnPlate(layout.kind)) {
+        const label: Box = boxOf(yourTurnBox(layout));
+        for (const { position, box } of slots) {
+            if (position !== 'me' && meets(label, box) && miss(() => `your turn ${show(label)} meets slot ${position} ${show(box)} by ${by(label, box)}`)) return false;
+        }
     }
 
     // a hovered hand card's lift: never on the partner's or a side slot (Rulings H, P: tablets too; my own slot it may meet)

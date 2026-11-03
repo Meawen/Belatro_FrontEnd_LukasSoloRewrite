@@ -63,6 +63,11 @@ const MY_EDGE = 12;
  * about 179 with it (owner, 2026-11-03: Bela as a badge; was 160).
  */
 const MY_PLATE = 180;
+/**
+ * On phones my plate's name reads "Your turn" on my turn (owner, 2026-11-03, option B): about 36 px wider than "You", so
+ * at its widest about 215 px. My chips beside it start past that width, so they never shift as it widens.
+ */
+const MY_TURN_PLATE = 218;
 /** The widest single chip a column holds: "Zvanja 100 + 20", 122.9 px in Chromium. */
 const WIDE_CHIP = 124;
 /**
@@ -293,7 +298,9 @@ export function seatSpot(seat: SeatModel, _targets: Targets, layout: Layout): Se
         const hand = Math.min(...handPlaces(layout, 8).map((card) => boundsOf(card).y0)) - CLEAR - PLATE_ROW;
         const top = Math.max(overPile.top, Math.min(clear, hand));
         const room = above(overPile.left, top);
-        return { ...overPile, top, above: room, beside: { from: room + GAP, room: layout.board.w - 8 - (overPile.left + Math.max(MY_PLATE, room) + GAP) } };
+        // my chips from a fixed place: past my declared cards' room and past my plate at its widest on my turn
+        const from = Math.max(room, MY_TURN_PLATE) + GAP;
+        return { ...overPile, top, above: room, beside: { from, room: layout.board.w - 8 - (overPile.left + from) } };
     }
     const dh = layout.declared.h;
     if (layout.kind !== 'landscape') {

@@ -3,6 +3,7 @@ import { MotionConfig, m } from 'motion/react';
 import { fade, spring } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
 import { Tag } from '../ui/Chip';
+import { YOUR_TURN_TEXT, turnOnPlate } from './yourTurn';
 import { PixelIcon } from '../ui/PixelIcon';
 import { PlayingCard } from '../ui/PlayingCard';
 import { SuitIcon } from '../ui/SuitIcon';
@@ -91,6 +92,7 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
     const cardWidth = layout.declared.w;
     const chipsOver = layout.kind === 'landscape';
     const caller = model.trump?.callerId ?? null;
+    const turnHere = turnOnPlate(layout.kind) && model.yourTurn;
     return (
         <div className="board-region board-chips">
             {model.seats.map((seat) => {
@@ -123,7 +125,8 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                             <span className={seat.team === 'B' ? 'board-seat__team bg-team-b' : 'board-seat__team bg-team-a'} aria-hidden="true" />
                             {/* a bot: the lobby's robot beside its name, and "(bot)" in its name (casual bots spec §7) */}
                             {seat.bot && <PixelIcon name="robot" className="board-seat__bot" />}
-                            <span className="board-seat__label" title={seat.isMe ? undefined : seat.bot ? `${seat.id} (bot)` : seat.id}>{seat.isMe ? 'You' : seat.id}</span>
+                            {/* on phones my plate's name reads "Your turn" on my turn, where the label over my hand used to be (owner 2026-11-03) */}
+                            <span data-testid={seat.isMe && turnHere ? 'your-turn' : undefined} className="board-seat__label" title={seat.isMe ? undefined : seat.bot ? `${seat.id} (bot)` : seat.id}>{seat.isMe ? (turnHere ? YOUR_TURN_TEXT : 'You') : seat.id}</span>
                             {seat.bot && <span className="sr-only"> (bot)</span>}
                             {seat.dealer && (
                                 <span data-testid="dealer-chip" className="board-seat__dealer font-pix">

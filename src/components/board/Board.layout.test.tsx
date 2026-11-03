@@ -154,10 +154,10 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
             renderBoard({ state: tableState(table[call + 1]), viewport: { width: 375, height: 553 } })
             const mine = screen.getByTestId('seat-carol')
             const chips = mine.querySelector<HTMLElement>(':scope > .board-seat__chips')!
-            // from my plate at its widest (180 with the Bela badge, owner 2026-11-03; was 160) to 8 px before the edge; not
-            // before my declared cards' room ends (130.15 + 4)
-            expect(px(chips, 'maxWidth')).toBe(375 - 8 - (12 + 180 + 4))
-            expect(Number.parseFloat(chips.style.getPropertyValue('--chips-from'))).toBeCloseTo(130.150 + 4, 3)
+            // from a fixed place past my plate at its widest on my turn ("Your turn" and its badges, 218: owner 2026-11-03, so
+            // they never shift as it widens; past my declared cards' room, 130.15, too) to 8 px before the edge
+            expect(px(chips, 'maxWidth')).toBe(375 - 8 - (12 + 218 + 4))
+            expect(Number.parseFloat(chips.style.getPropertyValue('--chips-from'))).toBe(218 + 4)
             // not my turn: an empty, hidden place for the countdown on my plate
             const reserve = mine.querySelector('.board-seat__name > .board-seat__seconds')!
             expect(reserve).toHaveAttribute('aria-hidden', 'true')
