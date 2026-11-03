@@ -77,14 +77,18 @@ export function AuthPage({ initialMode = 'login', redirectTo = '/', onSuccess }:
     return (
         <AuthFrame>
             <ErrorAlert message={sessionEnded ? t.errors.socket.sessionEnded : null} className="mb-5" />
-            {initialMode === 'login' ? <LoginForm onSuccess={handleSuccess} /> : <SignupForm onSuccess={handleSuccess} />}
+            {/* R4 review (US-6, §8): someone with no account who follows a friend's table link most likely sits down as a
+                guest, so the door comes first and is the page's primary; signing in is the secondary way below it */}
             {tablePath && (
-                <div className="mt-6 flex flex-col items-center gap-3 text-center">
+                <div className="mb-6 flex flex-col items-center gap-3 border-b-2 border-edge pb-6 text-center">
                     <p className="t-callout text-text-2">{t.guest.tableDoor.lead}</p>
-                    <Button variant="secondary" block loading={sitting} onClick={() => void sitDown()}>{t.guest.tableDoor.sitDown}</Button>
+                    <Button block loading={sitting} onClick={() => void sitDown()}>{t.guest.tableDoor.sitDown}</Button>
                     <ErrorAlert message={doorError} />
                 </div>
             )}
+            {initialMode === 'login'
+                ? <LoginForm onSuccess={handleSuccess} submitVariant={tablePath ? 'secondary' : 'primary'} />
+                : <SignupForm onSuccess={handleSuccess} />}
         </AuthFrame>
     );
 }

@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Input } from '../ui';
+import { Button, Input, type ButtonVariant } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { useAuth } from '../../hooks/useAuth';
 import { ApiError } from '../../services/api';
@@ -12,10 +12,12 @@ import { useReturnState } from './returnState';
 
 export interface LoginFormProps {
     onSuccess?: () => void;
+    /** Sign In's variant: secondary under a friend's table door, whose "Sit down as a guest" is the page's primary (AuthPage). */
+    submitVariant?: ButtonVariant;
 }
 
 /** Sign in (spec §4.2). "Sign up" is the other URL (X-2); both links carry the return path (§4.1). */
-export function LoginForm({ onSuccess }: LoginFormProps) {
+export function LoginForm({ onSuccess, submitVariant = 'primary' }: LoginFormProps) {
     const [formData, setFormData] = useState({
         username: '',
         password: '',
@@ -107,7 +109,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
                 <ErrorAlert message={errors.submit ?? null} />
 
-                <Button type="submit" block loading={isLoginLoading}>
+                <Button type="submit" variant={submitVariant} block loading={isLoginLoading}>
                     {isLoginLoading ? t.auth.signIn.submitting : t.auth.signIn.submit}
                 </Button>
             </form>

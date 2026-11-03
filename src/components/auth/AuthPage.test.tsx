@@ -97,12 +97,33 @@ describe("Sign-in from a friend's table link, signed out (spec §3.2)", () => {
         expect(screen.getByTestId('where').textContent).toMatch(/^\/lobby\/abc /)
     })
 
+    test("the door comes first: above the sign-in form, with its line, and the page's one primary button (review Important 1)", () => {
+        const { container } = render(
+            <MemoryRouter initialEntries={[{ pathname: '/login', state: { from: '/lobby/x' } }]}>
+                <AuthPage initialMode="login" redirectTo="/dashboard" />
+            </MemoryRouter>,
+        )
+        const sit = screen.getByRole('button', { name: 'Sit down as a guest' })
+        const signIn = screen.getByRole('button', { name: 'Sign In' })
+        const form = signIn.closest('form') as HTMLFormElement
+        const lead = screen.getByText('No account? You can sit at this table as a guest.')
+        expect(lead.compareDocumentPosition(sit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(sit.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(sit).toHaveClass('ui-btn--primary')
+        expect(signIn).not.toHaveClass('ui-btn--primary')
+        expect(signIn).toHaveClass('ui-btn--secondary')
+        expect(container.querySelectorAll('.ui-btn--primary')).toHaveLength(1)
+    })
+
     test('no door on a plain sign-in, nor from another page', () => {
         const { unmount } = render(<MemoryRouter initialEntries={['/login']}><AuthPage /></MemoryRouter>)
         expect(screen.queryByRole('button', { name: 'Sit down as a guest' })).toBeNull()
+        // and the sign-in page as it was: Sign In is its primary button
+        expect(screen.getByRole('button', { name: 'Sign In' })).toHaveClass('ui-btn--primary')
         unmount()
         renderAuth({ pathname: '/login', state: { from: '/friends' } })
         expect(screen.queryByRole('button', { name: 'Sit down as a guest' })).toBeNull()
+        expect(screen.getByRole('button', { name: 'Sign In' })).toHaveClass('ui-btn--primary')
     })
 
     test('a refused guest (429) says so, and the page stays', async () => {
