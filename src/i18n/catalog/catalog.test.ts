@@ -228,11 +228,25 @@ describe('the catalogs (spec §1.2)', () => {
 
     test("Ruling 70: the challenge at padanje has its own line, and bela says you call it yourself", () => {
         expect(en.guide.refuse.challengeNow).toBe('Right time: in a real game you\'d challenge now, within 10 seconds. Read this first, then press "Next".')
-        expect(hr.guide.refuse.challengeNow).toBe('Pravi trenutak: u pravoj igri sad bi bilo vrijeme za prijavu, u roku od 10 sekundi. Prvo pročitaj ovo, pa pritisni „Nastavi”.')
+        expect(hr.guide.refuse.challengeNow).toBe('Točno na vrijeme: u pravoj igri sad bi bio trenutak za prijavu, u roku od 10 sekundi. Prvo pročitaj ovo, pa pritisni „Nastavi”.')
         expect(hr.guide.refuse.challengeNow).toContain(hr.guide.refuse.readFirst)
         expect(en.guide.refuse.challengeNow).toContain(en.guide.refuse.readFirst)
         expect(en.guide.lessons.bela.body).toContain('but you have to call it yourself.')
         expect(en.guide.lessons.bela.body).not.toContain("doesn't count it for you")
+    })
+
+    test("Ruling 71's Croatian for hand 2, found by its text", () => {
+        expect(hr.guide.hand2.warning.body).toBe('U igri s ljudima netko bi ovu kartu mogao prijaviti kao prekršaj. Botovi nikad ne prijavljuju prekršaje.')
+        expect(hr.guide.hand2.why.beat('Tref')).toBe('Prvi je bačen Tref, a ti možeš nadjačati najjači Tref na stolu, pa moraš baciti jači.')
+        expect(hr.guide.hand2.why.overTrump).toBe('Prvi je bačen adut i možeš nadjačati najjači adut na stolu, pa moraš baciti jači adut.')
+        expect(hr.guide.hand2.why.overCut('Karo')).toBe('Nemaš nijedan Karo, pa moraš rezati adutom, i to jačim od aduta koji je već u štihu, jer imaš jači.')
+        expect(hr.guide.hand2.why.followTrump).toBe('Prvi je bačen adut, a ti imaš adut, pa moraš odgovoriti adutom. Ovdje smiješ baciti bilo koji svoj adut.')
+        expect(hr.guide.end.after).toBe('Škola bele završava s tim dijeljenjem, a zatim biraš kako dalje.')
+        expect(hr.guide.hand2.tipMust).toMatch(/^Svi ostali su rekli „Dalje”, pa zoveš ti: /)
+        expect(en.guide.hand2.tipMust).toMatch(/^Everyone else passed, so you call: /)
+        // bela as EN says it since Ruling 70: you call it yourself, within the live-trick budget
+        expect(hr.guide.lessons.bela.body).toContain('ali belu moraš zvati ti.')
+        expect(hr.guide.lessons.bela.body.length).toBeLessThanOrEqual(140)
     })
 
     test("Ruling 69's corrections to Škola bele's copy: the 152/162 count, and the Croatian found by its text", () => {
@@ -248,7 +262,7 @@ describe('the catalogs (spec §1.2)', () => {
         expect(hr.guide.lessons.zvanja.body).toContain('Igra sama pronalazi zvanja i objavljuje ih')
         expect(hr.guide.lessons.followSuit.body).toContain('s tvojom kartom te četiri karte čine štih')
         expect(hr.guide.lessons.bela.body).toContain('Kralj i Baba aduta čine belu')
-        expect(hr.guide.lessons.bela.body).toContain('igra sama ne broji belu')
+        expect(hr.guide.lessons.bela.body).toContain('ali belu moraš zvati ti')
         expect(hr.guide.lessons.followTrump.body).toContain('Kad netko otvori adutom')
         expect(hr.guide.lessons.lead.body).toContain('As Tref je već pao')
         expect(hr.guide.lessons.padanje.body).toContain('tvoja ih nema više')

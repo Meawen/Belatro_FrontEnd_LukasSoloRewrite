@@ -213,6 +213,8 @@ describe('Rules (R-41)', () => {
     })
 
     test("the Rules page's top link opens Škola bele, signed in and out", async () => {
+        // the shell's own requests log their lines; this test reads none of them
+        captureConsole()
         const user = userEvent.setup()
         for (const signedIn of [true, false]) {
             auth.isAuthenticated = signedIn

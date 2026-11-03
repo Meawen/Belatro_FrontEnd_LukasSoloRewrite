@@ -435,7 +435,10 @@ describe('the hand-2 intro (open beta §7.3, §8)', () => {
         await advance(0)
         stillThere('You already have a game in progress. Go back to it first.')
         expect(active).toHaveBeenCalledTimes(1)
-        expect(button('Return to your game')).toHaveClass('ui-btn--secondary')
+        // the likely next step is the running game: it becomes the main button, and Play hand 2 a smaller one (spec §8)
+        expect(button('Return to your game')).toHaveClass('ui-btn--primary')
+        expect(button('Play hand 2')).toHaveClass('ui-btn--secondary')
+        expect(screen.getAllByRole('button').filter((one) => one.classList.contains('ui-btn--primary'))).toEqual([button('Return to your game')])
         click(button('Return to your game'))
         expect(screen.getByText('at /game/g-old')).toBeInTheDocument()
     })
@@ -447,7 +450,7 @@ describe('the hand-2 intro (open beta §7.3, §8)', () => {
         try {
             act(() => setLang('hr'))
             expect(screen.getByText('Ovaj put su karte nasumične, a potezi su tvoji. Kad si na redu, istaknute su karte koje smiješ baciti, a „Savjet” kaže zašto baš one. Prije nedopuštene karte dobit ćeš upozorenje, ali odluka je tvoja.')).toBeInTheDocument()
-            expect(screen.getByText('Vodič završava s tim dijeljenjem, a zatim biraš kako dalje.')).toBeInTheDocument()
+            expect(screen.getByText('Škola bele završava s tim dijeljenjem, a zatim biraš kako dalje.')).toBeInTheDocument()
             expect(button('Igraj drugo dijeljenje')).toBeInTheDocument()
             cleanup()
         } finally {

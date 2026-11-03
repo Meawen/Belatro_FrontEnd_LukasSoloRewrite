@@ -135,8 +135,9 @@ function End({ signedOut, onAgain, exit }: { signedOut: boolean; onAgain: () => 
             <p className="t-callout">{t.guide.end.after}</p>
             {signedOut && <p className="t-callout text-text-2">{t.guide.end.guest}</p>}
             <ErrorAlert message={bots.error} />
-            {running && <Button block variant="secondary" onClick={() => navigate(`/game/${running}`)}>{t.shell.activeGame.action}</Button>}
-            <Button block loading={bots.starting} onClick={play}>{t.guide.end.play}</Button>
+            {/* with a game running, hand 2 can't start until it ends: going back to it is the main button (spec §8) */}
+            {running && <Button block onClick={() => navigate(`/game/${running}`)}>{t.shell.activeGame.action}</Button>}
+            <Button block variant={running ? 'secondary' : 'primary'} loading={bots.starting} onClick={play}>{t.guide.end.play}</Button>
             <Button block variant="secondary" onClick={onAgain}>{t.guide.end.again}</Button>
             <Exit {...exit} />
         </div>

@@ -1493,7 +1493,7 @@ export const en = {
             wait: 'Play as in a real game. On your turn, the cards you may play are highlighted.',
             play: 'The highlighted cards are the ones you may play.',
             tip: 'Call the suit you hold most of, best with its Decko or 9, the top trumps. Nothing good? Pass. The team that calls trump must end the hand with more points.',
-            tipMust: 'Everyone passed, so you call: pick the suit you hold most of, best with its Decko or 9.',
+            tipMust: 'Everyone else passed, so you call: pick the suit you hold most of, best with its Decko or 9.',
             done: 'The hand is over. Look at the result; then you choose how to go on.',
             hint: 'Hint',
             // the rule behind the marked cards, by what the server allowed; the suits as the board names them

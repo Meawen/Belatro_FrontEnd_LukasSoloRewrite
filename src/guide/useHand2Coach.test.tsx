@@ -238,7 +238,8 @@ describe("hand 2's coach (open beta §7.3, D-24)", () => {
         rerenderWith(stateOf({ ...privateFor(PLAY(8, { gameState: 'HAND_COMPLETE' }), false, HAND), legalCards: null }))
         expect(panel()).toHaveAttribute('data-phase', 'done')
         expect(panel()).toHaveTextContent(en.guide.hand2.done)
-        expect(rules()).toHaveAttribute('href', '/rules#rules-playing')
+        // the hand's result: how a hand is scored (spec §7.4, "the right section")
+        expect(rules()).toHaveAttribute('href', '/rules#rules-scoring')
         unmount()
 
         // a member's Exit goes Home

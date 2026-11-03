@@ -72,8 +72,12 @@ describe("hand 2's helpers (open beta §7.3)", () => {
             ['overTrump', mine([['bob', HA]], [HJ, H7, TA], [HJ]), 'HERC'],
             // no Tref: every trump of mine
             ['cut', mine([['bob', TA]], [H7, HK, KA], [HK, H7]), 'TREF'],
+            // R-19: once a Tref lead is cut, any Tref goes, my As (which beats the Baba) and my 7 alike
+            ['follow', mine([['alice', TQ], ['bob', H7]], [TA, T7, KA], [T7, TA]), 'TREF'],
             // no Tref, and alice's Kralj already cut it: only my higher trump
             ['overCut', mine([['alice', TA], ['bob', HK]], [H7, HA, KA], [HA]), 'TREF'],
+            // no Tref, and bob's Decko, the top trump, cut it: I can't go higher, so any trump of mine
+            ['cut', mine([['alice', TA], ['bob', HJ]], [H7, HK, KA], [HK, H7]), 'TREF'],
             // no Tref, no trump: anything
             ['any', mine([['bob', TA]], [KA, P7], [P7, KA]), 'TREF'],
             // trump led, no trump: anything

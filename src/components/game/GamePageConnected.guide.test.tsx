@@ -338,7 +338,7 @@ describe("the guide's end, after hand 2's first hand (open beta §7.4)", () => {
             expect(within(panel).getByText('Prvi je bačen Tref, a ti ga imaš, pa moraš odgovoriti na boju. Ovdje smiješ baciti bilo koji svoj Tref.')).toBeVisible()
             await user.click(card('As Herc'))
             const foul = screen.getByRole('dialog', { name: 'Nedopuštena karta' })
-            expect(within(foul).getByText('Protiv ljudi ovu kartu netko može prijaviti kao prekršaj. Botovi nikad ne prijavljuju prekršaje.')).toBeInTheDocument()
+            expect(within(foul).getByText('U igri s ljudima netko bi ovu kartu mogao prijaviti kao prekršaj. Botovi nikad ne prijavljuju prekršaje.')).toBeInTheDocument()
             expect(within(foul).getByRole('button', { name: 'Odaberi drugu' })).toHaveFocus()
             expect(within(foul).getByRole('button', { name: 'Odigraj svejedno' })).toBeInTheDocument()
             cleanup()
