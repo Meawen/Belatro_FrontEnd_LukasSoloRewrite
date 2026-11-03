@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Button, Input, Loader } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
@@ -43,6 +43,11 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     const status = useSignupStatus(!invite);
     // the form turned into the waitlist after a submit: full meanwhile, or a dead link while full; the line says which
     const [waitlistNotice, setWaitlistNotice] = useState<string | null>(null);
+    // the check-inbox panel replaces the form that had focus: focus moves to its heading, where reading starts again
+    const inboxHeading = useRef<HTMLHeadingElement>(null);
+    useEffect(() => {
+        if (createdEmail) inboxHeading.current?.focus();
+    }, [createdEmail]);
 
     const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -121,8 +126,10 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
                 setWaitlistNotice(errorMessage(error, cat().errors.generic));
                 return;
             }
+            // Ruling 5: at signup, IN_GAME is a guest keeping its own name while still seated, not a rename (its catalog line)
+            const inGame = code === 'IN_GAME' ? cat().auth.signUp.inGame : null;
             setErrors({
-                submit: isNetworkOrServerFailure(httpStatus) ? cat().errors.generic : errorMessage(error, cat().auth.signUp.failed)
+                submit: isNetworkOrServerFailure(httpStatus) ? cat().errors.generic : inGame ?? errorMessage(error, cat().auth.signUp.failed)
             });
         }
     };
@@ -130,7 +137,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     if (createdEmail) {
         return (
             <div className="flex flex-col gap-4 text-center">
-                <h1 className="t-title">{t.auth.signUp.checkInbox.heading}</h1>
+                <h1 ref={inboxHeading} tabIndex={-1} className="t-title">{t.auth.signUp.checkInbox.heading}</h1>
                 {/* The same answer comes for an address another account holds, and that one gets no
                     link (spec section 1), so this must not promise a mail. */}
                 <p className="t-body text-text-2">

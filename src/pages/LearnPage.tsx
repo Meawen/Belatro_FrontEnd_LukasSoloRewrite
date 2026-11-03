@@ -73,7 +73,7 @@ function Intro({ onStart, exit }: { onStart: () => void; exit: { line: string; o
             <p className="t-callout">{t.guide.intro.trumpOrder(names(TRUMP_HIGH_FIRST))}</p>
             <p className="t-callout">{t.guide.intro.plainOrder(names(PLAIN_HIGH_FIRST))}</p>
             <p className="t-callout">{t.guide.intro.lastTrick}</p>
-            <a href="/rules#rules-cards" target="_blank" rel="noopener noreferrer" className="t-callout font-semibold text-accent">{t.guide.rules}</a>
+            <a href="/rules#rules-cards" target="_blank" rel="noopener noreferrer" className="t-callout inline-flex min-h-11 items-center self-start font-semibold text-accent">{t.guide.rules}</a>
             <Button block onClick={onStart}>{t.guide.intro.start}</Button>
             <Exit {...exit} />
         </div>
@@ -147,8 +147,9 @@ function End({ signedOut, onAgain, exit }: { signedOut: boolean; onAgain: () => 
 
 /**
  * Škola bele (/learn, open beta §7): signed in or out, outside the shell, on the felt. The intro before the deal, hand 1
- * replayed from B8's recording on the real board, then the end of hand 1. Nothing here asks the server until the
- * learner starts hand 2. Exit goes Home for a member, to the start page for a guest or a visitor.
+ * replayed from B8's recording on the real board, then the end of hand 1. Until the learner starts hand 2, the page sends
+ * the server only its two counts (spec §9: `started` at the deal, `hand1` at hand 1's end; no token, every answer ignored).
+ * Exit goes Home for a member, to the start page for a guest or a visitor.
  */
 export function LearnPage() {
     const t = useT();

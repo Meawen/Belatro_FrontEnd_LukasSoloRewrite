@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { WaitlistConfirmPage } from './WaitlistConfirmPage'
 import { ApiError } from '../services/api'
+import { userService } from '../services/userService'
 import { setLang } from '../i18n/lang'
 
 // spec §2.2 (B7): POST /api/auth/waitlist/confirm; its request is betaService.test's
@@ -117,6 +118,30 @@ describe('WaitlistConfirmPage (/waitlist/confirm, spec §2.2)', () => {
         expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument()
         expect(screen.getByText('Reload this page to try again.')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Join the waitlist again' })).not.toBeInTheDocument()
+    })
+
+    test('after confirming, a guest whose game still runs is offered the way back to it, as the main button (review Minor 9)', async () => {
+        beta.confirmWaitlist.mockResolvedValue(undefined)
+        localStorage.setItem('authToken', 'tok-g')
+        localStorage.setItem('user', JSON.stringify({ id: 'g1', username: 'gost_4821', guest: true }))
+        const active = vi.spyOn(userService, 'getActiveGame').mockResolvedValue('g1')
+        try {
+            bots.startBotGame.mockRejectedValue(new ApiError({ status: 409, message: 'You already have a game in progress', code: 'ALREADY_IN_GAME' }))
+            const { container } = renderAt('/waitlist/confirm?token=tok-w')
+            const user = userEvent.setup()
+            await user.click(screen.getByRole('button', { name: 'Confirm my place' }))
+            await user.click(await screen.findByRole('button', { name: 'Play against bots as a guest' }))
+            expect(await screen.findByRole('alert')).toHaveTextContent('You already have a game in progress. Go back to it first.')
+            const back = await screen.findByRole('button', { name: 'Return to your game' })
+            const primary = container.querySelectorAll('.ui-btn--primary')
+            expect(primary).toHaveLength(1)
+            expect(primary[0]).toBe(back)
+            expect(screen.getByRole('button', { name: 'Play against bots as a guest' })).toHaveClass('ui-btn--secondary')
+            await user.click(back)
+            expect(screen.getByText('at /game/g1')).toBeInTheDocument()
+        } finally {
+            active.mockRestore()
+        }
     })
 
     test('in Croatian', async () => {

@@ -236,8 +236,9 @@ describe("a guest's session ends on the landing page (Rulings 7, 32)", () => {
     })
 
     // Ruling 44: someone who never had an account meets no sign-in wall, and is not taken off the page they read;
-    // Ruling 48 adds the sign-in, sign-up and forgotten-password forms and the leaderboard, Ruling 62 the waitlist's link
-    test.each(['/privacy', '/terms', '/rules', '/confirm-email', '/waitlist/confirm', '/reset-password', '/forgot-password', '/login', '/signup', '/users'])(
+    // Ruling 48 adds the sign-in, sign-up and forgotten-password forms and the leaderboard, Ruling 62 the waitlist's link,
+    // the R4 review Škola bele (/learn, which needs no session until hand 2)
+    test.each(['/privacy', '/terms', '/rules', '/confirm-email', '/waitlist/confirm', '/reset-password', '/forgot-password', '/login', '/signup', '/users', '/learn'])(
         'on %s, a page that needs no session, the guest is forgotten and the reader stays',
         async (pathname) => {
             vi.stubGlobal('location', { ...window.location, pathname, assign })
@@ -247,6 +248,15 @@ describe("a guest's session ends on the landing page (Rulings 7, 32)", () => {
             expect(assign).not.toHaveBeenCalled()
         },
     )
+
+    test('a guest removed meanwhile who opens Škola bele: the refused resume forgets it, and the learner stays on /learn', async () => {
+        vi.stubGlobal('location', { ...window.location, pathname: '/learn', assign })
+        jsdomStorage.setItem('authToken', jwt(-60 * 60_000))
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(401, { error: 'Bad credentials', code: 'BAD_CREDENTIALS' })))
+        await expect(renewIfExpiring()).resolves.toBe(false)
+        expect(forgotten()).toEqual([null, null, null])
+        expect(assign).not.toHaveBeenCalled()
+    })
 
     test('anywhere else the guest goes to the landing page, never to sign-in', async () => {
         vi.stubGlobal('location', { ...window.location, pathname: '/lobby/abc', assign })

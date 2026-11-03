@@ -484,7 +484,7 @@ export function Board(props: BoardProps) {
                 <HandResult model={sheet ? sheet.model : model} open={resultOpen} hands={sheet ? sheet.hands : hands} delta={sheet ? sheet.delta : current.handDelta}
                     onChallenge={onChallenge} challengePending={challengeWaiting} challengeFrozen={frozen !== null} />
                 <EndSheet model={model} open={model.end !== null && current.held === null && !holding} rematch={rematch} onLeave={onLeave} guest={guest} onSignUp={onSignUp} />
-                <GameMenu model={model} open={panel === 'menu'} onClose={() => setPanel(null)} onBlok={layout.blok ? null : () => open('blok')} leave={coach?.leave} />
+                <GameMenu model={model} open={panel === 'menu'} onClose={() => setPanel(null)} onBlok={layout.blok ? null : () => open('blok')} leave={coach?.leave} guest={guest} />
                 <Sheet open={panel === 'blok' && !layout.blok} onClose={() => setPanel(null)} title={t.board.blok.title} showClose data-testid="bela-blok">
                     <BlokTable model={shown} hands={shownHands} />
                     <p className="t-footnote text-text-3 mt-3">{t.board.blok.hint}</p>

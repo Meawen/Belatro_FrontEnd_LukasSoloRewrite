@@ -90,7 +90,8 @@ export const en = {
         team: (team: string) => `Team ${team}`,
         // a team's name in the upper-case tags: "TEAM A"
         teamCaps: (team: string) => `TEAM ${team}`,
-        // a guest's way back to the landing page (/): the end of a game, a friend's table (a guest can't open Doma or Tables)
+        // a guest's way back to the landing page (/): the end of a game, the game menu, a game that isn't theirs, a friend's
+        // table (a guest can't open Doma or Tables)
         back: 'Back',
     },
     // the main navigation: the sidebar and the phone tab bar (each destination's name is its page title, titles.*)
@@ -160,6 +161,8 @@ export const en = {
     auth: {
         // under the wordmark on every auth page (AuthFrame)
         tagline: 'Belot for four, online.',
+        // the wordmark on every auth page is a link to the landing page (/): its name for screen readers (AuthFrame)
+        toStart: 'Stiglja, start page',
         // /login (LoginForm)
         signIn: {
             heading: 'Welcome Back',
@@ -188,6 +191,8 @@ export const en = {
             // under the h1 on /signup?invite=… (the personal link from the waitlist's spot email)
             inviteSubtitle: 'A place has opened for you. Create your account with this link.',
             failed: 'Registration failed',
+            // a guest signing up under its own name while still at a table or in a game (409 IN_GAME, Ruling 5); the form keeps what was typed
+            inGame: "You're still at a table or in a game under this name. You can keep it once you leave the table or the game ends, or pick another name now.",
             submitting: 'Creating Account...',
             // the legal line under the button: "{termsBefore} [termsLink]{termsBetween} [privacyLink]."
             termsBefore: 'By creating an account you accept the',
@@ -375,10 +380,12 @@ export const en = {
         login: 'Login',
         signUp: 'Sign Up',
     },
-    // any path no route knows (NotFoundPage); its h1 is titles.notFound, and signed out its button is common.signIn
+    // any path no route knows (NotFoundPage); its h1 is titles.notFound. Signed in its button is goHome (Doma), signed out
+    // goStart (the landing page, /)
     notFound: {
         body: "The page you're looking for doesn't exist.",
         goHome: 'Go home',
+        goStart: 'Go to the start page',
     },
     // Settings (/settings)
     settings: {

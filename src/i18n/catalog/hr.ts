@@ -117,6 +117,7 @@ export const hr = {
     },
     auth: {
         tagline: 'Bela za četvero, online.',
+        toStart: 'Stiglja, početna stranica',
         signIn: {
             heading: 'Opet si tu!',
             subtitle: 'Prijavi se u svoj račun',
@@ -139,6 +140,7 @@ export const hr = {
             confirmPasswordRequired: 'Upiši lozinku još jednom.',
             inviteSubtitle: 'Oslobodilo se mjesto za tebe. Izradi račun preko ove poveznice.',
             failed: 'Registracija nije uspjela.',
+            inGame: 'Pod ovim imenom još sjediš za stolom ili igraš partiju. Ime možeš zadržati kad napustiš stol ili kad partija završi, a možeš i odmah odabrati drugo.',
             submitting: 'Izrada računa…',
             termsBefore: 'Izradom računa prihvaćaš',
             termsLink: 'Uvjete korištenja',
@@ -285,6 +287,7 @@ export const hr = {
     notFound: {
         body: 'Stranica koju tražiš ne postoji.',
         goHome: 'Vrati se Doma',
+        goStart: 'Idi na početnu stranicu',
     },
     settings: {
         language: {

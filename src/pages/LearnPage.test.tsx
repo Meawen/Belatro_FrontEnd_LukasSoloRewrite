@@ -105,6 +105,8 @@ describe('Škola bele, hand 1 (open beta §7.1, §7.2)', () => {
         const rules = screen.getByRole('link', { name: 'More in the Rules ›' })
         expect(rules).toHaveAttribute('href', '/rules#rules-cards')
         expect(rules).toHaveAttribute('target', '_blank')
+        // a 44-px target, as every standalone link (R4 review, Accessibility)
+        expect(rules).toHaveClass('inline-flex', 'min-h-11', 'items-center')
         expect(button('Deal the cards')).toBeInTheDocument()
         expect(button('Exit')).toBeInTheDocument()
         expect(screen.queryByRole('region', { name: 'Game table' })).not.toBeInTheDocument()

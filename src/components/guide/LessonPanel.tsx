@@ -103,7 +103,7 @@ export function LessonPanel({ step, ready, refusal, refused, onNext, exitLine, o
             {words && (
                 <div id={`${id}-lesson`} hidden={!open} className="mt-1">
                     <p className="t-footnote">{words.body}</p>
-                    <a href={`/rules#${LESSON_RULES[lesson!]}`} target="_blank" rel="noopener noreferrer" className="t-footnote mt-1 inline-block font-semibold text-accent">
+                    <a href={`/rules#${LESSON_RULES[lesson!]}`} target="_blank" rel="noopener noreferrer" className="t-footnote inline-flex min-h-11 items-center font-semibold text-accent">
                         {t.guide.rules}
                     </a>
                 </div>

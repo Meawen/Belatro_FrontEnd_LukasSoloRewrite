@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthFrame } from '../components/auth/AuthFrame';
 import { ErrorAlert } from '../components/common/ErrorAlert';
-import { Button } from '../components/ui';
+import { Button, type ButtonVariant } from '../components/ui';
+import { useActiveGame } from '../hooks/useActiveGame';
 import { useBotGame } from '../hooks/useBotGame';
 import { usePageTitle } from '../routing/usePageTitle';
 import { ApiError } from '../services/api';
@@ -45,13 +46,26 @@ export function WaitlistConfirmPage() {
     // The link is posted once and its first answer is final. The ref stops a second click that lands before React
     // re-renders the button as disabled.
     const posted = useRef(false);
-    const bots = useBotGame();
+    // as Škola bele's end: nothing is asked before the bots are refused with ALREADY_IN_GAME (a guest's game still runs),
+    // then the running game is looked up and offered (R4 review: this page shows no banner)
+    const [lookUp, setLookUp] = useState(false);
+    const { gameId: running } = useActiveGame(lookUp);
+    const bots = useBotGame({ onAlreadyInGame: () => setLookUp(true) });
     const reload = reloadHint(outcome, t);
     const dead = !token || (outcome.kind === 'failed' && outcome.status !== 429 && !isNetworkOrServerFailure(outcome.status));
 
     // a visitor with no session becomes a guest first (spec §3), decided at click time from storage, as the landing page does
     const playBots = () =>
         void bots.play(authService.isAuthenticated() ? undefined : () => authService.startGuest(getLang()));
+
+    // the game against bots; with a game running, the way back to it comes first in the bots' place (spec §8, Ruling 71)
+    const botsWays = (variant: ButtonVariant) => (
+        <>
+            {running && <Button variant={variant} block onClick={() => navigate(`/game/${running}`)}>{t.shell.activeGame.action}</Button>}
+            <Button variant={running ? 'secondary' : variant} block loading={bots.starting} onClick={playBots}>{t.guest.needsAccount.bots}</Button>
+            <ErrorAlert message={bots.error} className="w-full text-left" />
+        </>
+    );
 
     const confirm = async () => {
         if (posted.current) return;
@@ -80,14 +94,12 @@ export function WaitlistConfirmPage() {
                     <>
                         <ErrorAlert message={!token ? t.errors.codes.WAITLIST_LINK_INVALID : outcome.kind === 'failed' ? outcome.message : null} className="w-full text-left" />
                         <Button block onClick={() => navigate('/signup')}>{t.auth.waitlistConfirm.again}</Button>
-                        <Button variant="secondary" block loading={bots.starting} onClick={playBots}>{t.guest.needsAccount.bots}</Button>
-                        <ErrorAlert message={bots.error} className="w-full text-left" />
+                        {botsWays('secondary')}
                     </>
                 ) : outcome.kind === 'confirmed' ? (
                     <>
                         <p className="t-body text-success">{t.auth.waitlistConfirm.confirmed}</p>
-                        <Button block loading={bots.starting} onClick={playBots}>{t.guest.needsAccount.bots}</Button>
-                        <ErrorAlert message={bots.error} className="w-full text-left" />
+                        {botsWays('primary')}
                     </>
                 ) : (
                     <>

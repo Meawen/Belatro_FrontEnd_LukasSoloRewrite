@@ -1,7 +1,8 @@
-import { useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
-import { Button, Input } from '../ui';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button, Input, type ButtonVariant } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
+import { useActiveGame } from '../../hooks/useActiveGame';
 import { useBotGame } from '../../hooks/useBotGame';
 import { ApiError } from '../../services/api';
 import { authService } from '../../services/authService';
@@ -27,6 +28,7 @@ export interface WaitlistFormProps {
  */
 export function WaitlistForm({ initialEmail = '', notice = null }: WaitlistFormProps) {
     const t = useT();
+    const navigate = useNavigate();
     const returnState = useReturnState();
     const [email, setEmail] = useState(initialEmail);
     const [fieldError, setFieldError] = useState<string | null>(null);
@@ -36,12 +38,30 @@ export function WaitlistForm({ initialEmail = '', notice = null }: WaitlistFormP
     // stops a second submit that lands before React re-renders the button as loading
     const sendingRef = useRef(false);
     const [sending, setSending] = useState(false);
-    const bots = useBotGame();
+    // as Škola bele's end: nothing is asked before the bots are refused with ALREADY_IN_GAME (a guest's game still runs),
+    // then the running game is looked up and offered (R4 review: these pages show no banner)
+    const [lookUp, setLookUp] = useState(false);
+    const { gameId: running } = useActiveGame(lookUp);
+    const bots = useBotGame({ onAlreadyInGame: () => setLookUp(true) });
+    // the joined panel replaces the form that had focus: focus moves to its heading, where reading starts again
+    const joinedHeading = useRef<HTMLHeadingElement>(null);
+    useEffect(() => {
+        if (joined) joinedHeading.current?.focus();
+    }, [joined]);
 
     // a visitor with no session becomes a guest first (spec §3), decided at click time from storage, as the landing
     // page does; a signed-in member never reaches /signup (PublicRoute), so "authenticated" here means a guest
     const playBots = () =>
         void bots.play(authService.isAuthenticated() ? undefined : () => authService.startGuest(getLang()));
+
+    // the game against bots; with a game running, the way back to it comes first in the bots' place (spec §8, Ruling 71)
+    const botsWays = (variant: ButtonVariant) => (
+        <>
+            {running && <Button variant={variant} block onClick={() => navigate(`/game/${running}`)}>{t.shell.activeGame.action}</Button>}
+            <Button variant={running ? 'secondary' : variant} block loading={bots.starting} onClick={playBots}>{t.guest.needsAccount.bots}</Button>
+            <ErrorAlert message={bots.error} />
+        </>
+    );
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
@@ -74,13 +94,12 @@ export function WaitlistForm({ initialEmail = '', notice = null }: WaitlistFormP
     if (joined) {
         return (
             <div className="flex flex-col gap-4 text-center">
-                <h1 className="t-title">{t.auth.signUp.checkInbox.heading}</h1>
+                <h1 ref={joinedHeading} tabIndex={-1} className="t-title">{t.auth.signUp.checkInbox.heading}</h1>
                 {/* B7 answers every address alike, and a listed one gets no mail: no promise of one */}
                 <p className="t-body text-text-2">
                     {t.auth.waitlist.joinedBefore}{' '}<strong className="text-text">{joined}</strong>{t.auth.waitlist.joinedAfter}
                 </p>
-                <Button block loading={bots.starting} onClick={playBots}>{t.guest.needsAccount.bots}</Button>
-                <ErrorAlert message={bots.error} />
+                {botsWays('primary')}
             </div>
         );
     }
@@ -118,8 +137,7 @@ export function WaitlistForm({ initialEmail = '', notice = null }: WaitlistFormP
 
             <div className="mt-6 flex flex-col items-center gap-3 text-center">
                 <p className="t-callout text-text-2">{t.auth.waitlist.guestNow}</p>
-                <Button variant="secondary" block loading={bots.starting} onClick={playBots}>{t.guest.needsAccount.bots}</Button>
-                <ErrorAlert message={bots.error} />
+                {botsWays('secondary')}
             </div>
 
             <p className="t-callout mt-4 text-center text-text-2">

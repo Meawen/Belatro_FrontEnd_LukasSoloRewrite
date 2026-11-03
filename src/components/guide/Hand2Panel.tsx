@@ -53,7 +53,7 @@ export function Hand2Panel({ phase, mustCall, why, turn, exitLine, onExit }: Han
                     </Button>
                 </div>
             )}
-            <a href={`/rules#${phase === 'bid' ? 'rules-bidding' : phase === 'done' ? 'rules-scoring' : 'rules-playing'}`} target="_blank" rel="noopener noreferrer" className="t-footnote font-semibold text-accent">
+            <a href={`/rules#${phase === 'bid' ? 'rules-bidding' : phase === 'done' ? 'rules-scoring' : 'rules-playing'}`} target="_blank" rel="noopener noreferrer" className="t-footnote inline-flex min-h-11 items-center self-start font-semibold text-accent">
                 {t.guide.rules}
             </a>
         </div>

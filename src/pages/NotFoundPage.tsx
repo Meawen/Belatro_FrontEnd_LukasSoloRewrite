@@ -8,7 +8,7 @@ import { useT } from '../i18n/t';
 
 /**
  * Any path no route knows (spec §4.16): inside the shell with "Go home" when signed in, in the public
- * frame with "Sign in" when not. Nothing for the moment the stored session is read.
+ * frame with the way to the landing page when not (R4 review). Nothing for the moment the stored session is read.
  */
 export function NotFoundPage() {
     const { isAuthenticated, isLoading } = useAuth();
@@ -23,7 +23,7 @@ export function NotFoundPage() {
             <PublicFrame title={t.titles.notFound}>
                 {missing}
                 <div className="mt-6">
-                    <Button onClick={() => navigate('/login')}>{t.common.signIn}</Button>
+                    <Button onClick={() => navigate('/')}>{t.notFound.goStart}</Button>
                 </div>
             </PublicFrame>
         );

@@ -70,7 +70,7 @@ function App() {
                 {/* The ranked queue outlives every page: Match Found reaches a queued player anywhere (R-33) */}
                 <RankedQueueProvider>
                 <Routes>
-                    {/* Sign in and sign up: a visitor who is signed in already goes to /dashboard */}
+                    {/* Sign in and sign up: a member who is signed in already goes to /dashboard; a guest may sign in or sign up (spec §3.3) */}
                     <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
                     <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
 

@@ -13,10 +13,12 @@ export interface GameMenuProps {
     onBlok: (() => void) | null;
     /** The coach's way out in place of Back to home (Škola bele). */
     leave?: Coach['leave'];
+    /** A guest's game: Back to the landing page in place of Back to home (a guest can't open Doma). */
+    guest?: boolean;
 }
 
 /** The game menu (spec §5.4, X-10): Bela Blok on phones, "This hand" (a visible copy, no test ids), Rules, Back to home. */
-export function GameMenu({ model, open, onClose, onBlok, leave }: GameMenuProps) {
+export function GameMenu({ model, open, onClose, onBlok, leave, guest = false }: GameMenuProps) {
     const t = useT();
     const navigate = useNavigate();
     const { bids, declarations, yourTeam } = model.summary;
@@ -33,7 +35,7 @@ export function GameMenu({ model, open, onClose, onBlok, leave }: GameMenuProps)
                 </section>
                 <a href="/rules" target="_blank" rel="noopener noreferrer" className="board-menu__link t-callout font-semibold text-accent">{t.titles.rules}</a>
                 <div className="board-menu__leave">
-                    <Button block onClick={leave ? leave.onLeave : () => navigate('/dashboard')}>{leave?.label ?? t.board.menu.backHome}</Button>
+                    <Button block onClick={leave ? leave.onLeave : () => navigate(guest ? '/' : '/dashboard')}>{leave?.label ?? (guest ? t.common.back : t.board.menu.backHome)}</Button>
                     {/* what Back to home tells the player before they go (spec §5.4, US-36) */}
                     <p className="t-footnote text-text-2">{leave?.note ?? t.board.menu.leaveNote}</p>
                 </div>

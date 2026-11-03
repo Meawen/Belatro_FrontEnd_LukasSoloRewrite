@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { WaitlistForm, type WaitlistFormProps } from './WaitlistForm'
 import { authService } from '../../services/authService'
+import { userService } from '../../services/userService'
 import { ApiError } from '../../services/api'
 import { setLang } from '../../i18n/lang'
 
@@ -107,6 +108,33 @@ describe('WaitlistForm, "Red za stol" (spec §2.2)', () => {
         await userEvent.setup().click(screen.getByRole('button', { name: 'Play against bots as a guest' }))
         expect(await screen.findByText('at /game/g7')).toBeInTheDocument()
         expect(authService.startGuest).not.toHaveBeenCalled()
+    })
+
+    test('the joined panel replaces the form, and focus moves to its heading (review, Accessibility)', async () => {
+        beta.joinWaitlist.mockResolvedValue(undefined)
+        const user = userEvent.setup()
+        renderWaitlist()
+        await user.type(screen.getByLabelText('Email'), 'ana@example.com')
+        await user.click(screen.getByRole('button', { name: 'Join the waitlist' }))
+        const heading = await screen.findByRole('heading', { level: 1, name: 'Check your inbox' })
+        expect(heading).toHaveFocus()
+    })
+
+    test('a guest whose game still runs: ALREADY_IN_GAME offers the way back to it, and it leads there (review Minor 9)', async () => {
+        localStorage.setItem('authToken', 'tok-g')
+        localStorage.setItem('user', JSON.stringify({ id: 'g1', username: 'gost_4821', guest: true }))
+        const active = vi.spyOn(userService, 'getActiveGame').mockResolvedValue('g1')
+        bots.startBotGame.mockRejectedValue(new ApiError({ status: 409, message: 'You already have a game in progress', code: 'ALREADY_IN_GAME' }))
+        const user = userEvent.setup()
+        renderWaitlist()
+        // nothing is asked before the refusal
+        expect(active).not.toHaveBeenCalled()
+        expect(screen.queryByRole('button', { name: 'Return to your game' })).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Play against bots as a guest' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent('You already have a game in progress. Go back to it first.')
+        await user.click(await screen.findByRole('button', { name: 'Return to your game' }))
+        expect(screen.getByText('at /game/g1')).toBeInTheDocument()
+        expect(active).toHaveBeenCalledTimes(1)
     })
 
     test('the notice sits above the form, and the typed address is kept', () => {

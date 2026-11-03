@@ -26,6 +26,7 @@ function renderAt(path: string) {
     render(
         <MemoryRouter initialEntries={[path]}>
             <Routes>
+                <Route path="/" element={<h1>Landing page</h1>} />
                 <Route path="/dashboard" element={<h1>Home page</h1>} />
                 <Route path="/login" element={<h1>Sign-in page</h1>} />
                 <Route path="*" element={<NotFoundPage />} />
@@ -50,14 +51,15 @@ describe('Not found (spec §4.16)', () => {
         expect(screen.getByRole('heading', { name: 'Home page' })).toBeInTheDocument()
     })
 
-    test('signed out: the public frame, and Sign in leads to /login', async () => {
+    test('signed out: the public frame, and its button leads to the landing page (/), not to sign-in (review Minor 8)', async () => {
         auth.isAuthenticated = false
         renderAt('/no/such/page')
         expect(screen.getByRole('heading', { level: 1, name: 'Page not found' })).toBeInTheDocument()
         expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument()
         expect(screen.getByRole('link', { name: 'Stiglja' })).toHaveAttribute('href', '/')
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Sign in' }))
-        expect(screen.getByRole('heading', { name: 'Sign-in page' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Sign in' })).not.toBeInTheDocument()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Go to the start page' }))
+        expect(screen.getByRole('heading', { name: 'Landing page' })).toBeInTheDocument()
     })
 })
 
@@ -70,5 +72,13 @@ describe('Not found in Croatian (open beta §1.1)', () => {
         expect(screen.getByText('Stranica koju tražiš ne postoji.')).toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Vrati se Doma' }))
         expect(screen.getByRole('heading', { name: 'Home page' })).toBeInTheDocument()
+    })
+
+    test('in Croatian, signed out: the way to the start page', async () => {
+        setLang('hr')
+        auth.isAuthenticated = false
+        renderAt('/no/such/page')
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Idi na početnu stranicu' }))
+        expect(screen.getByRole('heading', { name: 'Landing page' })).toBeInTheDocument()
     })
 })

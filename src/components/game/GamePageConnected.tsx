@@ -105,7 +105,7 @@ function GamePage({ gameId }: { gameId: string }) {
                 <Panel padding="lg" className="w-full max-w-md">
                     <div className="flex flex-col items-center gap-4 text-center">
                         <p className="t-headline">{t.game.notYours}</p>
-                        <Button onClick={() => navigate('/dashboard')}>{t.game.goHome}</Button>
+                        <Button onClick={() => navigate(home)}>{isGuest ? t.common.back : t.game.goHome}</Button>
                     </div>
                 </Panel>
             </div>

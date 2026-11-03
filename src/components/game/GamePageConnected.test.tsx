@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useState } from 'react'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom'
 import GamePageConnected from './GamePageConnected'
@@ -337,6 +337,33 @@ describe('the ways out of a game (spec §6)', () => {
         expect(rematchMock.state.leave).not.toHaveBeenCalled()
     })
 
+    test("a guest's game that isn't theirs or has ended: Back opens the landing page, never Doma (review Minor 6)", async () => {
+        auth.isGuest = true
+        vi.mocked(useGameViews).mockReturnValue(views(null, null, { notAvailable: true }))
+        renderPage()
+        expect(screen.queryByRole('button', { name: 'Back to dashboard' })).not.toBeInTheDocument()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Back' }))
+        expect(screen.getByText('at /')).toBeInTheDocument()
+    })
+
+    test("the game menu's way out: a guest's Back opens the landing page, a member's Back to home opens Doma (review Minor 6)", async () => {
+        const user = userEvent.setup()
+        auth.isGuest = true
+        vi.mocked(useGameViews).mockReturnValue(views(publicView))
+        renderPage()
+        await user.click(screen.getByRole('button', { name: 'Game menu' }))
+        const menu = screen.getByRole('dialog', { name: 'Game menu' })
+        expect(within(menu).queryByRole('button', { name: 'Back to home' })).not.toBeInTheDocument()
+        await user.click(within(menu).getByRole('button', { name: 'Back' }))
+        expect(screen.getByText('at /')).toBeInTheDocument()
+        cleanup()
+        auth.isGuest = false
+        renderPage()
+        await user.click(screen.getByRole('button', { name: 'Game menu' }))
+        await user.click(within(screen.getByRole('dialog', { name: 'Game menu' })).getByRole('button', { name: 'Back to home' }))
+        expect(screen.getByText('at /dashboard')).toBeInTheDocument()
+    })
+
     test('a game that stops without a cancel frame takes a member Doma and a guest to the landing page', () => {
         vi.mocked(useGameViews).mockReturnValue(views(publicView))
         renderPage()
@@ -360,6 +387,12 @@ describe('the ways out of a game (spec §6)', () => {
             renderPage()
             expect(screen.getByRole('button', { name: 'Igraj s ljudima' })).toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'Natrag' })).toBeInTheDocument()
+            cleanup()
+            // a guest's game that isn't theirs: Natrag, not Vrati se Doma
+            vi.mocked(useGameViews).mockReturnValue(views(null, null, { notAvailable: true }))
+            renderPage()
+            expect(screen.getByRole('button', { name: 'Natrag' })).toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Vrati se Doma' })).not.toBeInTheDocument()
         } finally {
             setLang('en')
         }

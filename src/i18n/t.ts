@@ -50,14 +50,13 @@ export function ensureCatalog(l: Lang): Promise<void> {
     return loading;
 }
 
-// Ruling 64: the wait in flight, shared by everyone who asks meanwhile (one timer, one answer); and the load that has
-// already said it didn't load, so one load is said once, however many wait on it
+// Ruling 64: the wait in flight, shared by everyone who asks meanwhile (one timer, one answer, one toast). A later ask is
+// a new wait with its own toast, even on a load still in flight: a deliberate retry after the toast gets feedback again
 let waiting: Promise<boolean> | null = null;
-let told: Promise<void> | null = null;
 
 /**
  * English, for a first paint, a switch or a sign-in: true once it is here. False when it failed or took longer than
- * ENGLISH_WAIT_MS; then one toast says so, in the page's language (Croatian, since English isn't here), once per load.
+ * ENGLISH_WAIT_MS; then one toast says so, in the page's language (Croatian, since English isn't here), once per wait.
  * English that arrives after the wait still shows wherever the site is in English: useT follows it.
  */
 export function loadEnglish(): Promise<boolean> {
@@ -70,10 +69,7 @@ export function loadEnglish(): Promise<boolean> {
             settled = true;
             clearTimeout(timer);
             waiting = null;
-            if (!arrived && told !== load) {
-                told = load;
-                showToast(cat().langSwitch.englishFailed);
-            }
+            if (!arrived) showToast(cat().langSwitch.englishFailed);
             resolve(arrived);
         };
         const timer = setTimeout(() => settle(false), ENGLISH_WAIT_MS);

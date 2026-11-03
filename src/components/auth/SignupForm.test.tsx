@@ -110,6 +110,35 @@ describe('SignupForm failures', () => {
         expect(await screen.findByText('Username is already taken')).toBeInTheDocument()
     })
 
+    test("a guest still seated keeps its own name at signup: IN_GAME reads as its own line, not the rename one, and the form stays (Ruling 5)", async () => {
+        captureConsole()
+        auth.isGuest = true
+        auth.signup.mockRejectedValue(new ApiError({ status: 409, message: "You can't change your name while at a table or in a game", code: 'IN_GAME' }))
+        await fill('marko', 'long-enough-1')
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            "You're still at a table or in a game under this name. You can keep it once you leave the table or the game ends, or pick another name now.")
+        expect(screen.queryByText(/change your name/)).not.toBeInTheDocument()
+        expect(screen.getByLabelText('Username')).toHaveValue('marko')
+        expect(screen.getByLabelText('Email')).toHaveValue('ana@example.com')
+    })
+
+    test('the IN_GAME line at signup in Croatian', async () => {
+        captureConsole()
+        setLang('hr')
+        auth.isGuest = true
+        auth.signup.mockRejectedValue(new ApiError({ status: 409, message: "You can't change your name while at a table or in a game", code: 'IN_GAME' }))
+        const user = userEvent.setup()
+        await renderForm()
+        await user.type(screen.getByLabelText('Korisničko ime'), 'marko')
+        await user.type(screen.getByLabelText('E-adresa'), 'ana@example.com')
+        await user.type(screen.getByLabelText('Lozinka'), 'long-enough-1')
+        await user.type(screen.getByLabelText('Potvrda lozinke'), 'long-enough-1')
+        await user.click(screen.getByRole('button', { name: 'Izradi račun' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            'Pod ovim imenom još sjediš za stolom ili igraš partiju. Ime možeš zadržati kad napustiš stol ili kad partija završi, a možeš i odmah odabrati drugo.')
+        expect(screen.getByLabelText('E-adresa')).toHaveValue('ana@example.com')
+    })
+
     test("a reserved name is sent, and the server's refusal reads as its line (USERNAME_RESERVED)", async () => {
         auth.signup.mockRejectedValue(new ApiError({ status: 400, message: 'That username is reserved', code: 'USERNAME_RESERVED' }))
         await fill('obrisan_x', 'long-enough-1')
@@ -133,6 +162,13 @@ describe('SignupForm after success', () => {
         expect(onSuccess).not.toHaveBeenCalled()
         await user.click(screen.getByRole('button', { name: 'Continue' }))
         expect(onSuccess).toHaveBeenCalledTimes(1)
+    })
+
+    test('the check-inbox panel replaces the form, and focus moves to its heading (review, Accessibility)', async () => {
+        auth.signup.mockResolvedValue({ token: 't', user: { id: 'u1', username: 'ana' }, message: null })
+        await fill('ana', 'long-enough-1')
+        const heading = await screen.findByRole('heading', { level: 1, name: 'Check your inbox' })
+        expect(heading).toHaveFocus()
     })
 })
 

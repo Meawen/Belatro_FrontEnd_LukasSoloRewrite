@@ -298,19 +298,52 @@ describe('English that loads late or fails still shows, or says so, and can be r
         await vi.advanceTimersByTimeAsync(3000)
         expect(await Promise.all(first)).toEqual([false, false, false])
         expect(shown.size).toBe(1)
-        // the same load, still in flight: a later ask waits again, but it has already been said
+        // the same load, still in flight: a later ask is a new wait, so it says so again (S15 carry: a deliberate retry
+        // after the toast gets feedback)
         const later = loadEnglish()
         await vi.advanceTimersByTimeAsync(3000)
         expect(await later).toBe(false)
-        expect(shown.size).toBe(1)
-        // and if it lands within that wait, the ask gets English
+        expect(shown.size).toBe(2)
+        // and if it lands within that wait, the ask gets English, and nothing is said
         const meanwhile = loadEnglish()
         await vi.advanceTimersByTimeAsync(1000)
         chunk.resolve(en)
         expect(await meanwhile).toBe(true)
         expect(catalogReady('en')).toBe(true)
         expect(loadEn).toHaveBeenCalledTimes(1)
+        expect(shown.size).toBe(2)
+        unsubscribe()
+    })
+
+    test('a deliberate switch after the toast says so again: two switches that each wait in vain, two toasts (S15 carry)', async () => {
+        vi.useFakeTimers()
+        // English that never arrives: the first switch's load is still in flight at the second
+        const loadEn = vi.fn(() => new Promise<never>(() => {}))
+        vi.doMock('./catalog/loadEn', () => ({ enNow: null, loadEn }))
+        const { switchLang } = await import('./t')
+        const { getLang, setLang } = await import('./lang')
+        const { currentToast, subscribeToToasts } = await import('../components/ui/toastStore')
+        const shown = new Set<number>()
+        const unsubscribe = subscribeToToasts(() => {
+            const now = currentToast()
+            if (now) shown.add(now.id)
+        })
+        setLang('hr')
+
+        switchLang('en')
+        await vi.advanceTimersByTimeAsync(3000)
         expect(shown.size).toBe(1)
+        expect(await toastNow()).toBe(FAILED_HR)
+        // the toast goes; the player presses EN again
+        await vi.advanceTimersByTimeAsync(2000)
+        expect(await toastNow()).toBeNull()
+        switchLang('en')
+        await vi.advanceTimersByTimeAsync(3000)
+        expect(shown.size).toBe(2)
+        expect(await toastNow()).toBe(FAILED_HR)
+        expect(getLang()).toBe('hr')
+        // the one load, still in flight, waited on twice
+        expect(loadEn).toHaveBeenCalledTimes(1)
         unsubscribe()
     })
 

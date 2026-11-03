@@ -65,6 +65,8 @@ describe('LessonPanel (open beta §7.2)', () => {
         expect(rules).toHaveAttribute('href', '/rules#rules-bidding')
         expect(rules).toHaveAttribute('target', '_blank')
         expect(rules).toHaveAttribute('rel', 'noopener noreferrer')
+        // a 44-px target, as every standalone link (R4 review, Accessibility)
+        expect(rules).toHaveClass('inline-flex', 'min-h-11', 'items-center')
     })
 
     test('a stop: Next comes first too; it says Next, never Pass; a member’s Exit goes Home', async () => {

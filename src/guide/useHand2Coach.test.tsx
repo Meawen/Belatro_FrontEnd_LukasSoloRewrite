@@ -196,6 +196,8 @@ describe("hand 2's coach (open beta §7.3, D-24)", () => {
         expect(panel()).toHaveTextContent(en.guide.hand2.tip)
         expect(rules()).toHaveAttribute('href', '/rules#rules-bidding')
         expect(rules()).toHaveAttribute('target', '_blank')
+        // a 44-px target, as every standalone link (R4 review, Accessibility)
+        expect(rules()).toHaveClass('inline-flex', 'min-h-11', 'items-center')
         // Exit says where it goes: a guest to the start page
         const exit = within(panel()).getByRole('button', { name: 'Exit' })
         expect(exit).toHaveAccessibleDescription('Back to the start page')

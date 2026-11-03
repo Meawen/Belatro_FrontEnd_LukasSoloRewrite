@@ -127,7 +127,8 @@ export function HomePage() {
                             <li><Chip icon="robot">{t.home.bots.bot}</Chip></li>
                             <li><Chip icon="robot">{t.home.bots.bot}</Chip></li>
                         </ul>
-                        <Button leftIcon={<PixelIcon name="play" />} loading={bots.starting} onClick={() => void bots.play()}>
+                        {/* with a game running a new one can only be refused: going back to it is the main button (Ruling 71) */}
+                        <Button variant={gameId ? 'secondary' : 'primary'} leftIcon={<PixelIcon name="play" />} loading={bots.starting} onClick={() => void bots.play()}>
                             {t.home.bots.play}
                         </Button>
                         <ErrorAlert message={bots.error} />

@@ -118,6 +118,22 @@ describe('Doma (spec §5, option B)', () => {
         }
     })
 
+    test('with a game running, Return to your game is the main button and Play now secondary; without one, Play now is (Ruling 71)', async () => {
+        vi.mocked(userService.getActiveGame).mockResolvedValue('g1')
+        const { unmount } = renderHome()
+        const card = await screen.findByRole('region', { name: 'Game in progress' })
+        expect(within(card).getByRole('button', { name: 'Return to your game' })).toHaveClass('ui-btn--primary')
+        expect(screen.getByRole('button', { name: 'Play now' })).toHaveClass('ui-btn--secondary')
+        expect(screen.getByRole('region', { name: 'Against bots' }).querySelectorAll('.ui-btn--primary')).toHaveLength(0)
+        unmount()
+
+        vi.mocked(userService.getActiveGame).mockResolvedValue(null)
+        renderHome()
+        await settle()
+        expect(screen.queryByRole('region', { name: 'Game in progress' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Play now' })).toHaveClass('ui-btn--primary')
+    })
+
     test("Against bots: you and three bots, and it says your rating doesn't change", async () => {
         renderHome()
         await settle()
