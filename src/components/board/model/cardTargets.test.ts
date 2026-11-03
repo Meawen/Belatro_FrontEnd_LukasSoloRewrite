@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import {
-    bandBottom, bannerSpot, belotRow, cardSize, cardTargets, fanPlaces, fanStepOf, handPlaces, hudBoxes, layoutAt, tableTargets, tilt, trickCentre,
+    bandBottom, bannerSpot, belotRow, cardSize, cardTargets, fanPlaces, fanStepOf, handPlaces, hudBoxes, hudRightGroup, layoutAt, tableTargets, tilt, trickCentre,
     trickSlots, type Layout, type Target, type Targets, type Viewport,
 } from './cardTargets'
 import { layoutFor } from './fit'
@@ -534,11 +534,14 @@ describe('hudBoxes: what the HUD holds on the felt at its worst case, four-digit
         expect(hudBoxes(at(460, 900, 2, 'portrait', 71))).toEqual([{ x: 0, y: 0, w: 460, h: 52 }, { x: 8, y: 58, w: 120, h: 94 }])
     })
 
-    test('landscape: Challenge (120 + 2 + 44 + 2) takes a second line where the left group, capped at half the board less 58, can\'t hold it beside the scores and Blok (378 px)', () => {
-        expect(hudBoxes(at(667, 323, 2, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 667, h: 44 }, { x: 8, y: 58, w: 168, h: 44 }])
-        expect(hudBoxes(at(812, 375, 2, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 812, h: 44 }, { x: 8, y: 58, w: 168, h: 44 }])
-        expect(hudBoxes(at(844, 340, 3, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 844, h: 44 }, { x: 8, y: 58, w: 168, h: 44 }])
-        expect(hudBoxes(at(932, 430, 3, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 932, h: 44 }])
+    test('landscape: Challenge (120 + 2 + 44 + 2) takes a second line where the left group, capped at half the board less 58, can\'t hold it beside the scores and Blok (378 px); the right group (the phase chip at its widest, 230, the menu, 44, 6 apart) reaches 52 px down, below the band (Ruling AB)', () => {
+        const right = (w: number) => ({ x: w - 8 - 280, y: 8, w: 280, h: 44 })
+        expect(hudBoxes(at(667, 323, 2, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 667, h: 44 }, { x: 8, y: 58, w: 168, h: 44 }, right(667)])
+        expect(hudBoxes(at(812, 375, 2, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 812, h: 44 }, { x: 8, y: 58, w: 168, h: 44 }, right(812)])
+        expect(hudBoxes(at(844, 340, 3, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 844, h: 44 }, { x: 8, y: 58, w: 168, h: 44 }, right(844)])
+        expect(hudBoxes(at(932, 430, 3, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 932, h: 44 }, right(932)])
+        expect(hudRightGroup(at(667, 323, 2, 'landscape', 71))).toEqual(right(667))
+        expect(hudRightGroup(at(390, 664, 3, 'portrait', 94.67))).toBeNull()
     })
 
     test('tablets and desktops: the band only (Challenge stays on the HUD\'s line)', () => {

@@ -347,8 +347,8 @@ describe('phones held sideways (board-fit spec §3.4, §4.2, §7; owner 2026-11-
         }
     })
 
-    test('a coarse landscape grid: from 310 px tall (dpr 2, 2.625, 2.75) or 320 (dpr 3) up to 500, every window 700–932 wide fits; just under, some does not', () => {
-        const floor: [number, number][] = [[2, 310], [2.625, 310], [2.75, 310], [3, 320]]
+    test('a coarse landscape grid: from 310 px tall (dpr 2, 2.625, 2.75) or 317 (dpr 3; 310 from 740 wide) up to 500, every window 700–932 wide fits; just under, some does not', () => {
+        const floor: [number, number][] = [[2, 310], [2.625, 310], [2.75, 310], [3, 317]]
         for (const [dpr, from] of floor) {
             for (let width = 700; width <= 932; width += 29) {
                 for (let height = from; height <= 500; height += 19) expect(misfits(layoutFor({ width, height, dpr })), `${width}x${height}@${dpr}`).toEqual([])

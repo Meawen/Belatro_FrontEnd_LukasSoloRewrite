@@ -265,6 +265,14 @@
     align-items: center;
     padding: 0 2px;
 }
+/* Bela declared (owner, 2026-11-03): a pixel B in the old Bela chip's colours, as wide as the dealer's D (no wider than
+   the no-challenge badge) */
+.board-seat__bela {
+    padding: 0 4px;
+    line-height: 16px;
+    background: var(--surface-2);
+    color: var(--accent);
+}
 /* no challenge left (owner, 2026-10-30): a crossed-out ring in the quiet chip's colours, no wider than the dealer's D
    (a 12-px mark and 1 px each side) */
 .board-seat__spent {
@@ -356,7 +364,7 @@
 }
 /* sideways: my chips over my plate wrap upwards, so the line nearest my plate (and my hand's first cards) takes the
    first chips and a wide Zvanja chip after them goes up a line, clear of my hand (Ruling X; Seats lifts the column
-   where that chip comes first) */
+   where that chip comes first, as it does in play now that Bela is a badge on the plate) */
 .board[data-layout="landscape"] .board-seat[data-position="me"] .board-seat__above > .board-seat__chips {
     flex-wrap: wrap-reverse;
 }

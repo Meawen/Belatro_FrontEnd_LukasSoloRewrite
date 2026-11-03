@@ -105,7 +105,6 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                                 {seat.bid === 'PASS' ? <Tag>Pass</Tag> : <Tag tone="trump" suit={seat.bid}>{SUIT_LABEL[seat.bid]}</Tag>}
                             </Pop>
                         )}
-                        {seat.bela && <Pop instant={instant}><Tag tone="mode">Bela</Tag></Pop>}
                         {chips[seat.id] && <Pop instant={instant}><Tag tone="neutral">{chips[seat.id]}</Tag></Pop>}
                     </span>
                 );
@@ -138,6 +137,13 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                                     <span className="sr-only">{`${seatName(model, seat.id)} called ${model.trump.label}`}</span>
                                 </span>
                             )}
+                            {/* Bela declared (owner, 2026-11-03: "Bela as a badge"): a pixel B on the plate, as the D, in the old chip's colours */}
+                            {seat.bela && (
+                                <span data-testid="bela-badge" className="board-seat__bela font-pix">
+                                    <span aria-hidden="true">B</span>
+                                    <span className="sr-only">{`${seatName(model, seat.id)} declared Bela`}</span>
+                                </span>
+                            )}
                             {/* its challenge is gone for the game (owner, 2026-10-30): a crossed-out ring on the plate, as the D */}
                             {seat.challengeUsed && (
                                 <span data-testid="no-challenge-badge" className="board-seat__spent">
@@ -163,12 +169,12 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                         ) : seat.isMe ? (
                             <>
                                 {!chipsOver && chipRow}
-                                {(cards || chipsOver) && <span className="board-seat__above" style={{ maxWidth: chipsOver ? spot.maxWidth : (cardsFrom ?? 0) + (above ?? 0), ...(lift && chips[seat.id] && !seat.bid && !seat.bela ? { bottom: `calc(100% + ${4 + lift}px)` } : {}) }}>{cards}{chipsOver && chipRow}</span>}
+                                {(cards || chipsOver) && <span className="board-seat__above" style={{ maxWidth: chipsOver ? spot.maxWidth : (cardsFrom ?? 0) + (above ?? 0), ...(lift && chips[seat.id] && !seat.bid ? { bottom: `calc(100% + ${4 + lift}px)` } : {}) }}>{cards}{chipsOver && chipRow}</span>}
                             </>
                         ) : (
                             <>
                                 {chipRow}
-                                {cards && aside ? <span className="board-seat__aside" style={{ marginRight: aside.offset }}>{cards}</span> : cards}
+                                {cards && aside ? <span className="board-seat__aside" style={{ marginRight: aside.offset, ...(aside.rise ? { top: -aside.rise } : {}) }}>{cards}</span> : cards}
                             </>
                         )}
                     </div>

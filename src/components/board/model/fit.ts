@@ -1,7 +1,7 @@
 import { ART_W } from '../../ui/cardWidth';
 import { seatBoxes } from '../seatSpot';
 import {
-    LANDSCAPE_EXACT, bandBottom, boundsOf, cardSize, exactSideways, fanPlaces, hudBoxes, layoutAt, tableTargets, type Layout, type LayoutKind, type Rect, type Target, type Viewport,
+    LANDSCAPE_EXACT, bandBottom, boundsOf, cardSize, exactSideways, fanPlaces, hudBoxes, layoutAt, tableTargets, yourTurnBox, type Layout, type LayoutKind, type Rect, type Target, type Viewport,
 } from './cardTargets';
 import { desktopCandidates, floorPair, phoneCandidates } from './sizes';
 
@@ -18,8 +18,6 @@ const TILT = 4.8;
  * 0.36 of the card's width but never under 32 px; on tablets and desktops 40 % (Ruling H).
  */
 const STRIP = { phone: 0.36, phoneMin: 32, wide: 0.4 };
-/** "Your turn" over my hand (Board.tsx `YourTurn`, board.css `.board-your-turn`): about 120 × 26, its top 40 px over my hand's. */
-const YOUR_TURN = { w: 120, h: 26, above: 40 };
 /**
  * A fine pointer's hover lift on an enabled hand card (board.css `.board-card__lift`, §5.6.5): −24 px in the card's own
  * turn and ×1.08 about its centre. Fine pointers come with tablets' and desktops' windows (Ruling H).
@@ -79,8 +77,8 @@ export function layoutFor(viewport: Viewport): Layout {
  * - where a fine pointer lifts a hovered hand card (tablet, desktop), the lifted card meets none of the partner's or
  *   side slots (my own it may: Ruling P, as Ruling E: the lift shows only on enabled cards, on my turn);
  * - the piles meet no fan of 7 backs (a pile draws nothing until a trick is taken, and by then a seat holds 7 at most);
- * - the seats' columns (`seatBoxes`, whichever team's declared cards show) meet none of the HUD's boxes, my hand's
- *   exposed strips, each other, nor any fan's backs, 8 or 7 of them (Ruling X).
+ * - the seats' columns (`seatBoxes`, whichever team's declared cards show) meet none of the HUD's boxes (sideways its
+ *   right group too), my hand's exposed strips, each other, nor any fan's backs, 8 or 7 of them (Rulings X, AB).
  * Not checked, by design (spec §5): the bid panel, the declaration moment's panel, the challenge banner, the Bela
  * prompt, the sheets and cards in flight.
  */
@@ -167,8 +165,7 @@ function walk(layout: Layout, found: string[] | null): boolean {
     }
 
     // "Your turn" over my full hand: never on the partner's or a side slot (Ruling E)
-    const handTop = Math.min(...hand.map((card) => card.top));
-    const label: Box = { x0: W / 2 - YOUR_TURN.w / 2, x1: W / 2 + YOUR_TURN.w / 2, y0: handTop - YOUR_TURN.above, y1: handTop - YOUR_TURN.above + YOUR_TURN.h };
+    const label: Box = boxOf(yourTurnBox(layout));
     for (const { position, box } of slots) {
         if (position !== 'me' && meets(label, box) && miss(() => `your turn ${show(label)} meets slot ${position} ${show(box)} by ${by(label, box)}`)) return false;
     }

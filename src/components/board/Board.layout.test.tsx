@@ -154,8 +154,9 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
             renderBoard({ state: tableState(table[call + 1]), viewport: { width: 375, height: 553 } })
             const mine = screen.getByTestId('seat-carol')
             const chips = mine.querySelector<HTMLElement>(':scope > .board-seat__chips')!
-            // from my plate at its widest (160) to 8 px before the edge; not before my declared cards' room ends (130.15 + 4)
-            expect(px(chips, 'maxWidth')).toBe(375 - 8 - (12 + 160 + 4))
+            // from my plate at its widest (180 with the Bela badge, owner 2026-11-03; was 160) to 8 px before the edge; not
+            // before my declared cards' room ends (130.15 + 4)
+            expect(px(chips, 'maxWidth')).toBe(375 - 8 - (12 + 180 + 4))
             expect(Number.parseFloat(chips.style.getPropertyValue('--chips-from'))).toBeCloseTo(130.150 + 4, 3)
             // not my turn: an empty, hidden place for the countdown on my plate
             const reserve = mine.querySelector('.board-seat__name > .board-seat__seconds')!
@@ -257,6 +258,44 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
                 expect(new Set(widths('[data-testid="seat-carol"] .board-seat__declared .ui-card')), where).toEqual(new Set([`${declared}px`]))
                 unmount()
             })
+        }
+    })
+
+    test('sideways my partner\'s plate drops 6 px under the HUD\'s right group (the phase chip and the menu), its cards aside staying on the fan\'s middle line (board-fit spec G2; Ruling AB)', () => {
+        // seed 1254, the hand's first card: alice, carol's partner, declared three cards
+        const t = playTable({ seed: 1254 })
+        withDpr(2, () => {
+            renderBoard({ state: tableState(t[indexOf(t, 'play:')], 'carol', 'snapshot'), viewport: { width: 667, height: 323 } })
+            const alice = screen.getByTestId('seat-alice')
+            expect(px(alice, 'top')).toBe(58)
+            const aside = alice.querySelector<HTMLElement>(':scope > .board-seat__aside')!
+            expect(aside.style.top).toBe('-14px')
+            expect(aside.querySelectorAll('.ui-card').length).toBeGreaterThan(0)
+        })
+    })
+
+    test('Bela is a badge on the plate (owner 2026-11-03): a pixel B after the caller\'s badge and before the no-challenge badge, read as "… declared Bela"; no Bela chip remains', () => {
+        expect(css).toMatch(/\.board-seat__bela \{[^}]*padding: 0 4px;[^}]*line-height: 16px;/)
+        // the dev board's busy column: every seat declared Bela and has no challenge left
+        const options = parseDevOptions('?seat=carol&seed=1254&names=long&busy=1&at=play:')
+        const at = resolveAt(devTable(options, 0), options.at)
+        renderBoard({ state: tableState(devTable(options, Date.now(), at)[at], LONG_NAMES.carol, 'snapshot'), me: LONG_NAMES.carol, viewport: { width: 390, height: 664 } })
+        for (const id of Object.values(LONG_NAMES)) {
+            const seat = screen.getByTestId(`seat-${id}`)
+            const plate = seat.querySelector<HTMLElement>('.board-seat__name')!
+            const badge = within(seat).getByTestId('bela-badge')
+            expect(badge.parentElement, id).toBe(plate)
+            expect(badge, id).toHaveClass('board-seat__bela')
+            expect(badge.querySelector('[aria-hidden="true"]')?.textContent, id).toBe('B')
+            expect(badge.querySelector('.sr-only')?.textContent, id).toBe(`${id === LONG_NAMES.carol ? 'You' : id} declared Bela`)
+            // name, D, the caller's badge, the Bela badge, the no-challenge badge, the cards left, the countdown
+            const order = [...plate.children]
+            const at = (el: Element | null) => (el ? order.indexOf(el) : -1)
+            expect(at(badge), id).toBeGreaterThan(Math.max(at(plate.querySelector('.board-seat__label')), at(within(seat).queryByTestId('dealer-chip')), at(within(seat).queryByTestId('caller-badge'))))
+            expect(at(badge), id).toBeLessThan(at(within(seat).getByTestId('no-challenge-badge')))
+            expect(at(within(seat).getByTestId('no-challenge-badge')), id).toBeLessThan(at(within(seat).getByTestId(`cards-left-${id}`).parentElement))
+            // no Bela chip
+            expect([...seat.querySelectorAll('.board-seat__chips > *')].map((chip) => chip.textContent), id).not.toContain('Bela')
         }
     })
 

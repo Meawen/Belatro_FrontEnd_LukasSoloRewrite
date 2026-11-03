@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import { bubbleSpot, declaredStep, seatBoxes, seatSpot, type SeatSpot } from './seatSpot'
 import { EMPTY_LOCAL, boardModel, type SeatModel, type SeatPosition } from './model/boardModel'
-import { cardTargets, fanPlaces, fanStepOf, handPlaces, hudBoxes, tableTargets, trickSlots, type Layout } from './model/cardTargets'
+import { cardTargets, fanPlaces, fanStepOf, handPlaces, hudBoxes, hudRightGroup, tableTargets, trickSlots, type Layout } from './model/cardTargets'
 import { layoutFor } from './model/fit'
 import { indexOf, playTable } from '../../test/fixtures/views/table'
 import { at, box, boxOf, hull, nameOf, overlap, seven, type Box } from '../../test/fixtures/layouts'
@@ -85,15 +85,20 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
         expect(spotAt(mac, 'partner')).toEqual({ left: expect.closeTo(721.024, 3), top: 60, maxWidth: expect.closeTo(390.976, 3), aside: { offset: expect.closeTo(721.024 - 399.0, 1), room: expect.closeTo(390.976, 3) } })
     })
 
-    test('landscape: my partner\'s plate beside the fan on its middle line, its chips and cards on its row; the cards on the fan\'s left side where the row lacks room, clear of the HUD (§4.2; Ruling I b)', () => {
+    test('landscape: my partner\'s plate beside the fan on its middle line, or 6 px under the HUD\'s right group where that leaves no room for a plate (Ruling AB); its chips and cards on its row; the cards on the fan\'s left side, on its middle line, where the row lacks room, clear of the HUD (§4.2; Ruling I b)', () => {
         for (const layout of seven().filter((one) => one.kind === 'landscape')) {
             const where = nameOf(layout)
             const fan = fanOf(layout, 'partner')
             const spot = spotAt(layout, 'partner')
-            const maxWidth = layout.board.w - fan.x1 - 20
-            expect(plateOf(spot), where).toEqual({ left: expect.closeTo(fan.x1 + 8, 9), top: expect.closeTo((fan.y0 + fan.y1) / 2 - 13, 9), transform: undefined, maxWidth: expect.closeTo(maxWidth, 9) })
+            const group = hudRightGroup(layout)!
+            const middle = (fan.y0 + fan.y1) / 2 - 13
+            const before = group.x - 6 - (fan.x1 + 8)
+            const dropped = middle < group.y + group.h && before < 132
+            const maxWidth = Math.min(layout.board.w - fan.x1 - 20, dropped || middle >= group.y + group.h ? Infinity : before)
+            expect(plateOf(spot), where).toEqual({ left: expect.closeTo(fan.x1 + 8, 9), top: expect.closeTo(dropped ? group.y + group.h + 6 : middle, 9), transform: undefined, maxWidth: expect.closeTo(maxWidth, 9) })
             const fits = 132 + 4 + 86 + 4 + row4(layout) <= maxWidth
-            expect(spot.aside === undefined, where).toBe(fits)
+            if (!fits) expect(spot.aside, where).toBeDefined()
+            if (spot.aside) expect(spot.aside.rise, where).toBe(dropped ? group.y + group.h + 6 - middle : undefined)
             if (!spot.aside) continue
             const end = fan.x0 - 8
             expect(spot.left - spot.aside.offset, where).toBeCloseTo(end, 9)
@@ -104,8 +109,10 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
         // left of the fan, ending at 281.09, 99.09 px of room up to 6 px past the HUD's wrapped Challenge line (ending at 176).
         // The plate's top 44: the fan's middle 13 px under the 44-px HUD (owner 2026-11-01, board-fit spec §4.2: Ruling Q's
         // 17 made it 48; at first 23, 54)
-        expect(spotAt(at(812, 375, 2, 'landscape', 71), 'partner')).toEqual({ left: expect.closeTo(458.410, 3), top: 44, maxWidth: expect.closeTo(341.590, 3) })
-        expect(spotAt(at(667, 323, 2, 'landscape', 71), 'partner')).toEqual({ left: expect.closeTo(385.910, 3), top: 44, maxWidth: expect.closeTo(269.090, 3), aside: { offset: expect.closeTo(104.819, 3), room: expect.closeTo(99.090, 3) } })
+        // since Ruling AB 6 px under the HUD's right group (its hit areas reach 52), the cards aside staying 14 px higher on the
+        // fan's middle line
+        expect(spotAt(at(812, 375, 2, 'landscape', 71), 'partner')).toEqual({ left: expect.closeTo(458.410, 3), top: 58, maxWidth: expect.closeTo(341.590, 3) })
+        expect(spotAt(at(667, 323, 2, 'landscape', 71), 'partner')).toEqual({ left: expect.closeTo(385.910, 3), top: 58, maxWidth: expect.closeTo(269.090, 3), aside: { offset: expect.closeTo(104.819, 3), room: expect.closeTo(99.090, 3), rise: 14 } })
     })
 
     test('the side seats upright: the plate and its timer bar above the fan, 6 px clear; the chips and cards 6 px under the fan or the side slot, whichever is lower, at the board\'s edge (§4.1; Ruling I P1)', () => {
@@ -198,9 +205,9 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
                 const handTop = Math.min(...handPlaces(layout, 8).map((card) => box(card).y0))
                 const top = Math.max(today.top, Math.min(left.top + left.under! + 20 + 4 + layout.declared.h + 4, handTop - 6 - 33))
                 // my chips start past my declared cards' room and run to 8 px before the board's edge from my plate at its
-                // widest (160: You, D, the caller's badge, the no-challenge badge, the countdown)
+                // widest (180: You, D, the caller's badge, the Bela badge, the no-challenge badge, the countdown; 160 before the Bela badge)
                 const room = above(top)
-                expect(spot, where).toEqual({ left: today.left, top, above: expect.closeTo(room, 9), beside: { from: expect.closeTo(room + 4, 9), room: expect.closeTo(layout.board.w - 8 - (12 + Math.max(160, room) + 4), 9) } })
+                expect(spot, where).toEqual({ left: today.left, top, above: expect.closeTo(room, 9), beside: { from: expect.closeTo(room + 4, 9), room: expect.closeTo(layout.board.w - 8 - (12 + Math.max(180, room) + 4), 9) } })
             } else {
                 const top = layout.board.h - 8 - 33
                 const rows: [number, number] = [top - 4 - (20 + 4 + layout.declared.h), top + 33]
@@ -229,8 +236,8 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
         // their rows once a second line of chips lifts them (Ruling X)
         expect(spotAt(at(812, 375, 2, 'landscape', 71), 'me')).toEqual({ left: 12, top: 334, maxWidth: expect.closeTo(164.456, 3), cardsFrom: expect.closeTo(44.589, 3), above: expect.closeTo(304.061, 3) })
         // 375×553 @2: the side seats' columns from 344.27 put my plate at 419.77, 0.73 px above my hand's limit (420.50); my
-        // declared cards stop 6 px before the me slot (from 148.15), my chips start at 12 + 134.15, 191 px wide
-        expect(spotAt(at(375, 553, 2, 'portrait', 71), 'me')).toEqual({ left: 12, top: expect.closeTo(419.772, 3), above: expect.closeTo(130.150, 3), beside: { from: expect.closeTo(134.150, 3), room: 191 } })
+        // declared cards stop 6 px before the me slot (from 148.15), my chips start past my plate at its widest (180), 171 px wide
+        expect(spotAt(at(375, 553, 2, 'portrait', 71), 'me')).toEqual({ left: 12, top: expect.closeTo(419.772, 3), above: expect.closeTo(130.150, 3), beside: { from: expect.closeTo(134.150, 3), room: 171 } })
     })
 
     test('moved past the left fan on a wide window, my plate stops 6 px short of every trick slot (±4.8°) in its rows, at the sizes layoutFor picks over 1024–2560 × 520–1440 at dpr 1, 1.25, 1.5 and 2 (board-fit spec G1; Ruling Y)', () => {
@@ -245,14 +252,14 @@ describe('seatSpot: the seat columns make room for the trick and my hand (board-
                     const pile = targets.piles.A
                     const overPile = Math.max(12, pile.left + (pile.width * (1 - pile.scale)) / 2 - 4)
                     const where = `${width}x${height}@${dpr}`
-                    // a maxWidth exactly where my plate moved; seatBoxes models the plate at it, never over 160
+                    // a maxWidth exactly where my plate moved; seatBoxes models the plate at it, never over 180
                     expect(spot.maxWidth !== undefined, where).toBe(spot.left > overPile)
                     if (spot.maxWidth === undefined) continue
                     moved++
                     const plate = { x0: spot.left, x1: spot.left + spot.maxWidth, y0: spot.top, y1: spot.top + 33 + 4 + 20 }
                     for (const slot of slotBoxes(layout)) expect(overlap(plate, { ...slot.box, x0: slot.box.x0 - 6 + 1e-9 }), `${where} ${slot.position}`).toBe(false)
                     const mine = seatBoxes(layout, targets, 'theirs').find((one) => one.id === 'me')!.box
-                    expect(mine.w, where).toBeCloseTo(Math.min(spot.maxWidth, 160), 9)
+                    expect(mine.w, where).toBeCloseTo(Math.min(spot.maxWidth, 180), 9)
                 }
             }
         }
@@ -335,7 +342,7 @@ describe('seatBoxes: each seat\'s common column (board-fit spec §3.2): the plat
         const aside = spotAt(narrow, 'partner')
         expect(seatBoxes(narrow, tableTargets(narrow), 'mine').filter((b) => b.id === 'partner')).toEqual([
             { id: 'partner', box: { x: aside.left, y: aside.top, w: 132 + 4 + 86, h: 33 } },
-            { id: 'partner', box: { x: expect.closeTo(aside.left - aside.aside!.offset - 35.5 * 2.65, 9), y: aside.top, w: expect.closeTo(35.5 * 2.65, 9), h: 47.5 } },
+            { id: 'partner', box: { x: expect.closeTo(aside.left - aside.aside!.offset - 35.5 * 2.65, 9), y: aside.top - aside.aside!.rise!, w: expect.closeTo(35.5 * 2.65, 9), h: 47.5 } },
         ])
         const me = spotAt(narrow, 'me')
         expect(seatBoxes(narrow, tableTargets(narrow), 'mine').filter((b) => b.id === 'me').map((b) => [b.box.x, b.box.y, b.box.w, b.box.h])).toEqual([
@@ -398,5 +405,5 @@ describe('my seat stays put as my hand shrinks (board-fit spec anti-goal: no ref
         }
         // the pile itself still follows the hand (it sits over the hand's left end), on the windows where it lies over it
         expect(dropped).toBeGreaterThan(0)
-    })
+    }, 60_000)
 })

@@ -32,9 +32,10 @@ What the investigation found (screenshots of master 5dbdae2 at real browser wind
 ## 2. Goals, non-goals, anti-goals
 
 **Goals**
-- G1. On every supported window, **nothing covers a card on the table or the playable part of my hand.** Name tags,
-  chips (bid, Bela, ZVANJA, No challenge), declared cards, the opponents' backs, the HUD and its buttons, and my own
-  hand make room for the trick. §5 lists the deliberate exceptions.
+- G1. On every supported window, **nothing covers a card on the table or the playable part of my hand.** Name tags
+  (with their badges: D, the caller's, Bela and No challenge; owner 2026-10-30 and 2026-11-03), chips (bid, ZVANJA),
+  declared cards, the opponents' backs, the HUD and its buttons, and my own hand make room for the trick. §5 lists the
+  deliberate exceptions.
   - The trick's own cards may overlap each other as today's cross does (slots at a fixed share of the card size; the
     later card on top), as in the approved landscape mockup D. But each trick card shows at least one of its two
     corner indices (the art prints the rank and suit top-left and, turned, bottom-right). (Builder's call, from the
@@ -78,7 +79,8 @@ dpr 2, 71, 106.5, 142, 177.5; at dpr 3, 71, 94.7, 118.3.
   declared cards. They give way instead, in this order:
   1. declared cards overlap more, down to only their corner index showing;
   2. chips wrap onto more rows within their column;
-  3. the column grows into free felt on its own side, away from the trick.
+  3. the column grows into free felt on its own side, away from the trick;
+  4. sideways, my partner's declared cards go to the fan's other side (§4.2).
 
   The trick, the hand and the text size never give way, and nothing is hidden. The size is chosen from the window
   only, so it never changes during play.
@@ -153,7 +155,11 @@ The trick keeps its cross in every layout. Its slots stay relative to the card s
   every trick card still shows a corner index. The partner's fan sits 13 px under the HUD per 71 px of back (23 at
   first, then 17), the backs drawn at 0.4. So the cross fits the iPhone windows and the common Android ones of §7
   (builder, after the fit checks; the Android numbers owner-approved 2026-11-01).
-- The partner's tag stays beside the fan (today's rule), its chips and declared cards beside it, on the same row.
+- The partner's tag stays beside the fan (today's rule), its chips and declared cards beside it, on the same row. On
+  phones it sits 6 px under the HUD's right group (the phase chip at its widest and the menu, whose hit areas reach
+  52 px down), where its row on the fan's middle line would meet them. Its declared cards go to the fan's other side,
+  on the fan's middle line, where the row lacks the width, would come within 6 px of a trick slot, or would wrap a busy
+  column onto the right seat's (builder, Ruling AB, after the testing session's DOM check).
 - The side seats as in §4.1: tags above the fans, chips and declared cards under them.
 - **My tag sits at the bottom left, beside my hand**, low enough that the left seat's column never reaches it.
   My chips and declared cards sit over my tag.

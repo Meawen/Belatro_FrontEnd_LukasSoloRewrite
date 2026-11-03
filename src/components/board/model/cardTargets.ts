@@ -414,15 +414,37 @@ export function tableTargets(layout: Layout): Targets {
  *   only the trump (board.css hides the word), about 74; without a trump (bidding, starting) about 76.
  * - Challenge at its widest label, "Challenge used": 13-px semibold text and 12 px each side, about 120, 44 tall; its
  *   info button 44; side by side 2 apart with 2 to spare (landscape), stacked 6 apart (portrait).
+ * - The phase chip at its widest with the season (Ruling AB): "Playing · H Herc · spring" measures about 185 px in the
+ *   T3 shot at 667×323 @2 (hud-667.png); "Hand finished" is about 39 px longer than "Playing", so 230 with a margin.
  */
-const HUD = { top: 8, line: 44, gap: 6, score: 96 + 6 * 9, blok: 48, menu: 44, called: 170, calledNarrow: 74, uncalled: 76, challenge: 120, info: 44 };
+const HUD = { top: 8, line: 44, gap: 6, score: 96 + 6 * 9, blok: 48, menu: 44, called: 170, calledNarrow: 74, uncalled: 76, challenge: 120, info: 44, phaseMax: 230 };
+
+/** "Your turn" over my hand (Board.tsx `YourTurn`, board.css `.board-your-turn`): about 120 × 26, its top 40 px over my hand's. */
+const YOUR_TURN = { w: 120, h: 26, above: 40 };
+
+/** Where "Your turn" shows over my full hand (centred, 40 px over its top): fits and my chips keep clear of it. */
+export function yourTurnBox(layout: Layout): Rect {
+    const handTop = Math.min(...handPlaces(layout, 8).map((card) => card.top));
+    return { x: layout.board.w / 2 - YOUR_TURN.w / 2, y: handTop - YOUR_TURN.above, w: YOUR_TURN.w, h: YOUR_TURN.h };
+}
+
+/**
+ * The HUD's right group sideways (Ruling AB): the phase chip at its widest and the menu, their 44-px hit areas from 8 px
+ * down, so to 52 px, below the landscape band's 44. Upright, on tablets and desktops the 52-px band covers it.
+ */
+export function hudRightGroup(layout: Layout): Rect | null {
+    if (layout.kind !== 'landscape') return null;
+    const w = HUD.phaseMax + HUD.gap + HUD.menu;
+    return { x: layout.board.w - HUD.top - w, y: HUD.top, w, h: HUD.line };
+}
 
 /**
  * What the HUD keeps on the felt (board-fit spec G2), at its worst case: its band, and
  * - portrait: Blok on a second line wherever the first line can't hold the scores, Blok and the phase chip with the menu
  *   (with or without a trump called); the Challenge column (Challenge over its info button, only while a trump is
  *   called) on a line of its own under the first line, or under Blok where the first line wraps then;
- * - landscape: when the left group (capped at half the board less 58 px) can't hold Challenge too, Challenge's line.
+ * - landscape: when the left group (capped at half the board less 58 px) can't hold Challenge too, Challenge's line; and
+ *   the right group (the phase chip and the menu), whose hit areas reach below the band (Ruling AB).
  * Its hint is a popover, not counted.
  */
 export function hudBoxes(layout: Layout): Rect[] {
@@ -439,7 +461,8 @@ export function hudBoxes(layout: Layout): Rect[] {
     if (layout.kind === 'landscape') {
         const challenge = HUD.challenge + 2 + HUD.info + 2;
         const wraps = HUD.score + HUD.gap + HUD.blok + HUD.gap + challenge > W / 2 - 58;
-        return wraps ? [band, { x: HUD.top, y: line(1), w: challenge, h: HUD.line }] : [band];
+        const right = hudRightGroup(layout)!;
+        return wraps ? [band, { x: HUD.top, y: line(1), w: challenge, h: HUD.line }, right] : [band, right];
     }
     return [band];
 }

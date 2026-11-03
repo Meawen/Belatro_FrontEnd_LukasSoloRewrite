@@ -17,7 +17,7 @@ const DENSER = [
 /** carol (team A) at the table; `at` jumps to that fan-out of the table as a snapshot. */
 const board = (at, extra = '') => `/dev/board?controls=0&skip=1&effects=off&seat=carol&at=${at}${extra}`;
 /**
- * Every tag column at its biggest: every seat named by 20 characters, with its Bela tag and "No challenge" badge
+ * Every tag column at its biggest: every seat named by 20 characters, with its Bela and "No challenge" badges
  * (busy=1), and carol, my partner, showing her six declared cards (seed 1254) as the first card goes down.
  */
 const BUSY = '/dev/board?controls=0&skip=1&effects=off&seat=alice&seed=1254&names=long&busy=1&at=play:';

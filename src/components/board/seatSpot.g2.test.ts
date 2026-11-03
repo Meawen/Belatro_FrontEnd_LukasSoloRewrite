@@ -3,6 +3,7 @@ import { declaredStep, seatBoxes, seatSpot } from './seatSpot'
 import { fanPlaces, hudBoxes, tableTargets, trickSlots, type Layout } from './model/cardTargets'
 import { fits, handStrips as strips } from './model/fit'
 import { at, box, boxOf, hull, nameOf, overlap, seven, type Box } from '../../test/fixtures/layouts'
+import { busyBoxes } from '../../test/fixtures/busy'
 
 /** Each trick slot at the widest a stable tilt makes it (tilt(): −4.8…+4.8°). */
 const slotBoxes = (layout: Layout) => Object.entries(trickSlots(layout)).map(([position, slot]) => ({ position, box: box({ ...slot, rotate: 4.8 }) }))
@@ -87,18 +88,18 @@ describe('the seat columns at the board-fit §7 sizes (spec G1, G2)', () => {
 const ME = { id: 'me', position: 'me', team: 'A', isMe: true, bot: false, cardsLeft: 8, current: true, dealer: true, bid: null, bela: true, challengeUsed: true } as const
 
 describe('my own column never reaches my hand or the trick (board-fit spec G1, §3.2)', () => {
-    test('upright, the rare full row (my plate at its widest: the countdown, D, the caller\'s badge and the no-challenge badge; then Bela and "Zvanja 100 + 20") stays beside my plate on one line, clear of my hand\'s strips and every trick slot', () => {
-        // Bela about 46, Zvanja 100 + 20 122.9 (measured in Chromium), 4 px apart; "No challenge" is a badge on the plate now
-        const chips = [46, 122.9]
+    test('upright, the rare full row (my plate at its widest: the countdown, D, the caller\'s badge, the Bela badge and the no-challenge badge; then "Zvanja 100 + 20") stays beside my plate on one line, clear of my hand\'s strips and every trick slot', () => {
+        // Zvanja 100 + 20 122.9 (measured in Chromium); "No challenge" and Bela are badges on the plate (owner 2026-10-30, 2026-11-03)
+        const chips = [122.9]
         for (const layout of [at(375, 553, 2, 'portrait', 71), at(390, 664, 3, 'portrait', 94.67)]) {
             const where = nameOf(layout)
             const spot = seatSpot(ME, tableTargets(layout), layout)
             const room = spot.beside!.room
-            expect(46 + 4 + 122.9, where).toBeLessThanOrEqual(room)
-            expect(chips.length, where).toBe(2)
-            // the plate (160 at most) and its timer bar; the chips from 4 px after it, bottom-aligned with it
-            const plate = { x0: spot.left, x1: spot.left + 160, y0: spot.top, y1: spot.top + 33 }
-            const row = { x0: spot.left, x1: spot.left + 160 + 4 + room, y0: spot.top + 6, y1: spot.top + 26 }
+            expect(122.9, where).toBeLessThanOrEqual(room)
+            expect(chips.length, where).toBe(1)
+            // the plate (180 at most, with the Bela badge) and its timer bar; the chips from 4 px after it, bottom-aligned with it
+            const plate = { x0: spot.left, x1: spot.left + 180, y0: spot.top, y1: spot.top + 33 }
+            const row = { x0: spot.left, x1: spot.left + 180 + 4 + room, y0: spot.top + 6, y1: spot.top + 26 }
             expect(row.x1, where).toBe(layout.board.w - 8)
             for (const mine of [plate, row]) {
                 strips(layout).forEach((strip, i) => expect(overlap(mine, strip), `${where} card ${i} ${show(mine)} ${show(strip)}`).toBe(false))
@@ -133,8 +134,9 @@ describe('my chips and the side seats\' chips at their common size upright (revi
     }, [] as number[])
 
     test('a narrow plate (no D, no badges: 92.3 px in Chromium): my chips start past my declared cards\' room and stay on one line, meeting neither my six or seven declared cards, nor the me slot, nor my hand', () => {
-        // measured in Chromium: "Zvanja 100 + 20" 122.9; Bela about 46 ("No challenge" is a badge on the plate now)
-        const sets = { one: [122.9], two: [46, 122.9] }
+        // measured in Chromium: "Zvanja 100 + 20" 122.9, alone in play ("No challenge" and Bela are badges on the plate now);
+        // while bidding a bid chip ("Pass", about 50) alone
+        const sets = { zvanja: [122.9], bid: [50] }
         for (const layout of [at(375, 553, 2, 'portrait', 71), at(390, 664, 3, 'portrait', 94.67)]) {
             const spot = seatSpot(ME, tableTargets(layout), layout)
             const start = Math.max(spot.left + 92.3 + 4, spot.left + spot.beside!.from)
@@ -168,5 +170,43 @@ describe('my chips and the side seats\' chips at their common size upright (revi
             }
             expect(collisions(layout), where).toEqual([])
         }
+    })
+})
+
+/** A busy column's box against every other seat's plate and chips, the trick slots, my hand's strips, the backs and the HUD. */
+function busyCollisions(layout: Layout, team: 'mine' | 'theirs'): string[] {
+    const where = `${nameOf(layout)} ${team}`
+    const boxes = busyBoxes(layout, team)
+    const others = [
+        ...slotBoxes(layout).map((slot) => ({ name: `slot ${slot.position}`, box: slot.box })),
+        ...strips(layout).map((strip, i) => ({ name: `my hand card ${i}'s strip`, box: strip })),
+        ...(['right', 'partner', 'left'] as const).flatMap((position) => [8, 7].flatMap((n) => fanPlaces(layout, position, n).map((back, i) => ({ name: `${position}'s back ${i} of ${n}`, box: box(back) })))),
+        ...hudBoxes(layout).map((rect, i) => ({ name: `hud#${i}`, box: boxOf(rect) })),
+    ]
+    const met: string[] = []
+    for (const one of boxes) {
+        const name = `${one.id} ${one.part} ${show(one.box)}`
+        for (const other of others) if (overlap(one.box, other.box)) met.push(`${where}: ${name} meets ${other.name} by ${by(one.box, other.box)}`)
+        for (const other of boxes) if (other.id !== one.id && other.part !== 'cards' && overlap(one.box, other.box)) met.push(`${where}: ${name} meets ${other.id} ${other.part} ${show(other.box)} by ${by(one.box, other.box)}`)
+    }
+    return met
+}
+
+/**
+ * Clear since the owner made Bela a badge on the plate (2026-11-03): before, upright on the smallest phones the busy
+ * column's second line of chips (Bela beside "Zvanja 100 + 20" in a 109–134-px column) pushed the declared cards 24 px
+ * lower, onto my partner's neighbour's plate or onto mine (375×553 @2, 390×664 @3, 430×739 @3).
+ */
+const BUSY_OPEN: Record<string, string[]> = {}
+
+describe('the busy column at its biggest (Ruling AB: long names, the Bela and no-challenge badges, "Zvanja 100 + 20", six declared cards; both teams)', () => {
+    test('meets no other seat\'s plate or chips, no trick slot, my hand, no back and not the HUD, but for the open ones, which meet exactly what BUSY_OPEN lists', () => {
+        const windows = [at(375, 553, 2, 'portrait', 71), at(390, 664, 3, 'portrait', 94.67), at(375, 812, 2, 'portrait', 71), at(430, 739, 3, 'portrait', 94.67), at(844, 340, 3, 'landscape', 71), at(667, 323, 2, 'landscape', 71), at(812, 375, 2, 'landscape', 71)]
+        const all: Record<string, string[]> = {}
+        for (const layout of windows) for (const team of ['mine', 'theirs'] as const) {
+            const met = busyCollisions(layout, team)
+            if (met.length) all[`${nameOf(layout)} ${team}`] = met
+        }
+        expect(all).toEqual(BUSY_OPEN)
     })
 })
