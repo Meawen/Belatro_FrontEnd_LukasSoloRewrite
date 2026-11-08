@@ -17,7 +17,7 @@
 //          Challenge otherwise; no refusal may show) to "Hand 1 done", with no request to the API
 //          until then but the guide's counts (no guest, no socket); then "Play hand 2" (a guest's
 //          bot game in guide mode), whose first hand is played with the marked cards only (no foul
-//          warning, one Hint opened) up to the guide's end ("Bela school is done"), where "Continue
+//          warning, one Why? opened) up to the guide's end ("Bela school is done"), where "Continue
 //          this game" drops ?guide=1. POST /api/public/guide-events must answer 204 exactly three
 //          times, started, hand1 and hand2 in that order (a cross-origin JSON POST: its preflight
 //          passed).
@@ -1281,7 +1281,7 @@ async function learnFlow(browser, run) {
                 10000, 'the learner\'s playing turn marks its legal cards and the panel says play');
             report.hand2.marked.push(await markedCards.count());
             if (report.hand2.hint === null) {
-                const hint = hand2Panel.getByRole('button', { name: 'Hint', exact: true });
+                const hint = hand2Panel.getByRole('button', { name: 'Why?', exact: true });
                 await hint.click();
                 const why = page.locator(`[id="${await hint.getAttribute('aria-controls')}"]`);
                 await waitUntil(async () => (await why.isVisible()) && ((await why.textContent()) ?? '').trim() !== '', 5000, 'the hint\'s reason shows');
