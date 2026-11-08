@@ -236,7 +236,7 @@ function SeatFace({ seat, lobby, viewerId, canSit, pressable, busyLabel, mini = 
     const own = player !== null && viewerId !== null && player.id === viewerId;
     const host = player !== null && isHost(lobby, player.id);
     const bot = isBot(player);
-    const title = busyLabel ?? (player ? displayName(player.username ?? t.common.unknown) : canSit ? t.table.seat.sitHere : t.table.seat.open);
+    const title = busyLabel ?? (player ? displayName(player.username ?? t.common.unknown) : canSit ? t.table.seat.sitHere : t.table.seat.openPlate);
     // a bot's tag names its team too, so the team shows by more than colour (spec §3.9); one line, which the 104-px seat
     // fits with the plate's own padding
     const tag = own ? t.common.you : host ? t.tables.hostLabel : bot ? t.table.seat.tagBot(seat.team) : t.common.team(seat.team);

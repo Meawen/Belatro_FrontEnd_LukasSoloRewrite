@@ -62,7 +62,7 @@ async function connecting(page) {
 
 async function idle(page) {
     await fakeServer(page);
-    await page.getByRole('button', { name: 'Find Match', disabled: false }).waitFor();
+    await page.getByRole('button', { name: 'Play ranked', disabled: false }).waitFor();
 }
 
 async function queued(page) {
@@ -87,11 +87,11 @@ async function matchFound(page) {
 }
 
 export default [
-    // the socket down: "Reconnecting…" + Retry on top, Find Match disabled (R-30)
+    // the socket down: "Reconnecting…" + Retry on top, Play ranked disabled (R-30)
     { name: 'ranked-offline', path: '/play', viewports: BOTH, user: PLAYER, api: ['player.json'] },
     // connecting: "Connecting..." on the button and the status line
     { name: 'ranked-connecting', path: '/play', viewports: BOTH, user: PLAYER, api: ['player.json'], setup: connecting },
-    // connected: the calm panel, RANKED, "Find a match", Elo, Find Match
+    // connected: the calm panel, RANKED, "Find a match", Elo, Play ranked
     { name: 'ranked-idle', path: '/play', viewports: BOTH, user: PLAYER, api: ['player.json'], setup: idle },
     // queued: Leave Queue, "Searching for a match", the squares and the three tiles
     { name: 'ranked-queued', path: '/play', viewports: BOTH, user: PLAYER, api: ['player.json'], setup: queued },

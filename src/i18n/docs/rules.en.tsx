@@ -106,7 +106,7 @@ export const doc: RulesDoc = {
             ),
         },
         'rules-declarations': {
-            title: 'Declarations (zvanja) and bela',
+            title: 'Declarations and bela',
             body: (
                 <>
                     <p>
@@ -210,7 +210,7 @@ export const doc: RulesDoc = {
                         host starts the game. Casual games never change your rating.
                     </li>
                     <li>
-                        Ranked: press Find Match on the Ranked page; you need a confirmed email address.
+                        Ranked: press Play ranked on the Ranked page; you need a confirmed email address.
                         Stiglja puts the four closest-rated waiting players together; the longer they wait, the
                         wider the rating gap it accepts, up to 1600 points between the highest and the lowest.
                         Your rating moves with your team's result: a win raises it and a loss lowers it; beating a

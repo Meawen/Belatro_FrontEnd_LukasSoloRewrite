@@ -126,11 +126,11 @@ describe('Board: the declaration moment in the middle of the table (gameplay rul
         const aliceCards = tie[call].public.zvanja!.seats[0].cards.map(cardLabel)
         expect(aliceCards).toHaveLength(3)
         // during the wait: the bubbles, no chips and no cards yet
-        expect(within(screen.getByTestId('seat-alice')).queryByText('Zvanja 20')).toBeNull()
+        expect(within(screen.getByTestId('seat-alice')).queryByText('Declarations 20')).toBeNull()
         expect(declared('alice')).toEqual([])
         after(5000)
         expect(overlay()).toBeNull()
-        expect(within(screen.getByTestId('seat-alice')).getByText('Zvanja 20')).toBeInTheDocument()
+        expect(within(screen.getByTestId('seat-alice')).getByText('Declarations 20')).toBeInTheDocument()
         expect(declared('alice')).toEqual(aliceCards)
         for (const loser of ['bob', 'carol', 'dave']) {
             expect(declared(loser)).toEqual([])
@@ -142,11 +142,11 @@ describe('Board: the declaration moment in the middle of the table (gameplay rul
         expect(declared('alice')).toEqual(aliceCards)
         rerenderWith({ state: tableState(tie[fourth]) })
         expect(declared('alice')).toEqual([])
-        expect(within(screen.getByTestId('seat-alice')).getByText('Zvanja 20')).toBeInTheDocument()
+        expect(within(screen.getByTestId('seat-alice')).getByText('Declarations 20')).toBeInTheDocument()
         rerenderWith({ state: tableState(tie[indexOf(tie, 'hand-complete')]) })
-        expect(within(screen.getByTestId('seat-alice')).getByText('Zvanja 20')).toBeInTheDocument()
+        expect(within(screen.getByTestId('seat-alice')).getByText('Declarations 20')).toBeInTheDocument()
         rerenderWith({ state: tableState(tie[indexOf(tie, 'next-deal')]) })
-        expect(screen.queryByText('Zvanja 20')).toBeNull()
+        expect(screen.queryByText('Declarations 20')).toBeNull()
     })
 
     test('the chips replace the old "sequence" chips: a winning seat with two declarations shows both', () => {
@@ -156,8 +156,8 @@ describe('Board: the declaration moment in the middle of the table (gameplay rul
         vi.useFakeTimers()
         vi.setSystemTime(runs[call].at + 6000)
         renderBoard({ state: tableState(runs[call + 1], 'carol', 'snapshot') })
-        expect(within(screen.getByTestId('seat-alice')).getByText('Zvanja 20 + 20')).toBeInTheDocument()
-        expect(within(screen.getByTestId('seat-carol')).getByText('Zvanja 20')).toBeInTheDocument()
+        expect(within(screen.getByTestId('seat-alice')).getByText('Declarations 20 + 20')).toBeInTheDocument()
+        expect(within(screen.getByTestId('seat-carol')).getByText('Declarations 20')).toBeInTheDocument()
         expect(screen.getByTestId('seat-bob')).not.toHaveTextContent('Zvanja')
         expect(screen.getByRole('region', { name: 'Game table' })).not.toHaveTextContent('sequence')
         expect(screen.getAllByTestId('declaration').map((line) => line.textContent)).toEqual(['alice: 20 + 20', 'carol: 20'])
@@ -198,7 +198,7 @@ describe('Board: the declaration moment in the middle of the table (gameplay rul
         vi.setSystemTime(tie[CALL].at + 7000)
         renderBoard({ state: tableState(tie[indexOf(tie, 'play:', CALL)], 'carol', 'snapshot') })
         expect(overlay()).toBeNull()
-        expect(within(screen.getByTestId('seat-alice')).getByText('Zvanja 20')).toBeInTheDocument()
+        expect(within(screen.getByTestId('seat-alice')).getByText('Declarations 20')).toBeInTheDocument()
         expect(declared('alice')).toHaveLength(3)
         expect(logged(SR)).toBe(0)
     })
@@ -306,7 +306,7 @@ describe('Board: focus when the moment\'s skip button goes (gameplay rules §6)'
 
 describe('Board: my chips never sit on my hand (gameplay rules §6)', () => {
     test('in landscape my chips go over my plate with my declared cards, as my bubble did; elsewhere under it; the other seats as before', () => {
-        // seed 1254, the hand's first card: carol (me) holds Zvanja 100 + 20 and six declared cards, alice 20 and three
+        // seed 1254, the hand's first card: carol (me) holds Declarations 100 + 20 and six declared cards, alice 20 and three
         const t = playTable({ seed: 1254 })
         const first = t[indexOf(t, 'play:')]
         for (const viewport of [{ width: 812, height: 375 }, { width: 375, height: 812 }, { width: 1440, height: 900 }]) {
@@ -316,7 +316,7 @@ describe('Board: my chips never sit on my hand (gameplay rules §6)', () => {
             const where = `${viewport.width}x${viewport.height}`
             const mine = screen.getByTestId('seat-carol')
             const above = mine.querySelector<HTMLElement>(':scope > .board-seat__above')!
-            const chip = within(mine).getByText('Zvanja 100 + 20')
+            const chip = within(mine).getByText('Declarations 100 + 20')
             expect(above.querySelector('[role="group"]'), where).toHaveAccessibleName('Your declared cards')
             expect(declared('carol'), where).toHaveLength(6)
             // landscape: my plate sits low beside my hand, so the chips go over it too, closest to the plate
@@ -327,7 +327,7 @@ describe('Board: my chips never sit on my hand (gameplay rules §6)', () => {
             // the other seats keep their chips and cards under the plate
             const alice = screen.getByTestId('seat-alice')
             expect(alice.querySelector('.board-seat__above'), where).toBeNull()
-            expect(within(alice).getByText('Zvanja 20').closest('.board-seat__chips')?.parentElement, where).toBe(alice)
+            expect(within(alice).getByText('Declarations 20').closest('.board-seat__chips')?.parentElement, where).toBe(alice)
             expect(declared('alice'), where).toHaveLength(3)
             cleanup()
             vi.useRealTimers()

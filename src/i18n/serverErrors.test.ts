@@ -70,13 +70,13 @@ describe("server errors in the site's language (spec §1.1, §8)", () => {
     test('a known code gives its line, in English and in Croatian', async () => {
         const { localiseApiError, ApiError, setLang, en, hr } = await load()
         const full = new ApiError({ status: 409, message: 'Lobby is full', code: 'LOBBY_FULL' })
-        expect(localiseApiError(full)).toBe('This table is full. Choose another one, or open your own.')
+        expect(localiseApiError(full)).toBe('This table is full.')
         const lines = Object.entries(en.errors.codes).filter(([, line]) => typeof line === 'string')
         const coded = (code: string) => new ApiError({ status: 400, message: 'x', code })
         for (const [code, line] of lines) expect(localiseApiError(coded(code)), code).toBe(line)
 
         setLang('hr')
-        expect(localiseApiError(full)).toBe('Ovaj je stol pun. Odaberi drugi ili otvori svoj.')
+        expect(localiseApiError(full)).toBe('Ovaj je stol pun.')
         for (const [code] of lines) expect(localiseApiError(coded(code)), code).toBe(hr.errors.codes[code as ErrorCode])
     })
 
@@ -197,18 +197,18 @@ describe("server errors in the site's language (spec §1.1, §8)", () => {
         expect(localiseStompError('Something the server never says')).toBe(GENERIC_HR)
     })
 
-    test("English keeps the game's own word: zvanja (§1.3, carried b)", async () => {
+    test('English says declarations, as the owner chose over §1.3 for zvanje (R1-43)', async () => {
         const { localiseStompError } = await load()
-        expect(localiseStompError('Declarations are being said')).toBe('Wait until the zvanja are shown, then play your card.')
+        expect(localiseStompError('Declarations are being said')).toBe('Wait until the declarations are shown, then play your card.')
     })
 
-    test('the table lines name Birtija and „Ajmo još jednu!” (carried)', async () => {
+    test('the table lines name no way on a guest can\'t take, and quote „Ajmo još jednu!” (R1-12, R1-13)', async () => {
         const { localiseApiError, localiseStompError, ApiError, setLang } = await load()
         setLang('hr')
         expect(localiseApiError(new ApiError({ status: 400, message: 'x', code: 'LOBBY_CLOSED' })))
-            .toBe('Ovaj je stol zatvoren. Odaberi drugi u Birtiji.')
+            .toBe('Ovaj je stol zatvoren.')
         expect(localiseStompError('Rematch is not available for game g1'))
-            .toBe('„Ajmo još jednu!” za ovu partiju više nije moguće. Vrati se u Birtiju i sjedni za novi stol.')
+            .toBe('„Ajmo još jednu!” za ovu partiju više nije moguće.')
     })
 
     test("a table that's gone reads the same to a member and a guest: no way on that a guest can't take (S10's review)", async () => {

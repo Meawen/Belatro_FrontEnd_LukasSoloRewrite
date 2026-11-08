@@ -267,7 +267,7 @@ describe('Doma (spec §5, option B)', () => {
         renderHome()
         await settle()
         expect(screen.getByRole('heading', { level: 1, name: 'Bok, ana! Što igramo?' })).toBeInTheDocument()
-        for (const name of ['Protiv botova', 'Protiv ljudi', 'Novi u beli?']) expect(screen.getByRole('heading', { level: 2, name })).toBeInTheDocument()
+        for (const name of ['Protiv botova', 'Protiv ljudi', 'Prvi put igraš belu?']) expect(screen.getByRole('heading', { level: 2, name })).toBeInTheDocument()
         for (const name of ['Igraj odmah', 'Igraj rangirano', 'Stol za ekipu', 'Birtija (2)', 'Škola bele']) expect(screen.getByRole('button', { name })).toBeInTheDocument()
         const seats = screen.getByRole('list', { name: 'Mjesta za stolom' })
         expect(within(seats).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Ti', 'Bot', 'Bot', 'Bot'])

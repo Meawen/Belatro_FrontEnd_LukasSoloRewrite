@@ -111,6 +111,26 @@ describe('ConfirmEmailPage', () => {
         expect(screen.getByText(/send a new link/)).toBeInTheDocument()
     })
 
+    test('signed out, a dead link also says an account left unconfirmed for 7 days is gone, so sign up again (R1-05)', async () => {
+        vi.mocked(authService.isAuthenticated).mockReturnValue(false)
+        vi.mocked(authService.confirmEmail).mockRejectedValue(new ApiError({ status: 400, message: 'This link is invalid or has expired', code: 'LINK_INVALID' }))
+        renderAt('/confirm-email?token=old')
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Confirm email address' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent('This link is invalid or has expired')
+        const hint = screen.getByText(/to send a new link\./)
+        const removed = screen.getByText('Signed up more than 7 days ago? That account has been removed, so sign up again.')
+        // under the sign-in hint
+        expect(hint.compareDocumentPosition(removed) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    test('signed in, or after a rate limit, no such line', async () => {
+        vi.mocked(authService.confirmEmail).mockRejectedValue(new ApiError({ status: 400, message: 'This link is invalid or has expired', code: 'LINK_INVALID' }))
+        renderAt('/confirm-email?token=old')
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Confirm email address' }))
+        await screen.findByRole('alert')
+        expect(screen.queryByText(/That account has been removed/)).not.toBeInTheDocument()
+    })
+
     test('a link without a token offers nothing to click', () => {
         renderAt('/confirm-email')
         expect(screen.getByRole('alert')).toHaveTextContent('This link is invalid or has expired')
@@ -175,6 +195,7 @@ describe('ConfirmEmailPage in Croatian (open beta §1.1)', () => {
             renderAt('/confirm-email')
             expect(screen.getByText(/zatraži novu poveznicu/)).toHaveTextContent('Prijavi se pa zatraži novu poveznicu.')
             expect(screen.getByRole('link', { name: 'Prijavi se' })).toHaveAttribute('href', '/login')
+            expect(screen.getByText('Od registracije je prošlo više od 7 dana? Takav je račun uklonjen, pa se registriraj ponovno.')).toBeInTheDocument()
         } finally {
             adoptAccountLang('en')
         }

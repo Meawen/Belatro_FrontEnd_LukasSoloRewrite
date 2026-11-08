@@ -242,7 +242,7 @@ describe('Game history in Croatian (open beta §1.1, §1.4)', () => {
         expect(within(summary).getByText('Ekipa A: 252 boda (20 od zvanja)')).toBeInTheDocument()
         expect(within(summary).getByText('Ekipa B: 0 bodova')).toBeInTheDocument()
         expect(within(summary).getByText('Štihovi: 1')).toBeInTheDocument()
-        expect(within(summary).getByText('Javljanja za adut: 1')).toBeInTheDocument()
+        expect(within(summary).getByText('Javljanja u licitaciji: 1')).toBeInTheDocument()
         expect(within(summary).getByText('ŠTIGLJA')).toBeInTheDocument()
         // heightText's "(up to Baba)" is S5's: not pinned here
         expect(screen.getByRole('region', { name: 'Zvanja' })).toHaveTextContent(/^Zvanja: .*Ti 20.*\. Ekipa B piše 20\.$/)

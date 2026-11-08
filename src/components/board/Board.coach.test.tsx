@@ -202,7 +202,7 @@ describe('Board: the coach (open beta §7.2, §7.3)', () => {
         setLang('hr')
         try {
             renderBoard({ state: playing(), coach: { allowed: () => true, marked: ['KARA-AS'] } })
-            expect(card('As Karo, istaknuto')).toHaveAttribute('data-marked')
+            expect(card('As Karo, označeno')).toHaveAttribute('data-marked')
         } finally {
             setLang('en')
         }

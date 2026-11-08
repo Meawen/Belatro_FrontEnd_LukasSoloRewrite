@@ -111,7 +111,7 @@ describe('RankedQueueProvider (R-33, R-38)', () => {
 
     test('the first IN_QUEUE after a reload sets the queued state: Leave is offered', () => {
         renderApp('/play', <PlayButton />)
-        expect(screen.getByRole('button', { name: 'Find Match' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Play ranked' })).toBeInTheDocument()
         act(() => socket.deliver(STATUS, inQueue))
         expect(screen.getByRole('button', { name: 'Leave Queue' })).toBeInTheDocument()
     })
@@ -119,7 +119,7 @@ describe('RankedQueueProvider (R-33, R-38)', () => {
     test('a 409 "Already queued" on join counts as queued: Leave is offered and no error shows', async () => {
         vi.mocked(rankedService.joinQueue).mockRejectedValue(new ApiError({ status: 409, message: 'Already queued' }))
         renderApp('/play', <PlayButton />)
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Find Match' }))
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Play ranked' }))
         expect(await screen.findByRole('button', { name: 'Leave Queue' })).toBeInTheDocument()
         expect(screen.queryByText(/Already queued/)).not.toBeInTheDocument()
     })
@@ -154,10 +154,10 @@ describe('Join and leave errors belong to the /play visit', () => {
             vi.mocked(rankedService.joinQueue).mockRejectedValue(new ApiError({ status: 429, message: 'You can queue again in 97 s' }))
             renderApp('/play', playPage)
             const user = userEvent.setup()
-            await user.click(screen.getByRole('button', { name: 'Find Match' }))
+            await user.click(screen.getByRole('button', { name: 'Play ranked' }))
             expect(await screen.findByText('You can queue again in 97 s')).toBeInTheDocument()
             await awayAndBack(user)
-            expect(screen.getByRole('button', { name: 'Find Match' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Play ranked' })).toBeInTheDocument()
             expect(screen.queryByText('You can queue again in 97 s')).not.toBeInTheDocument()
         } finally {
             vi.restoreAllMocks()
@@ -278,7 +278,7 @@ describe('Match found in Croatian (open beta §1.1)', () => {
         setLang('hr')
         renderApp('/profile')
         act(() => socket.deliver(MATCH_FOUND, match('m1')))
-        const dialog = screen.getByRole('dialog', { name: 'Partija je pronađena' })
+        const dialog = screen.getByRole('dialog', { name: 'Našli smo ti partiju!' })
         expect(within(dialog).getByRole('region', { name: 'Ekipa A' })).toBeInTheDocument()
         expect(within(dialog).getByRole('region', { name: 'Ekipa B' })).toBeInTheDocument()
         expect(within(dialog).getAllByText('TI')).toHaveLength(1)

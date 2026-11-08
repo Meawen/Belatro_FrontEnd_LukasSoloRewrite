@@ -80,13 +80,13 @@ afterEach(() => {
 })
 
 describe('App error boundary (R-29)', () => {
-    test('a page that throws shows the fallback with Reload and Go to dashboard, not a blank page', () => {
+    test('a page that throws shows the fallback with Reload and Back to home, not a blank page', () => {
         // React reports the caught error on the console
         const logs = captureConsole()
         renderAt('/matches')
         expect(screen.getByText('Something went wrong')).toBeInTheDocument()
         expect(screen.getByText('Reload')).toBeInTheDocument()
-        expect(screen.getByText('Go to dashboard')).toBeInTheDocument()
+        expect(screen.getByText('Back to home')).toBeInTheDocument()
         // the root fallback sits in the minimal wordmark frame (spec §4.1)
         expect(screen.getByText('Stiglja')).toBeInTheDocument()
         expect(logs.text()).toContain('render failed')

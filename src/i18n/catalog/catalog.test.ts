@@ -156,7 +156,7 @@ describe('the catalogs (spec §1.2)', () => {
         expect(en.errors.codes.USERNAME_TAKEN).toBe(
             'Username is already taken. Names that differ only in capitals or in the marks on č ć š ž đ count as the same name. Choose another one.')
         expect(hr.errors.codes.USERNAME_TAKEN).toBe(
-            'To korisničko ime već je zauzeto. Imena koja se razlikuju samo po velikim i malim slovima ili po kvačicama (č ć š ž đ) smatraju se istim imenom. Odaberi drugo.')
+            'To korisničko ime već je zauzeto. Imena koja se razlikuju samo po velikim i malim slovima ili po dijakritičkim znakovima (č ć š ž đ) smatraju se istim imenom. Odaberi drugo.')
         expect(hr.errors.codes.USERNAME_RESERVED).toBe('Imena koja počinju s obrisan_ rezervirana su. Odaberi drugo ime.')
         expect(hr.errors.rules.username).toBe('Korisničko ime mora imati 3–20 znakova: slova (uključujući č ć š ž đ), brojke ili donju crtu.')
     })
@@ -181,7 +181,7 @@ describe('the catalogs (spec §1.2)', () => {
         expect(hr.admin.beta.waiting).toBe('Čekaju u redu (potvrđeni)')
         expect(hr.admin.beta.cap).toBe('Najveći broj računa')
         expect(hr.admin.beta.capHelper).toBe(
-            'Najviše računa u beti; botovi i gosti se ne broje. Ostavi prazno ako ograničenja nema. Kad povećaš ograničenje, sljedeći u redu odmah dobivaju e-poruku.')
+            'Najviše računa u beti; botovi i gosti se ne broje. Ostavi prazno ako ograničenja nema. Kad povećaš ograničenje, sljedeći u Redu za stol odmah dobivaju e-poruku.')
         expect(hr.errors.codes.SIGNUP_FULL).toBe(
             'Slobodnih mjesta više nema pa račun nije izrađen. Ispod se upiši u Red za stol i javit ćemo ti se e-porukom čim se oslobodi mjesto.')
         // Ruling 64: "Ispod se ponovno upiši", in SIGNUP_FULL's order ("Ispod se upiši")
@@ -239,8 +239,8 @@ describe('the catalogs (spec §1.2)', () => {
     test("Ruling 71's Croatian for hand 2, found by its text", () => {
         expect(hr.guide.hand2.warning.body).toBe('U igri s ljudima netko bi ovu kartu mogao prijaviti kao prekršaj. Botovi nikad ne prijavljuju prekršaje.')
         expect(hr.guide.hand2.why.beat('Tref')).toBe('Prvi je bačen Tref, a ti možeš nadjačati najjači Tref na stolu, pa moraš baciti jači.')
-        expect(hr.guide.hand2.why.overTrump).toBe('Prvi je bačen adut i možeš nadjačati najjači adut na stolu, pa moraš baciti jači adut.')
-        expect(hr.guide.hand2.why.overCut('Karo')).toBe('Nemaš nijedan Karo, pa moraš rezati adutom, i to jačim od aduta koji je već u štihu, jer imaš jači.')
+        expect(hr.guide.hand2.why.overTrump).toBe('Prvi je bačen adut, a ti možeš nadjačati najjači adut na stolu, pa moraš baciti jači adut.')
+        expect(hr.guide.hand2.why.overCut('Karo')).toBe('Nemaš nijedan Karo, pa moraš rezati adutom, i to jačim od svakog aduta koji je već u štihu, jer imaš jači.')
         expect(hr.guide.hand2.why.followTrump).toBe('Prvi je bačen adut, a ti imaš adut, pa moraš odgovoriti adutom. Ovdje smiješ baciti bilo koji svoj adut.')
         expect(hr.guide.end.after).toBe('Škola bele završava s tim dijeljenjem, a zatim biraš kako dalje.')
         expect(hr.guide.hand2.tipMust).toMatch(/^Svi ostali su rekli „Dalje”, pa zoveš ti: /)
@@ -259,7 +259,7 @@ describe('the catalogs (spec §1.2)', () => {
         expect(hr.guide.lessons.dalje.body).toContain('Redom, počevši od igrača nakon djelitelja,')
         expect(hr.guide.lessons.dalje.body).toContain('pa si na redu na kraju.')
         expect(hr.guide.lessons.mus.body).toContain('Kad svi ostali kažu „Dalje”')
-        expect(hr.guide.lessons.mus.body).toContain('a Kralj i Baba aduta čine belu')
+        expect(hr.guide.lessons.mus.body).toContain('a Kralj i Baba aduta u istoj ruci čine belu')
         expect(hr.guide.lessons.zvanja.body).toContain('Igra sama pronalazi zvanja i objavljuje ih')
         expect(hr.guide.lessons.followSuit.body).toContain('s tvojom kartom te četiri karte čine štih')
         expect(hr.guide.lessons.bela.body).toContain('Kralj i Baba aduta čine belu')

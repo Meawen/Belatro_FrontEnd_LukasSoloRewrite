@@ -232,6 +232,6 @@ describe('seats in Croatian (open beta §1.1)', () => {
         expect(memberStatus(l, 'u4')).toBe('Odaberi slobodno mjesto.')
         expect(memberStatus(l, 'u3')).toBe('Ti si u ekipi B.')
         expect(hostHint(lobby({ teamBPlayers: [ana] }), 'u9')).toBe(
-            'Tko se pridruži, sjeda na mjesto bota. Ako želiš igrati samo s botovima, otvori stol za ekipu.')
+            'Tko se pridruži, sjeda na mjesto bota. Ako želiš igrati samo s botovima, otvori Stol za ekipu.')
     })
 })

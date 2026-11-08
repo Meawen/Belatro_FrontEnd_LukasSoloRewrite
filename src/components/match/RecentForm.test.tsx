@@ -56,10 +56,10 @@ describe('RecentForm in Croatian (open beta §1.1)', () => {
 
     test('formLine in Croatian, three forms', () => {
         setLang('hr')
-        expect(formLine(recentForm(page('WIN', 'WIN', 'LOSS')))).toBe('2 pobjede · 1 poraz na ovoj stranici · niz: 2 pobjede')
-        expect(formLine(recentForm(page('LOSS', 'WIN', 'WIN', 'LOSS')))).toBe('2 pobjede · 2 poraza na ovoj stranici · niz: 1 poraz')
+        expect(formLine(recentForm(page('WIN', 'WIN', 'LOSS')))).toBe('2 pobjede · 1 poraz na ovoj stranici · 2 pobjede zaredom')
+        expect(formLine(recentForm(page('LOSS', 'WIN', 'WIN', 'LOSS')))).toBe('2 pobjede · 2 poraza na ovoj stranici · 1 poraz zaredom')
         expect(formLine(recentForm(page('DRAW', 'WIN')))).toBe('1 pobjeda · 0 poraza na ovoj stranici')
-        expect(formLine(recentForm(page('WIN', 'WIN', 'WIN', 'WIN', 'WIN')))).toBe('5 pobjeda · 0 poraza na ovoj stranici · niz: 5 pobjeda')
+        expect(formLine(recentForm(page('WIN', 'WIN', 'WIN', 'WIN', 'WIN')))).toBe('5 pobjeda · 0 poraza na ovoj stranici · 5 pobjeda zaredom')
 
         render(<RecentForm summaries={page('LOSS', 'WIN', 'DRAW', 'WIN')} />)
         const strip = screen.getByRole('region', { name: 'Zadnji rezultati' })

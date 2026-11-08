@@ -45,10 +45,10 @@ describe('PlayButton', () => {
         expect(screen.queryByRole('button', { name: 'Resend confirmation email' })).not.toBeInTheDocument()
     })
 
-    test('the queue button: Find Match is the primary action, busy while joining, Leave Queue the secondary one (spec §4.5)', () => {
+    test('the queue button: Play ranked is the primary action, busy while joining, Leave Queue the secondary one (spec §4.5)', () => {
         ranked(null)
         const { rerender } = render(<PlayButton />)
-        expect(screen.getByRole('button', { name: 'Find Match' })).toHaveClass('ui-btn--primary')
+        expect(screen.getByRole('button', { name: 'Play ranked' })).toHaveClass('ui-btn--primary')
         ranked(null, { isJoining: true })
         rerender(<PlayButton />)
         const joining = screen.getByRole('button', { name: 'Joining Queue...' })
@@ -67,7 +67,7 @@ describe('PlayButton in Croatian (open beta §1.1, §1.4)', () => {
     test('in Croatian: the button follows the switch', () => {
         ranked(null)
         const { unmount } = render(<PlayButton />)
-        const button = screen.getByRole('button', { name: 'Find Match' })
+        const button = screen.getByRole('button', { name: 'Play ranked' })
         act(() => setLang('hr'))
         expect(button).toHaveAccessibleName('Igraj rangirano')
         unmount()

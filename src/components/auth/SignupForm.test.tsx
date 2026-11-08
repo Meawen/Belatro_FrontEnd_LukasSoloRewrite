@@ -116,7 +116,7 @@ describe('SignupForm failures', () => {
         auth.signup.mockRejectedValue(new ApiError({ status: 409, message: "You can't change your name while at a table or in a game", code: 'IN_GAME' }))
         await fill('marko', 'long-enough-1')
         expect(await screen.findByRole('alert')).toHaveTextContent(
-            "You're still at a table or in a game under this name. You can keep it once you leave the table or the game ends, or pick another name now.")
+            'This name is still at a table or in a game. You can keep it once you leave the table or the game ends, or pick another name now.')
         expect(screen.queryByText(/change your name/)).not.toBeInTheDocument()
         expect(screen.getByLabelText('Username')).toHaveValue('marko')
         expect(screen.getByLabelText('Email')).toHaveValue('ana@example.com')
@@ -374,7 +374,7 @@ describe('SignupForm in Croatian (open beta §1.1)', () => {
         await fillInCroatian('long-enough-1', 'long-enough-1')
         expect(await screen.findByRole('heading', { level: 1, name: 'Provjeri poštu' })).toBeInTheDocument()
         expect(screen.getByText(/poveznica za potvrdu stiže na/)).toHaveTextContent(
-            'Ako se ova adresa može koristiti, poveznica za potvrdu stiže na ana@example.com. Provjeri poštu (i neželjenu poštu). Potvrdi adresu za rangirane partije; nerangirane možeš igrati odmah.')
+            'Ako se ova adresa može koristiti, poveznica za potvrdu stiže na ana@example.com. Provjeri poštu (i mapu neželjene pošte). Potvrdi adresu za rangirane partije; nerangirane možeš igrati odmah.')
         expect(screen.getByText('Ako adresu ne potvrdiš u roku od 7 dana, račun ćemo obrisati.')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Nastavi' })).toBeInTheDocument()
     })

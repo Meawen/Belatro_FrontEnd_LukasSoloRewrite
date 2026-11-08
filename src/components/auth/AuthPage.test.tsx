@@ -35,7 +35,7 @@ function renderAuth(entry: InitialEntry) {
 describe('AuthPage', () => {
     test('a tab whose session the server ended lands here and is told why', () => {
         render(<MemoryRouter initialEntries={['/login?reason=session-ended']}><AuthPage /></MemoryRouter>)
-        expect(screen.getByRole('alert')).toHaveTextContent('Your session ended — please sign in again')
+        expect(screen.getByRole('alert')).toHaveTextContent('Your session ended. Reload the page, and sign in again if asked.')
     })
 
     test('the sign-in page links the Rules, the Privacy notice, the Terms and the support address (R-40, R-41)', () => {
@@ -48,7 +48,7 @@ describe('AuthPage', () => {
 
     test('a plain visit to the login page shows no such notice', () => {
         render(<MemoryRouter initialEntries={['/login']}><AuthPage /></MemoryRouter>)
-        expect(screen.queryByText('Your session ended — please sign in again')).toBeNull()
+        expect(screen.queryByText('Your session ended. Reload the page, and sign in again if asked.')).toBeNull()
     })
 })
 
@@ -91,7 +91,7 @@ describe("Sign-in from a friend's table link, signed out (spec §3.2)", () => {
     test("sign-in from a friend's table link offers to sit down as a guest, and does (spec §3.2)", async () => {
         const start = vi.spyOn(authService, 'startGuest').mockResolvedValue({ token: 'g-tok', user: { id: 'g1', username: 'gost_4821', guest: true }, message: null })
         renderAuth({ pathname: '/login', state: { from: '/lobby/abc' } })
-        expect(screen.getByText('No account? You can sit at this table as a guest.')).toBeInTheDocument()
+        expect(screen.getByText('You can sit at this table without an account, as a guest.')).toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Sit down as a guest' }))
         expect(start).toHaveBeenCalledWith('en')
         expect(screen.getByTestId('where').textContent).toMatch(/^\/lobby\/abc /)
@@ -106,7 +106,7 @@ describe("Sign-in from a friend's table link, signed out (spec §3.2)", () => {
         const sit = screen.getByRole('button', { name: 'Sit down as a guest' })
         const signIn = screen.getByRole('button', { name: 'Sign In' })
         const form = signIn.closest('form') as HTMLFormElement
-        const lead = screen.getByText('No account? You can sit at this table as a guest.')
+        const lead = screen.getByText('You can sit at this table without an account, as a guest.')
         expect(lead.compareDocumentPosition(sit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         expect(sit.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         expect(sit).toHaveClass('ui-btn--primary')
@@ -138,7 +138,7 @@ describe("Sign-in from a friend's table link, signed out (spec §3.2)", () => {
     test('the door in Croatian', () => {
         setLang('hr')
         renderAuth({ pathname: '/login', state: { from: '/lobby/abc' } })
-        expect(screen.getByText('Nemaš račun? Za ovaj stol možeš sjesti i kao gost.')).toBeInTheDocument()
+        expect(screen.getByText('Za ovaj stol možeš sjesti i bez računa, kao gost.')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Sjedni kao gost' })).toBeInTheDocument()
     })
 })

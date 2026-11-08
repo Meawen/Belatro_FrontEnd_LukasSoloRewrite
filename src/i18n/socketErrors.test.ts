@@ -23,18 +23,18 @@ const load = async () => ({
 })
 
 describe("the game socket's own lines in the site's language (spec §1.1)", () => {
-    test('in English each line is the socket\'s own, byte for byte', async () => {
+    test('in English each line is the socket\'s own, byte for byte, but the session line, which says reload first (R1-11)', async () => {
         const { localiseSocketError, SESSION_ENDED_MESSAGE, CONNECT_REFUSED_MESSAGE, AUTH_REQUIRED_MESSAGE } = await load()
-        expect(localiseSocketError(SESSION_ENDED_MESSAGE)).toBe('Your session ended — please sign in again')
+        expect(localiseSocketError(SESSION_ENDED_MESSAGE)).toBe('Your session ended. Reload the page, and sign in again if asked.')
         expect(localiseSocketError(CONNECT_REFUSED_MESSAGE)).toBe('Could not connect to the game server. Try again.')
         expect(localiseSocketError(AUTH_REQUIRED_MESSAGE)).toBe('Authentication required')
-        for (const line of [SESSION_ENDED_MESSAGE, CONNECT_REFUSED_MESSAGE, AUTH_REQUIRED_MESSAGE]) expect(localiseSocketError(line)).toBe(line)
+        for (const line of [CONNECT_REFUSED_MESSAGE, AUTH_REQUIRED_MESSAGE]) expect(localiseSocketError(line)).toBe(line)
     })
 
     test('in Croatian', async () => {
         const { localiseSocketError, SESSION_ENDED_MESSAGE, CONNECT_REFUSED_MESSAGE, AUTH_REQUIRED_MESSAGE, setLang } = await load()
         setLang('hr')
-        expect(localiseSocketError(SESSION_ENDED_MESSAGE)).toBe('Sesija je završila. Prijavi se ponovno.')
+        expect(localiseSocketError(SESSION_ENDED_MESSAGE)).toBe('Sesija je završila. Ponovno učitaj stranicu i, ako treba, prijavi se.')
         expect(localiseSocketError(CONNECT_REFUSED_MESSAGE)).toBe('Ne možemo se spojiti na poslužitelj igre. Pokušaj ponovno.')
         expect(localiseSocketError(AUTH_REQUIRED_MESSAGE)).toBe('Za igru je potrebna prijava.')
     })

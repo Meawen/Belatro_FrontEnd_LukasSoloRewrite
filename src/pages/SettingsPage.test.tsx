@@ -119,7 +119,7 @@ describe('Settings (spec §4.13)', () => {
         setLang('hr')
         await renderSettings()
         expect(screen.getAllByRole('heading', { level: 2 }).slice(0, 3).map((h) => h.textContent)).toEqual(['Jezik', 'Efekti stola', 'Račun'])
-        expect(within(screen.getByRole('group', { name: 'Efekti stola' })).getAllByRole('button').map((b) => b.textContent)).toEqual(['Puno', 'Mirno', 'Isključeno'])
+        expect(within(screen.getByRole('group', { name: 'Efekti stola' })).getAllByRole('button').map((b) => b.textContent)).toEqual(['Sve', 'Mirno', 'Isključeno'])
         expect(screen.getByText('Igraš kao ana')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Promijeni e-adresu' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Promijeni lozinku' })).toBeInTheDocument()

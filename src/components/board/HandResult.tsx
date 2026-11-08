@@ -79,7 +79,8 @@ export function HandResult({ model, open, hands, delta, onChallenge, challengePe
                                 <dd className="flex items-center gap-2">
                                     {row?.padanje === team && <Tag tone="warn">{team === mine ? t.board.result.fellMine : t.board.result.fellTheirs}</Tag>}
                                     {row?.capot === team && <Tag tone="win">{t.board.capot}</Tag>}
-                                    {decl > 0 && <span className="t-footnote text-text-2">{t.board.result.decl(decl)}</span>}
+                                    {/* R1-44: a team that fell scores 0, so no declarations beside it (the server's summary keeps them) */}
+                                    {decl > 0 && row?.padanje !== team && <span className="t-footnote text-text-2">{t.board.result.decl(decl)}</span>}
                                     <span className="t-score">{team === 'A' ? points.a : points.b}</span>
                                 </dd>
                             </div>

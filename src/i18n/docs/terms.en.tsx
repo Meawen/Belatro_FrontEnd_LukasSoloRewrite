@@ -103,8 +103,8 @@ export const doc: LegalDoc = {
             title: 'Removing accounts',
             body: (
                 <p>
-                    We may suspend or remove an account or a guest that cheats, abuses other players or the service, or
-                    otherwise breaks these terms. You may stop using Stiglja at any time and ask us to delete
+                    We may suspend or remove an account or a guest that cheats, harasses other players, abuses the service,
+                    or otherwise breaks these terms. You may stop using Stiglja at any time and ask us to delete
                     your account (see the Privacy notice). We also remove an account whose email address is not confirmed within
                     7 days of signing up, and a guest not used for 30 days.
                 </p>

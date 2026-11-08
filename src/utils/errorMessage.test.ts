@@ -27,9 +27,9 @@ describe('errorMessage', () => {
             const { ApiError: FreshApiError } = await import('../services/api')
             const { setLang } = await import('../i18n/lang')
             const full = new FreshApiError({ status: 409, message: 'Lobby is full', code: 'LOBBY_FULL' })
-            expect(message(full, 'fallback')).toBe('This table is full. Choose another one, or open your own.')
+            expect(message(full, 'fallback')).toBe('This table is full.')
             setLang('hr')
-            expect(message(full, 'fallback')).toBe('Ovaj je stol pun. Odaberi drugi ili otvori svoj.')
+            expect(message(full, 'fallback')).toBe('Ovaj je stol pun.')
             expect(message(new Error('boom'), 'fallback')).toBe('boom')
             expect(message('x', 'fallback')).toBe('fallback')
         } finally {

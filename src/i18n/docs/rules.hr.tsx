@@ -20,8 +20,8 @@ export const doc: RulesDoc = {
         teams: { title: 'Dvije ekipe', text: 'Suigrači sjede jedan nasuprot drugome. Pobjeđuje ekipa koja prva skupi 1001 bod.' },
         cards: { title: '32 karte, dva redoslijeda', text: 'U adutu Dečko i 9 skaču na vrh. Zadnji štih vrijedi još 10: u dijeljenju su 162 boda.' },
         bidding: {
-            title: 'Zovi adut ili reci dalje',
-            text: 'Svatko dobije šest karata. Zovi adut ili reci „Dalje”; ako svi kažu dalje, djelitelj mora zvati (mus). Zatim stižu još dvije karte.',
+            title: 'Zovi adut ili reci „Dalje”',
+            text: 'Svatko dobije šest karata. Zovi adut ili reci „Dalje”; ako svi kažu „Dalje”, djelitelj mora zvati (mus). Zatim stižu još dvije karte.',
         },
         follow: {
             title: 'Odgovori na boju',
@@ -108,11 +108,11 @@ export const doc: RulesDoc = {
             body: (
                 <>
                     <p>
-                        Zvanja ti igra pronađe sama kad se zove adut. Prije prve karte stol ih kaže naglas, redom od igrača nakon djelitelja, a igra pričeka nekoliko sekundi dok se kažu.
+                        Igra sama pronađe zvanja kad se zove adut. Prije prve karte objavljuje ih redom, od igrača nakon djelitelja, i pričeka nekoliko sekundi.
                     </p>
                     <ul className="list-disc pl-6 space-y-2">
                         <li>
-                            Niz su tri ili više karata zaredom u istoj boji, redom 7, 8, 9, 10, Dečko, Baba, Kralj, As. Tri zaredom (terca) vrijede 20, četiri (kvarta) 50, a pet, šest ili sedam 100. Broji se svaki niz koji imaš, pa i dva u istoj boji.
+                            Niz su tri ili više karata zaredom u istoj boji, redom 7, 8, 9, 10, Dečko, Baba, Kralj, As. Tri zaredom vrijede 20, četiri 50, a pet, šest ili sedam 100. Broji se svaki niz koji imaš, pa i dva u istoj boji.
                         </li>
                         <li>
                             Četiri iste: četiri Dečka vrijede 200, četiri Devetke 150, a četiri Asa, Desetke, Kralja ili Babe 100. Četiri Sedmice ili četiri Osmice ne vrijede ništa. Ista karta može se brojiti i u nizu i u četiri iste.
@@ -127,7 +127,7 @@ export const doc: RulesDoc = {
                             Jače je zvanje koje vrijedi više. Ako dva vrijede jednako, četiri iste tuku niz; zatim odlučuje najviša karta zvanja (7 je najniža, As najviša), a među četiri iste As tuče 10, 10 tuče Kralja, a Kralj Babu. Ako su zvanja i tada jednaka, pobjeđuje igrač koji je prvi na redu nakon djelitelja. Adut tu ništa ne mijenja.
                         </li>
                         <li>
-                            Svaki igrač kaže vrijednost svojeg najjačeg zvanja. Kad su vrijednosti dviju ekipa jednake, ti igrači kažu i do koje karte idu („do Babe”); suigrači ne moraju. Karte iz zvanja ekipe koja je dobila prikazuju se kraj njihovih mjesta dok se ne odnese prvi štih; karte druge ekipe ostaju skrivene.
+                            Svaki igrač kaže vrijednost svojeg najjačeg zvanja. Kad su vrijednosti dviju ekipa jednake, ti igrači kažu i do koje karte im ide zvanje („do Babe”); suigrači ne moraju. Karte iz zvanja ekipe koja je dobila prikazuju se kraj njihovih mjesta dok se ne odnese prvi štih; karte druge ekipe ostaju skrivene.
                         </li>
                         <li>Ekipa koja u dijeljenju ne odnese nijedan štih gubi svoja zvanja i belu za to dijeljenje.</li>
                         <li>
@@ -181,7 +181,7 @@ export const doc: RulesDoc = {
                         Nerangirano: otvori stol ili sjedni za tuđi (za Stol za ekipu treba lozinka), odaberi ekipu, a domaćin pokreće partiju. Nerangirane partije nikad ne mijenjaju tvoj rejting.
                     </li>
                     <li>
-                        Rangirano: pritisni „Igraj rangirano” na stranici Rangirano; treba ti potvrđena e-adresa. Stiglja spaja četvero igrača u potrazi s najbližim rejtingom; što dulje čekaju, to veću razliku u rejtingu prihvaća, najviše 1600 bodova između najvišeg i najnižeg. Rejting ti se mijenja s rezultatom ekipe: pobjeda ga podiže, a poraz spušta; pobjeda protiv ekipe s višim rejtingom donosi više, a poraz od nje manje košta. Mijenja se više što je konačna razlika u rezultatu veća i više u tvojim prvim rangiranim partijama. Nakon vrlo tijesne pobjede prikazani broj može ostati isti.
+                        Rangirano: pritisni „Igraj rangirano” na stranici Rangirano; treba ti potvrđena e-adresa. Stiglja spaja četvero igrača u potrazi s najbližim rejtingom; što dulje čekaju, to veću razliku u rejtingu prihvaća, najviše 1600 bodova između najvišeg i najnižeg. Rejting ti se mijenja s rezultatom ekipe: pobjeda ga podiže, a poraz spušta; pobjeda protiv ekipe s višim rejtingom donosi više, a poraz od nje manje košta. Mijenja se to više što je konačna razlika u rezultatu veća, a više i u tvojim prvim rangiranim partijama. Nakon vrlo tijesne pobjede prikazani broj može ostati isti.
                     </li>
                 </ul>
             ),
@@ -235,7 +235,7 @@ export const doc: RulesDoc = {
             title: 'Odbijanje rangirane partije',
             body: (
                 <p>
-                    Kad se pronađe rangirana partija, u prozoru „Partija je pronađena” možeš pritisnuti „Odbij”, dok još nitko nije licitirao i dok nije prošlo više od 30 sekundi. Partija se otkazuje bez promjene rejtinga, ostala tri igrača vraćaju se u potragu na svoja mjesta, a ti se 2 minute ne možeš ponovno uključiti u potragu.
+                    Kad se pronađe rangirana partija, u prozoru „Našli smo ti partiju!” možeš pritisnuti „Odbij”, dok još nitko nije licitirao i dok nije prošlo više od 30 sekundi. Partija se otkazuje bez promjene rejtinga, ostala tri igrača vraćaju se u potragu na svoja mjesta, a ti se 2 minute ne možeš ponovno uključiti u potragu.
                 </p>
             ),
         },

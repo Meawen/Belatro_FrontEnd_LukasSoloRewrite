@@ -51,12 +51,12 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
         expect(css).toMatch(/\.board-seat\[data-position="right"\] \.board-seat__chips \{[^}]*justify-content: flex-end;/)
         // the left seat's starts at the left edge: left-aligned, as every column is
         expect(css).toMatch(/\.board-seat \{[^}]*align-items: flex-start;/)
-        // seed 7, the hand's second card: dave (my right) holds Zvanja 20 and his three declared cards
+        // seed 7, the hand's second card: dave (my right) holds Declarations 20 and his three declared cards
         for (const viewport of [{ width: 812, height: 375 }, { width: 375, height: 812 }, { width: 1440, height: 900 }]) {
             const { unmount } = renderBoard({ state: tableState(find(table, 'play:bob:PIK-BABA'), 'carol', 'snapshot'), viewport })
             expect(['carol', 'dave', 'alice', 'bob'].map((id) => screen.getByTestId(`seat-${id}`).dataset.position)).toEqual(['me', 'right', 'partner', 'left'])
             const dave = screen.getByTestId('seat-dave')
-            expect(dave.querySelector('.board-seat__chips')?.textContent).toBe('Zvanja 20')
+            expect(dave.querySelector('.board-seat__chips')?.textContent).toBe('Declarations 20')
             expect(dave.querySelectorAll('.board-seat__declared img')).toHaveLength(3)
             unmount()
         }

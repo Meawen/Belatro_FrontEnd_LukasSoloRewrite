@@ -57,7 +57,7 @@ export const en = {
         refreshing: 'Refreshing...',
         logOut: 'Log out',
         // a player without a username
-        unknownPlayer: 'Unknown User',
+        unknownPlayer: 'Unknown player',
         // before a player's level: "Level 3"
         level: 'Level',
         continue: 'Continue',
@@ -138,7 +138,7 @@ export const en = {
             heading: 'Something went wrong',
             body: 'An unexpected error occurred. Please refresh the page or try again later.',
             reload: 'Reload',
-            home: 'Go to dashboard',
+            home: 'Back to home',
         },
         // a signed-in page while the stored session is read (ProtectedRoute)
         checkingSession: 'Checking authentication...',
@@ -170,7 +170,7 @@ export const en = {
             usernamePlaceholder: 'Enter your username',
             passwordPlaceholder: 'Enter your password',
             submit: 'Sign In',
-            submitting: 'Signing In...',
+            submitting: 'Signing in…',
             forgot: 'Forgot password?',
             // "{noAccount} [signUpLink]"
             noAccount: "Don't have an account?",
@@ -192,8 +192,8 @@ export const en = {
             inviteSubtitle: 'A place has opened for you. Create your account with this link.',
             failed: 'Registration failed',
             // a guest signing up under its own name while still at a table or in a game (409 IN_GAME, Ruling 5); the form keeps what was typed
-            inGame: "You're still at a table or in a game under this name. You can keep it once you leave the table or the game ends, or pick another name now.",
-            submitting: 'Creating Account...',
+            inGame: 'This name is still at a table or in a game. You can keep it once you leave the table or the game ends, or pick another name now.',
+            submitting: 'Creating your account…',
             // the legal line under the button: "{termsBefore} [termsLink]{termsBetween} [privacyLink]."
             termsBefore: 'By creating an account you accept the',
             termsLink: 'Terms',
@@ -260,6 +260,8 @@ export const en = {
             // signed out: "[Sign in] {toNewLink}" or "[Sign in] {toChangeAddress}"
             toNewLink: 'to send a new link.',
             toChangeAddress: 'to change your email address.',
+            // signed out, under "[Sign in] {toNewLink}": an account not confirmed in 7 days was removed (D-25, R1-05)
+            removedSignUp: 'Signed up more than 7 days ago? That account has been removed, so sign up again.',
         },
         // /waitlist/confirm?token=…, the link in the waitlist's confirmation mail; the reload hints are auth.confirm.*
         waitlistConfirm: {
@@ -624,6 +626,8 @@ export const en = {
             // an empty seat: one you can take, or not; also the seat's name plate
             sitHere: 'Sit here',
             open: 'Open seat',
+            // an open seat's name plate, short enough for the 104-px seat in Croatian (R1-36); `open` stays its spoken name
+            openPlate: 'Open seat',
             you: '(you)',
             bot: 'bot',
             host: 'host',
@@ -670,7 +674,7 @@ export const en = {
         joining: 'Joining Queue...',
         leaving: 'Leaving Queue...',
         leave: 'Leave Queue',
-        find: 'Find Match',
+        find: 'Play ranked',
         // above the button while the game socket connects, and when it fails
         connectingServer: 'Connecting to game server...',
         connectionError: (reason: string) => `Connection error: ${reason}`,
@@ -860,7 +864,7 @@ export const en = {
             atPace: 'At this pace:',
             inAbout: (n: number) => `in about ${n} ${plural(n, { one: 'game', other: 'games' }, 'en')}`,
             // "148 points to **Majster**: about 5 more wins than losses."
-            gapBefore: (gap: number) => `${gap} points to`,
+            gapBefore: (gap: number) => `${gap} ${plural(gap, { one: 'point', other: 'points' }, 'en')} to`,
             gapAfter: (wins: number) => `: about ${wins} more ${plural(wins, { one: 'win', other: 'wins' }, 'en')} than losses.`,
         },
         // your climb (ClimbPanel, ClimbChart): the section, its states, the chart's name, its readout and its table
@@ -1064,7 +1068,7 @@ export const en = {
         },
         // a game the server never sent, or says isn't yours: the line and its way back
         notYours: "This game isn't yours or has ended",
-        goHome: 'Back to dashboard',
+        goHome: 'Back to home',
         // a move made while the socket is down (the table's error line; the e2e harness matches the English)
         notSent: 'Not sent — reconnecting',
         // the Reconnecting strip over the table and on Ranked (ReconnectBanner); Retry tries at once
@@ -1186,8 +1190,8 @@ export const en = {
             nothing: (name: string) => `${name} nothing`,
             // the whole moment for screen readers: "Declarations: ivo 20, mara nothing. Team B scores 20."
             srLine: (said: string, line: string) => `Declarations: ${said}. ${line}.`,
-            // a winning seat's chip for the rest of the hand: "Zvanja 50 + 20"
-            chip: (points: string) => `Zvanja ${points}`,
+            // a winning seat's chip for the rest of the hand: "Declarations 50 + 20"
+            chip: (points: string) => `Declarations ${points}`,
             // a belot's line
             belotMine: (suit: string) => `Belot! You hold all eight ${suit}`,
             belot: (name: string, suit: string) => `Belot! ${name} holds all eight ${suit}`,
@@ -1221,7 +1225,7 @@ export const en = {
             nextSoon: 'Next hand shortly',
             fellMine: 'Fell! You fell.',
             fellTheirs: 'They fell.',
-            decl: (points: number) => `incl. ${points} zvanja`,
+            decl: (points: number) => `incl. ${points} from declarations`,
         },
         // the end sheet (EndSheet): Play again's votes and outcomes, its buttons (spec §1.4 Rematch)
         end: {
@@ -1335,7 +1339,7 @@ export const en = {
         },
         // sign-in, reached from a friend's table link (/lobby/…) with no session (spec §3.2); only with call 5
         tableDoor: {
-            lead: 'No account? You can sit at this table as a guest.',
+            lead: 'You can sit at this table without an account, as a guest.',
             sitDown: 'Sit down as a guest',
         },
     },
@@ -1444,8 +1448,8 @@ export const en = {
         rules: 'More in the Rules ›',
         lessons: {
             dalje: { title: 'Bidding', body: "You sit at the bottom. Mara, opposite you, is your partner; Ivo and Ana play against you. Everyone holds six cards; two more come once someone calls trump. In turn from the player after the dealer, each calls a trump suit or passes. Ivo passed. You're the dealer, so you go last." },
-            mus: { title: 'You must call trump.', body: "Mara and Ana passed too. When everyone passes, the dealer must call trump and can't pass. You may call any suit, but the team that calls trump must end the hand with more points than the other. Herc is your best: you hold three, and the Kralj and Baba of trump are bela, 20 more points." },
-            zvanja: { title: 'Declarations (zvanja)', body: "Everyone got two more cards. You now hold 9, 10, Decko and Baba of Tref in a row: a declaration worth 50. Ivo holds Decko, Baba and Kralj of Pik: 20. The game finds declarations for you and says them before the first card. Only the team with the best one scores, and it scores all of its own: yours is worth more than Ivo's, so your team scores 50 and Ivo and Ana nothing." },
+            mus: { title: 'You must call trump.', body: "Mara and Ana passed too. When everyone passes, the dealer must call trump and can't pass. You may call any suit, but the team that calls trump must end the hand with more points than the other. Herc is your best: you hold three, and the Kralj and Baba of trump in one hand are bela, 20 more points." },
+            zvanja: { title: 'Declarations', body: "Everyone got two more cards. You now hold 9, 10, Decko and Baba of Tref in a row: a declaration worth 50. Ivo holds Decko, Baba and Kralj of Pik: 20. The game finds declarations for you and says them before the first card. Only the team with the best one scores, and it scores all of its own: yours is worth more than Ivo's, so your team scores 50 and Ivo and Ana nothing." },
             followSuit: { title: 'Follow suit', body: 'Ivo led As Tref; with your card these four cards make a trick. You must follow with Tref, and none of yours beats the As: play the weakest.' },
             mustTrump: { title: 'Trump it', body: 'Ivo led 9 Karo. You have no Karo, so you must trump with Herc; nobody has trumped yet, so any Herc will do.' },
             lead: { title: 'Your lead', body: 'The trick is yours: even the smallest trump beats every other suit. Whoever takes a trick leads the next, so you may play any card. The As Tref has been played, so 10 Tref is now the best Tref left.' },
@@ -1455,7 +1459,7 @@ export const en = {
             followAfterCut: { title: 'After someone trumps', body: 'Ana has no Tref, so she trumped. You must follow with Tref, but once someone has trumped, any Tref will do: give her the Decko, worth 2.' },
             followTrump: { title: 'Trump on trump', body: 'Ana led As Herc, a trump. When trump is led you must follow with trump, higher if you can: your only Herc is the Baba.' },
             followPik: { title: 'Follow suit again', body: "Ana took the trick again and led As Pik. You hold 7 Pik, so you must follow with Pik, even though it can't beat the As." },
-            lastTrick: { title: 'Last trick', body: 'Ana led 9 Pik; you have no Pik and no trump, so any card will do. The cards are worth 152 points, and 162 with the last trick.' },
+            lastTrick: { title: 'Last trick', body: 'Ana led 9 Pik; you have no Pik and no trump, so any card will do. All the cards are worth 152 points, and 162 with the last trick.' },
             padanje: { title: 'Fell! You fell.', body: "Mara took the last trick. Your team has 102 points: 5 and 17 from two tricks, 10 for the last trick, 50 for the declaration and 20 for bela. Ivo and Ana have 130. The team that calls trump must score more than the other; yours didn't, so it fell, and Ivo and Ana take all 232 points of the hand." },
             challenge: { title: 'Challenge', body: "Now challenge Ivo's foul from the third trick. The game doesn't block illegal cards, it records them: people slip up, but the bots on Stiglja never play one. You challenge during a hand or in the 10 seconds after it; here the clock waits for you. Each player has one challenge per game. A right challenge stays yours, and your team takes the whole hand. A wrong one costs no points, but you lose your challenge for the rest of the game." },
             foulFound: { title: 'Foul found', body: 'Ivo broke the rules, so your team takes the whole hand: 162 points in cards, 50 for the declaration and 20 for bela, 232 in all. Ivo and Ana score nothing, and you keep your challenge because you were right.' },
@@ -1521,7 +1525,7 @@ export const en = {
             play: 'Play hand 2',
             again: 'Replay Bela school',
             // the hand-2 intro (S14): how hand 2 differs, and that the guide ends with it
-            hints: 'This time the deal is random and the moves are yours. On your turn the cards you may play are highlighted, and Hint says why. Before an illegal card you get a warning, but the choice is yours.',
+            hints: 'This time the deal is random and the moves are yours. On your turn the cards you may play are highlighted, and "Why?" says why. Before an illegal card you get a warning, but the choice is yours.',
             after: 'The guide ends with that hand; then you choose how to go on.',
         },
         // hand 2 on the game page (/game/:id?guide=1, spec §7.3): the panel under the HUD, the hint (why the marked cards:
@@ -1533,16 +1537,16 @@ export const en = {
             tip: 'Call the suit you hold most of, best with its Decko or 9, the top trumps. Nothing good? Pass. The team that calls trump must end the hand with more points.',
             tipMust: 'Everyone else passed, so you call: pick the suit you hold most of, best with its Decko or 9.',
             done: 'The hand is over. Look at the result; then you choose how to go on.',
-            hint: 'Hint',
+            hint: 'Why?',
             // the rule behind the marked cards, by what the server allowed; the suits as the board names them
             why: {
                 lead: 'You lead this trick, so any card may go.',
                 follow: (suit: string) => `${suit} was led and you hold ${suit}, so you must follow suit. Any ${suit} of yours may go here.`,
-                beat: (suit: string) => `${suit} was led and you can beat the best ${suit} on the table, so you must: play a higher one.`,
+                beat: (suit: string) => `${suit} was led and you can beat the best ${suit} on the table, so you must play a higher one.`,
                 followTrump: 'Trump was led and you hold trump, so you must follow with trump. Any of yours may go here.',
-                overTrump: 'Trump was led and you can beat the best trump on the table, so you must: play a higher trump.',
+                overTrump: 'Trump was led and you can beat the best trump on the table, so you must play a higher trump.',
                 cut: (suit: string, trump: string) => `You have no ${suit}, so you must trump: play a ${trump}.`,
-                overCut: (suit: string) => `You have no ${suit}, so you must trump, higher than the trump already in the trick, since you can.`,
+                overCut: (suit: string) => `You have no ${suit}, so you must trump, higher than every trump already in the trick, since you can.`,
                 any: (suit: string) => `You have no ${suit} and no trump, so any card may go.`,
                 noTrump: 'Trump was led and you have no trump, so any card may go.',
                 other: 'The highlighted cards are the ones the rules allow now.',
@@ -1585,7 +1589,7 @@ export const en = {
         waitAndRetry: 'Wait a while, then try again.',
         // the game socket's own lines (services/gameSocket, mapped in i18n/socketErrors), and Ranked's queue without it
         socket: {
-            sessionEnded: 'Your session ended — please sign in again',
+            sessionEnded: 'Your session ended. Reload the page, and sign in again if asked.',
             connectRefused: 'Could not connect to the game server. Try again.',
             signInNeeded: 'Authentication required',
             notConnected: 'Not connected to the game server',
@@ -1599,7 +1603,7 @@ export const en = {
         // /user/queue/errors (matched by their text in serverErrors.ts)
         codes: {
             // signing in, signing up and the account
-            SESSION_EXPIRED: 'Your session has expired. Sign in again.',
+            SESSION_EXPIRED: 'Your session has expired. Reload the page, and sign in again if asked.',
             UNAUTHENTICATED: 'You need to sign in for that. Sign in, then try again.',
             BAD_CREDENTIALS: 'Wrong username or password. Check both and try again.',
             WRONG_PASSWORD: 'Current password is incorrect',
@@ -1647,13 +1651,13 @@ export const en = {
             // tables (Tables and a table's room)
             LOBBY_ID_REQUIRED: 'This table no longer exists.',
             LOBBY_NOT_FOUND: 'This table no longer exists.',
-            LOBBY_CLOSED: 'This table is closed. Choose another one in Tables.',
-            LOBBY_FULL: 'This table is full. Choose another one, or open your own.',
+            LOBBY_CLOSED: 'This table is closed.',
+            LOBBY_FULL: 'This table is full.',
             LOBBY_PASSWORD_REQUIRED: 'This is a private table. Enter its password.',
             LOBBY_PASSWORD_WRONG: 'Wrong table password. Try again.',
             LOBBY_PASSWORD_TOO_LONG: 'That password is too long. Choose a shorter one.',
             HOST_ONLY: "Only the table's host can do that.",
-            HOST_CANNOT_LEAVE: "The host can't leave the table. Delete the table instead.",
+            HOST_CANNOT_LEAVE: "The host can't leave the table. Close the table instead.",
             KICK_TARGET_REQUIRED: 'Choose who to remove from the table.',
             NOT_IN_LOBBY: 'The table has changed since you opened it. Reload the page.',
             TEAM_REQUIRED: 'Choose a team first.',
@@ -1675,12 +1679,12 @@ export const en = {
             NOT_A_PARTICIPANT: "You're not playing in this game.",
             MATCH_NOT_FOUND: "We couldn't find that match.",
             // the game: a refused move or Play again, shown on the table
-            GAME_NOT_FOUND: 'This game is no longer running. Go back to Home.',
+            GAME_NOT_FOUND: 'This game is no longer running.',
             CANT_CHALLENGE: "You can't challenge now.",
-            DECLARATIONS_BEING_SAID: 'Wait until the zvanja are shown, then play your card.',
+            DECLARATIONS_BEING_SAID: 'Wait until the declarations are shown, then play your card.',
             DEALER_MUST_CALL: 'You must call trump.',
             WAIT_FOR_PAUSE: 'Wait for the next hand to start.',
-            REMATCH_UNAVAILABLE: "Play again isn't available for this game. Go back to Tables and sit at a new table.",
+            REMATCH_UNAVAILABLE: "Play again isn't available for this game.",
         },
     },
 };

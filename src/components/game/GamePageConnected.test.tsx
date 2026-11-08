@@ -181,7 +181,7 @@ describe('GamePageConnected', () => {
         )
         expect(screen.getByText("This game isn't yours or has ended")).toBeInTheDocument()
         expect(screen.queryByText('Shuffling…')).not.toBeInTheDocument()
-        await user.click(screen.getByRole('button', { name: 'Back to dashboard' }))
+        await user.click(screen.getByRole('button', { name: 'Back to home' }))
         expect(screen.getByText('Dashboard page')).toBeInTheDocument()
     })
 
@@ -196,7 +196,7 @@ describe('GamePageConnected', () => {
                 </MemoryRouter>,
             )
             expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: 'Go to dashboard' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Back to home' })).toBeInTheDocument()
             expect(screen.getByText('App shell')).toBeInTheDocument()
         } finally {
             vi.restoreAllMocks()
@@ -244,7 +244,7 @@ describe('GamePageConnected', () => {
                     </Routes>
                 </MemoryRouter>,
             )
-            expect(screen.getByTestId('play-notice')).toHaveTextContent('Igrač je odbio partiju — opet si u potrazi')
+            expect(screen.getByTestId('play-notice')).toHaveTextContent('Igrač je odbio partiju — opet ti tražimo pajdaše')
         } finally {
             setLang('en')
         }
@@ -341,7 +341,7 @@ describe('the ways out of a game (spec §6)', () => {
         auth.isGuest = true
         vi.mocked(useGameViews).mockReturnValue(views(null, null, { notAvailable: true }))
         renderPage()
-        expect(screen.queryByRole('button', { name: 'Back to dashboard' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Back to home' })).not.toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Back' }))
         expect(screen.getByText('at /')).toBeInTheDocument()
     })

@@ -167,7 +167,7 @@ describe('card names, heights and end sentences in Croatian (S5 call 1)', () => 
         expect(endSentence({ ...ended, endReason: 'FORFEIT', forfeitTeamId: 'A' })).toBe('Ekipa A je predala — pobijedila je ekipa B')
         expect(endSentence({ ...ended, endReason: 'ABANDONED', forfeitTeamId: 'A' })).toBe('Ekipa A je otišla — partija je prekinuta (bez rezultata)')
         expect(endSentence({ ...ended, endReason: 'CANCELLED' })).toBe('Partija je otkazana')
-        expect(endSentence({ ...ended, endReason: 'DECLINED' })).toBe('Igrač je odbio partiju — opet si u potrazi')
+        expect(endSentence({ ...ended, endReason: 'DECLINED' })).toBe('Igrač je odbio partiju — opet ti tražimo pajdaše')
         setLang('en')
         expect(SUIT_LABEL.KARA).toBe('Karo')
         expect(cardLabel({ boja: 'TREF', rank: 'DECKO' })).toBe('Decko Tref')

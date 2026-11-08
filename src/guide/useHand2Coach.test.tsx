@@ -187,7 +187,7 @@ describe("hand 2's coach (open beta §7.3, D-24)", () => {
         expect(screen.queryByTestId('hand2-panel')).toBeNull()
     })
 
-    test('the panel: the tip on my bid, the play line and Hint’s reason on my play, the wait and done lines, Exit, and the Rules link', async () => {
+    test('the panel: the tip on my bid, the play line and Why?’s reason on my play, the wait and done lines, Exit, and the Rules link', async () => {
         const user = userEvent.setup()
         const { rerenderWith, onExit, unmount } = renderCoach(myBid(), { guest: true })
         const rules = () => within(panel()).getByRole('link', { name: 'More in the Rules ›' })
@@ -216,7 +216,7 @@ describe("hand 2's coach (open beta §7.3, D-24)", () => {
         expect(panel()).toHaveTextContent(en.guide.hand2.play)
         expect(rules()).toHaveAttribute('href', '/rules#rules-playing')
         const why = 'Tref was led and you hold Tref, so you must follow suit. Any Tref of yours may go here.'
-        const hint = within(panel()).getByRole('button', { name: 'Hint' })
+        const hint = within(panel()).getByRole('button', { name: 'Why?' })
         expect(hint).toHaveAttribute('aria-expanded', 'false')
         expect(within(panel()).getByText(why)).not.toBeVisible()
         await user.click(hint)
@@ -229,14 +229,14 @@ describe("hand 2's coach (open beta §7.3, D-24)", () => {
         expect(said).toContainElement(within(panel()).getByText(why))
         // the next state closes it again
         rerenderWith(myPlay(6))
-        expect(within(panel()).getByRole('button', { name: 'Hint' })).toHaveAttribute('aria-expanded', 'false')
+        expect(within(panel()).getByRole('button', { name: 'Why?' })).toHaveAttribute('aria-expanded', 'false')
         expect(within(panel()).getByTestId('hand2-said')).toBe(said)
 
         // not my turn; the hand's result
         rerenderWith(theirPlay(7))
         expect(panel()).toHaveAttribute('data-phase', 'wait')
         expect(panel()).toHaveTextContent(en.guide.hand2.wait)
-        expect(within(panel()).queryByRole('button', { name: 'Hint' })).toBeNull()
+        expect(within(panel()).queryByRole('button', { name: 'Why?' })).toBeNull()
         rerenderWith(stateOf({ ...privateFor(PLAY(8, { gameState: 'HAND_COMPLETE' }), false, HAND), legalCards: null }))
         expect(panel()).toHaveAttribute('data-phase', 'done')
         expect(panel()).toHaveTextContent(en.guide.hand2.done)

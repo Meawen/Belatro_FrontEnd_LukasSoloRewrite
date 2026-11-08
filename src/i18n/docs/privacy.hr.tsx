@@ -55,7 +55,7 @@ export const doc: LegalDoc = {
                         prijavu, tvoj korisnički ID i korisničko ime, da prijava ostane aktivna. Odjava ih briše. Ako igraš kao
                         gost, stranica ondje na isti način čuva gosta i njegov tajni ključ, kojim te preglednik ponovno prijavljuje
                         kao tog gosta kad prijava istekne; odjava briše i ključ. Ondje pamti i tvoj jezik i postavku efekata stola. Lozinku
-                        Stola za ekipu koji otvoriš čuva u pohrani kartice preglednika dok ne zatvoriš karticu, da se može
+                        Stola za ekipu koji otvoriš čuva u pohrani te kartice preglednika dok je ne zatvoriš, da je možeš
                         podijeliti. Stiglja ne postavlja kolačiće za oglašavanje ni za analitiku i ne koristi alate za praćenje.
                     </li>
                     <li>
@@ -65,7 +65,7 @@ export const doc: LegalDoc = {
                         registraciju iz Reda za stol poslano i iskorišteno. To su samo brojevi. Da bi izbrojio igrače koji se
                         vraćaju, poslužitelj bilježi i koji su računi i gosti igrali kojeg dana, samo po korisničkom ID-u, i svaku
                         tu zabilješku briše nakon 40 dana. Kad prolaziš Školu bele, preglednik javlja poslužitelju kad je pokreneš
-                        i kad završiš svako dijeljenje; poslužitelj samo dodaje jedan dnevnom zbroju i ne bilježi tko si.
+                        i kad završiš svako dijeljenje; poslužitelj samo povećava dnevni zbroj za jedan i ne bilježi tko si.
                     </li>
                 </ul>
             ),
@@ -106,12 +106,12 @@ export const doc: LegalDoc = {
                     <ul className="list-disc pl-6 space-y-2">
                         <li><strong>Fly.io</strong> pokreće poslužitelj igre, u Frankfurtu u Njemačkoj.</li>
                         <li>
-                            <strong>MongoDB Atlas</strong> čuva račune, goste, Red za stol, brojeve i povijest partija, na Amazon Web
-                            Servicesu u Frankfurtu u Njemačkoj (eu-central-1).
+                            <strong>MongoDB Atlas</strong> čuva račune, goste, Red za stol, brojeve i povijest partija, na poslužiteljima
+                            Amazon Web Services u Frankfurtu u Njemačkoj (eu-central-1).
                         </li>
                         <li>
-                            <strong>Redis Cloud</strong> drži partije u tijeku i sesije prijave, na Amazon Web Servicesu u Frankfurtu
-                            u Njemačkoj (eu-central-1).
+                            <strong>Redis Cloud</strong> drži partije u tijeku i sesije prijave, na poslužiteljima Amazon Web Services u
+                            Frankfurtu u Njemačkoj (eu-central-1).
                         </li>
                         <li><strong>Brevo</strong> šalje našu e-poštu, iz Europske unije.</li>
                         <li>
@@ -153,7 +153,7 @@ export const doc: LegalDoc = {
                         </li>
                         <li>
                             IP adrese i e-adrese upisane u Red za stol koje držimo u memoriji poslužitelja radi ograničavanja
-                            pokušaja: iz memorije ih odbacujemo u roku od otprilike sat vremena i pri svakom ponovnom pokretanju
+                            pokušaja: iz memorije ih brišemo unutar otprilike sat vremena i pri svakom ponovnom pokretanju
                             poslužitelja.
                         </li>
                         <li>Zapisi poslužitelja: samo onoliko dugo koliko ih čuva naš pružatelj hostinga, Fly.io.</li>

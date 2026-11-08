@@ -68,8 +68,8 @@ describe('RankBlock in Croatian (open beta §1.1; rank names stay in the nominat
     test('in Croatian', () => {
         setLang('hr')
         const first = render(<RankBlock player={rankedUser({ key: 'GOSPON', eloRating: 1400 })} nextName="Majster" />)
-        expect(screen.getByRole('progressbar', { name: 'Napredak prema cilju: Majster' })).toBeInTheDocument()
-        expect(screen.getByText('200 do cilja: Majster')).toBeInTheDocument()
+        expect(screen.getByRole('progressbar', { name: 'Napredak do ranga Majster' })).toBeInTheDocument()
+        expect(screen.getByText('200 do ranga Majster')).toBeInTheDocument()
         first.unmount()
         const second = render(<RankBlock player={rankedUser({ key: 'CUCEK', eloRating: 1236, rankedGamesPlayed: 3 })} nextName={null} />)
         expect(screen.getByText('Svrstavanje: 3 od 10 rangiranih partija')).toBeInTheDocument()

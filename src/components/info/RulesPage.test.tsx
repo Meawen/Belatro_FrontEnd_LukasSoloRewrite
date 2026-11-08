@@ -64,7 +64,7 @@ const KEPT = [
 ]
 
 const EDITED = [
-    "Ranked: press Find Match on the Ranked page; you need a confirmed email address. Stiglja puts the four closest-rated waiting players together; the longer they wait, the wider the rating gap it accepts, up to 1600 points between the highest and the lowest. Your rating moves with your team's result: a win raises it and a loss lowers it; beating a higher-rated team gains more, and losing to one costs less. It moves by more for a bigger final score margin, and by more in your first ranked games. A very narrow win can leave the shown number unchanged.",
+    "Ranked: press Play ranked on the Ranked page; you need a confirmed email address. Stiglja puts the four closest-rated waiting players together; the longer they wait, the wider the rating gap it accepts, up to 1600 points between the highest and the lowest. Your rating moves with your team's result: a win raises it and a loss lowers it; beating a higher-rated team gains more, and losing to one costs less. It moves by more for a bigger final score margin, and by more in your first ranked games. A very narrow win can leave the shown number unchanged.",
     "After 5 missed turns in a row by the same player, the game ends. A casual game is abandoned, with no result. In a ranked game the absent player's team loses, the absent player's rating drops as for a 1001–0 defeat, their partner's by half a normal loss, and the winners gain as for a normal win.",
 ]
 
@@ -276,7 +276,7 @@ describe('in Croatian (open beta §1.2, §1.3)', () => {
         setLang('hr')
         await renderRules('/rules', 'Kako se igra')
         const steps = within(screen.getByRole('list', { name: 'Kako se igra' })).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
-        expect(steps).toEqual(['Dvije ekipe', '32 karte, dva redoslijeda', 'Zovi adut ili reci dalje', 'Odgovori na boju', 'Zvanja i bela', 'Dobij dijeljenje', 'Prijavi prekršaj', 'Rangovi'])
+        expect(steps).toEqual(['Dvije ekipe', '32 karte, dva redoslijeda', 'Zovi adut ili reci „Dalje”', 'Odgovori na boju', 'Zvanja i bela', 'Dobij dijeljenje', 'Prijavi prekršaj', 'Rangovi'])
         const full = document.getElementById('full-rules')!
         expect(within(full).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
             'Karte', 'Dijeljenje i licitacija', 'Tijek igre', 'Zvanja i bela', 'Bodovanje dijeljenja', 'Nedopuštene karte i prijava prekršaja',
@@ -321,7 +321,7 @@ describe('in Croatian (open beta §1.2, §1.3)', () => {
     test('the Croatian rating sentence says what the server does: a higher-rated team is worth more to beat, and costs less to lose to', async () => {
         setLang('hr')
         const { container } = await renderRules('/rules', 'Kako se igra')
-        expect(said('rules-modes')[1]).toBe('Rangirano: pritisni „Igraj rangirano” na stranici Rangirano; treba ti potvrđena e-adresa. Stiglja spaja četvero igrača u potrazi s najbližim rejtingom; što dulje čekaju, to veću razliku u rejtingu prihvaća, najviše 1600 bodova između najvišeg i najnižeg. Rejting ti se mijenja s rezultatom ekipe: pobjeda ga podiže, a poraz spušta; pobjeda protiv ekipe s višim rejtingom donosi više, a poraz od nje manje košta. Mijenja se više što je konačna razlika u rezultatu veća i više u tvojim prvim rangiranim partijama. Nakon vrlo tijesne pobjede prikazani broj može ostati isti.')
+        expect(said('rules-modes')[1]).toBe('Rangirano: pritisni „Igraj rangirano” na stranici Rangirano; treba ti potvrđena e-adresa. Stiglja spaja četvero igrača u potrazi s najbližim rejtingom; što dulje čekaju, to veću razliku u rejtingu prihvaća, najviše 1600 bodova između najvišeg i najnižeg. Rejting ti se mijenja s rezultatom ekipe: pobjeda ga podiže, a poraz spušta; pobjeda protiv ekipe s višim rejtingom donosi više, a poraz od nje manje košta. Mijenja se to više što je konačna razlika u rezultatu veća, a više i u tvojim prvim rangiranim partijama. Nakon vrlo tijesne pobjede prikazani broj može ostati isti.')
         expect(container.textContent).not.toContain('i to više kad je druga ekipa imala viši rejting')
     })
 

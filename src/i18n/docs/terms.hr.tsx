@@ -4,7 +4,7 @@ import { SupportEmailLink } from '../../components/layout/LegalLinks';
 /** The terms of use in Croatian (spec §1.2): legal text, a draft for the owner's review (R1). */
 export const doc: LegalDoc = {
     updated: 'Zadnja izmjena: listopad 2026.',
-    intro: 'Izradom računa ili igrom kao gost prihvaćaš ove uvjete.',
+    intro: 'Kad izradiš račun ili igraš kao gost, prihvaćaš ove uvjete.',
     sections: [
         {
             title: 'Usluga',
@@ -58,8 +58,8 @@ export const doc: LegalDoc = {
                         vrijede ista pravila kao za korisnička imena (vidi Korisnička imena).
                     </p>
                     <p>
-                        Gost pripada pregledniku u kojem je nastao: ako obrišeš pohranu tog preglednika, gost je izgubljen, a gost
-                        koji se ne koristi 30 dana uklanja se. Za rangirane partije, rejting, pajdaše i zapisnik treba račun. Ako se
+                        Gost pripada pregledniku u kojem je nastao: ako obrišeš pohranu tog preglednika, gost je izgubljen, a gosta
+                        kojeg 30 dana nitko ne koristi uklanjamo. Za rangirane partije, rejting, pajdaše i zapisnik treba račun. Ako se
                         registriraš u istom pregledniku, počinješ ispočetka: ime gosta možeš zadržati, ali njegove partije ne
                         prelaze na tvoj račun.
                     </p>

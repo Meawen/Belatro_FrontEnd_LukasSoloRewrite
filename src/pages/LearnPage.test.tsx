@@ -294,7 +294,7 @@ describe('Škola bele, hand 1 (open beta §7.1, §7.2)', () => {
             await advance(10_000)
             expect(within(panel()).getByRole('heading', { level: 2, name: 'Odgovori na boju' })).toBeInTheDocument()
             expect(within(panel()).getByText('Baci 9 Tref.')).toBeInTheDocument()
-            expect(button('9 Tref, istaknuto')).toBeInTheDocument()
+            expect(button('9 Tref, označeno')).toBeInTheDocument()
             click(button('7 Herc'))
             expect(refusal()).toHaveTextContent('Imaš Tref, pa moraš odgovoriti na Tref.')
             cleanup()
@@ -506,7 +506,7 @@ describe('the hand-2 intro (open beta §7.3, §8)', () => {
         await playHand1()
         try {
             act(() => setLang('hr'))
-            expect(screen.getByText('Ovaj put su karte nasumične, a potezi su tvoji. Kad si na redu, istaknute su karte koje smiješ baciti, a „Savjet” kaže zašto baš one. Prije nedopuštene karte dobit ćeš upozorenje, ali odluka je tvoja.')).toBeInTheDocument()
+            expect(screen.getByText('Ovaj put su karte nasumične, a potezi su tvoji. Kad si na redu, označene su karte koje smiješ baciti, a „Zašto?” kaže zašto baš one. Prije nedopuštene karte dobit ćeš upozorenje, ali odluka je tvoja.')).toBeInTheDocument()
             expect(screen.getByText('Škola bele završava s tim dijeljenjem, a zatim biraš kako dalje.')).toBeInTheDocument()
             expect(button('Igraj drugo dijeljenje')).toBeInTheDocument()
             cleanup()

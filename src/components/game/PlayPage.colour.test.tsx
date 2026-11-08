@@ -44,7 +44,7 @@ describe('Ranked in colour (spec §4.5; owner, 2026-10-10)', () => {
         expect([...panel.querySelectorAll('img')].map((img) => img.getAttribute('src'))).toEqual(
             ['herc', 'kara', 'pik', 'tref'].map((suit) => `${CARD_ART_BASE_URL}/${suit}Icon.png`),
         )
-        expect(within(panel).getByRole('button', { name: 'Find Match' })).toBeEnabled()
+        expect(within(panel).getByRole('button', { name: 'Play ranked' })).toBeEnabled()
     })
 
     test("while searching, the panel's edge turns accent", () => {

@@ -171,7 +171,7 @@ describe('Match History in Croatian (open beta §1.1, §1.4)', () => {
         expect(await screen.findByText('4 partije')).toBeInTheDocument()
         expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Zapisnik'])
         expect(document.title).toBe('Zapisnik · Stiglja')
-        expect(screen.getByRole('region', { name: 'Zadnji rezultati' })).toHaveTextContent('2 pobjede · 2 poraza na ovoj stranici · niz: 1 pobjeda')
+        expect(screen.getByRole('region', { name: 'Zadnji rezultati' })).toHaveTextContent('2 pobjede · 2 poraza na ovoj stranici · 1 pobjeda zaredom')
         expect(screen.getAllByRole('link', { name: /Pobjeda/ }).length).toBeGreaterThan(0)
         unmount()
 

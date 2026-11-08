@@ -29,6 +29,10 @@ describe('forecastLines', () => {
         expect(lines.primary![1]).toBe('Majster')
     })
 
+    test('one point short reads in the singular (R1-40)', () => {
+        expect(primaryText(forecastLines(history({ rating: 1599, pace: -1, step: 31 }), rank('GOSPON'), 'Majster'))).toBe('1 point to Majster: about 1 more win than losses.')
+    })
+
     test('one win short reads in the singular', () => {
         expect(primaryText(forecastLines(history({ rating: 1580, pace: -1, step: 31 }), rank('GOSPON'), 'Majster'))).toBe('20 points to Majster: about 1 more win than losses.')
     })
@@ -66,10 +70,10 @@ describe('forecastLines in Croatian (open beta §1.1; rank names stay in the nom
     test('the lines in Croatian', () => {
         setLang('hr')
         const gap = forecastLines(history({ rating: 1452, pace: -2, step: 31 }), rank('GOSPON'), 'Majster')
-        expect(primaryText(gap)).toBe('148 bodova do cilja: Majster. Otprilike 5 pobjeda više nego poraza.')
+        expect(primaryText(gap)).toBe('148 bodova do ranga Majster. Otprilike 5 pobjeda više nego poraza.')
         expect(gap.primary![1]).toBe('Majster')
         expect(primaryText(forecastLines(history({ rating: 1580, pace: -1, step: 31 }), rank('GOSPON'), 'Majster')))
-            .toBe('20 bodova do cilja: Majster. Otprilike 1 pobjeda više nego poraza.')
+            .toBe('20 bodova do ranga Majster. Otprilike 1 pobjeda više nego poraza.')
         expect(primaryText(forecastLines(history({ rating: 1597, pace: 4.2 }), rank('GOSPON'), 'Majster'))).toBe('Ovim tempom: Majster za otprilike 1 partiju')
         const pace = forecastLines(history({ rating: 1452, pace: 4.2, step: 31 }), rank('GOSPON'), 'Majster')
         expect(primaryText(pace)).toBe('Ovim tempom: Majster za otprilike 36 partija')

@@ -118,6 +118,9 @@ export function ConfirmEmailPage() {
                         )}
                     </p>
                 )}
+
+                {/* R1-05: an account not confirmed in 7 days is removed (D-25), and its old link lands here signed out */}
+                {hint === 'newLink' && !signedIn && <p className="t-footnote text-text-2">{t.auth.confirm.removedSignUp}</p>}
             </div>
         </AuthFrame>
     );

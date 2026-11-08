@@ -297,7 +297,7 @@ describe('Board: the hand result says padanje, štiglja and the zvanja (§1.4)',
         expect(within(sheet).getByRole('heading', { name: 'Hand 1' })).toBeInTheDocument()
         expect(within(sheet).getByText('Fell! You fell.')).toBeInTheDocument()
         expect(within(sheet).getByText('Capot')).toBeInTheDocument()
-        expect(within(sheet).getByText('incl. 20 zvanja')).toBeInTheDocument()
+        expect(within(sheet).getByText('incl. 20 from declarations')).toBeInTheDocument()
         expect(within(sheet).getByText('Next hand shortly')).toBeInTheDocument()
         expect(within(sheet).queryByText('They fell.')).not.toBeInTheDocument()
         cleanup()
@@ -320,6 +320,29 @@ describe('Board: the hand result says padanje, štiglja and the zvanja (§1.4)',
             cleanup()
             result('bob')
             expect(within(screen.getByTestId('hand-result')).getByText('Pad! Pali su.')).toBeInTheDocument()
+        } finally {
+            setLang('en')
+        }
+    })
+
+    test('a team that fell shows no declarations beside its 0, in either language (R1-44)', () => {
+        // carol's team A declared 50 and fell: the server's summary still carries the 50 (BelotGame's hand end)
+        const fell: HandDTO = { ...hand, handSummary: { ...hand.handSummary!, teamADeclPoints: 50, teamBDeclPoints: 0, capot: false } }
+        const shown = () => renderBoard({
+            state: stateOf(privateFor(view({ gameState: 'HAND_COMPLETE', teamAScore: 0, teamBScore: 272 }), false)),
+            hands: { hands: [fell], ended: fell, loading: false, error: null, refresh: vi.fn() },
+            me: 'carol',
+        })
+        shown()
+        const sheet = screen.getByTestId('hand-result')
+        expect(within(sheet).getByText('Fell! You fell.')).toBeInTheDocument()
+        expect(within(sheet).queryByText(/^incl\. /)).not.toBeInTheDocument()
+        cleanup()
+        setLang('hr')
+        try {
+            shown()
+            expect(within(screen.getByTestId('hand-result')).getByText('Pad! Pali ste.')).toBeInTheDocument()
+            expect(within(screen.getByTestId('hand-result')).queryByText(/^od toga zvanja/)).not.toBeInTheDocument()
         } finally {
             setLang('en')
         }

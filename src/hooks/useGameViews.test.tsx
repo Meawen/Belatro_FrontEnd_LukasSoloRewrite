@@ -254,7 +254,7 @@ describe('useGameViews: today\'s useBelatroGame behaviours', () => {
     test("a rematch refusal is shown as the table's error, not as \"not your game\" (R-45)", () => {
         const { result } = renderHook(() => useGameViews('g1'))
         act(() => ws.options.onGameError?.('Rematch is not available for game g1'))
-        expect(result.current.error).toBe("Play again isn't available for this game. Go back to Tables and sit at a new table.")
+        expect(result.current.error).toBe("Play again isn't available for this game.")
         expect(result.current.notAvailable).toBe(false)
     })
 

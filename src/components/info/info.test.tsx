@@ -83,9 +83,9 @@ describe('Rules, Privacy and Terms (spec §4.15)', () => {
             'e-adresu upisanu u Red za stol, koju također držimo u memoriji poslužitelja do sat vremena da bismo ograničili koliko se često ista adresa može upisati (najviše 3 puta na sat);',
             'Da Stiglja bude sigurna i da radi (naš legitimni interes): ograničavamo koliko se često mogu koristiti prijava, registracija, igra kao gost, Red za stol i brojanje Škole bele te vodimo zapise kako bismo pronašli pogreške i zlouporabe.',
             'Ako igraš kao gost, stranica ondje na isti način čuva gosta i njegov tajni ključ, kojim te preglednik ponovno prijavljuje kao tog gosta kad prijava istekne; odjava briše i ključ.',
-            'IP adrese i e-adrese upisane u Red za stol koje držimo u memoriji poslužitelja radi ograničavanja pokušaja: iz memorije ih odbacujemo u roku od otprilike sat vremena i pri svakom ponovnom pokretanju poslužitelja.',
+            'IP adrese i e-adrese upisane u Red za stol koje držimo u memoriji poslužitelja radi ograničavanja pokušaja: iz memorije ih brišemo unutar otprilike sat vremena i pri svakom ponovnom pokretanju poslužitelja.',
             'koliko se gostiju registriralo te koliko je poveznica za registraciju iz Reda za stol poslano i iskorišteno. To su samo brojevi.',
-            'poslužitelj samo dodaje jedan dnevnom zbroju i ne bilježi tko si.',
+            'poslužitelj samo povećava dnevni zbroj za jedan i ne bilježi tko si.',
         ]) expect(hr, text).toContain(text)
         expect(hr).not.toMatch(/pozivn/i)
     })

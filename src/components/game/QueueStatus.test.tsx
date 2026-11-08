@@ -95,14 +95,14 @@ describe('QueueStatus in Croatian (open beta §1.1, §1.4)', () => {
         queue(true, { queueSize: 3, estWaitSeconds: 125 })
         const first = render(<QueueStatus />)
         expect(screen.getByText('Tražimo ti pajdaše…')).toBeInTheDocument()
-        expect(tile('Igrača u potrazi')).toHaveTextContent(/^3$/)
-        expect(tile('Procjena čekanja')).toHaveTextContent(/^2 min 5 s$/)
+        expect(tile('Igrača traži partiju')).toHaveTextContent(/^3$/)
+        expect(tile('Procijenjeno čekanje')).toHaveTextContent(/^2 min 5 s$/)
         expect(tile('Čekaš već')).toHaveTextContent(/^0:00$/)
         first.unmount()
         for (const [estWaitSeconds, shown] of [[45, /^45 s$/], [120, /^2 min$/], [-1, /^Računamo…$/]] as const) {
             queue(true, { estWaitSeconds })
             const view = render(<QueueStatus />)
-            expect(tile('Procjena čekanja')).toHaveTextContent(shown)
+            expect(tile('Procijenjeno čekanje')).toHaveTextContent(shown)
             view.unmount()
         }
     })
