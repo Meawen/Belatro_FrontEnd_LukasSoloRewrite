@@ -5,11 +5,12 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { NotFoundPage } from './NotFoundPage'
 import { setLang } from '../i18n/lang'
 
-const auth = vi.hoisted(() => ({ isAuthenticated: true }))
+const auth = vi.hoisted(() => ({ isAuthenticated: true, isGuest: false }))
 vi.mock('../hooks/useAuth', () => ({
     useAuth: () => ({
-        user: auth.isAuthenticated ? { id: 'u1', username: 'ana' } : null,
+        user: auth.isAuthenticated ? { id: 'u1', username: auth.isGuest ? 'gost_4821' : 'ana', guest: auth.isGuest } : null,
         isAuthenticated: auth.isAuthenticated,
+        isGuest: auth.isGuest,
         isLoading: false,
         logout: vi.fn(),
         token: auth.isAuthenticated ? 'tok-1' : null,
@@ -37,6 +38,7 @@ function renderAt(path: string) {
 
 beforeEach(() => {
     auth.isAuthenticated = true
+    auth.isGuest = false
 })
 afterEach(() => setLang('en'))
 
@@ -49,6 +51,15 @@ describe('Not found (spec §4.16)', () => {
         expect(document.title).toBe('Page not found · Stiglja')
         await userEvent.setup().click(screen.getByRole('button', { name: 'Go home' }))
         expect(screen.getByRole('heading', { name: 'Home page' })).toBeInTheDocument()
+    })
+
+    test('a guest: still the shell, but the way out is the start page (/), not Doma (Ruling 79)', async () => {
+        auth.isGuest = true
+        renderAt('/no/such/page')
+        expect(screen.getByRole('heading', { level: 1, name: 'Page not found' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Go home' })).not.toBeInTheDocument()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Go to the start page' }))
+        expect(screen.getByRole('heading', { name: 'Landing page' })).toBeInTheDocument()
     })
 
     test('signed out: the public frame, and its button leads to the landing page (/), not to sign-in (review Minor 8)', async () => {
@@ -72,6 +83,14 @@ describe('Not found in Croatian (open beta §1.1)', () => {
         expect(screen.getByText('Stranica koju tražiš ne postoji.')).toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Vrati se Doma' }))
         expect(screen.getByRole('heading', { name: 'Home page' })).toBeInTheDocument()
+    })
+
+    test('in Croatian, a guest: the way to the start page', async () => {
+        setLang('hr')
+        auth.isGuest = true
+        renderAt('/no/such/page')
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Idi na početnu stranicu' }))
+        expect(screen.getByRole('heading', { name: 'Landing page' })).toBeInTheDocument()
     })
 
     test('in Croatian, signed out: the way to the start page', async () => {

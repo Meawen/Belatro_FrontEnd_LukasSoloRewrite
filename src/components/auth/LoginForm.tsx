@@ -14,10 +14,12 @@ export interface LoginFormProps {
     onSuccess?: () => void;
     /** Sign In's variant: secondary under a friend's table door, whose "Sit down as a guest" is the page's primary (AuthPage). */
     submitVariant?: ButtonVariant;
+    /** 2 under a friend's table door, whose own h1 opens the page (AuthPage, R1-01); 1 everywhere else. */
+    headingLevel?: 1 | 2;
 }
 
 /** Sign in (spec §4.2). "Sign up" is the other URL (X-2); both links carry the return path (§4.1). */
-export function LoginForm({ onSuccess, submitVariant = 'primary' }: LoginFormProps) {
+export function LoginForm({ onSuccess, submitVariant = 'primary', headingLevel = 1 }: LoginFormProps) {
     const [formData, setFormData] = useState({
         username: '',
         password: '',
@@ -27,6 +29,7 @@ export function LoginForm({ onSuccess, submitVariant = 'primary' }: LoginFormPro
     const { login, isLoginLoading } = useAuth();
     const returnState = useReturnState();
     const t = useT();
+    const Heading = headingLevel === 2 ? 'h2' : 'h1';
 
     const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -82,7 +85,7 @@ export function LoginForm({ onSuccess, submitVariant = 'primary' }: LoginFormPro
     return (
         <>
             <div className="mb-6 text-center">
-                <h1 className="t-title">{t.auth.signIn.heading}</h1>
+                <Heading className="t-title">{t.auth.signIn.heading}</Heading>
                 <p className="t-callout mt-2 text-text-2">{t.auth.signIn.subtitle}</p>
             </div>
 

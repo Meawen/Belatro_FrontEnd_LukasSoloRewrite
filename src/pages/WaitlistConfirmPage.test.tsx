@@ -35,7 +35,7 @@ function renderAt(path: string) {
     )
 }
 
-const DEAD = 'This waitlist link is invalid or has expired. Join the waitlist again to get a new one.'
+const DEAD = 'This waitlist link is invalid or has expired. If you got more than one mail, only the link in the newest one works. Join the waitlist again to get a new one.'
 
 beforeEach(() => {
     vi.clearAllMocks()
@@ -144,6 +144,19 @@ describe('WaitlistConfirmPage (/waitlist/confirm, spec §2.2)', () => {
         }
     })
 
+    // Ruling 81: joining twice sends a new mail and voids the first one's link
+    test('a dead link says only the newest mail\'s link works, in both languages, expired or without a token', async () => {
+        beta.confirmWaitlist.mockRejectedValue(new ApiError({ status: 400, message: 'This waitlist link is invalid or has expired', code: 'WAITLIST_LINK_INVALID' }))
+        const expired = renderAt('/waitlist/confirm?token=tok-old')
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Confirm my place' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent('If you got more than one mail, only the link in the newest one works.')
+        expired.unmount()
+        setLang('hr')
+        const none = renderAt('/waitlist/confirm')
+        expect(screen.getByRole('alert')).toHaveTextContent('Ako ti je stiglo više poruka, vrijedi samo poveznica iz najnovije.')
+        none.unmount()
+    })
+
     test('in Croatian', async () => {
         setLang('hr')
         beta.confirmWaitlist.mockResolvedValueOnce(undefined)
@@ -157,7 +170,7 @@ describe('WaitlistConfirmPage (/waitlist/confirm, spec §2.2)', () => {
         unmount()
 
         const dead = renderAt('/waitlist/confirm')
-        expect(screen.getByRole('alert')).toHaveTextContent('Ova poveznica za Red za stol ne vrijedi ili je istekla. Ponovno se upiši u red i dobit ćeš novu.')
+        expect(screen.getByRole('alert')).toHaveTextContent('Ova poveznica za Red za stol ne vrijedi ili je istekla. Ako ti je stiglo više poruka, vrijedi samo poveznica iz najnovije. Ponovno se upiši u red i dobit ćeš novu.')
         expect(screen.getByRole('button', { name: 'Ponovno se upiši u red' })).toBeInTheDocument()
         // gone before the language is reset after the test
         dead.unmount()

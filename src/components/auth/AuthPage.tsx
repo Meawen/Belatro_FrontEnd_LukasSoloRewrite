@@ -81,13 +81,15 @@ export function AuthPage({ initialMode = 'login', redirectTo = '/', onSuccess }:
                 guest, so the door comes first and is the page's primary; signing in is the secondary way below it */}
             {tablePath && (
                 <div className="mb-6 flex flex-col items-center gap-3 border-b-2 border-edge pb-6 text-center">
+                    {/* R1-01 (Ruling 79): the door opens the page, so the page's one h1 is its own; the sign-in heading is an h2 */}
+                    <h1 className="t-title">{t.guest.tableDoor.heading}</h1>
                     <p className="t-callout text-text-2">{t.guest.tableDoor.lead}</p>
                     <Button block loading={sitting} onClick={() => void sitDown()}>{t.guest.tableDoor.sitDown}</Button>
                     <ErrorAlert message={doorError} />
                 </div>
             )}
             {initialMode === 'login'
-                ? <LoginForm onSuccess={handleSuccess} submitVariant={tablePath ? 'secondary' : 'primary'} />
+                ? <LoginForm onSuccess={handleSuccess} submitVariant={tablePath ? 'secondary' : 'primary'} headingLevel={tablePath ? 2 : 1} />
                 : <SignupForm onSuccess={handleSuccess} />}
         </AuthFrame>
     );

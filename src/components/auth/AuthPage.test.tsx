@@ -78,7 +78,8 @@ describe('Sign in and sign up are two URLs (X-2)', () => {
         expect(link).toHaveAttribute('href', '/login')
         await userEvent.setup().click(link)
         expect(screen.getByTestId('where')).toHaveTextContent('/login {"from":"/lobby/abc"}')
-        expect(screen.getByRole('heading', { level: 1, name: 'Welcome Back' })).toBeInTheDocument()
+        // a table's return path: the door's h1 opens the page, the sign-in heading under it (R1-01)
+        expect(screen.getByRole('heading', { level: 2, name: 'Welcome Back' })).toBeInTheDocument()
     })
 })
 
@@ -115,6 +116,24 @@ describe("Sign-in from a friend's table link, signed out (spec §3.2)", () => {
         expect(container.querySelectorAll('.ui-btn--primary')).toHaveLength(1)
     })
 
+    test("the door opens the page with its own h1, before its button; the sign-in heading is an h2 there (R1-01, Ruling 79)", () => {
+        renderAuth({ pathname: '/login', state: { from: '/lobby/abc' } })
+        const h1s = screen.getAllByRole('heading', { level: 1 })
+        expect(h1s.map((h) => h.textContent)).toEqual(['A table is waiting for you'])
+        const sit = screen.getByRole('button', { name: 'Sit down as a guest' })
+        const signIn = screen.getByRole('heading', { level: 2, name: 'Welcome Back' })
+        const form = screen.getByRole('button', { name: 'Sign In' }).closest('form') as HTMLFormElement
+        expect(h1s[0].compareDocumentPosition(sit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(sit.compareDocumentPosition(signIn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(signIn.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    test('without a table path the sign-in heading stays the h1, and there is no door heading', () => {
+        renderAuth({ pathname: '/login', state: { from: '/friends' } })
+        expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Welcome Back'])
+        expect(screen.queryByRole('heading', { name: 'A table is waiting for you' })).toBeNull()
+    })
+
     test('no door on a plain sign-in, nor from another page', () => {
         const { unmount } = render(<MemoryRouter initialEntries={['/login']}><AuthPage /></MemoryRouter>)
         expect(screen.queryByRole('button', { name: 'Sit down as a guest' })).toBeNull()
@@ -140,5 +159,7 @@ describe("Sign-in from a friend's table link, signed out (spec §3.2)", () => {
         renderAuth({ pathname: '/login', state: { from: '/lobby/abc' } })
         expect(screen.getByText('Za ovaj stol možeš sjesti i bez računa, kao gost.')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Sjedni kao gost' })).toBeInTheDocument()
+        expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Čeka te stol'])
+        expect(screen.getByRole('heading', { level: 2, name: 'Opet si tu!' })).toBeInTheDocument()
     })
 })

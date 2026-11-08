@@ -11,7 +11,7 @@ import { useT } from '../i18n/t';
  * frame with the way to the landing page when not (R4 review). Nothing for the moment the stored session is read.
  */
 export function NotFoundPage() {
-    const { isAuthenticated, isLoading } = useAuth();
+    const { isAuthenticated, isGuest, isLoading } = useAuth();
     const navigate = useNavigate();
     const t = useT();
     if (isLoading) return null;
@@ -34,7 +34,10 @@ export function NotFoundPage() {
             <Page title={t.titles.notFound} width="read">
                 {missing}
                 <div className="mt-6">
-                    <Button onClick={() => navigate('/dashboard')}>{t.notFound.goHome}</Button>
+                    {/* Ruling 79: a guest has no Doma (/dashboard bounces a guest to /), so its way out is the start page */}
+                    {isGuest
+                        ? <Button onClick={() => navigate('/')}>{t.notFound.goStart}</Button>
+                        : <Button onClick={() => navigate('/dashboard')}>{t.notFound.goHome}</Button>}
                 </div>
             </Page>
         </AppShell>

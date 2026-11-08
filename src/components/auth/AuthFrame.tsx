@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Panel, PlayingCard } from '../ui';
 import { Footer } from '../layout/Footer';
+import { LangSwitch } from '../layout/LangSwitch';
 import { Wordmark } from '../layout/Wordmark';
 import type { GameCard } from '../../types/game';
 import { useT } from '../../i18n/t';
@@ -17,7 +18,7 @@ const FAN: { card: GameCard; className: string }[] = [
 ];
 
 export interface AuthFrameProps {
-    /** The panel's content, its title (the page's only h1) first; a friend's table door goes above it (AuthPage). */
+    /** The panel's content, its title (the page's only h1) first; a friend's table door, with its own h1, goes above it (AuthPage). */
     children: ReactNode;
 }
 
@@ -32,7 +33,11 @@ export function AuthFrame({ children }: AuthFrameProps) {
     return (
         <div className="relative isolate flex min-h-dvh flex-col bg-bg text-text">
             <div aria-hidden="true" className="felt absolute inset-x-0 top-0 -z-10 h-[33dvh] shadow-[inset_0_-3px_0_var(--edge)]" />
-            <main className="flex flex-1 flex-col items-center px-4 pt-[calc(28px+var(--safe-top))] pb-12">
+            <main className="flex flex-1 flex-col items-center px-4 pt-[calc(12px+var(--safe-top))] pb-12">
+                {/* Ruling 80: the HR · EN switch here too, as PublicFrame's header has it (a friend's table link lands on /login) */}
+                <div className="flex w-full max-w-[400px] justify-end">
+                    <LangSwitch />
+                </div>
                 {/* R4 review: these pages' way on to the landing page; named for it, it looks as the wordmark did */}
                 <Link to="/" aria-label={t.auth.toStart}>
                     <Wordmark className="t-display" />

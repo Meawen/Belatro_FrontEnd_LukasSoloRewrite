@@ -1008,6 +1008,7 @@ export const hr = {
             bots: 'Igraj protiv botova kao gost',
         },
         tableDoor: {
+            heading: 'Čeka te stol',
             lead: 'Za ovaj stol možeš sjesti i bez računa, kao gost.',
             sitDown: 'Sjedni kao gost',
         },
@@ -1240,7 +1241,7 @@ export const hr = {
             GUEST_ONLY: 'Ime na ovaj način može promijeniti samo gost.',
             SIGNUP_FULL: 'Slobodnih mjesta više nema pa račun nije izrađen. Ispod se upiši u Red za stol i javit ćemo ti se e-porukom čim se oslobodi mjesto.',
             INVITE_LINK_INVALID: 'Ova poveznica za registraciju ne vrijedi ili je istekla, a slobodnih mjesta trenutno nema. Ispod se ponovno upiši u Red za stol ili igraj kao gost.',
-            WAITLIST_LINK_INVALID: 'Ova poveznica za Red za stol ne vrijedi ili je istekla. Ponovno se upiši u red i dobit ćeš novu.',
+            WAITLIST_LINK_INVALID: 'Ova poveznica za Red za stol ne vrijedi ili je istekla. Ako ti je stiglo više poruka, vrijedi samo poveznica iz najnovije. Ponovno se upiši u red i dobit ćeš novu.',
             EMAIL_TAKEN: 'Ta se e-adresa već koristi. Upiši drugu.',
             LINK_INVALID: 'Ova poveznica ne vrijedi ili je istekla.',
             NOTHING_TO_CONFIRM: 'Nema e-adrese koja čeka potvrdu.',

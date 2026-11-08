@@ -1339,6 +1339,8 @@ export const en = {
         },
         // sign-in, reached from a friend's table link (/lobby/…) with no session (spec §3.2); only with call 5
         tableDoor: {
+            // the page's h1 above the door; the sign-in form's heading is then an h2 (R1-01, Ruling 79)
+            heading: 'A table is waiting for you',
             lead: 'You can sit at this table without an account, as a guest.',
             sitDown: 'Sit down as a guest',
         },
@@ -1618,10 +1620,10 @@ export const en = {
             IN_GAME: "You can't change your name while you're at a table or in a game. Leave the table or finish the game, then try again.",
             // a member at a guest's own name route (B4); the SPA offers it only to a guest
             GUEST_ONLY: 'Only a guest can change their name this way.',
-            // the cap and the waitlist (B7): /signup turns into the waitlist under SIGNUP_FULL or INVITE_LINK_INVALID; WAITLIST_LINK_INVALID on the confirm page (expired and unknown alike, Ruling 42)
+            // the cap and the waitlist (B7): /signup turns into the waitlist under SIGNUP_FULL or INVITE_LINK_INVALID; WAITLIST_LINK_INVALID on the confirm page (expired and unknown alike, Ruling 42; joining again voids the old mail's link, Ruling 81)
             SIGNUP_FULL: "Signup is full, so no account was created. Join the waitlist below, and we'll email you when a place opens.",
             INVITE_LINK_INVALID: 'This signup link is invalid or has expired, and signup is full right now. Join the waitlist again below, or play as a guest.',
-            WAITLIST_LINK_INVALID: 'This waitlist link is invalid or has expired. Join the waitlist again to get a new one.',
+            WAITLIST_LINK_INVALID: 'This waitlist link is invalid or has expired. If you got more than one mail, only the link in the newest one works. Join the waitlist again to get a new one.',
             EMAIL_TAKEN: 'That email address is already in use. Use another one.',
             LINK_INVALID: 'This link is invalid or has expired',
             NOTHING_TO_CONFIRM: "There's no email address waiting to be confirmed.",
