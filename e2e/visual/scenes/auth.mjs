@@ -4,12 +4,11 @@
 const BOTH = ['1440x900', '375x812'];
 
 /** Fills the sign-up form the way the release harness does, then presses Create Account. */
-async function fillSignup(page, invite) {
+async function fillSignup(page) {
     await page.getByLabel('Username', { exact: true }).fill('ana_k');
     await page.getByLabel('Email', { exact: true }).fill('ana@example.test');
     await page.getByLabel('Password', { exact: true }).fill('visual-password-1');
     await page.getByLabel('Confirm Password', { exact: true }).fill('visual-password-1');
-    if (invite) await page.locator('input[name="inviteCode"]').fill(invite);
     await page.getByRole('button', { name: 'Create Account', exact: true }).click();
 }
 
@@ -17,19 +16,8 @@ export default [
     // sign in, plain and after the server ended the session (R-10, US-42)
     { name: 'auth-login', path: '/login', viewports: BOTH },
     { name: 'auth-login-session-ended', path: '/login?reason=session-ended', viewports: BOTH },
-    // sign up: the form, a refused invite code on its field (R-11, US-11), and the inbox panel
+    // sign up: the form and the inbox panel (the refused invite code's scene is gone with the field, S11; Ruling 80)
     { name: 'auth-signup', path: '/signup', viewports: BOTH, fullPage: true },
-    {
-        name: 'auth-signup-bad-invite',
-        path: '/signup',
-        viewports: BOTH,
-        fullPage: true,
-        api: [{ 'POST /api/auth/signup': { status: 403, json: { message: 'Invalid invite code' } } }],
-        setup: async (page) => {
-            await fillSignup(page, 'wrong-code');
-            await page.getByText('Invalid invite code', { exact: true }).waitFor();
-        },
-    },
     {
         name: 'auth-signup-inbox',
         path: '/signup',
