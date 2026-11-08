@@ -534,12 +534,16 @@ describe('hudBoxes: what the HUD holds on the felt at its worst case, four-digit
         expect(hudBoxes(at(460, 900, 2, 'portrait', 71))).toEqual([{ x: 0, y: 0, w: 460, h: 52 }, { x: 8, y: 58, w: 120, h: 94 }])
     })
 
-    test('landscape: Challenge (120 + 2 + 44 + 2) takes a second line where the left group, capped at half the board less 58, can\'t hold it beside the scores and Blok (378 px); the right group (the phase chip at its widest, 230, the menu, 44, 6 apart) reaches 52 px down, below the band (Ruling AB)', () => {
-        const right = (w: number) => ({ x: w - 8 - 280, y: 8, w: 280, h: 44 })
-        expect(hudBoxes(at(667, 323, 2, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 667, h: 44 }, { x: 8, y: 58, w: 168, h: 44 }, right(667)])
-        expect(hudBoxes(at(812, 375, 2, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 812, h: 44 }, { x: 8, y: 58, w: 168, h: 44 }, right(812)])
-        expect(hudBoxes(at(844, 340, 3, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 844, h: 44 }, { x: 8, y: 58, w: 168, h: 44 }, right(844)])
-        expect(hudBoxes(at(932, 430, 3, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 932, h: 44 }, right(932)])
+    test('landscape: the left group\'s first line (the scores, Blok and, with small scores, Challenge and its info button: their 44-px hit areas from 8 px down, so to 52, below the band) from 8 px to the group\'s cap at half the board less 58 (Ruling AE); Challenge (120 + 2 + 44 + 2) takes a second line where the group can\'t hold it beside four-digit scores and Blok (378 px); the right group (the phase chip at its widest, 240: "Hand finished · Karo · summer" measures 236.9; the menu, 44; 6 apart) reaches 52 px down too (Ruling AB; review of 5bb2902)', () => {
+        const first = (w: number) => ({ x: 8, y: 8, w: w / 2 - 58 - 8, h: 44 })
+        const right = (w: number) => ({ x: w - 8 - 290, y: 8, w: 290, h: 44 })
+        expect(hudBoxes(at(667, 323, 2, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 667, h: 44 }, first(667), { x: 8, y: 58, w: 168, h: 44 }, right(667)])
+        expect(hudBoxes(at(812, 375, 2, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 812, h: 44 }, first(812), { x: 8, y: 58, w: 168, h: 44 }, right(812)])
+        expect(hudBoxes(at(844, 340, 3, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 844, h: 44 }, first(844), { x: 8, y: 58, w: 168, h: 44 }, right(844)])
+        expect(hudBoxes(at(932, 430, 3, 'landscape', 71))).toEqual([{ x: 0, y: 0, w: 932, h: 44 }, first(932), right(932)])
+        // 844×340: the first line runs to 364, past Challenge and its info button beside small scores and Blok (measured
+        // at x 164…297 in the review of 5bb2902)
+        expect(first(844).x + first(844).w).toBe(364)
         expect(hudRightGroup(at(667, 323, 2, 'landscape', 71))).toEqual(right(667))
         expect(hudRightGroup(at(390, 664, 3, 'portrait', 94.67))).toBeNull()
     })

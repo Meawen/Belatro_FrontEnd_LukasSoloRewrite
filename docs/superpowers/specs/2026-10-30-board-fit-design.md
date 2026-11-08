@@ -146,10 +146,10 @@ The trick keeps its cross in every layout. Its slots stay relative to the card s
   under the fans, on their own edge, clear of the side trick slots. This is the owner's approved mockup
   (companion screen `02-phone-options.html`, option A).
 - **Me:** my tag stays over my pile, bottom left, above the hand, with my declared cards over it as today.
-- **"Your turn" on phones** (portrait and landscape; owner 2026-11-03, option B, from screenshots): my own tag reads
-  "Your turn" in place of "You" while it is my turn, with its countdown, and there is no separate label over my hand.
-  My chips beside my tag start past it at its widest, so they never shift as it widens. On tablets and desktops the
-  label over my hand stays.
+- **"Your turn" on upright phones** (owner 2026-11-03, option B, from screenshots): my own tag reads "Your turn" in
+  place of "You" while it is my turn, with its countdown, and there is no separate label over my hand. My chips beside
+  my tag start past it at its widest, so they never shift as it widens. Sideways (§4.2), on 768–1023 px wide windows and
+  on desktops the label over my hand stays.
 - The HUD's Challenge and info buttons (the column under the HUD on the left in portrait) keep their place. The left
   seat's tag and chips must not meet them (G2).
 
@@ -161,12 +161,18 @@ The trick keeps its cross in every layout. Its slots stay relative to the card s
   (builder, after the fit checks; the Android numbers owner-approved 2026-11-01).
 - The partner's tag stays beside the fan (today's rule), its chips and declared cards beside it, on the same row. On
   phones it sits 6 px under the HUD's right group (the phase chip at its widest and the menu, whose hit areas reach
-  52 px down), where its row on the fan's middle line would meet them. Its declared cards go to the fan's other side,
-  on the fan's middle line, where the row lacks the width, would come within 6 px of a trick slot, or would wrap a busy
-  column onto the right seat's (builder, Ruling AB, after the testing session's DOM check).
+  52 px down), where its row on the fan's middle line would meet them. Its declared cards go to the fan's other side
+  where the row lacks the width, would come within 6 px of a trick slot, or would wrap a busy column onto the right
+  seat's (builder, Ruling AB, after the testing session's DOM check). There they stay on the tag's row, never higher
+  than 6 px under the HUD: on that side the HUD's left group (the scores, Blok and, beside small scores, Challenge and
+  its info button) has hit areas reaching 52 px down too (builder, Ruling AE, after the review).
 - The side seats as in §4.1: tags above the fans, chips and declared cards under them.
 - **My tag sits at the bottom left, beside my hand**, low enough that the left seat's column never reaches it.
   My chips and declared cards sit over my tag.
+- **"Your turn"** stays the label over my hand, as on desktops, and my tag reads "You" (owner 2026-11-03, "Label above
+  the hand": beside my hand my tag has no room for "Your turn" with its countdown and badges at 667×323 or 844×340).
+  The label meets none of the partner's or side trick slots (my own it may: it shows only on my turn, when my slot is
+  empty) nor my tag, chips or declared cards.
 - The safe areas (§3.4 of the redesign spec: the notch's left and right insets, the home indicator) stay respected.
 
 ### 4.3 Desktop (1024 px wide or more, taller than 500)
@@ -214,7 +220,8 @@ These cover the trick or hand on purpose, and the checks must allow them:
   and @2, 1536×730 @1.25, 1280×600 @1.5, 1920×1080 @1, 2560×1300 @1.
   - Known, for after the beta (owner, 2026-11-01): sideways windows 300 px tall at dpr 3 (800×300, 740×300) don't
     fit yet. Sideways, every window 700 px wide or more fits from 310 px tall at dpr 2, 2.625 and 2.75, and from
-    320 px at dpr 3.
+    334 px at dpr 3 (320 until Ruling AE: below 334 my partner's declared cards on the fan's other side, kept 6 px under
+    the HUD, reach the left trick slot).
 - **Visual harness:** the board scenes gain some of these sizes, at least 390×664, 375×553, 844×340, 1536×730 @1.25
   and 960×980. Shots that change are re-recorded only after the owner approves a before/after page. The `safe` check's
   landscape tuck rises from a quarter to 55 % of a hand card (§3.4; half until 2026-11-01).

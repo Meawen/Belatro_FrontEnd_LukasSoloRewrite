@@ -11,10 +11,11 @@ export interface SeatSpot {
     under?: number;
     /**
      * My partner's in landscape where the row beside the fan has no room for them: the declared cards on the fan's left
-     * side, ending `offset` px left of the plate's left edge, `room` px wide at most; `rise` px above the plate's top where
-     * the plate dropped under the HUD's right group (they stay on the fan's middle line, Ruling AB).
+     * side, ending `offset` px left of the plate's left edge, `room` px wide at most; on the plate's row, or `drop` px
+     * below the plate's top where the plate stays on the fan's middle line higher than 6 px under the HUD's lines (the
+     * HUD's left group is on that side: Ruling AE).
      */
-    aside?: { offset: number; room: number; rise?: number };
+    aside?: { offset: number; room: number; drop?: number };
     /** Mine, upright and on wide windows: how wide my declared cards over my plate may run (give-way 1 within it). */
     above?: number;
     /**
@@ -64,18 +65,20 @@ const MY_EDGE = 12;
  */
 const MY_PLATE = 180;
 /**
- * On phones my plate's name reads "Your turn" on my turn (owner, 2026-11-03, option B): about 36 px wider than "You", so
- * at its widest about 215 px. My chips beside it start past that width, so they never shift as it widens.
+ * On upright phones my plate's name reads "Your turn" on my turn (owner, 2026-11-03, option B): about 36 px wider than
+ * "You", so at its widest about 215 px. My chips beside it start past that width, so they never shift as it widens.
  */
 const MY_TURN_PLATE = 218;
 /** The widest single chip a column holds: "Zvanja 100 + 20", 122.9 px in Chromium. */
 const WIDE_CHIP = 124;
 /**
- * The busy column at its biggest (Ruling AB; the dev board's busy=1, names=long): a long name's plate about 230 px (its
- * Bela and no-challenge badges on it), a "Zvanja 100 + 20" chip and six declared cards. Rare, so it never makes the cards
- * smaller (§3.2), but where it would wrap onto another seat it gives way.
+ * The busy column at its biggest (Ruling AB; the dev board's busy=1, names=long): a long name's plate, a "Zvanja 100 + 20"
+ * chip and six declared cards. Rare, so it never makes the cards smaller (§3.2), but where it would wrap onto another seat
+ * it gives way. The plate at its widest measures 413.6 px in Chromium: 20 W's with the D, the caller's badge, the Bela and
+ * no-challenge badges and the countdown (326.3 with the two badges only; was modelled at 230). Wider than any sideways
+ * phone's room for it, so in practice as wide as its maxWidth lets it.
  */
-const BUSY = { plate: 230, declared: 6 };
+const BUSY = { plate: 414, declared: 6 };
 /** Declared cards: 45 % under the next, closer in a narrow column down to a 12-px corner; a common column shows four. */
 const OVERLAP = 0.45;
 const CORNER = 12;
@@ -189,7 +192,9 @@ const fullColumn = (layout: Layout) => PLATE_ROW + GAP + CHIP_ROW + GAP + layout
  * - Tablet, desktop: the column from 8 px under the HUD, stopping 6 px before the right seat's column where they share
  *   rows (its declared cards overlap more there); where not even their 12-px corners fit, the cards go aside as below.
  * - Landscape: the plate on the fan's middle line, its chips and declared cards on its row; where the row lacks room
- *   for the plate, a chip and four cards, the cards go on the fan's left side (`aside`), clear of the HUD.
+ *   for the plate, a chip and four cards, the cards go on the fan's left side (`aside`), clear of the HUD. Where the
+ *   middle line meets the HUD's right group, the row drops 6 px under it (Ruling AB). The cards aside stay on the row,
+ *   never higher than 6 px under the HUD's lines (Ruling AE: on the middle line they met the left group's first line).
  */
 function partnerSpot(layout: Layout): SeatSpot {
     const W = layout.board.w;
@@ -213,22 +218,25 @@ function partnerSpot(layout: Layout): SeatSpot {
     // on the fan's middle line, stopping 6 px before the HUD's right group in its rows; where that leaves no room for a
     // plate, the row drops to 6 px under the group (Ruling AB)
     const group = hudRightGroup(layout)!;
+    // 6 px under the HUD's lines: the hit areas of both its groups reach 52 px down
+    const under = group.y + group.h + CLEAR;
     const middle = (fan.y0 + fan.y1) / 2 - PLATE / 2;
     let top = middle;
     let maxWidth = W - fan.x1 - 20;
     if (top < group.y + group.h) {
         const before = group.x - CLEAR - left;
         if (before >= COLUMN_W) maxWidth = Math.min(maxWidth, before);
-        else top = group.y + group.h + CLEAR;
+        else top = under;
     }
     // one row where the plate, a chip and the cards fit its width and stay 6 px off the trick slots, and where the busy
     // row, wrapping within it, keeps its cards 6 px off the slots and the right seat's column; else the cards aside (§3.2)
     const rowW = COLUMN_W + GAP + CHIP_W + GAP + declaredRow(layout);
     const rowH = Math.max(PLATE, layout.declared.h) + GAP + TIMER;
     if (rowW <= maxWidth && roomBefore(slotBoxes(layout), left, 'left', top, top + rowH + CLEAR) >= rowW && !busyRowMeets(layout, left, top, maxWidth)) return { left, top, maxWidth };
-    // the cards aside stay on the fan's middle line, though the plate dropped: the HUD's right group is on the other side
-    const side = aside(middle)!;
-    return { left, top, maxWidth, aside: top > middle ? { ...side, rise: top - middle } : side };
+    // the cards aside on the plate's row, never higher than 6 px under the HUD's lines: on the fan's left side the HUD's
+    // left group's first line reaches 52 px down (Ruling AE)
+    const side = aside(Math.max(top, under))!;
+    return { left, top, maxWidth, aside: top < under ? { ...side, drop: under - top } : side };
 }
 
 /**
@@ -422,7 +430,7 @@ export function seatBoxes(layout: Layout, targets: Targets, declaredTeam: 'mine'
             }
             if (declared && spot.aside) {
                 const aside = declaredRow(layout, spot.aside.room);
-                add(spot.left - spot.aside.offset - aside, spot.top - (spot.aside.rise ?? 0), aside, dh);
+                add(spot.left - spot.aside.offset - aside, spot.top + (spot.aside.drop ?? 0), aside, dh);
             }
         } else {
             const x = (width: number) => (position === 'right' ? spot.left - width : spot.left);

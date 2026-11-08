@@ -1,8 +1,9 @@
 import { describe, test, expect } from 'vitest'
 import { fits, handStrips, kindOf, layoutFor, misfits } from './fit'
-import { LANDSCAPE_EXACT, bandBottom, cardSize, fanPlaces, handPlaces, layoutAt, tableTargets, trickSlots, type Layout, type Viewport } from './cardTargets'
+import { LANDSCAPE_EXACT, bandBottom, cardSize, fanPlaces, handPlaces, layoutAt, tableTargets, trickSlots, yourTurnBox, type Layout, type Viewport } from './cardTargets'
 import { desktopCandidates, floorPair, phoneCandidates } from './sizes'
-import { at, box, hull, nameOf, overlap, seven } from '../../../test/fixtures/layouts'
+import { seatBoxes } from '../seatSpot'
+import { at, box, boxOf, hull, nameOf, overlap, seven } from '../../../test/fixtures/layouts'
 
 /** The §7 windows, each once (seven() names 1280×720 @1 at two pairs). */
 const WINDOWS: Viewport[] = seven()
@@ -237,6 +238,24 @@ describe('fits: the trick, my hand and the seat columns at a candidate size (boa
         expect(found.filter((why) => why.startsWith('your turn') && why.includes('meets slot me'))).toEqual([])
     })
 
+    test('"Your turn" over my hand sideways too (owner 2026-11-03, "Label above the hand"; on upright phones my plate says it): fits checks it against the partner\'s and side slots (Ruling E) and against my own column, its plate, chips and declared cards (review of 5bb2902), sideways, on tablets and on desktops', () => {
+        // 800×300 @3 (open, for after the beta): the label on both side slots again, as at 8047ea3
+        const open = misfits(layoutFor({ width: 800, height: 300, dpr: 3 }))
+        expect(open.filter((why) => why.startsWith('your turn'))).toEqual([
+            'your turn [340.0, 200.4, 120.0, 26.0] meets slot right [410.3, 104.7, 78.7, 100.6] by 49.7×4.9',
+            'your turn [340.0, 200.4, 120.0, 26.0] meets slot left [310.9, 104.7, 78.7, 100.6] by 49.7×4.9',
+        ])
+        // 420×400 @2, a window too small to fit anyway: the label on my declared cards over my chips (past the left fan)
+        expect(misfits(at(420, 400, 2, 'landscape', 71))).toContain('your turn [150.0, 300.4, 120.0, 26.0] meets mine: me#2 [56.6, 263.8, 94.1, 47.5] by 0.7×10.8')
+        // upright phones draw no label, so fits doesn't check one there: at 375×553 @2 and 390×664 @3 its box would lie
+        // across my plate's row (my plate and the chips beside it), yet both fit
+        for (const layout of [at(375, 553, 2, 'portrait', 71), at(390, 664, 3, 'portrait', 94.67)]) {
+            const label = boxOf(yourTurnBox(layout))
+            expect(seatBoxes(layout, tableTargets(layout), 'mine').some((one) => one.id === 'me' && overlap(boxOf(one.box), label)), nameOf(layout)).toBe(true)
+            expect(misfits(layout), nameOf(layout)).toEqual([])
+        }
+    })
+
     test('"Your turn" ([W/2 − 60, my hand\'s top − 40, 120, 26]) may meet my own slot, never the partner\'s or a side one (Ruling E)', () => {
         for (const layout of seven().filter((one) => nameOf(one) !== '1280x720@1 142.00/213.00')) {
             const handTop = Math.min(...handPlaces(layout, 8).map((card) => card.top))
@@ -293,6 +312,8 @@ describe('fits: the trick, my hand and the seat columns at a candidate size (boa
 const LANDSCAPE_OPEN: Record<string, string[]> = {
     '800x300@3': [
         "slot me [360.6, 135.1, 78.7, 100.6] outside the band [0, 44, 800.0, 232.4]",
+        "your turn [340.0, 200.4, 120.0, 26.0] meets slot right [410.3, 104.7, 78.7, 100.6] by 49.7×4.9",
+        "your turn [340.0, 200.4, 120.0, 26.0] meets slot left [310.9, 104.7, 78.7, 100.6] by 49.7×4.9",
         "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:0 [355.6, 36.4, 32.8, 41.2] by 27.8×3.3",
         "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:1 [364.2, 36.8, 31.6, 40.3] by 31.6×2.8",
         "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:2 [372.8, 37.3, 30.3, 39.4] by 30.3×2.4",
@@ -301,10 +322,12 @@ const LANDSCAPE_OPEN: Record<string, string[]> = {
         "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:5 [396.8, 37.3, 30.3, 39.4] by 30.3×2.4",
         "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:6 [404.2, 36.8, 31.6, 40.3] by 31.6×2.8",
         "slot partner [360.6, 74.3, 78.7, 100.6] meets back:partner:7 [411.6, 36.4, 32.8, 41.2] by 27.8×3.3",
-        "mine: partner#1 [264.3, 44.0, 83.3, 63.3] meets slot left [310.9, 104.7, 78.7, 100.6] by 36.6×2.6",
+        "mine: partner#1 [264.3, 58.0, 83.3, 63.3] meets slot left [310.9, 104.7, 78.7, 100.6] by 36.6×16.6",
     ],
     '740x300@3': [
         "slot me [330.6, 135.1, 78.7, 100.6] outside the band [0, 44, 740.0, 232.4]",
+        "your turn [310.0, 200.4, 120.0, 26.0] meets slot right [380.3, 104.7, 78.7, 100.6] by 49.7×4.9",
+        "your turn [310.0, 200.4, 120.0, 26.0] meets slot left [280.9, 104.7, 78.7, 100.6] by 49.7×4.9",
         "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:0 [325.6, 36.4, 32.8, 41.2] by 27.8×3.3",
         "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:1 [334.2, 36.8, 31.6, 40.3] by 31.6×2.8",
         "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:2 [342.8, 37.3, 30.3, 39.4] by 30.3×2.4",
@@ -313,7 +336,7 @@ const LANDSCAPE_OPEN: Record<string, string[]> = {
         "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:5 [366.8, 37.3, 30.3, 39.4] by 30.3×2.4",
         "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:6 [374.2, 36.8, 31.6, 40.3] by 31.6×2.8",
         "slot partner [330.6, 74.3, 78.7, 100.6] meets back:partner:7 [381.6, 36.4, 32.8, 41.2] by 27.8×3.3",
-        "mine: partner#1 [234.3, 44.0, 83.3, 63.3] meets slot left [280.9, 104.7, 78.7, 100.6] by 36.6×2.6",
+        "mine: partner#1 [234.3, 58.0, 83.3, 63.3] meets slot left [280.9, 104.7, 78.7, 100.6] by 36.6×16.6",
     ],
 }
 
@@ -343,8 +366,8 @@ describe('phones held sideways (board-fit spec §3.4, §4.2, §7; owner 2026-11-
         }
     })
 
-    test('a coarse landscape grid: from 307 px tall (dpr 2, 2.625, 2.75) or 317 (dpr 3; 307 from 740 wide) up to 500, every window 700–932 wide fits; just under, some does not', () => {
-        const floor: [number, number][] = [[2, 307], [2.625, 307], [2.75, 307], [3, 317]]
+    test('a coarse landscape grid: from 310 px tall (dpr 2, 2.625, 2.75: "Your turn" over my hand, owner 2026-11-03) or 334 (dpr 3: my partner\'s 47.33-px declared cards aside, 6 px under the HUD\'s lines, reach the left slot below that; Ruling AE) up to 500, every window 700–932 wide fits; just under, some does not', () => {
+        const floor: [number, number][] = [[2, 310], [2.625, 310], [2.75, 310], [3, 334]]
         for (const [dpr, from] of floor) {
             for (let width = 700; width <= 932; width += 29) {
                 for (let height = from; height <= 500; height += 19) expect(misfits(layoutFor({ width, height, dpr })), `${width}x${height}@${dpr}`).toEqual([])

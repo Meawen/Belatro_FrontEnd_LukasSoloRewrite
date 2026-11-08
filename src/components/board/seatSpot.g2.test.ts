@@ -1,7 +1,8 @@
 import { describe, test, expect } from 'vitest'
 import { declaredStep, seatBoxes, seatSpot } from './seatSpot'
-import { fanPlaces, hudBoxes, tableTargets, trickSlots, type Layout } from './model/cardTargets'
-import { fits, handStrips as strips } from './model/fit'
+import { fanPlaces, hudBoxes, tableTargets, trickSlots, yourTurnBox, type Layout } from './model/cardTargets'
+import { fits, handStrips as strips, layoutFor } from './model/fit'
+import { turnOnPlate } from './yourTurn'
 import { at, box, boxOf, hull, nameOf, overlap, seven, type Box } from '../../test/fixtures/layouts'
 import { busyBoxes } from '../../test/fixtures/busy'
 
@@ -10,10 +11,19 @@ const slotBoxes = (layout: Layout) => Object.entries(trickSlots(layout)).map(([p
 
 const show = (b: Box) => `[${[b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0].map((n) => n.toFixed(1)).join(', ')}]`
 const by = (a: Box, b: Box) => `${(Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)).toFixed(1)}×${(Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0)).toFixed(1)}`
+/**
+ * "Your turn" over my hand where it shows (tablets, desktops and sideways; owner 2026-11-03: upright phones say it on my
+ * plate instead), as fits places it; null upright.
+ */
+const yourTurn = (layout: Layout): Box | null => (turnOnPlate(layout.kind) ? null : boxOf(yourTurnBox(layout)))
 
-/** Every box of a seat's common column that meets a trick slot, a HUD box, another seat's box or my hand's strips. */
+/**
+ * Every box of a seat's common column that meets a trick slot, a HUD box, another seat's box or my hand's strips; and
+ * every box of my own column that meets "Your turn" over my hand, where it shows.
+ */
 function collisions(layout: Layout): string[] {
     const met: string[] = []
+    const label = yourTurn(layout)
     for (const team of ['mine', 'theirs'] as const) {
         const where = `${nameOf(layout)} ${team}`
         const boxes = seatBoxes(layout, tableTargets(layout), team).map((one, i, all) => ({ ...one, part: all.slice(0, i).filter((b) => b.id === one.id).length, b: boxOf(one.box) }))
@@ -21,6 +31,7 @@ function collisions(layout: Layout): string[] {
         const hand = strips(layout)
         for (const one of boxes) {
             const name = `${one.id}#${one.part} ${show(one.b)}`
+            if (label && one.id === 'me' && overlap(one.b, label)) met.push(`${where}: ${name} meets "Your turn" ${show(label)} by ${by(one.b, label)}`)
             for (const slot of slotBoxes(layout)) if (overlap(one.b, slot.box)) met.push(`${where}: ${name} meets slot ${slot.position} ${show(slot.box)} by ${by(one.b, slot.box)}`)
             huds.forEach((hud, i) => { if (overlap(one.b, hud)) met.push(`${where}: ${name} meets hud#${i} ${show(hud)} by ${by(one.b, hud)}`) })
             hand.forEach((strip, i) => { if (overlap(one.b, strip)) met.push(`${where}: ${name} meets my hand card ${i}'s strip ${show(strip)} by ${by(one.b, strip)}`) })
@@ -174,10 +185,14 @@ describe('my chips and the side seats\' chips at their common size upright (revi
     })
 })
 
-/** A busy column's box against every other seat's plate and chips, the trick slots, my hand's strips, the backs and the HUD. */
+/**
+ * A busy column's box against every other seat's plate and chips, the trick slots, my hand's strips, the backs and the HUD;
+ * my own busy column against "Your turn" over my hand, where it shows.
+ */
 function busyCollisions(layout: Layout, team: 'mine' | 'theirs'): string[] {
     const where = `${nameOf(layout)} ${team}`
     const boxes = busyBoxes(layout, team)
+    const label = yourTurn(layout)
     const others = [
         ...slotBoxes(layout).map((slot) => ({ name: `slot ${slot.position}`, box: slot.box })),
         ...strips(layout).map((strip, i) => ({ name: `my hand card ${i}'s strip`, box: strip })),
@@ -188,6 +203,7 @@ function busyCollisions(layout: Layout, team: 'mine' | 'theirs'): string[] {
     for (const one of boxes) {
         const name = `${one.id} ${one.part} ${show(one.box)}`
         for (const other of others) if (overlap(one.box, other.box)) met.push(`${where}: ${name} meets ${other.name} by ${by(one.box, other.box)}`)
+        if (label && one.id === 'me' && overlap(one.box, label)) met.push(`${where}: ${name} meets "Your turn" ${show(label)} by ${by(one.box, label)}`)
         for (const other of boxes) if (other.id !== one.id && other.part !== 'cards' && overlap(one.box, other.box)) met.push(`${where}: ${name} meets ${other.id} ${other.part} ${show(other.box)} by ${by(one.box, other.box)}`)
     }
     return met
@@ -201,8 +217,13 @@ function busyCollisions(layout: Layout, team: 'mine' | 'theirs'): string[] {
 const BUSY_OPEN: Record<string, string[]> = {}
 
 describe('the busy column at its biggest (Ruling AB: long names, the Bela and no-challenge badges, "Zvanja 100 + 20", six declared cards; both teams)', () => {
-    test('meets no other seat\'s plate or chips, no trick slot, my hand, no back and not the HUD, but for the open ones, which meet exactly what BUSY_OPEN lists', () => {
-        const windows = [at(375, 553, 2, 'portrait', 71), at(390, 664, 3, 'portrait', 94.67), at(375, 812, 2, 'portrait', 71), at(430, 739, 3, 'portrait', 94.67), at(844, 340, 3, 'landscape', 71), at(667, 323, 2, 'landscape', 71), at(812, 375, 2, 'landscape', 71)]
+    test('meets no other seat\'s plate or chips, no trick slot, my hand, no back, not the HUD (sideways its left group\'s first line too: Ruling AE) and, mine, not "Your turn" over my hand, but for the open ones, which meet exactly what BUSY_OPEN lists', () => {
+        const windows = [
+            at(375, 553, 2, 'portrait', 71), at(390, 664, 3, 'portrait', 94.67), at(375, 812, 2, 'portrait', 71), at(430, 739, 3, 'portrait', 94.67),
+            at(844, 340, 3, 'landscape', 71), at(667, 323, 2, 'landscape', 71), at(812, 375, 2, 'landscape', 71), at(756, 340, 3, 'landscape', 71),
+            // Android sideways, at the owner's exact 71-px cards (LANDSCAPE_EXACT)
+            layoutFor({ width: 915, height: 332, dpr: 2.625 }), layoutFor({ width: 851, height: 329, dpr: 2.75 }),
+        ]
         const all: Record<string, string[]> = {}
         for (const layout of windows) for (const team of ['mine', 'theirs'] as const) {
             const met = busyCollisions(layout, team)

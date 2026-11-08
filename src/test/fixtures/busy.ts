@@ -5,7 +5,8 @@ import type { Box } from './layouts'
 
 /**
  * The dev board's busy column at its biggest (Ruling AB; Task 5's busy=1 with names=long): long names on every plate, so
- * each plate as wide as its column lets it (mine at its widest, 180); its Bela and no-challenge badges on the plate,
+ * each plate as wide as its column lets it (mine at its widest: 218 upright, reading "Your turn", 180 elsewhere); its Bela
+ * and no-challenge badges on the plate,
  * inside its width (owner, 2026-11-03: Bela as a badge); for the team whose cards show ('mine': me and my partner;
  * 'theirs': the side seats) a "Zvanja 100 + 20" chip (122.9 px in Chromium, 124 here) and six declared cards. Each column
  * laid out as Seats.tsx and board.css lay it out: chips wrapping within the column's room (a chip wider than the room on
@@ -17,9 +18,13 @@ const TIMER = 3
 const PLATE_ROW = PLATE + GAP + TIMER
 const CHIP_ROW = 20
 const MY_PLATE = 180
-/** On phones my plate reads "Your turn" on my turn (owner, 2026-11-03): about 218 at its widest. */
+/** On upright phones my plate reads "Your turn" on my turn (owner, 2026-11-03): about 218 at its widest. */
 const MY_TURN_PLATE = 218
-const LONG_PLATE = 230
+/**
+ * A long name's plate at its widest: 413.6 px in Chromium (20 W's with the D, the caller's badge, the Bela and no-challenge
+ * badges and the countdown; 326.3 with the two badges only; was 230). Its maxWidth caps it everywhere upright and sideways.
+ */
+const LONG_PLATE = 414
 const ZVANJA = 124
 const DECLARED = 6
 
@@ -62,7 +67,7 @@ export function busyBoxes(layout: Layout, declaredTeam: 'mine' | 'theirs'): Busy
         const add = (part: BusyBox['part'], box: Box) => out.push({ id: position, part, box })
         const room = spot.maxWidth ?? Infinity
         if (position === 'me') {
-            const plate = Math.min(layout.kind === 'portrait' || layout.kind === 'landscape' ? MY_TURN_PLATE : MY_PLATE, room)
+            const plate = Math.min(layout.kind === 'portrait' ? MY_TURN_PLATE : MY_PLATE, room)
             add('plate', rect(spot.left, spot.top, plate, PLATE_ROW))
             const from = spot.left + (spot.cardsFrom ?? 0)
             if (layout.kind === 'portrait') {
@@ -102,7 +107,7 @@ export function busyBoxes(layout: Layout, declaredTeam: 'mine' | 'theirs'): Busy
             })
             if (winner && spot.aside) {
                 const w = row(spot.aside.room)
-                add('cards', rect(spot.left - spot.aside.offset - w, spot.top - (spot.aside.rise ?? 0), w, dh))
+                add('cards', rect(spot.left - spot.aside.offset - w, spot.top + (spot.aside.drop ?? 0), w, dh))
             }
             continue
         }

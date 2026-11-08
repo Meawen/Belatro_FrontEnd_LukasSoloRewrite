@@ -414,15 +414,20 @@ export function tableTargets(layout: Layout): Targets {
  *   only the trump (board.css hides the word), about 74; without a trump (bidding, starting) about 76.
  * - Challenge at its widest label, "Challenge used": 13-px semibold text and 12 px each side, about 120, 44 tall; its
  *   info button 44; side by side 2 apart with 2 to spare (landscape), stacked 6 apart (portrait).
- * - The phase chip at its widest with the season (Ruling AB): "Playing · H Herc · spring" measures about 185 px in the
- *   T3 shot at 667×323 @2 (hud-667.png); "Hand finished" is about 39 px longer than "Playing", so 230 with a margin.
+ * - The phase chip at its widest with the season (Ruling AB): "Hand finished · Karo · summer" measures 236.9 px in
+ *   Chromium (the review of 5bb2902; the group 286.9), so 240 (was 230, an estimate from the T3 shot).
+ * - Sideways the left group stops at half the board less 58 px (board.css: `max-width: calc(50% - 58px)` of the HUD,
+ *   which runs 8 px in from each side).
  */
-const HUD = { top: 8, line: 44, gap: 6, score: 96 + 6 * 9, blok: 48, menu: 44, called: 170, calledNarrow: 74, uncalled: 76, challenge: 120, info: 44, phaseMax: 230 };
+const HUD = { top: 8, line: 44, gap: 6, score: 96 + 6 * 9, blok: 48, menu: 44, called: 170, calledNarrow: 74, uncalled: 76, challenge: 120, info: 44, phaseMax: 240, leftCap: 58 };
 
 /** "Your turn" over my hand (Board.tsx `YourTurn`, board.css `.board-your-turn`): about 120 × 26, its top 40 px over my hand's. */
 const YOUR_TURN = { w: 120, h: 26, above: 40 };
 
-/** Where "Your turn" shows over my full hand (centred, 40 px over its top): fits and my chips keep clear of it. */
+/**
+ * Where "Your turn" shows over my full hand (centred, 40 px over its top), sideways, on tablets and on desktops (upright
+ * phones say it on my plate): fits keeps the partner's and side slots (Ruling E) and my own column off it.
+ */
 export function yourTurnBox(layout: Layout): Rect {
     const handTop = Math.min(...handPlaces(layout, 8).map((card) => card.top));
     return { x: layout.board.w / 2 - YOUR_TURN.w / 2, y: handTop - YOUR_TURN.above, w: YOUR_TURN.w, h: YOUR_TURN.h };
@@ -443,8 +448,10 @@ export function hudRightGroup(layout: Layout): Rect | null {
  * - portrait: Blok on a second line wherever the first line can't hold the scores, Blok and the phase chip with the menu
  *   (with or without a trump called); the Challenge column (Challenge over its info button, only while a trump is
  *   called) on a line of its own under the first line, or under Blok where the first line wraps then;
- * - landscape: when the left group (capped at half the board less 58 px) can't hold Challenge too, Challenge's line; and
- *   the right group (the phase chip and the menu), whose hit areas reach below the band (Ruling AB).
+ * - landscape: the left group's first line, from 8 px to its cap at half the board less 58 px, whose hit areas (the
+ *   scores, Blok and, beside small scores, Challenge and its info button) reach below the band (Ruling AE); where the
+ *   group can't hold Challenge beside four-digit scores and Blok, Challenge's second line; and the right group (the
+ *   phase chip and the menu), whose hit areas reach below the band too (Ruling AB).
  * Its hint is a popover, not counted.
  */
 export function hudBoxes(layout: Layout): Rect[] {
@@ -459,10 +466,11 @@ export function hudBoxes(layout: Layout): Rect[] {
         return inPlay || wraps(HUD.uncalled) ? [band, blok, challenge] : [band, challenge];
     }
     if (layout.kind === 'landscape') {
+        const first: Rect = { x: HUD.top, y: HUD.top, w: W / 2 - HUD.leftCap - HUD.top, h: HUD.line };
         const challenge = HUD.challenge + 2 + HUD.info + 2;
-        const wraps = HUD.score + HUD.gap + HUD.blok + HUD.gap + challenge > W / 2 - 58;
+        const wraps = HUD.score + HUD.gap + HUD.blok + HUD.gap + challenge > first.w;
         const right = hudRightGroup(layout)!;
-        return wraps ? [band, { x: HUD.top, y: line(1), w: challenge, h: HUD.line }, right] : [band, right];
+        return wraps ? [band, first, { x: HUD.top, y: line(1), w: challenge, h: HUD.line }, right] : [band, first, right];
     }
     return [band];
 }

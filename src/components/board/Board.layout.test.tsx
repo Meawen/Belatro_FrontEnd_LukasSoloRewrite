@@ -261,16 +261,27 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
         }
     })
 
-    test('sideways my partner\'s plate drops 6 px under the HUD\'s right group (the phase chip and the menu), its cards aside staying on the fan\'s middle line (board-fit spec G2; Ruling AB)', () => {
+    test('sideways my partner\'s plate drops 6 px under the HUD\'s right group (the phase chip and the menu), its cards aside on that row too, clear of the HUD\'s left group (board-fit spec G2; Rulings AB, AE)', () => {
         // seed 1254, the hand's first card: alice, carol's partner, declared three cards
         const t = playTable({ seed: 1254 })
         withDpr(2, () => {
-            renderBoard({ state: tableState(t[indexOf(t, 'play:')], 'carol', 'snapshot'), viewport: { width: 667, height: 323 } })
+            const { unmount } = renderBoard({ state: tableState(t[indexOf(t, 'play:')], 'carol', 'snapshot'), viewport: { width: 667, height: 323 } })
             const alice = screen.getByTestId('seat-alice')
             expect(px(alice, 'top')).toBe(58)
             const aside = alice.querySelector<HTMLElement>(':scope > .board-seat__aside')!
-            expect(aside.style.top).toBe('-14px')
+            // on the plate's row (was 14 px higher, on the fan's middle line, beside the left group's first line)
+            expect(aside.style.top).toBe('')
             expect(aside.querySelectorAll('.ui-card').length).toBeGreaterThan(0)
+            unmount()
+        })
+        // a short desktop window at 150 % counts as landscape: the plate stays on the fan's middle line beside the right
+        // group, so the cards aside go 6 px under the HUD's lines, at 58
+        withDpr(1.5, () => {
+            renderBoard({ state: tableState(t[indexOf(t, 'play:')], 'carol', 'snapshot'), viewport: { width: 1280, height: 480 } })
+            const alice = screen.getByTestId('seat-alice')
+            const aside = alice.querySelector<HTMLElement>(':scope > .board-seat__aside')!
+            expect(px(alice, 'top') + px(aside, 'top')).toBe(58)
+            expect(px(aside, 'top')).toBeGreaterThan(0)
         })
     })
 

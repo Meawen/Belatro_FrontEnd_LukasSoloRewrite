@@ -74,13 +74,15 @@ export function layoutFor(viewport: Viewport): Layout {
  * - every hand card leaves its strip (`STRIP`) and the hand stays within the board's width;
  * - the four trick slots, each at its widest tilt, lie inside the board below the HUD and above `bandBottom`, and meet
  *   none of my hand, the fans, the piles, the HUD's boxes or the seats' columns;
- * - on tablets and desktops "Your turn" meets none of the partner's or side slots (my own it may: Ruling E); on phones it
- *   is my plate's name (owner 2026-11-03);
+ * - sideways, on tablets and on desktops "Your turn" over my hand meets none of the partner's or side slots (my own it
+ *   may: Ruling E) nor my own column (its plate, chips and declared cards); on upright phones it is my plate's name
+ *   (owner 2026-11-03: option B upright, "Label above the hand" sideways);
  * - where a fine pointer lifts a hovered hand card (tablet, desktop), the lifted card meets none of the partner's or
  *   side slots (my own it may: Ruling P, as Ruling E: the lift shows only on enabled cards, on my turn);
  * - the piles meet no fan of 7 backs (a pile draws nothing until a trick is taken, and by then a seat holds 7 at most);
  * - the seats' columns (`seatBoxes`, whichever team's declared cards show) meet none of the HUD's boxes (sideways its
- *   right group too), my hand's exposed strips, each other, nor any fan's backs, 8 or 7 of them (Rulings X, AB).
+ *   left group's first line and its right group too: Rulings AE, AB), my hand's exposed strips, each other, nor any
+ *   fan's backs, 8 or 7 of them (Rulings X, AB).
  * Not checked, by design (spec §5): the bid panel, the declaration moment's panel, the challenge banner, the Bela
  * prompt, the sheets and cards in flight.
  */
@@ -166,10 +168,10 @@ function walk(layout: Layout, found: string[] | null): boolean {
             && miss(() => `slot ${position} ${show(box)} outside the band [0, ${layout.hud}, ${W.toFixed(1)}, ${band.toFixed(1)}]`)) return false;
     }
 
-    // "Your turn" over my full hand, on tablets and desktops: never on the partner's or a side slot (Ruling E); on phones
-    // it is my plate's name instead (owner 2026-11-03)
-    if (!turnOnPlate(layout.kind)) {
-        const label: Box = boxOf(yourTurnBox(layout));
+    // "Your turn" over my full hand, sideways, on tablets and on desktops: never on the partner's or a side slot (Ruling E),
+    // nor on my own column (below); on upright phones it is my plate's name instead (owner 2026-11-03)
+    const label: Box | null = turnOnPlate(layout.kind) ? null : boxOf(yourTurnBox(layout));
+    if (label) {
         for (const { position, box } of slots) {
             if (position !== 'me' && meets(label, box) && miss(() => `your turn ${show(label)} meets slot ${position} ${show(box)} by ${by(label, box)}`)) return false;
         }
@@ -214,7 +216,8 @@ function walk(layout: Layout, found: string[] | null): boolean {
         }
     }
 
-    // the seats' columns, whichever team's declared cards show: off the slots, the HUD, my hand's strips, each other and the backs
+    // the seats' columns, whichever team's declared cards show: off the slots, the HUD, my hand's strips, each other and the
+    // backs; mine off "Your turn" too, where it shows over my hand
     const strips = handStrips(layout, hand);
     // every fan at 8 backs and at 7: no seat's plate, chips or declared cards on a card back (Ruling X)
     const fans = OPPONENTS.flatMap((position) => [8, 7].map((n) => ({ position, backs: fanPlaces(layout, position, n).map(boundsOf) })));
@@ -226,6 +229,7 @@ function walk(layout: Layout, found: string[] | null): boolean {
             for (const { position, box } of slots) {
                 if (meets(seat.box, box) && miss(() => `${name()} meets slot ${position} ${show(box)} by ${by(seat.box, box)}`)) return false;
             }
+            if (label && seat.id === 'me' && meets(label, seat.box) && miss(() => `your turn ${show(label)} meets ${name()} by ${by(label, seat.box)}`)) return false;
             for (let k = 0; k < huds.length; k++) {
                 if (meets(seat.box, huds[k]) && miss(() => `${name()} meets hud#${k} ${show(huds[k])} by ${by(seat.box, huds[k])}`)) return false;
             }

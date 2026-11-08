@@ -69,11 +69,14 @@ export interface SeatsProps {
  * The seat chips (spec §5.3.3, §5.10): `seat-{id}` with `data-current` on the seat to act, its
  * `cards-left-{id}` (visually hidden on phones), the dealer chip, the trump caller's suit badge from the call to
  * the hand's end (owner, 2026-10-12; on the plate, so the seat never grows a line), and on the seat to act the
- * `turn-countdown` and its bar; the bid chips while bidding, Bela, and once play opens each winning
- * seat's zvanja chip (summaryChips) for the rest of the hand, with its declared cards until the first
- * trick is down; on every seat whose challenge is gone, for the rest of the game, a quiet badge on its plate, a
- * crossed-out ring after the dealer's D and the caller's badge (gameplay rules §6; owner, 2026-10-30). Mine sit over my plate, which sits low by my pile: my declared cards always, and in
- * landscape, where my plate is beside my hand, my chips too (under it they would cover my hand's first cards).
+ * `turn-countdown` and its bar; the bid chips while bidding, and once play opens each winning seat's zvanja
+ * chip (summaryChips) for the rest of the hand, with its declared cards until the first trick is down. On the
+ * plate, as badges after the dealer's D and the caller's: Bela once declared (a pixel B; owner, 2026-11-03), and on
+ * every seat whose challenge is gone, for the rest of the game, a crossed-out ring (gameplay rules §6; owner,
+ * 2026-10-30). On upright phones my plate's name reads "Your turn" on my turn (owner, 2026-11-03, option B; sideways,
+ * on tablets and desktops the label over my hand says it). Mine sit over my plate, which sits low by my pile: my
+ * declared cards always, and in landscape, where my plate is beside my hand, my chips too (under it they would cover my
+ * hand's first cards).
  * Upright my chips sit beside my plate, wrapping upwards (board.css), and my plate keeps the countdown's width; my
  * declared cards over it overlap more where the trick slot beside them leaves less room (seatSpot's `above`), and start
  * past the left seat's backs where its fan reaches down beside them (`cardsFrom`, Ruling X; in landscape my chips stay
@@ -125,7 +128,7 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                             <span className={seat.team === 'B' ? 'board-seat__team bg-team-b' : 'board-seat__team bg-team-a'} aria-hidden="true" />
                             {/* a bot: the lobby's robot beside its name, and "(bot)" in its name (casual bots spec §7) */}
                             {seat.bot && <PixelIcon name="robot" className="board-seat__bot" />}
-                            {/* on phones my plate's name reads "Your turn" on my turn, where the label over my hand used to be (owner 2026-11-03) */}
+                            {/* on upright phones my plate's name reads "Your turn" on my turn, in place of the label over my hand (owner 2026-11-03) */}
                             <span data-testid={seat.isMe && turnHere ? 'your-turn' : undefined} className="board-seat__label" title={seat.isMe ? undefined : seat.bot ? `${seat.id} (bot)` : seat.id}>{seat.isMe ? (turnHere ? YOUR_TURN_TEXT : 'You') : seat.id}</span>
                             {seat.bot && <span className="sr-only"> (bot)</span>}
                             {seat.dealer && (
@@ -177,7 +180,7 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                         ) : (
                             <>
                                 {chipRow}
-                                {cards && aside ? <span className="board-seat__aside" style={{ marginRight: aside.offset, ...(aside.rise ? { top: -aside.rise } : {}) }}>{cards}</span> : cards}
+                                {cards && aside ? <span className="board-seat__aside" style={{ marginRight: aside.offset, ...(aside.drop ? { top: aside.drop } : {}) }}>{cards}</span> : cards}
                             </>
                         )}
                     </div>
