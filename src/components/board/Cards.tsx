@@ -8,12 +8,12 @@ import type { Entrance } from './stage';
 import { boxStyle, cardMotion, useArc, type Anchor } from './cardMotion';
 import { useT } from '../../i18n/t';
 
-/** The two sides of a card that turns over: its face, and the red back (X-13) behind it. */
-export function Faces({ card, width }: { card: GameCard; width: number }) {
+/** The two sides of a card that turns over: its face, and the red back (X-13) behind it; `exact` as its target's. */
+export function Faces({ card, width, exact }: { card: GameCard; width: number; exact?: boolean }) {
     return (
         <>
-            <span className="board-card__face"><PlayingCard card={card} width={width} alt="" /></span>
-            <span className="board-card__back"><PlayingCard back={1} width={width} /></span>
+            <span className="board-card__face"><PlayingCard card={card} width={width} exact={exact} alt="" /></span>
+            <span className="board-card__back"><PlayingCard back={1} width={width} exact={exact} /></span>
         </>
     );
 }
@@ -48,7 +48,7 @@ export function TrickCard({ card, id, playerId, layoutId, target, entrance, from
             exit={{ opacity: 0, transition: fade }}
             {...cardMotion({ target, entrance, from, instant, reduced, arc })}
         >
-            <Faces card={card} width={target.width} />
+            <Faces card={card} width={target.width} exact={target.exact} />
             {winner && (
                 <>
                     <span className="board-card__win" aria-hidden="true" />
@@ -85,7 +85,7 @@ export function BackCard({ target, entrance, from, instant, reduced }: BackCardP
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             {...cardMotion({ target, entrance, from, instant, reduced, arc })}
         >
-            <PlayingCard back={1} width={target.width} />
+            <PlayingCard back={1} width={target.width} exact={target.exact} />
         </m.div>
     );
 }
@@ -122,7 +122,7 @@ export function SweepCard({ card, layoutId, slot, pile, order, mode, entrance, f
             : { initial: false as const, animate: { ...onSlot, opacity: 0 }, transition: { duration: 0.2 } };
     return (
         <m.div layoutId={layoutId} className="board-card board-sweep-card" style={boxStyle(target)} {...motion}>
-            <Faces card={card} width={slot.width} />
+            <Faces card={card} width={slot.width} exact={slot.exact} />
         </m.div>
     );
 }

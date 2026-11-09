@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { actions, renderBoard, tableState } from './testing'
-import { belotRow, layoutFor } from './model/cardTargets'
+import { belotRow } from './model/cardTargets'
+import { layoutFor } from './model/fit'
 import { cardLabel } from '../game/gameView'
 import { indexOf, playTable, type FanOut } from '../../test/fixtures/views/table'
 
@@ -305,7 +306,7 @@ describe('Board: focus when the moment\'s skip button goes (gameplay rules §6)'
 })
 
 describe('Board: my chips never sit on my hand (gameplay rules §6)', () => {
-    test('in landscape my chips go over my plate with my declared cards, as my bubble did; elsewhere under it; the other seats as before', () => {
+    test('in landscape my chips go over my plate with my declared cards, as my bubble did; elsewhere in my seat\'s column (beside the plate upright, under it on wide windows); the other seats as before', () => {
         // seed 1254, the hand's first card: carol (me) holds Declarations 100 + 20 and six declared cards, alice 20 and three
         const t = playTable({ seed: 1254 })
         const first = t[indexOf(t, 'play:')]

@@ -4,7 +4,7 @@ import hand1 from '../guide/hand1.recording.json';
 import { stepsOf, type GuideStep, type LessonKey } from '../guide/script';
 import { useGuideReplay } from '../guide/useGuideReplay';
 import { Board } from '../components/board/Board';
-import { layoutFor } from '../components/board/model/cardTargets';
+import { layoutFor } from '../components/board/model/fit';
 import { ErrorAlert } from '../components/common/ErrorAlert';
 import { LessonPanel } from '../components/guide/LessonPanel';
 import { PLAIN_HIGH_FIRST, TRUMP_HIGH_FIRST, cardPoints } from '../components/info/rulesData';

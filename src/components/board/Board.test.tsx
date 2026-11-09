@@ -282,7 +282,8 @@ describe('Board: the table in Croatian (open beta §1.4)', () => {
             expect(screen.getByText('· proljeće')).toBeInTheDocument()
             expect(screen.getByTestId('your-turn').textContent).toBe('Na tebi je!')
             expect(within(screen.getByTestId('seat-carol')).getByText('Ti')).toBeInTheDocument()
-            expect(within(screen.getByTestId('seat-bob')).getByText('Bela!')).toBeInTheDocument()
+            // Bela is a badge on the plate (board-fit): its words for screen readers are the live line's
+            expect(within(screen.getByTestId('seat-bob')).getByText('bob: Bela!')).toHaveClass('sr-only')
             expect(within(screen.getByTestId('seat-bob')).getByText('bob zove Herc')).toHaveClass('sr-only')
             const hand = screen.getByRole('toolbar', { name: 'Tvoje karte' })
             expect(within(hand).getByRole('button', { name: 'As Herc' })).toBeInTheDocument()
@@ -311,6 +312,30 @@ describe('Board: the table in Croatian (open beta §1.4)', () => {
             expect(screen.getByTestId('your-turn').textContent).toBe(turn)
             act(() => { vi.advanceTimersByTime(1_000) })
             expect(screen.getByTestId('your-turn').textContent).toBe(away)
+        } finally {
+            setLang('en')
+        }
+    })
+
+    test.each([
+        ['en', 'Your turn', 'Still there?'],
+        ['hr', 'Na tebi je!', 'Zaspal si?'],
+    ] as const)('"Still there?" wherever "Your turn" shows: my plate on upright phones, the label over my hand sideways and on desktops (board-fit merge), %s', (lang, turn, away) => {
+        setLang(lang)
+        try {
+            for (const viewport of [{ width: 375, height: 812 }, { width: 812, height: 375 }, { width: 1440, height: 900 }]) {
+                vi.useFakeTimers()
+                const where = `${viewport.width}x${viewport.height}`
+                const { unmount } = renderBoard({ state: stateOf(privateFor(view({ currentPlayerId: 'carol', turnExpiresAt: Date.now() + 25_000 }), true)), me: 'carol', viewport })
+                const label = () => screen.getByTestId('your-turn')
+                // upright the label is my plate's name; elsewhere it sits over my hand
+                expect(label().classList.contains('board-seat__label'), where).toBe(viewport.width === 375)
+                expect(label().textContent, where).toBe(turn)
+                act(() => { vi.advanceTimersByTime(15_000) })
+                expect(label().textContent, where).toBe(away)
+                unmount()
+                vi.useRealTimers()
+            }
         } finally {
             setLang('en')
         }

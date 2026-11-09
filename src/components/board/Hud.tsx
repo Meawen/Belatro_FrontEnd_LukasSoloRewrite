@@ -110,7 +110,8 @@ export function Hud({ model, instant, calledBy, calls, onChallenge, challengePen
             </div>
             <div className="board-hud__group">
                 <span className="board-hud__chip">
-                    <span data-testid="game-phase" data-phase={model.phase}>{model.phaseLabel}</span>
+                    {/* a narrow portrait HUD reads the phase word but doesn't show it while a trump is called (board.css) */}
+                    <span data-testid="game-phase" data-phase={model.phase} className={model.trump ? 'board-hud__phase--called' : undefined}>{model.phaseLabel}</span>
                     {model.trump && (
                         <>
                             <span ref={badge} className="inline-flex"><SuitIcon boja={model.trump.suit} /></span>

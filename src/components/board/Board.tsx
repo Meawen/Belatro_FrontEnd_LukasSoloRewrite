@@ -21,10 +21,12 @@ import { Hand } from './Hand';
 import { Hud } from './Hud';
 import { Peek } from './Peek';
 import { Piles } from './Piles';
-import { Seats } from './Seats';
+import { Seats, TurnText } from './Seats';
 import { Summary } from './Summary';
 import { announce, seatName } from './announce';
-import { cardTargets, layoutFor, type Layout, type Targets } from './model/cardTargets';
+import { cardTargets, type Layout, type Targets } from './model/cardTargets';
+import { layoutFor } from './model/fit';
+import { turnOnPlate } from './yourTurn';
 import { BELOT_HOLD_MS, momentKey, momentSrLine } from './model/declarationMoment';
 import {
     answerBela, challengePending, pendingUntil, pressBid, pressCard, pressChallenge, unlock, waitingForDeclarations, type ChallengeSent, type InputResult,
@@ -41,8 +43,6 @@ import type { BoardModel, HandCardModel, Team } from './model/boardModel';
 import type { GameActions } from '../../hooks/useGameViews';
 import type { MatchHands } from '../../hooks/useMatchHands';
 import type { RematchState } from '../../hooks/useRematch';
-import { useNow } from './useNow';
-import { secondsLeft } from './model/boardModel';
 import { useT } from '../../i18n/t';
 import './board.css';
 
@@ -188,21 +188,15 @@ interface MomentLocal {
     line: string | null;
 }
 
-/** The last seconds of my turn, before the server's timer plays for me: "Your turn" asks "Still there?" (spec §1.4). */
-const AWAY_SECONDS = 10;
-
 /**
  * "Your turn" over my hand (spec §5.3.3 `your-turn`): only while I can bid or play (`shown`), never in HAND_COMPLETE;
  * placed by the hand as it is; "Still there?" in its last 10 s.
  */
 function YourTurn({ shown, hand, targets, layout, expiresAt, skew }: { shown: boolean; hand: HandCardModel[]; targets: Targets; layout: Layout; expiresAt: number | null; skew: number }) {
-    const t = useT();
-    const now = useNow(shown && expiresAt !== null ? 1000 : null);
-    if (!shown) return null;
-    const away = expiresAt !== null && secondsLeft(expiresAt, skew, now) <= AWAY_SECONDS;
+    if (!shown || turnOnPlate(layout.kind)) return null;
     const tops = hand.map((card) => targets.cards[card.id]?.top ?? layout.board.h);
     const top = (tops.length ? Math.min(...tops) : layout.board.h - layout.hand.h) - 40;
-    return <span data-testid="your-turn" className="board-your-turn notch t-footnote font-semibold" style={{ top }}>{away ? t.board.away : t.board.yourTurn}</span>;
+    return <span data-testid="your-turn" className="board-your-turn notch t-footnote font-semibold" style={{ top }}><TurnText expiresAt={expiresAt} skew={skew} /></span>;
 }
 
 export interface BoardProps {

@@ -63,6 +63,11 @@ export interface DevOptions {
     /** `challenge=bob:2:wrong`, `dave:2:right`, `dave:window:right`: a challenge in hand 1, after its n-th card or in its window (§1). */
     challenge: ChallengeOption | null;
     /**
+     * Every seat has said bela and spent its challenge in every frame, so every name tag carries its Bela tag and
+     * "No challenge" badge: with names=long and seed=1254 (carol declares six cards), every tag column at its biggest.
+     */
+    busy: boolean;
+    /**
      * coach=demo: a stand-in coach (open beta §7.2, §7.3) for the hit check and a look at the marks; coach=long: the same
      * with a lesson taller than the room above the bid panel (it scrolls); else none.
      */
@@ -90,7 +95,7 @@ function parseChallenge(value: string | null): ChallengeOption | null {
     return { by, after: when, foul: outcome === 'right' };
 }
 
-/** `/dev/board?seat=carol&at=window-open&layout=375x812&effects=off&motion=reduce&chaos=1&controls=0&skip=1&play=1&speed=2&seed=7&trump=KARA&hands=2&scores=990,900&names=long&bots=bob,dave&live=1&t=700&belot=bob:PIK&challenge=dave:2:right&coach=demo` */
+/** `/dev/board?seat=carol&at=window-open&layout=375x812&effects=off&motion=reduce&chaos=1&controls=0&skip=1&play=1&speed=2&seed=7&trump=KARA&hands=2&scores=990,900&names=long&bots=bob,dave&live=1&t=700&belot=bob:PIK&challenge=dave:2:right&busy=1&coach=demo` */
 export function parseDevOptions(search: string): DevOptions {
     const q = new URLSearchParams(search);
     const scores = (q.get('scores') ?? '').split(',').map(Number);
@@ -116,6 +121,7 @@ export function parseDevOptions(search: string): DevOptions {
         t: Math.max(0, Number(q.get('t')) || 0),
         belot: parseBelot(q.get('belot')),
         challenge: parseChallenge(q.get('challenge')),
+        busy: q.get('busy') === '1',
         coach: q.get('coach') === 'demo' || q.get('coach') === 'long' ? (q.get('coach') as 'demo' | 'long') : null,
     };
 }
@@ -147,9 +153,22 @@ function withBots(fanOuts: FanOut[], bots: readonly string[]): FanOut[] {
     }));
 }
 
+/** busy: every seat marked as having said bela and spent its challenge, in every view, public and private. */
+function withBusy(fanOuts: FanOut[]): FanOut[] {
+    const marked = (view: PublicGameView): PublicGameView => {
+        const everyone = Object.fromEntries(view.seatingOrder.map((seat) => [seat.id, true]));
+        return { ...view, challengeUsedByPlayer: everyone, belaDeclaredByPlayer: { ...everyone } };
+    };
+    return fanOuts.map((f) => ({
+        ...f,
+        public: marked(f.public),
+        private: Object.fromEntries(Object.entries(f.private).map(([id, view]) => [id, { ...view, publicPart: marked(view.publicPart) }])),
+    }));
+}
+
 /** The table for these options, its clock set so that fan-out `atIndex` happens now (live countdowns). */
 export function devTable(
-    options: Pick<DevOptions, 'seed' | 'trump' | 'hands' | 'scores'> & Partial<Pick<DevOptions, 'names' | 'bots' | 'belot' | 'challenge'>>,
+    options: Pick<DevOptions, 'seed' | 'trump' | 'hands' | 'scores'> & Partial<Pick<DevOptions, 'names' | 'bots' | 'belot' | 'challenge' | 'busy'>>,
     now: number,
     atIndex = 0,
 ): FanOut[] {
@@ -161,7 +180,8 @@ export function devTable(
     };
     const probe = playTable(base);
     const offset = probe[Math.min(Math.max(0, atIndex), probe.length - 1)].at - probe[0].at;
-    const table = withBots(playTable({ ...base, start: now - offset }), options.bots ?? []);
+    const bots = withBots(playTable({ ...base, start: now - offset }), options.bots ?? []);
+    const table = options.busy ? withBusy(bots) : bots;
     return options.names ? withLongNames(table) : table;
 }
 

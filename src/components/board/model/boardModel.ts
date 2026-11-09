@@ -59,7 +59,7 @@ export interface SeatModel {
     dealer: boolean;
     /** Its bid chip while bidding ('PASS' or the suit called); null once trump is called. */
     bid: 'PASS' | Boja | null;
-    /** Bela declared this hand (a "Bela" chip). Its zvanja chip comes from `zvanja` (summaryChips). */
+    /** Bela declared this hand (the B badge on its plate; owner, 2026-11-03). Its zvanja chip comes from `zvanja` (summaryChips). */
     bela: boolean;
     /** Its challenge is gone for the rest of the game (challengeUsedByPlayer). */
     challengeUsed: boolean;

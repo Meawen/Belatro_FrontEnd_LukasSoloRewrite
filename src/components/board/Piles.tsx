@@ -39,7 +39,7 @@ export function Piles({ counts, targets, myTeam, onTap }: PilesProps) {
                                     exit={{ opacity: 0 }}
                                     transition={fade}
                                 >
-                                    <PlayingCard back={1} width={width} />
+                                    <PlayingCard back={1} width={width} exact={target.exact} />
                                 </m.span>
                             ))}
                         </AnimatePresence>
