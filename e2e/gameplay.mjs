@@ -655,6 +655,9 @@ async function playOneCard(page, label, stats, { marked } = {}) {
         const card = choices.nth(i);
         if (await card.isDisabled().catch(() => true)) continue;
         const id = await card.getAttribute('data-card');
+        // Hand 2 leaves the unmarked cards enabled: a card still hovered from the last click stays lifted
+        // over the left edge of the card to its right and would catch this click. Park the mouse first.
+        if (marked) await page.mouse.move(0, 0);
         await card.click({ position: cardClickPoint(await cardGeometry(card)) });
         // A play counts only when the clicked card left the hand (a turn-timer auto-play shrinks
         // it too). Holding the other bela card, the SPA first asks "Play" or "Play + Bela"
