@@ -891,10 +891,10 @@
 }
 
 /* Škola bele's coach (open beta §7.2, §7.3). A marked hand card rings in the success green on its ring layer (the
-   pending card's gold ring stays on top while it waits). The panel sits under the HUD at the top of the felt, its
-   bottom above the middle, so it never reaches my hand; above the seats, below everything painted after it (the HUD,
-   the bid panel, the moment, the banner, the error) and the sheets. The region takes no taps (board-region); only
-   the panel does. */
+   pending card's gold ring stays on top while it waits). The panel's place, width and the most it grows down come from
+   board-fit's layout (coachSpot.ts, inline): the biggest free room, off the trick, my hand, the HUD and the seats; past
+   its room the lesson scrolls. Above the seats, below everything painted after it (the HUD, the bid panel, the moment,
+   the banner, the error) and the sheets. The region takes no taps (board-region); only the panel does. */
 .board-hand-card[data-marked] .board-card__ring {
     box-shadow: 0 0 0 3px var(--success);
     opacity: 1;
@@ -904,11 +904,6 @@
 }
 .board-coach__panel {
     position: absolute;
-    top: 52px;
-    left: 50%;
-    translate: -50% 0;
-    width: min(420px, calc(100% - 32px));
-    max-height: calc(50% - 60px);
     overflow: auto;
     padding: 10px 14px 12px;
     background: var(--material-ink);
@@ -916,24 +911,4 @@
     clip-path: var(--notch-6);
     box-shadow: inset 0 -3px 0 var(--accent-ledge);
     pointer-events: auto;
-}
-/* a portrait phone while the HUD holds Challenge: it stacks over its info button under the HUD's chips (down to 152 px),
-   so the panel sits under that, its bottom where it was; while bidding (no Challenge) it stays at 52 px, clear of the
-   bid panel */
-.board[data-layout="portrait"]:has(.board-challenge--hud) .board-coach__panel {
-    top: 158px;
-    max-height: calc(50% - 166px);
-}
-/* while the bid panel shows (layer 50, painted above this one), the panel ends above it and the lesson scrolls in the
-   room left, so its last line (a lesson's "do" line) never hides under it. The bid panel (.board-bid above) is centred
-   at 44%, 46% landscape, 36% portrait; half its height is 50 px (10 + 18 note + 8 + 52 suits + 10 = 98, rounded up), 76
-   on portrait phones (Pass on its own 44-px row and an 8-px gap: 150); 60 px is the panel's 52-px top and an 8-px gap */
-.board:has(.board-bid) .board-coach__panel {
-    max-height: calc(44% - 50px - 60px);
-}
-.board[data-layout="landscape"]:has(.board-bid) .board-coach__panel {
-    max-height: calc(46% - 50px - 60px);
-}
-.board[data-layout="portrait"]:has(.board-bid) .board-coach__panel {
-    max-height: calc(36% - 76px - 60px);
 }

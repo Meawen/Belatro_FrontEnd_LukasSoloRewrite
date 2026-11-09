@@ -6,6 +6,8 @@ import { find, playTable } from '../../test/fixtures/views/table'
 import type { CoachMove } from './coach'
 import type { GameCard } from '../../types/game'
 import { setLang } from '../../i18n/lang'
+import { coachSpot } from './coachSpot'
+import { layoutFor } from './model/fit'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -290,32 +292,46 @@ describe('Board: the coach (open beta §7.2, §7.3)', () => {
         renderBoard({ state: playing(), coach: { allowed: () => true } })
         expect(screen.queryByTestId('coach-panel')).toBeNull()
 
-        // the region takes no taps; only the panel does, under the HUD, its bottom above the felt's middle
+        // the region takes no taps; only the panel does; it scrolls past its room (LessonPanel scrolls its parentElement)
         expect(css).toMatch(/\.board-region \{[^}]*pointer-events: none;/)
         expect(css).toMatch(/\.board-coach \{[^}]*z-index: var\(--z-chips\);/)
-        expect(css).toMatch(/\.board-coach__panel \{[^}]*top: 52px;/)
-        expect(css).toMatch(/\.board-coach__panel \{[^}]*max-height: calc\(50% - 60px\);/)
-        expect(css).toMatch(/\.board-coach__panel \{[^}]*pointer-events: auto;/)
-        // a portrait phone while the HUD holds Challenge (stacked over its info button, down to 152 px): under that, its
-        // bottom where it was (Chromium's hit check: the panel's button at 375×812 hit the Challenge's column)
-        expect(css).toMatch(/\.board\[data-layout="portrait"\]:has\(\.board-challenge--hud\) \.board-coach__panel \{[^}]*top: 158px;[^}]*max-height: calc\(50% - 166px\);/)
+        expect(css).toMatch(/\.board-coach__panel \{[^}]*position: absolute;[^}]*overflow: auto;[^}]*pointer-events: auto;/)
+        // no fixed place in CSS: board-fit's layout decides it (coachSpot)
+        expect(css).not.toMatch(/\.board-coach__panel \{[^}]*(top|max-height|translate):/)
+        expect(css).not.toMatch(/:has\(\.board-(bid|challenge--hud)\) \.board-coach__panel/)
     })
 
-    test('while the bid panel shows, the panel stops above it and its lesson scrolls in the room left', () => {
+    test.each([
+        [{ width: 375, height: 812 }, 2], [{ width: 375, height: 553 }, 2], [{ width: 812, height: 375 }, 2], [{ width: 1280, height: 720 }, 1],
+    ])('the panel sits where board-fit\'s layout leaves room for it (coachSpot), in play and while bidding: %o @%d', (size, dpr) => {
+        const before = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio')
+        Object.defineProperty(window, 'devicePixelRatio', { value: dpr, configurable: true })
+        try {
+            const layout = layoutFor({ ...size, dpr })
+            for (const [state, bid] of [[playing(), false], [bidding(), true]] as const) {
+                const { unmount } = renderBoard({ state, viewport: size, coach: { allowed: () => true, panel: <p>Lesson</p> } })
+                const at = coachSpot(layout, bid)
+                const panel = screen.getByTestId('coach-panel')
+                expect([panel.style.left, panel.style.top, panel.style.width, panel.style.maxHeight], `${size.width}x${size.height} bidding ${bid}`)
+                    .toEqual([`${at.left}px`, `${at.top}px`, `${at.width}px`, `${at.maxHeight}px`])
+                unmount()
+            }
+        } finally {
+            if (before) Object.defineProperty(window, 'devicePixelRatio', before)
+            else delete (window as { devicePixelRatio?: number }).devicePixelRatio
+        }
+    })
+
+    test('while the bid panel shows, it comes later (and on --z-bid): the panel\'s spot keeps off it (coachSpot), the lesson scrolls in its room', () => {
         renderBoard({ state: bidding(), coach: { allowed: () => true, panel: <p>Lesson</p> } })
         const panel = screen.getByTestId('coach-panel')
         const bid = screen.getByRole('group', { name: 'Your bid' })
-        // the bid panel comes later (and on --z-bid): painted above the slot, so the slot must end before it
         expect(bid).toHaveClass('board-bid')
         expect(panel.compareDocumentPosition(bid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-        // the bid panel's centre per layout, as the caps below read it (if it moves, move them with it)
+        // the bid panel's centre per layout, as coachSpot's BID reads it (if it moves, move it there too)
         expect(css).toMatch(/\.board-bid \{\s*left: 50%;\s*top: 44%;/)
         expect(css).toMatch(/\.board\[data-layout="landscape"\] \.board-bid \{\s*top: 46%;/)
         expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-bid \{\s*top: 36%;/)
-        // its centre, less half its height (98 px; 150 on portrait phones, rounded up), less an 8-px gap and the 52-px top
-        expect(css).toMatch(/\.board:has\(\.board-bid\) \.board-coach__panel \{[^}]*max-height: calc\(44% - 50px - 60px\);/)
-        expect(css).toMatch(/\.board\[data-layout="landscape"\]:has\(\.board-bid\) \.board-coach__panel \{[^}]*max-height: calc\(46% - 50px - 60px\);/)
-        expect(css).toMatch(/\.board\[data-layout="portrait"\]:has\(\.board-bid\) \.board-coach__panel \{[^}]*max-height: calc\(36% - 76px - 60px\);/)
     })
 
     test('a confirm that throws or rejects sends nothing and clears the guard: the next press asks again and goes', async () => {

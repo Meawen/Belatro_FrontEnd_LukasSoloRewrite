@@ -4,8 +4,8 @@
 // uncovered; the whole card for the last), returns that button. Board scenes come from /dev/board (Phase 4).
 // With the coach's panel up (coach=demo, open beta §7.2, §7.3), the bid buttons, every hand card and the panel's own
 // button still answer elementFromPoint, the panel scrolled to its end (a lesson's "do" line comes last), and the
-// panel's bottom stays above the bid panel. coach=long brings a lesson taller than the room above the bid panel (it
-// must scroll), at 375×812 and 812×375.
+// panel stays off the bid panel (board-fit's layout places it: coachSpot). coach=long brings a lesson taller than the
+// panel's room (it must scroll), at 375×812 and 812×375.
 // Not the point 10 px in and 30 px down of the card's bounding box: at 1440 the fan tilts the right-hand cards
 // clockwise, so that corner of their box lies on the card to their left.
 
@@ -32,14 +32,15 @@ async function openAndCloseTheMenu(page) {
     await page.getByRole('dialog', { name: 'Game menu' }).waitFor({ state: 'detached' });
 }
 
-/** Scrolls the coach's panel to its end; its bottom, whether it scrolls, and the bid panel's top (null without one). */
+/** Scrolls the coach's panel to its end; its box, whether it scrolls, and the bid panel's box (null without one). */
 function coachPanel(page) {
     return page.evaluate(() => {
         const panel = document.querySelector('.board-coach__panel');
         if (!panel) return null;
         panel.scrollTop = panel.scrollHeight;
+        const box = (el) => { const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom }; };
         const bid = document.querySelector('.board-bid');
-        return { bottom: panel.getBoundingClientRect().bottom, scrolls: panel.scrollHeight > panel.clientHeight, bidTop: bid ? bid.getBoundingClientRect().top : null };
+        return { ...box(panel), scrolls: panel.scrollHeight > panel.clientHeight, bid: bid ? box(bid) : null };
     });
 }
 
@@ -84,11 +85,12 @@ export default {
                         const panel = await coachPanel(page);
                         if (!panel) failures.push(`${scene.name}@${viewport}: no coach panel`);
                         else {
-                            if (panel.bidTop !== null && panel.bottom > panel.bidTop) {
-                                failures.push(`${scene.name}@${viewport}: the coach panel (bottom ${Math.round(panel.bottom)}) runs under the bid panel (top ${Math.round(panel.bidTop)})`);
+                            const { bid } = panel;
+                            if (bid && panel.left < bid.right && bid.left < panel.right && panel.top < bid.bottom && bid.top < panel.bottom) {
+                                failures.push(`${scene.name}@${viewport}: the coach panel (${['left', 'top', 'right', 'bottom'].map((k) => Math.round(panel[k])).join(', ')}) meets the bid panel (${['left', 'top', 'right', 'bottom'].map((k) => Math.round(bid[k])).join(', ')})`);
                             }
                             if (scene.coach === 'long' && !panel.scrolls) failures.push(`${scene.name}@${viewport}: the long lesson fits without scrolling, so the scene proves nothing`);
-                            coachLine = `; coach panel bottom ${Math.round(panel.bottom)}${panel.bidTop === null ? '' : `, bid panel top ${Math.round(panel.bidTop)}`}${panel.scrolls ? ', scrolled to its end' : ''}`;
+                            coachLine = `; coach panel ${Math.round(panel.left)},${Math.round(panel.top)}–${Math.round(panel.right)},${Math.round(panel.bottom)}${panel.bid === null ? '' : `, bid panel ${Math.round(panel.bid.left)},${Math.round(panel.bid.top)}–${Math.round(panel.bid.right)},${Math.round(panel.bid.bottom)}`}${panel.scrolls ? ', scrolled to its end' : ''}`;
                         }
                     }
                     const bidding = scene.name.includes('bid');
