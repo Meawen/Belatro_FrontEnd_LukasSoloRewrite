@@ -20,6 +20,11 @@ export interface PlayingCardProps {
     size?: CardSize;
     /** An intended CSS width instead of `size` (e.g. the board's targets); still made crisp. */
     width?: number;
+    /**
+     * Draw at exactly `width`, not made crisp: only the board's cards held sideways where the crisp step nearest 71 is
+     * over 72 px (owner, 2026-11-01; cardTargets LANDSCAPE_EXACT).
+     */
+    exact?: boolean;
     /** Defaults to the card's name ("As Herc"); a back is decorative. */
     alt?: string;
     className?: string;
@@ -32,10 +37,10 @@ const FRAME = 'absolute inset-0 notch shadow-[inset_0_0_0_3px_var(--ink)]';
  * A card from the art (spec §3.6): crisp per density. Until its image has decoded, and if it fails, a
  * face shows a pixel-framed text card and a back its colour, in the same box (no layout change).
  */
-export function PlayingCard({ card, back = 1, size = 'trick', width, alt, className, style }: PlayingCardProps) {
+export function PlayingCard({ card, back = 1, size = 'trick', width, exact = false, alt, className, style }: PlayingCardProps) {
     const viewportWidth = useSyncExternalStore(subscribeToViewport, () => window.innerWidth, () => 1024);
     const dpr = useSyncExternalStore(subscribeToViewport, () => window.devicePixelRatio || 1, () => 1);
-    const cssWidth = crispCardWidth(width ?? intendedCardWidth(size, { width: viewportWidth, dpr }), dpr);
+    const cssWidth = exact && width !== undefined ? width : crispCardWidth(width ?? intendedCardWidth(size, { width: viewportWidth, dpr }), dpr);
     const url = card ? faceUrl(card) : backUrl(back);
     const name = alt ?? (card ? cardLabel(card) : '');
     const [loadedUrl, setLoadedUrl] = useState<string | null>(null);

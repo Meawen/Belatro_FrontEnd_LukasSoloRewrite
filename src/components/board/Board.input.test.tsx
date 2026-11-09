@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, afterEach, beforeEach } from 'vitest'
-import { act, cleanup, screen } from '@testing-library/react'
+import { act, cleanup, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { actions, privateFor, renderBoard, stateOf, tableState, view } from './testing'
 import { find, indexOf, playTable } from '../../test/fixtures/views/table'
@@ -43,6 +43,29 @@ describe('Board: bids and plays (GameTable cases, R-23, R-32)', () => {
         expect(moves.bidTrump).toHaveBeenLastCalledWith('KARA')
         expect(screen.getAllByTestId('hand-card')).toHaveLength(6)
         screen.getAllByTestId('hand-card').forEach((card) => expect(card).toBeDisabled())
+    })
+
+    test('"Your turn" (owner 2026-11-03): on upright phones my plate\'s name reads "Your turn" on my turn and carries the your-turn test id, with no label over my hand (option B); sideways ("Label above the hand"), on tablets and desktops the label over my hand stays and my plate reads "You"; exactly one your-turn on my turn, none otherwise', () => {
+        for (const [viewport, upright] of [[{ width: 375, height: 553 }, true], [{ width: 390, height: 664 }, true], [{ width: 667, height: 323 }, false], [{ width: 844, height: 340 }, false], [{ width: 960, height: 980 }, false], [{ width: 1440, height: 900 }, false]] as const) {
+            const where = `${viewport.width}x${viewport.height}`
+            const mine = renderBoard({ state: stateOf(privateFor(view(), true)), viewport })
+            const turn = screen.getAllByTestId('your-turn')
+            expect(turn, where).toHaveLength(1)
+            expect(turn[0], where).toHaveTextContent('Your turn')
+            const label = screen.getByTestId('seat-carol').querySelector('.board-seat__label')!
+            if (upright) {
+                expect(turn[0], where).toBe(label)
+                expect(document.querySelector('.board-your-turn'), where).toBeNull()
+            } else {
+                expect(turn[0], where).toHaveClass('board-your-turn')
+                expect(label, where).toHaveTextContent(/^You$/)
+            }
+            mine.unmount()
+            const other = renderBoard({ state: stateOf(privateFor(view(), false)), viewport })
+            expect(screen.queryByTestId('your-turn'), where).toBeNull()
+            expect(within(screen.getByTestId('seat-carol')).getByText('You'), where).toHaveClass('board-seat__label')
+            other.unmount()
+        }
     })
 
     test('not my turn: no bid panel, a waiting note', () => {

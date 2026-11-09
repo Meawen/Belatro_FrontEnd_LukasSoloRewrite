@@ -24,7 +24,9 @@ import { Piles } from './Piles';
 import { Seats } from './Seats';
 import { Summary } from './Summary';
 import { announce, seatName } from './announce';
-import { cardTargets, layoutFor, type Layout, type Targets } from './model/cardTargets';
+import { cardTargets, type Layout, type Targets } from './model/cardTargets';
+import { layoutFor } from './model/fit';
+import { YOUR_TURN_TEXT, turnOnPlate } from './yourTurn';
 import { BELOT_HOLD_MS, momentKey, momentSrLine } from './model/declarationMoment';
 import {
     answerBela, challengePending, pendingUntil, pressBid, pressCard, pressChallenge, unlock, waitingForDeclarations, type ChallengeSent, type InputResult,
@@ -188,10 +190,10 @@ interface MomentLocal {
  * placed by the hand as it is.
  */
 function YourTurn({ shown, hand, targets, layout }: { shown: boolean; hand: HandCardModel[]; targets: Targets; layout: Layout }) {
-    if (!shown) return null;
+    if (!shown || turnOnPlate(layout.kind)) return null;
     const tops = hand.map((card) => targets.cards[card.id]?.top ?? layout.board.h);
     const top = (tops.length ? Math.min(...tops) : layout.board.h - layout.hand.h) - 40;
-    return <span data-testid="your-turn" className="board-your-turn notch t-footnote font-semibold" style={{ top }}>Your turn</span>;
+    return <span data-testid="your-turn" className="board-your-turn notch t-footnote font-semibold" style={{ top }}>{YOUR_TURN_TEXT}</span>;
 }
 
 export interface BoardProps {

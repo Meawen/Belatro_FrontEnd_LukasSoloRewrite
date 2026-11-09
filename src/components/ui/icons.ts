@@ -35,6 +35,8 @@ export const ICONS = {
     info: ['.#######.', '####.####', '#########', '###..####', '####.####', '####.####', '###...###', '.#######.'],
     // a bot (casual bots spec §7): antenna, square eyes, a mouth slot and ears
     robot: ['....#....', '....#....', '.#######.', '##..#..##', '##..#..##', '.#######.', '.##...##.', '.#######.'],
+    // a seat's challenge is spent (board-fit, owner 2026-10-30): a crossed-out ring, as small as the dealer's D
+    ban: ['.####.', '#...##', '#..#.#', '#.#..#', '##...#', '.####.'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconName = keyof typeof ICONS;

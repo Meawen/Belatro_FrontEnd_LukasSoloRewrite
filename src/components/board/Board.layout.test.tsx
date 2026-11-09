@@ -1,10 +1,15 @@
 import { describe, test, expect, vi, afterEach, beforeEach } from 'vitest'
-import { screen } from '@testing-library/react'
+import { cleanup, screen, within } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renderBoard, tableState } from './testing'
-import { find, playTable } from '../../test/fixtures/views/table'
+import { declaredStep } from './seatSpot'
+import { fanPlaces, fanStepOf, handPlaces, trickSlots } from './model/cardTargets'
+import { layoutFor } from './model/fit'
+import { find, indexOf, playTable } from '../../test/fixtures/views/table'
+import { box, hull, overlap } from '../../test/fixtures/layouts'
+import { LONG_NAMES, devTable, parseDevOptions, resolveAt } from '../../dev/devTable'
 
 // board.css as written (Vitest doesn't load CSS); not new URL(…, import.meta.url), which Vite turns into an import
 const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'board.css'), 'utf8')
@@ -20,16 +25,36 @@ afterEach(() => {
 })
 
 const table = playTable()
-const px = (el: HTMLElement, side: 'left' | 'top') => Number.parseFloat(el.style[side])
+const px = (el: HTMLElement, side: 'left' | 'top' | 'maxWidth' | 'marginRight') => Number.parseFloat(el.style[side])
+
+/** The page at this device-pixel ratio (jsdom's is 1): the board and its cards read it. */
+function withDpr<T>(dpr: number, run: () => T): T {
+    const before = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio')
+    Object.defineProperty(window, 'devicePixelRatio', { value: dpr, configurable: true })
+    try {
+        return run()
+    } finally {
+        if (before) Object.defineProperty(window, 'devicePixelRatio', before)
+        else delete (window as { devicePixelRatio?: number }).devicePixelRatio
+    }
+}
 
 describe('Board: layout details from the visual pass (spec §5.6)', () => {
-    test('in landscape my chip sits over my pile beside the hand, clear of the left seat’s chips', () => {
-        renderBoard({ state: tableState(find(table, 'bid:bob:PASS')), viewport: { width: 812, height: 375 } })
-        const mine = screen.getByTestId('seat-carol')
-        const pile = screen.getByTestId('pile-a')
-        expect(px(mine, 'left')).toBeCloseTo(px(pile, 'left') - 4, 0)
-        expect(px(mine, 'top')).toBeLessThan(px(pile, 'top'))
-        expect(px(mine, 'left')).toBeGreaterThan(px(screen.getByTestId('seat-bob'), 'left') + 120)
+    test('in landscape my plate sits at the bottom left, beside my hand, under the left seat\'s column beside its fan, so that column never reaches it (board-fit spec §4.2; Ruling I)', () => {
+        for (const state of [find(table, 'call:'), find(table, 'bid:bob:PASS')]) {
+            withDpr(2, () => {
+                renderBoard({ state: tableState(state), viewport: { width: 812, height: 375 } })
+                const mine = screen.getByTestId('seat-carol')
+                // 12 px in, 8 px up (its plate and timer bar 33 tall); its column up to 6 px before my hand's first card
+                const first = box(handPlaces(layoutFor({ width: 812, height: 375, dpr: 2 }), 8)[0])
+                expect([px(mine, 'left'), px(mine, 'top')], state.label).toEqual([12, 375 - 8 - 33])
+                expect(px(mine, 'maxWidth'), state.label).toBeCloseTo(first.x0 - 6 - 12, 9)
+                // the left seat's column beside its fan ends above my chips and cards over my plate (four 35.5-px cards)
+                const bob = screen.getByTestId('seat-bob')
+                expect(px(bob, 'top') + px(bob.querySelector<HTMLElement>('.board-seat__under')!, 'top') + 20 + 4 + 47.5, state.label).toBeLessThan(375 - 8 - 33 + 4)
+            })
+            cleanup()
+        }
     })
 
     test('on a phone my chip stays bottom-left, over my pile', () => {
@@ -45,21 +70,281 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
         expect(css).toMatch(/\.board-hud__group \{[^}]*min-height: 44px;/)
     })
 
-    test('a side seat\'s chips and declared cards line up under its plate on its own edge: never across the felt onto my hand (gameplay rules §6)', () => {
-        // the right seat's plate ends at the right edge (seatSpot: translateX(-100%)), so its column grows leftwards from there
+    test('a side seat\'s chips and declared cards sit inside its seat on its own side: under its fan upright, under its plate beside the fan elsewhere; never across the felt onto the trick or my hand (board-fit spec §4.1–§4.3; Ruling I; gameplay rules §6)', () => {
+        // the right seat's column ends at its right edge (seatSpot: translateX(-100%)), so it grows leftwards from there
         expect(css).toMatch(/\.board-seat\[data-position="right"\] \{[^}]*align-items: flex-end;/)
         expect(css).toMatch(/\.board-seat\[data-position="right"\] \.board-seat__chips \{[^}]*justify-content: flex-end;/)
-        // the left seat's starts at the left edge: left-aligned, as every column is
+        // the left seat's starts at its left edge: left-aligned, as every column is
         expect(css).toMatch(/\.board-seat \{[^}]*align-items: flex-start;/)
+        // the chips and declared cards: placed from the plate's top (seatSpot's under), as wide as they are
+        expect(css).toMatch(/\.board-seat__under \{[^}]*position: absolute;[^}]*left: 0;[^}]*display: flex;[^}]*flex-direction: column;[^}]*align-items: flex-start;[^}]*gap: 4px;[^}]*width: max-content;/)
+        expect(css).toMatch(/\.board-seat\[data-position="right"\] \.board-seat__under \{[^}]*left: auto;[^}]*right: 0;[^}]*align-items: flex-end;/)
         // seed 7, the hand's second card: dave (my right) holds Zvanja 20 and his three declared cards
         for (const viewport of [{ width: 812, height: 375 }, { width: 375, height: 812 }, { width: 1440, height: 900 }]) {
-            const { unmount } = renderBoard({ state: tableState(find(table, 'play:bob:PIK-BABA'), 'carol', 'snapshot'), viewport })
-            expect(['carol', 'dave', 'alice', 'bob'].map((id) => screen.getByTestId(`seat-${id}`).dataset.position)).toEqual(['me', 'right', 'partner', 'left'])
-            const dave = screen.getByTestId('seat-dave')
-            expect(dave.querySelector('.board-seat__chips')?.textContent).toBe('Zvanja 20')
-            expect(dave.querySelectorAll('.board-seat__declared img')).toHaveLength(3)
-            unmount()
+            withDpr(2, () => {
+                const where = `${viewport.width}x${viewport.height}`
+                const { unmount } = renderBoard({ state: tableState(find(table, 'play:bob:PIK-BABA'), 'carol', 'snapshot'), viewport })
+                expect(['carol', 'dave', 'alice', 'bob'].map((id) => screen.getByTestId(`seat-${id}`).dataset.position), where).toEqual(['me', 'right', 'partner', 'left'])
+                const layout = layoutFor({ ...viewport, dpr: 2 })
+                const fan = hull(fanPlaces(layout, 'right', 8).map(box))
+                const dave = screen.getByTestId('seat-dave')
+                const under = dave.querySelector<HTMLElement>(':scope > .board-seat__under')!
+                if (layout.kind === 'portrait') {
+                    // the plate and its timer bar above the fan, 6 px clear; the chips and cards 6 px under the fan or its slot
+                    const slot = box({ ...trickSlots(layout).right, rotate: 4.8 })
+                    expect(px(dave, 'top') + 33, where).toBeCloseTo(fan.y0 - 6, 9)
+                    expect(px(dave, 'top') + px(under, 'top'), where).toBeCloseTo(Math.max(fan.y1, slot.y1) + 6, 9)
+                } else {
+                    // the column beside the fan's inner side from its top: the plate, its timer bar, then the chips and cards;
+                    // its top where a fan at the partner's step would start (on desktops the side fans step closer, 12 per 71)
+                    const column = hull(fanPlaces(layout, 'right', 8, fanStepOf(layout)).map(box))
+                    expect(px(dave, 'left'), where).toBeCloseTo(fan.x0 - 6, 9)
+                    expect(px(dave, 'top'), where).toBeCloseTo(column.y0, 9)
+                    expect(fan.y0, where).toBeGreaterThanOrEqual(column.y0 - 1e-9)
+                    expect(px(under, 'top'), where).toBe(26 + 4 + 3 + 4)
+                }
+                expect(dave.style.transform, where).toBe('translateX(-100%)')
+                expect(px(under, 'maxWidth'), where).toBe(px(dave, 'maxWidth'))
+                expect(dave.querySelector(':scope > .board-seat__chips'), where).toBeNull()
+                expect(under.querySelector(':scope > .board-seat__chips')?.textContent, where).toBe('Zvanja 20')
+                expect(under.querySelectorAll(':scope > .board-seat__declared img'), where).toHaveLength(3)
+                // half a trick card wide, crisp (board-fit spec §3.5), 45 % under the next unless the column is narrower
+                const cards = [...under.querySelectorAll<HTMLElement>('.board-seat__declared .ui-card')]
+                const w = layout.declared.w
+                expect(cards.map((card) => card.style.width), where).toEqual(Array(3).fill(`${w}px`))
+                expect(cards.map((card) => card.style.marginLeft), where).toEqual(['', ...Array(2).fill(`${declaredStep(w, 3, px(dave, 'maxWidth')) - w}px`)])
+                unmount()
+            })
         }
+        // at 375×812 @2 the cards are 35.5 px, half the 71-px trick card; at @1 the nearest crisp half is a whole 71
+        expect(layoutFor({ width: 375, height: 812, dpr: 2 }).declared.w).toBe(35.5)
+        expect(layoutFor({ width: 375, height: 812, dpr: 1 }).declared.w).toBe(71)
+    })
+
+    test('my partner\'s chips and declared cards: in its column beside the fan upright and on desktops, on the plate\'s row in landscape, the timer bar under the row; the cards on the fan\'s left side where the row lacks room (board-fit spec §4.1–§4.3; Ruling I b)', () => {
+        expect(css).toMatch(/\.board\[data-layout="landscape"\] \.board-seat\[data-position="partner"\] \{[^}]*flex-direction: row;[^}]*flex-wrap: wrap;/)
+        expect(css).toMatch(/\.board\[data-layout="landscape"\] \.board-seat\[data-position="partner"\] \.board-seat__timer \{[^}]*order: 1;[^}]*flex-basis: 100%;/)
+        // aside: its right edge at the plate's left edge, moved left by a margin (seatSpot's aside offset)
+        expect(css).toMatch(/\.board-seat__aside \{[^}]*position: absolute;[^}]*top: 0;[^}]*right: 100%;[^}]*display: flex;[^}]*width: max-content;/)
+        // seed 1254, the hand's first card: alice (my partner) holds Zvanja 20 and three declared cards
+        const t = playTable({ seed: 1254 })
+        for (const viewport of [{ width: 812, height: 375 }, { width: 375, height: 812 }, { width: 1440, height: 900 }, { width: 667, height: 323 }]) {
+            withDpr(2, () => {
+                const where = `${viewport.width}x${viewport.height}`
+                const { unmount } = renderBoard({ state: tableState(t[indexOf(t, 'play:')], 'carol', 'snapshot'), viewport })
+                const alice = screen.getByTestId('seat-alice')
+                expect(alice.querySelector('.board-seat__under'), where).toBeNull()
+                expect(alice.querySelector(':scope > .board-seat__chips')?.textContent, where).toBe('Zvanja 20')
+                // 667×323 @2: plate, chip and cards need 320 px, the row has 269
+                const aside = alice.querySelector<HTMLElement>(':scope > .board-seat__aside')
+                expect(aside !== null, where).toBe(viewport.width === 667)
+                expect((aside ?? alice).querySelectorAll(':scope > .board-seat__declared img'), where).toHaveLength(3)
+                if (aside) expect(px(aside, 'marginRight'), where).toBeCloseTo(104.819, 3)
+                unmount()
+            })
+        }
+    })
+
+    test('upright my chips sit beside my plate, after it and past my declared cards\' room, bottom-aligned and wrapping upwards within their width, and my plate keeps the countdown\'s width, so they never shift or reach down onto my hand or my cards (board-fit spec §3.2, §4.1)', () => {
+        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-seat\[data-position="me"\] > \.board-seat__chips \{[^}]*position: absolute;[^}]*left: max\(calc\(100% \+ 4px\), var\(--chips-from, 0px\)\);[^}]*top: 26px;[^}]*translate: 0 -100%;[^}]*flex-wrap: wrap-reverse;[^}]*width: max-content;/)
+        expect(css).toMatch(/\.board-seat__seconds \{[^}]*min-width: 4ch;/)
+        // the TS frame of the call: alice is to lead, then my turn comes
+        const call = indexOf(table, 'call:')
+        withDpr(2, () => {
+            renderBoard({ state: tableState(table[call + 1]), viewport: { width: 375, height: 553 } })
+            const mine = screen.getByTestId('seat-carol')
+            const chips = mine.querySelector<HTMLElement>(':scope > .board-seat__chips')!
+            // from a fixed place past my plate at its widest on my turn ("Your turn" and its badges, 218: owner 2026-11-03, so
+            // they never shift as it widens; past my declared cards' room, 130.15, too) to 8 px before the edge
+            expect(px(chips, 'maxWidth')).toBe(375 - 8 - (12 + 218 + 4))
+            expect(Number.parseFloat(chips.style.getPropertyValue('--chips-from'))).toBe(218 + 4)
+            // not my turn: an empty, hidden place for the countdown on my plate
+            const reserve = mine.querySelector('.board-seat__name > .board-seat__seconds')!
+            expect(reserve).toHaveAttribute('aria-hidden', 'true')
+            expect(reserve).toBeEmptyDOMElement()
+            expect(within(mine).queryByTestId('turn-countdown')).toBeNull()
+        })
+        cleanup()
+        // my turn: the countdown takes that place
+        const mine = table.slice(call).find((frame) => frame.private.carol.publicPart.currentPlayerId === 'carol')!
+        withDpr(2, () => {
+            renderBoard({ state: tableState(mine), viewport: { width: 375, height: 553 } })
+            const seat = screen.getByTestId('seat-carol')
+            expect(seat.querySelectorAll('.board-seat__name > .board-seat__seconds')).toHaveLength(1)
+            expect(within(seat).getByTestId('turn-countdown')).toHaveClass('board-seat__seconds')
+        })
+    })
+
+    test('my declared cards over my plate run up to the trick slot beside them, overlapping more where they need to (board-fit spec §3.2 give-way 1; Ruling N)', () => {
+        // seed 1254, the hand's first card: I declared six cards; a seventh makes the rare column
+        const t = playTable({ seed: 1254 })
+        const frame = structuredClone(t[indexOf(t, 'play:')])
+        const zvanje = frame.private.carol.publicPart.zvanja!.seats.find((one) => one.playerId === 'carol')!
+        const extra = frame.private.carol.hand.find((card) => !zvanje.cards.some((one) => one.boja === card.boja && one.rank === card.rank))!
+        zvanje.cards.push(extra)
+        expect(zvanje.cards).toHaveLength(7)
+        withDpr(2, () => {
+            renderBoard({ state: tableState(frame, 'carol', 'snapshot'), viewport: { width: 375, height: 553 } })
+            const layout = layoutFor({ width: 375, height: 553, dpr: 2 })
+            const above = screen.getByTestId('seat-carol').querySelector<HTMLElement>(':scope > .board-seat__above')!
+            const cards = [...above.querySelectorAll<HTMLElement>('.board-seat__declared .ui-card')]
+            const w = layout.declared.w
+            // 148.15 − 6 − 12 = 130.15 px: the seven 35.5-px cards 15.78 apart, not 19.53
+            expect(px(above, 'maxWidth')).toBeCloseTo(130.150, 3)
+            expect(cards).toHaveLength(7)
+            expect(cards.map((card) => card.style.marginLeft)).toEqual(['', ...Array(6).fill(`${declaredStep(w, 7, px(above, 'maxWidth')) - w}px`)])
+        })
+    })
+
+    test('my seat keeps clear of the left seat\'s card backs: in landscape my declared cards start past its fan and my chips wrap upwards, lifted where a lone Zvanja chip comes first; on wide windows my plate starts past the fan where it reaches down beside my pile (board-fit spec G2; Ruling X)', () => {
+        expect(css).toMatch(/\.board\[data-layout="landscape"\] \.board-seat\[data-position="me"\] \.board-seat__above > \.board-seat__chips \{[^}]*flex-wrap: wrap-reverse;/)
+        // seed 1254, the hand's first card: I declared six cards
+        const t = playTable({ seed: 1254 })
+        const frame = t[indexOf(t, 'play:')]
+        // the dev board's busy column (Task 5): every seat with Bela and no challenge left, long names
+        const options = parseDevOptions('?seat=carol&seed=1254&names=long&busy=1&at=play:')
+        const at = resolveAt(devTable(options, 0), options.at)
+        const busyFrame = devTable(options, Date.now(), at)[at]
+        for (const [state, me] of [[tableState(frame, 'carol', 'snapshot'), 'carol'], [tableState(busyFrame, LONG_NAMES.carol, 'snapshot'), LONG_NAMES.carol]] as const) {
+            withDpr(2, () => {
+                const { unmount } = renderBoard({ state, me, viewport: { width: 667, height: 323 } })
+                const layout = layoutFor({ width: 667, height: 323, dpr: 2 })
+                const mine = screen.getByTestId(`seat-${me}`)
+                const above = mine.querySelector<HTMLElement>(':scope > .board-seat__above')!
+                const cards = above.querySelector<HTMLElement>('.board-seat__declared')!
+                const fanRight = Math.max(...fanPlaces(layout, 'left', 8).map((back) => box(back).x1))
+                expect(px(mine, 'left') + Number.parseFloat(cards.style.marginLeft), me).toBeCloseTo(fanRight + 6, 9)
+                // lifted only where my Zvanja chip comes first: after Bela it wraps up a line instead
+                const chips = [...above.querySelectorAll('.board-seat__chips > *')].map((one) => one.textContent)
+                expect(chips.at(-1), me).toMatch(/^Zvanja/)
+                // 4 px and the 8.08-px lift that keeps a lone wide chip 6 px over my hand's first card
+                if (chips[0]?.startsWith('Zvanja')) expect(Number(/^calc\(100% \+ ([\d.]+)px\)$/.exec(above.style.bottom)?.[1]), me).toBeCloseTo(4 + 8.078, 3)
+                else expect(above.style.bottom, me).toBe('')
+                unmount()
+            })
+        }
+        for (const dpr of [1, 2]) {
+            withDpr(dpr, () => {
+                const { unmount } = renderBoard({ state: tableState(frame, 'carol', 'snapshot'), viewport: { width: 1440, height: 900 } })
+                const layout = layoutFor({ width: 1440, height: 900, dpr })
+                const mine = screen.getByTestId('seat-carol')
+                expect(px(mine, 'left'), `@${dpr}`).toBeCloseTo(Math.max(...fanPlaces(layout, 'left', 8).map((back) => box(back).x1)) + 6, 9)
+                // moved, it stops 6 px before the left slot (Ruling Y): 1440×900, 4.5 px short of a 160-px plate
+                const slot = box({ ...trickSlots(layout).left, rotate: 4.8 })
+                expect(px(mine, 'maxWidth'), `@${dpr}`).toBeCloseTo(slot.x0 - 6 - px(mine, 'left'), 9)
+                // my cards left: my hand shows them, so my plate keeps them for screen readers only; the others' show (Ruling Y)
+                expect(within(mine).getByTestId('cards-left-carol').parentElement!.className, `@${dpr}`).toBe('sr-only')
+                expect(within(screen.getByTestId('seat-dave')).getByTestId('cards-left-dave').parentElement!).toHaveClass('lg:not-sr-only')
+                unmount()
+            })
+        }
+    })
+
+    test('held sideways at 915×332 @2.625 every card on the table is drawn at exactly 71 px (my hand, the backs; my declared cards at 35.5), not snapped to the crisp 81.14; at 844×340 @3 they stay crisp (owner 2026-11-01, board-fit spec §3.4)', () => {
+        const t = playTable({ seed: 1254 })
+        const frame = t[indexOf(t, 'play:')]
+        for (const [viewport, dpr] of [[{ width: 915, height: 332 }, 2.625], [{ width: 844, height: 340 }, 3]] as const) {
+            withDpr(dpr, () => {
+                const { unmount } = renderBoard({ state: tableState(frame, 'carol', 'snapshot'), viewport })
+                const where = `${viewport.width}x${viewport.height}@${dpr}`
+                const widths = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)].map((card) => card.style.width)
+                const hand = widths('[data-testid="hand-card"] .board-card__face .ui-card')
+                expect(hand.length, where).toBeGreaterThan(0)
+                expect(new Set(hand), where).toEqual(new Set(['71px']))
+                expect(new Set(widths('.board-back-card .ui-card')), where).toEqual(new Set(['71px']))
+                // my declared cards: half of 71 exactly where the cards are exact; else the crisp step (47.33 at dpr 3)
+                const declared = layoutFor({ ...viewport, dpr }).declared.w
+                expect(declared, where).toBeCloseTo(dpr === 2.625 ? 35.5 : 142 / 3, 9)
+                expect(new Set(widths('[data-testid="seat-carol"] .board-seat__declared .ui-card')), where).toEqual(new Set([`${declared}px`]))
+                unmount()
+            })
+        }
+    })
+
+    test('sideways my partner\'s plate drops 6 px under the HUD\'s right group (the phase chip and the menu), its cards aside on that row too, clear of the HUD\'s left group (board-fit spec G2; Rulings AB, AE)', () => {
+        // seed 1254, the hand's first card: alice, carol's partner, declared three cards
+        const t = playTable({ seed: 1254 })
+        withDpr(2, () => {
+            const { unmount } = renderBoard({ state: tableState(t[indexOf(t, 'play:')], 'carol', 'snapshot'), viewport: { width: 667, height: 323 } })
+            const alice = screen.getByTestId('seat-alice')
+            expect(px(alice, 'top')).toBe(58)
+            const aside = alice.querySelector<HTMLElement>(':scope > .board-seat__aside')!
+            // on the plate's row (was 14 px higher, on the fan's middle line, beside the left group's first line)
+            expect(aside.style.top).toBe('')
+            expect(aside.querySelectorAll('.ui-card').length).toBeGreaterThan(0)
+            unmount()
+        })
+        // a short desktop window at 150 % counts as landscape: the plate stays on the fan's middle line beside the right
+        // group, so the cards aside go 6 px under the HUD's lines, at 58
+        withDpr(1.5, () => {
+            renderBoard({ state: tableState(t[indexOf(t, 'play:')], 'carol', 'snapshot'), viewport: { width: 1280, height: 480 } })
+            const alice = screen.getByTestId('seat-alice')
+            const aside = alice.querySelector<HTMLElement>(':scope > .board-seat__aside')!
+            expect(px(alice, 'top') + px(aside, 'top')).toBe(58)
+            expect(px(aside, 'top')).toBeGreaterThan(0)
+        })
+    })
+
+    test('Bela is a badge on the plate (owner 2026-11-03): a pixel B after the caller\'s badge and before the no-challenge badge, read as "… declared Bela"; no Bela chip remains', () => {
+        expect(css).toMatch(/\.board-seat__bela \{[^}]*padding: 0 4px;[^}]*line-height: 16px;/)
+        // the dev board's busy column: every seat declared Bela and has no challenge left
+        const options = parseDevOptions('?seat=carol&seed=1254&names=long&busy=1&at=play:')
+        const at = resolveAt(devTable(options, 0), options.at)
+        renderBoard({ state: tableState(devTable(options, Date.now(), at)[at], LONG_NAMES.carol, 'snapshot'), me: LONG_NAMES.carol, viewport: { width: 390, height: 664 } })
+        for (const id of Object.values(LONG_NAMES)) {
+            const seat = screen.getByTestId(`seat-${id}`)
+            const plate = seat.querySelector<HTMLElement>('.board-seat__name')!
+            const badge = within(seat).getByTestId('bela-badge')
+            expect(badge.parentElement, id).toBe(plate)
+            expect(badge, id).toHaveClass('board-seat__bela')
+            expect(badge.querySelector('[aria-hidden="true"]')?.textContent, id).toBe('B')
+            expect(badge.querySelector('.sr-only')?.textContent, id).toBe(`${id === LONG_NAMES.carol ? 'You' : id} declared Bela`)
+            // name, D, the caller's badge, the Bela badge, the no-challenge badge, the cards left, the countdown
+            const order = [...plate.children]
+            const at = (el: Element | null) => (el ? order.indexOf(el) : -1)
+            expect(at(badge), id).toBeGreaterThan(Math.max(at(plate.querySelector('.board-seat__label')), at(within(seat).queryByTestId('dealer-chip')), at(within(seat).queryByTestId('caller-badge'))))
+            expect(at(badge), id).toBeLessThan(at(within(seat).getByTestId('no-challenge-badge')))
+            expect(at(within(seat).getByTestId('no-challenge-badge')), id).toBeLessThan(at(within(seat).getByTestId(`cards-left-${id}`).parentElement))
+            // no Bela chip
+            expect([...seat.querySelectorAll('.board-seat__chips > *')].map((chip) => chip.textContent), id).not.toContain('Bela')
+        }
+    })
+
+    test('long names (Review Focus 2): each seat\'s plate at its maxWidth stops short of every trick slot, at 375×553 @2 and 667×323 @2', () => {
+        const long = devTable({ ...parseDevOptions('?names=long'), hands: 1 }, Date.now())
+        const fanOut = long[indexOf(long, 'play:')]
+        for (const viewport of [{ width: 375, height: 553 }, { width: 667, height: 323 }]) {
+            withDpr(2, () => {
+                const { unmount } = renderBoard({ state: tableState(fanOut, LONG_NAMES.carol), me: LONG_NAMES.carol, viewport })
+                const slots = Object.values(trickSlots(layoutFor({ ...viewport, dpr: 2 }))).map((slot) => box({ ...slot, rotate: 4.8 }))
+                // my plate reads "You", never a long name
+                for (const id of [LONG_NAMES.alice, LONG_NAMES.bob, LONG_NAMES.dave]) {
+                    const el = screen.getByTestId(`seat-${id}`)
+                    const where = `${viewport.width}x${viewport.height} ${el.dataset.position}`
+                    const left = el.style.transform === 'translateX(-100%)' ? px(el, 'left') - px(el, 'maxWidth') : px(el, 'left')
+                    // the plate and its timer bar at their widest
+                    const plate = { x0: left, x1: left + px(el, 'maxWidth'), y0: px(el, 'top'), y1: px(el, 'top') + 26 + 4 + 3 }
+                    for (const slot of slots) expect(overlap(plate, slot), `${where} ${JSON.stringify(plate)} ${JSON.stringify(slot)}`).toBe(false)
+                    expect(screen.getByTitle(id), where).toHaveTextContent(id)
+                }
+                unmount()
+            })
+        }
+    })
+
+    test('a portrait HUD under 400 px reads the phase word but hides it while a trump is called, so Blok stays on the first line and Challenge right under it (board-fit spec G2; Ruling L)', () => {
+        expect(css).toMatch(/@media \(max-width: 399\.98px\) \{\s*\.board\[data-layout="portrait"\] \.board-hud__phase--called \{[^}]*position: absolute;[^}]*width: 1px;[^}]*height: 1px;[^}]*overflow: hidden;[^}]*clip: rect\(0, 0, 0, 0\);[^}]*white-space: nowrap;/)
+        // a trump called: the phase word carries the class, its text stays for screen readers
+        renderBoard({ state: tableState(find(table, 'play:')), viewport: { width: 375, height: 553 } })
+        const phase = screen.getByTestId('game-phase')
+        expect(screen.getByTestId('trump')).toHaveTextContent('Herc')
+        expect(phase).toHaveClass('board-hud__phase--called')
+        expect(phase).toHaveTextContent('Playing')
+        cleanup()
+        // bidding, no trump: the word shows
+        renderBoard({ state: tableState(find(table, 'bid:bob:PASS')), viewport: { width: 375, height: 553 } })
+        expect(screen.getByTestId('game-phase')).not.toHaveClass('board-hud__phase--called')
+        expect(screen.getByTestId('game-phase')).toHaveTextContent('Bidding')
     })
 
     test('on a portrait phone the HUD\'s Challenge stacks over its info button, so it stays in the felt\'s left column, clear of my partner\'s fan and plate (gameplay rules §6)', () => {

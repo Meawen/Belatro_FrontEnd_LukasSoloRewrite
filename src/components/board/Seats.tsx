@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { MotionConfig, m } from 'motion/react';
 import { fade, spring } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
 import { Tag } from '../ui/Chip';
+import { YOUR_TURN_TEXT, turnOnPlate } from './yourTurn';
 import { PixelIcon } from '../ui/PixelIcon';
 import { PlayingCard } from '../ui/PlayingCard';
 import { SuitIcon } from '../ui/SuitIcon';
@@ -12,7 +13,7 @@ import { cardId } from './model/rules';
 import { secondsLeft, type BoardModel } from './model/boardModel';
 import type { Layout, Targets } from './model/cardTargets';
 import { seatName } from './announce';
-import { seatSpot } from './seatSpot';
+import { declaredStep, seatSpot } from './seatSpot';
 import { useNow } from './useNow';
 import type { Boja } from '../../types/game';
 
@@ -68,61 +69,67 @@ export interface SeatsProps {
  * The seat chips (spec §5.3.3, §5.10): `seat-{id}` with `data-current` on the seat to act, its
  * `cards-left-{id}` (visually hidden on phones), the dealer chip, the trump caller's suit badge from the call to
  * the hand's end (owner, 2026-10-12; on the plate, so the seat never grows a line), and on the seat to act the
- * `turn-countdown` and its bar; the bid chips while bidding, Bela, and once play opens each winning
- * seat's zvanja chip (summaryChips) for the rest of the hand, with its declared cards until the first
- * trick is down; a quiet "No challenge" on every seat whose challenge is gone, for the rest of the game
- * (gameplay rules §6). Mine sit over my plate, which sits low by my pile: my declared cards always, and in
- * landscape, where my plate is beside my hand, my chips too (under it they would cover my hand's first cards).
- * A side seat's line up under its plate on its own edge (`data-position`), so a long name never pulls them across
- * the felt onto my hand.
+ * `turn-countdown` and its bar; the bid chips while bidding, and once play opens each winning seat's zvanja
+ * chip (summaryChips) for the rest of the hand, with its declared cards until the first trick is down. On the
+ * plate, as badges after the dealer's D and the caller's: Bela once declared (a pixel B; owner, 2026-11-03), and on
+ * every seat whose challenge is gone, for the rest of the game, a crossed-out ring (gameplay rules §6; owner,
+ * 2026-10-30). On upright phones my plate's name reads "Your turn" on my turn (owner, 2026-11-03, option B; sideways,
+ * on tablets and desktops the label over my hand says it). Mine sit over my plate, which sits low by my pile: my
+ * declared cards always, and in landscape, where my plate is beside my hand, my chips too (under it they would cover my
+ * hand's first cards).
+ * Upright my chips sit beside my plate, wrapping upwards (board.css), and my plate keeps the countdown's width; my
+ * declared cards over it overlap more where the trick slot beside them leaves less room (seatSpot's `above`), and start
+ * past the left seat's backs where its fan reaches down beside them (`cardsFrom`, Ruling X; in landscape my chips stay
+ * over my plate, kept to its `maxWidth`, and only my cards move). My
+ * partner's sit under its plate, in the column beside its fan; in landscape on the plate's row, its declared cards on
+ * the fan's other side where the row has no room
+ * (`board-seat__aside`, seatSpot's `aside`). A side seat's chips and cards sit in `board-seat__under` (seatSpot's
+ * `under`): under its fan upright, under its plate beside the fan elsewhere, on its own side (`data-position`), so none
+ * reaches the trick or my hand (board-fit spec §4). Everything stays inside `seat-{id}`. The declared cards are half a
+ * trick card (Layout.declared), 45 % under the next, closer where their room is narrower than they need (declaredStep).
  */
 export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps) {
     const chips = playOpen ? summaryChips(model.zvanja) : {};
     const showCards = playOpen && model.playing && model.lastTrick === null;
-    // small cards, at the size the opponents' backs are drawn
-    const cardWidth = layout.back.w * layout.backScale;
+    // small cards, about half a trick card (board-fit spec §3.5)
+    const cardWidth = layout.declared.w;
     const chipsOver = layout.kind === 'landscape';
     const caller = model.trump?.callerId ?? null;
+    const turnHere = turnOnPlate(layout.kind) && model.yourTurn;
     return (
         <div className="board-region board-chips">
             {model.seats.map((seat) => {
                 const turn = seat.current && model.turn?.playerId === seat.id ? model.turn : null;
                 const declared = showCards ? model.zvanja?.seats.find((one) => one.playerId === seat.id && one.declarations.length > 0)?.cards ?? [] : [];
+                const { under, aside, above, beside, cardsFrom, lift, ...spot } = seatSpot(seat, targets, layout);
+                const step = declaredStep(cardWidth, declared.length, aside?.room ?? above ?? spot.maxWidth);
                 const chipRow = (
-                    <span className="board-seat__chips">
+                    <span className="board-seat__chips" style={beside === undefined ? undefined : ({ '--chips-from': `${beside.from}px`, maxWidth: beside.room } as CSSProperties)}>
                         {seat.bid && (
                             <Pop instant={instant}>
                                 {seat.bid === 'PASS' ? <Tag>Pass</Tag> : <Tag tone="trump" suit={seat.bid}>{SUIT_LABEL[seat.bid]}</Tag>}
                             </Pop>
                         )}
-                        {seat.bela && <Pop instant={instant}><Tag tone="mode">Bela</Tag></Pop>}
                         {chips[seat.id] && <Pop instant={instant}><Tag tone="neutral">{chips[seat.id]}</Tag></Pop>}
-                        {seat.challengeUsed && (
-                            <Pop instant={instant}>
-                                <Tag tone="neutral">
-                                    <span aria-hidden="true">No challenge</span>
-                                    <span className="sr-only">{`${seatName(model, seat.id)}: no challenge left`}</span>
-                                </Tag>
-                            </Pop>
-                        )}
                     </span>
                 );
                 const cards = declared.length > 0 && (
-                    <span role="group" aria-label={seat.isMe ? 'Your declared cards' : `${seat.id}'s declared cards`} className="board-seat__declared">
+                    <span role="group" aria-label={seat.isMe ? 'Your declared cards' : `${seat.id}'s declared cards`} className="board-seat__declared" style={cardsFrom ? { marginLeft: cardsFrom } : undefined}>
                         <Pop instant={instant} delay={0.06}>
                             {declared.map((card, i) => (
-                                <PlayingCard key={cardId(card)} card={card} width={cardWidth} style={i ? { marginLeft: -cardWidth * 0.45 } : undefined} />
+                                <PlayingCard key={cardId(card)} card={card} width={cardWidth} exact={layout.exact} style={i ? { marginLeft: step - cardWidth } : undefined} />
                             ))}
                         </Pop>
                     </span>
                 );
                 return (
-                    <div key={seat.id} data-testid={`seat-${seat.id}`} data-current={seat.current ? 'true' : undefined} data-position={seat.position} className="board-seat" style={seatSpot(seat, targets, layout)}>
+                    <div key={seat.id} data-testid={`seat-${seat.id}`} data-current={seat.current ? 'true' : undefined} data-position={seat.position} className="board-seat" style={spot}>
                         <span className="board-seat__name notch t-footnote font-semibold" data-turn={seat.current || undefined}>
                             <span className={seat.team === 'B' ? 'board-seat__team bg-team-b' : 'board-seat__team bg-team-a'} aria-hidden="true" />
                             {/* a bot: the lobby's robot beside its name, and "(bot)" in its name (casual bots spec §7) */}
                             {seat.bot && <PixelIcon name="robot" className="board-seat__bot" />}
-                            <span className="board-seat__label" title={seat.isMe ? undefined : seat.bot ? `${seat.id} (bot)` : seat.id}>{seat.isMe ? 'You' : seat.id}</span>
+                            {/* on upright phones my plate's name reads "Your turn" on my turn, in place of the label over my hand (owner 2026-11-03) */}
+                            <span data-testid={seat.isMe && turnHere ? 'your-turn' : undefined} className="board-seat__label" title={seat.isMe ? undefined : seat.bot ? `${seat.id} (bot)` : seat.id}>{seat.isMe ? (turnHere ? YOUR_TURN_TEXT : 'You') : seat.id}</span>
                             {seat.bot && <span className="sr-only"> (bot)</span>}
                             {seat.dealer && (
                                 <span data-testid="dealer-chip" className="board-seat__dealer font-pix">
@@ -136,15 +143,46 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                                     <span className="sr-only">{`${seatName(model, seat.id)} called ${model.trump.label}`}</span>
                                 </span>
                             )}
-                            <span className="sr-only lg:not-sr-only text-text-2">
+                            {/* Bela declared (owner, 2026-11-03: "Bela as a badge"): a pixel B on the plate, as the D, in the old chip's colours */}
+                            {seat.bela && (
+                                <span data-testid="bela-badge" className="board-seat__bela font-pix">
+                                    <span aria-hidden="true">B</span>
+                                    <span className="sr-only">{`${seatName(model, seat.id)} declared Bela`}</span>
+                                </span>
+                            )}
+                            {/* its challenge is gone for the game (owner, 2026-10-30): a crossed-out ring on the plate, as the D */}
+                            {seat.challengeUsed && (
+                                <span data-testid="no-challenge-badge" className="board-seat__spent">
+                                    <PixelIcon name="ban" />
+                                    <span className="sr-only">{`${seatName(model, seat.id)}: no challenge left`}</span>
+                                </span>
+                            )}
+                            {/* the cards left: shown on wide windows, but not on mine (my hand shows it; Ruling Y) */}
+                            <span className={seat.isMe ? 'sr-only' : 'sr-only lg:not-sr-only text-text-2'}>
                                 <span data-testid={`cards-left-${seat.id}`}>{seat.cardsLeft}</span>
                                 <span className="sr-only"> cards</span>
                             </span>
-                            {turn?.expiresAt != null && <Countdown expiresAt={turn.expiresAt} skew={model.skew} />}
+                            {turn?.expiresAt != null ? (
+                                <Countdown expiresAt={turn.expiresAt} skew={model.skew} />
+                            ) : (
+                                // upright my plate keeps the countdown's width, so my chips beside it never shift
+                                beside !== undefined && <span className="board-seat__seconds" aria-hidden="true" />
+                            )}
                         </span>
                         {turn?.expiresAt != null && <TimerBar key={`${seat.id}:${turn.expiresAt}`} expiresAt={turn.expiresAt} skew={model.skew} />}
-                        {!(seat.isMe && chipsOver) && chipRow}
-                        {seat.isMe ? (cards || chipsOver) && <span className="board-seat__above">{cards}{chipsOver && chipRow}</span> : cards}
+                        {under !== undefined ? (
+                            <span className="board-seat__under" style={{ top: under, maxWidth: spot.maxWidth }}>{chipRow}{cards}</span>
+                        ) : seat.isMe ? (
+                            <>
+                                {!chipsOver && chipRow}
+                                {(cards || chipsOver) && <span className="board-seat__above" style={{ maxWidth: chipsOver ? spot.maxWidth : (cardsFrom ?? 0) + (above ?? 0), ...(lift && chips[seat.id] && !seat.bid ? { bottom: `calc(100% + ${4 + lift}px)` } : {}) }}>{cards}{chipsOver && chipRow}</span>}
+                            </>
+                        ) : (
+                            <>
+                                {chipRow}
+                                {cards && aside ? <span className="board-seat__aside" style={{ marginRight: aside.offset, ...(aside.drop ? { top: aside.drop } : {}) }}>{cards}</span> : cards}
+                            </>
+                        )}
                     </div>
                 );
             })}

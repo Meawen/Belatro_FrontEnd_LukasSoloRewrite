@@ -47,7 +47,7 @@ function measure(fixed: { width: number; height: number } | undefined): BoardBox
 
 /**
  * The board's size (spec §5.6): the window, followed on resize and rotation, or a fixed size (the
- * dev board's layout presets, which ignore the safe areas).
+ * dev board's layout presets, which ignore the safe areas); either way its density, followed when it changes.
  */
 export function useBoardViewport(fixed?: { width: number; height: number }): BoardBox {
     const width = fixed?.width;
@@ -60,10 +60,25 @@ export function useBoardViewport(fixed?: { width: number; height: number }): Boa
             setBox((old) => (JSON.stringify(old) === JSON.stringify(next) ? old : next));
         };
         update();
-        if (size) return;
+        // a window dragged to a screen of another density fires no resize: watch the density itself, and on a change
+        // re-measure and watch the new one (board-fit spec anti-goal: crisp cards)
+        let density: MediaQueryList | null = null;
+        const onDensity = () => {
+            update();
+            watchDensity();
+        };
+        const watchDensity = () => {
+            density?.removeEventListener('change', onDensity);
+            density = typeof window.matchMedia === 'function' ? window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`) : null;
+            density?.addEventListener('change', onDensity);
+        };
+        watchDensity();
+        const unwatchDensity = () => density?.removeEventListener('change', onDensity);
+        if (size) return unwatchDensity;
         window.addEventListener('resize', update);
         window.addEventListener('orientationchange', update);
         return () => {
+            unwatchDensity();
             window.removeEventListener('resize', update);
             window.removeEventListener('orientationchange', update);
         };

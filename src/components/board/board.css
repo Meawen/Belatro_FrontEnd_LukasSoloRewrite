@@ -265,7 +265,26 @@
     align-items: center;
     padding: 0 2px;
 }
+/* Bela declared (owner, 2026-11-03): a pixel B in the old Bela chip's colours, as wide as the dealer's D (no wider than
+   the no-challenge badge) */
+.board-seat__bela {
+    padding: 0 4px;
+    line-height: 16px;
+    background: var(--surface-2);
+    color: var(--accent);
+}
+/* no challenge left (owner, 2026-10-30): a crossed-out ring in the quiet chip's colours, no wider than the dealer's D
+   (a 12-px mark and 1 px each side) */
+.board-seat__spent {
+    display: inline-flex;
+    align-items: center;
+    height: 16px;
+    padding: 0 1px;
+    background: var(--surface-2);
+    color: var(--text-2);
+}
 .board-seat__seconds {
+    min-width: 4ch;
     font-variant-numeric: tabular-nums;
 }
 .board-seat__timer {
@@ -286,20 +305,75 @@
     flex-wrap: wrap;
     gap: 4px;
 }
-/* the right seat's plate ends at the right edge (seatSpot): its chips and declared cards line up under it there, so a
-   long name never pulls them across the felt onto my hand (the left seat's start at the left edge, as every column) */
+/* the right seat's column ends at its right edge (seatSpot): its chips and declared cards line up there, so a long
+   name never pulls them across the felt onto the trick or my hand (the left seat's start at its left edge, as every
+   column) */
 .board-seat[data-position="right"] {
     align-items: flex-end;
 }
 .board-seat[data-position="right"] .board-seat__chips {
     justify-content: flex-end;
 }
+/* a side seat's chips and declared cards (board-fit spec §4): under its fan upright, under its plate beside the fan
+   elsewhere, placed from the plate's top (seatSpot's under), as wide as they are up to the seat's maxWidth, never as
+   narrow as a short plate */
+.board-seat__under {
+    position: absolute;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    width: max-content;
+}
+.board-seat[data-position="right"] .board-seat__under {
+    left: auto;
+    right: 0;
+    align-items: flex-end;
+}
+/* landscape: my partner's plate beside the fan, its chips and declared cards on the plate's row, wrapping within the
+   seat's width (board-fit spec §4.2); the turn timer bar under the whole row */
+.board[data-layout="landscape"] .board-seat[data-position="partner"] {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+.board[data-layout="landscape"] .board-seat[data-position="partner"] .board-seat__timer {
+    order: 1;
+    flex-basis: 100%;
+}
+/* landscape, where that row has no room for them: my partner's declared cards on the fan's left side, ending where
+   seatSpot's aside says (a margin from the plate's left edge) */
+.board-seat__aside {
+    position: absolute;
+    top: 0;
+    right: 100%;
+    display: flex;
+    width: max-content;
+}
+/* upright: my chips beside my plate, so my column stays low enough for the side seats' above it (board-fit spec §4.1):
+   after the plate (which keeps its countdown's width, Seats) but not before my declared cards' room ends (--chips-from),
+   bottom-aligned with it, wrapping upwards within their width (seatSpot's beside): never down onto my hand, never onto
+   my cards (§3.2) */
+.board[data-layout="portrait"] .board-seat[data-position="me"] > .board-seat__chips {
+    position: absolute;
+    left: max(calc(100% + 4px), var(--chips-from, 0px));
+    top: 26px;
+    translate: 0 -100%;
+    flex-wrap: wrap-reverse;
+    width: max-content;
+}
+/* sideways: my chips over my plate wrap upwards, so the line nearest my plate (and my hand's first cards) takes the
+   first chips and a wide Zvanja chip after them goes up a line, clear of my hand (Ruling X; Seats lifts the column
+   where that chip comes first, as it does in play now that Bela is a badge on the plate) */
+.board[data-layout="landscape"] .board-seat[data-position="me"] .board-seat__above > .board-seat__chips {
+    flex-wrap: wrap-reverse;
+}
 /* the winners' declared cards (gameplay rules §6), small and overlapping, until the first trick is down */
 .board-seat__declared {
     display: flex;
 }
 /* mine over my plate, which sits low by my pile: my declared cards, and in landscape (my plate beside my hand) my
-   chips under them, closest to the plate, so that none covers my hand */
+   chips under them, closest to the plate, so that none covers my hand; as wide as they are, up to the seat's maxWidth */
 .board-seat__above {
     position: absolute;
     left: 0;
@@ -308,6 +382,7 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
+    width: max-content;
 }
 .board-your-turn {
     position: absolute;
@@ -382,6 +457,22 @@
 @media (max-width: 639.98px) {
     .board-hud__season {
         display: none;
+    }
+}
+/* a portrait HUD under 400 px while a trump is called (the only time Challenge shows): the phase word is read, not shown,
+   so Blok stays on the first line even with four-digit scores and the Challenge column right under it, clear of the
+   left seat's plate (board-fit spec G2) */
+@media (max-width: 399.98px) {
+    .board[data-layout="portrait"] .board-hud__phase--called {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
     }
 }
 .board-error {

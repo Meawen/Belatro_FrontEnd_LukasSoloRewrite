@@ -54,7 +54,7 @@ function HandCard({ card, target, layoutId, entrance, from, instant, reduced, ta
                 transition={reduced ? { duration: 0 } : spring.quick}
             >
                 <span className="board-card__lift">
-                    <Faces card={card.card} width={target.width} />
+                    <Faces card={card.card} width={target.width} exact={target.exact} />
                     <span className="board-card__ring" aria-hidden="true" />
                 </span>
             </m.span>
