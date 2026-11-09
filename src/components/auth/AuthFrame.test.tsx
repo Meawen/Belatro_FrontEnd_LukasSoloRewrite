@@ -59,7 +59,7 @@ describe('AuthFrame (spec §4.2, X-1)', () => {
 
     // Ruling 80: a friend's table link lands a visitor on /login, and any visitor switches in one click (US-2)
     test('the compact HR · EN switch sits at the top, before the wordmark, as on the public pages, and it switches the site', async () => {
-        renderFrame()
+        const { unmount } = renderFrame()
         const group = screen.getByRole('group', { name: 'Site language' })
         expect(group.compareDocumentPosition(screen.getByRole('link', { name: 'Stiglja, start page' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         expect(within(group).getByRole('button', { name: 'EN' })).toHaveAttribute('aria-pressed', 'true')
@@ -70,6 +70,8 @@ describe('AuthFrame (spec §4.2, X-1)', () => {
             expect(screen.getByText('Bela za četvero, online.')).toBeInTheDocument()
             expect(screen.getByRole('link', { name: 'Stiglja, početna stranica' })).toHaveAttribute('href', '/')
         } finally {
+            // gone before the language is reset
+            unmount()
             setLang('en')
         }
     })

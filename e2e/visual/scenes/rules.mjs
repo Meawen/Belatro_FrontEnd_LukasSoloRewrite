@@ -44,6 +44,6 @@ export default [
     { name: 'rules-no-challenge', path: board(LATER, SPENT), viewports: SIZES },
     // the same, from bob's seat: his Challenge button greyed, reading "Challenge used"
     { name: 'rules-challenge-used', path: board(LATER, SPENT, 'bob'), viewports: SIZES },
-    // the hand result after dave's right challenge: "Foul found: Team B takes the hand", Mi 0, Vi 182 incl. 20 zvanja
+    // the hand result after dave's right challenge: "Foul found: Team B takes the hand", Mi 0, Vi 182 incl. 20 from declarations
     { name: 'rules-handresult-foul', path: board('window-open', '&challenge=dave:2:right'), viewports: SIZES },
 ];

@@ -107,7 +107,8 @@ describe('Board: seats, phase, team and trick (GameTable cases, R-31)', () => {
         // the seats' chips say the same
         expect(within(screen.getByTestId('seat-alice')).getByText('Declarations 50 + 20')).toBeInTheDocument()
         expect(within(screen.getByTestId('seat-carol')).getByText('Declarations 100')).toBeInTheDocument()
-        expect(screen.getByTestId('seat-bob')).not.toHaveTextContent('Zvanja')
+        // bob's team didn't score: no chip on his seat
+        expect(screen.getByTestId('seat-bob')).not.toHaveTextContent('Declarations')
     })
 
     test('phases are shown in words; the raw state stays in data-phase', () => {

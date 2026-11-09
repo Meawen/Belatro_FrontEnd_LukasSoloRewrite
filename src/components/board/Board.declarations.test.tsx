@@ -134,7 +134,7 @@ describe('Board: the declaration moment in the middle of the table (gameplay rul
         expect(declared('alice')).toEqual(aliceCards)
         for (const loser of ['bob', 'carol', 'dave']) {
             expect(declared(loser)).toEqual([])
-            expect(screen.getByTestId(`seat-${loser}`)).not.toHaveTextContent('Zvanja')
+            expect(screen.getByTestId(`seat-${loser}`)).not.toHaveTextContent('Declarations')
         }
         // the first trick: its 4th card collects it (lastTrick); the cards go, the chip stays
         const fourth = indexOf(tie, 'play:', call) + 6
@@ -158,7 +158,7 @@ describe('Board: the declaration moment in the middle of the table (gameplay rul
         renderBoard({ state: tableState(runs[call + 1], 'carol', 'snapshot') })
         expect(within(screen.getByTestId('seat-alice')).getByText('Declarations 20 + 20')).toBeInTheDocument()
         expect(within(screen.getByTestId('seat-carol')).getByText('Declarations 20')).toBeInTheDocument()
-        expect(screen.getByTestId('seat-bob')).not.toHaveTextContent('Zvanja')
+        expect(screen.getByTestId('seat-bob')).not.toHaveTextContent('Declarations')
         expect(screen.getByRole('region', { name: 'Game table' })).not.toHaveTextContent('sequence')
         expect(screen.getAllByTestId('declaration').map((line) => line.textContent)).toEqual(['alice: 20 + 20', 'carol: 20'])
     })

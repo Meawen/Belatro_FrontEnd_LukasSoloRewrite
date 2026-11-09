@@ -39,6 +39,16 @@ describe("the game socket's own lines in the site's language (spec §1.1)", () =
         expect(localiseSocketError(AUTH_REQUIRED_MESSAGE)).toBe('Za igru je potrebna prijava.')
     })
 
+    test('the game connection keeps its own line; /login has another (review fix 1, Minor 3)', async () => {
+        const { localiseSocketError, SESSION_ENDED_MESSAGE, setLang } = await load()
+        const { cat } = await import('./t')
+        expect(localiseSocketError(SESSION_ENDED_MESSAGE)).toBe('Your session ended. Reload the page, and sign in again if asked.')
+        expect(cat().auth.signIn.sessionEnded).toBe('Your session ended. Sign in again.')
+        setLang('hr')
+        expect(localiseSocketError(SESSION_ENDED_MESSAGE)).toBe('Sesija je završila. Ponovno učitaj stranicu i, ako treba, prijavi se.')
+        expect(cat().auth.signIn.sessionEnded).toBe('Sesija je završila. Prijavi se ponovno.')
+    })
+
     test('null stays null, and any other line comes back as it is', async () => {
         const { localiseSocketError, setLang } = await load()
         setLang('hr')

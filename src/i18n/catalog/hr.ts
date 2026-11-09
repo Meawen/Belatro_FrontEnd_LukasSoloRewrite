@@ -129,6 +129,7 @@ export const hr = {
             noAccount: 'Nemaš račun?',
             signUpLink: 'Registriraj se',
             failed: 'Prijava nije uspjela.',
+            sessionEnded: 'Sesija je završila. Prijavi se ponovno.',
         },
         signUp: {
             createAccount: 'Izradi račun',

@@ -177,6 +177,9 @@ export const en = {
             signUpLink: 'Sign up',
             // a failure that is neither the server's nor the network's
             failed: 'Login failed',
+            // /login?reason=session-ended (services/gameSocket sends the tab here): sign in, since a reload does nothing
+            // on this page; the game connection's own line is errors.socket.sessionEnded (R1-11)
+            sessionEnded: 'Your session ended. Sign in again.',
         },
         // /signup (SignupForm)
         signUp: {
@@ -1218,7 +1221,7 @@ export const en = {
             failedMine: 'No foul found',
             failed: (name: string) => `${name} challenged: no foul found`,
         },
-        // the hand result (HandResult): its title, the challenge window, a row's tags (spec §1.4 Pad) and zvanja
+        // the hand result (HandResult): its title, the challenge window, a row's tags (spec §1.4 Pad) and declarations
         result: {
             hand: (n: number) => `Hand ${n}`,
             nextIn: (seconds: number) => `Next hand in ${seconds} s`,

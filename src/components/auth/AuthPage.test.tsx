@@ -33,9 +33,22 @@ function renderAuth(entry: InitialEntry) {
 }
 
 describe('AuthPage', () => {
-    test('a tab whose session the server ended lands here and is told why', () => {
+    // review fix 1, Minor 3: on /login a reload does nothing, so the page says sign in, not the game connection's "reload" (R1-11)
+    test('a tab whose session the server ended lands here and is told why: sign in again', () => {
         render(<MemoryRouter initialEntries={['/login?reason=session-ended']}><AuthPage /></MemoryRouter>)
-        expect(screen.getByRole('alert')).toHaveTextContent('Your session ended. Reload the page, and sign in again if asked.')
+        expect(screen.getByRole('alert')).toHaveTextContent(/^Your session ended\. Sign in again\.$/)
+        expect(screen.queryByText(/Reload the page/)).toBeNull()
+    })
+
+    test('the same notice in Croatian', () => {
+        setLang('hr')
+        const { unmount } = render(<MemoryRouter initialEntries={['/login?reason=session-ended']}><AuthPage /></MemoryRouter>)
+        try {
+            expect(screen.getByRole('alert')).toHaveTextContent(/^Sesija je završila\. Prijavi se ponovno\.$/)
+        } finally {
+            unmount()
+            setLang('en')
+        }
     })
 
     test('the sign-in page links the Rules, the Privacy notice, the Terms and the support address (R-40, R-41)', () => {
@@ -48,7 +61,7 @@ describe('AuthPage', () => {
 
     test('a plain visit to the login page shows no such notice', () => {
         render(<MemoryRouter initialEntries={['/login']}><AuthPage /></MemoryRouter>)
-        expect(screen.queryByText('Your session ended. Reload the page, and sign in again if asked.')).toBeNull()
+        expect(screen.queryByText('Your session ended. Sign in again.')).toBeNull()
     })
 })
 

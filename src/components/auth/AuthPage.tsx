@@ -76,7 +76,7 @@ export function AuthPage({ initialMode = 'login', redirectTo = '/', onSuccess }:
 
     return (
         <AuthFrame>
-            <ErrorAlert message={sessionEnded ? t.errors.socket.sessionEnded : null} className="mb-5" />
+            <ErrorAlert message={sessionEnded ? t.auth.signIn.sessionEnded : null} className="mb-5" />
             {/* R4 review (US-6, §8): someone with no account who follows a friend's table link most likely sits down as a
                 guest, so the door comes first and is the page's primary; signing in is the secondary way below it */}
             {tablePath && (

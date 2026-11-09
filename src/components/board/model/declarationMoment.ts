@@ -99,7 +99,7 @@ export function momentAt(zvanja: ZvanjaView | null, me: string, now: number, sna
     };
 }
 
-/** Each winning seat's chip for the rest of the hand, e.g. { ivo: 'Zvanja 50 + 20' }; {} when nobody won. */
+/** Each winning seat's chip for the rest of the hand, e.g. { ivo: 'Declarations 50 + 20' }; {} when nobody won. */
 export function summaryChips(zvanja: ZvanjaView | null): Record<string, string> {
     const winners = (zvanja?.seats ?? []).filter((seat) => seat.declarations.length > 0);
     const c = cat().board.moment;
