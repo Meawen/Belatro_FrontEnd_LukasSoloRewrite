@@ -180,7 +180,9 @@ The trick keeps its cross in every layout. Its slots stay relative to the card s
   its centre band, the fans and tags placed as today but at distances that follow the card size.
 - The partner's and side seats' chips and declared cards follow §4.1's rule (nothing hangs into the trick), wherever
   today's positions would put them on it at the new sizes.
-- The hover lift (−24 px, ×1.08, §5.6.5) of a hand card must not reach the partner's or a side seat's trick card. It
+- The hover lift (−24 px, ×1.08, §5.6.5) of a hand card must not reach the partner's or a side seat's trick card. The
+  lifted card stays in its fan order: §5.6.5's "z-order up" is dropped (owner, 2026-11-11, open beta Task M), because
+  the raised card's resting box took its right neighbour's exposed strip and a click there played the hovered card. It
   may reach my own slot (builder, after the fit check): a card lifts only while it is enabled, on my turn, when my slot
   is empty, as with "Your turn".
 - The side seats' fans step 12 px per 71 px of back (the partner's fan keeps 16), so they stay clear of the piles. The

@@ -120,14 +120,13 @@
 .board-hand-card:disabled {
     cursor: default;
 }
-/* the owner's hover lift (D-35, §5.6.5): −24 px and 1.08 over 160 ms, on an inner layer, z-order up */
+/* the owner's hover lift (D-35, §5.6.5): −24 px and 1.08 over 160 ms, on an inner layer. In its fan order, not raised
+   (owner, 2026-11-11): raised, the hovered card's resting box took its right neighbour's exposed strip, so a click there
+   played the hovered card */
 .board-card__lift {
     transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 @media (hover: hover) and (pointer: fine) {
-    .board-hand-card:not(:disabled):hover {
-        z-index: 40;
-    }
     .board-hand-card:not(:disabled):hover .board-card__lift {
         transform: translateY(-24px) scale(1.08);
     }

@@ -23,6 +23,10 @@ const SCENES = [
     board('bid:bob:PASS', 'long', ['375x812', '812x375']),
 ];
 const BIDS = ['Pass', 'Call Herc', 'Call Karo', 'Call Pik', 'Call Tref'];
+// The owner's hover lift (D-35) without its z-order raise (owner, Task M, 2026-11-11): with a hand card hovered, the
+// middle of its right neighbour's exposed strip belongs to that neighbour, and a click there plays it (carol to play
+// mid-trick, eight enabled cards; fine pointers, so the windows that lift)
+const HOVER = board('play:bob:PIK-BABA', null, ['1280x720', '1440x900', '960x980']);
 
 /** Opens the game menu, closes it with Escape, and waits until it has left (unmounted after its exit). */
 async function openAndCloseTheMenu(page) {
@@ -62,7 +66,8 @@ function targets(page, names) {
             const r = card.getBoundingClientRect();
             const next = cards[index + 1]?.getBoundingClientRect();
             const strip = next ? Math.max(1, next.x - r.x) : r.width;
-            points.push({ what: `hand card ${card.dataset.card} in its strip's middle`, x: r.x + Math.min(strip, r.width) / 2, y: r.y + r.height / 2, index });
+            // the middle of the part above the window's bottom: sideways only 45 % of each card shows (board-fit spec §3.4)
+            points.push({ what: `hand card ${card.dataset.card} in its strip's middle`, x: r.x + Math.min(strip, r.width) / 2, y: r.y + Math.min(r.height, innerHeight - r.y) / 2, index });
         });
         return { points, cards: cards.length };
     }, names);
@@ -116,6 +121,45 @@ export default {
                 } finally {
                     await context.close();
                 }
+            }
+        }
+        for (const viewport of HOVER.viewports) {
+            const { context, page } = await ctx.open({ ...HOVER, name: 'hit-hover' }, viewport);
+            try {
+                // the middle of card i's own strip and of card i+1's, 40 px under the higher top of the two
+                const strips = (i) => page.$$eval('[data-testid="hand-card"]', (els, i) => {
+                    const r = (k) => els[k].getBoundingClientRect();
+                    const a = r(i), b = r(i + 1), c = els[i + 2] ? r(i + 2) : null;
+                    const y = Math.max(a.top, b.top) + 40;
+                    return { own: [(a.left + b.left) / 2, y], next: [(b.left + (c ? c.left : b.right)) / 2, y] };
+                }, i);
+                const cardAt = ([x, y]) => page.evaluate(([x, y]) => {
+                    const card = document.elementFromPoint(x, y)?.closest('[data-testid="hand-card"]');
+                    return card ? [...document.querySelectorAll('[data-testid="hand-card"]')].indexOf(card) : -1;
+                }, [x, y]);
+                const n = await page.$$eval('[data-testid="hand-card"]', (els) => els.length);
+                for (let i = 0; i < n - 1; i++) {
+                    const { own, next } = await strips(i);
+                    await page.mouse.move(...own);
+                    await page.waitForTimeout(250);
+                    await page.mouse.move(...next);
+                    await page.waitForTimeout(250);
+                    const at = await cardAt(next);
+                    if (at !== i + 1) failures.push(`hit-hover@${viewport}: card ${i} hovered, its right neighbour's strip (${next.map(Math.round).join(', ')}) answers card ${at}, not ${i + 1}`);
+                    await page.mouse.move(1, 1);
+                    await page.waitForTimeout(200);
+                }
+                // a click: card 2 hovered, then a click in card 3's strip plays card 3 (it goes pending)
+                const { own, next } = await strips(2);
+                await page.mouse.move(...own);
+                await page.waitForTimeout(250);
+                await page.mouse.click(...next);
+                await page.waitForTimeout(300);
+                const pending = await page.evaluate(() => [...document.querySelectorAll('[data-testid="hand-card"]')].findIndex((card) => card.querySelector('.board-card__pend[data-pending]')));
+                if (pending !== 3) failures.push(`hit-hover@${viewport}: a click in card 3's strip with card 2 hovered played card ${pending}`);
+                ctx.log(`hit-hover@${viewport}: ${n - 1} neighbour strips and one click`);
+            } finally {
+                await context.close();
             }
         }
         return failures;

@@ -982,7 +982,7 @@ Positions always come from `cardTargets`; events choose origins, holds and annou
 | Render error | The game boundary (R-29); the shell stays |
 
 #### 5.6.5 Hover (the owner's, kept: D-35)
-- **Fine pointers:** hovering a playable hand card lifts it −24 px and scales it 1.08 over 160 ms, on an **inner** wrapper; z-order up.
+- **Fine pointers:** hovering a playable hand card lifts it −24 px and scales it 1.08 over 160 ms, on an **inner** wrapper; ~~z-order up~~ in its fan order (owner, 2026-11-11: raised, it took its right neighbour's exposed strip; board-fit spec §4.3).
 - **While bidding:** hovering a bid button or a hand card rings every hand card of that suit in the suit colour (opacity 120 ms).
 - **Touch:** press feedback replaces hover.
 
