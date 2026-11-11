@@ -5,7 +5,7 @@ import type { Box } from './layouts'
 
 /**
  * The dev board's busy column at its biggest (Ruling AB; Task 5's busy=1 with names=long): long names on every plate, so
- * each plate as wide as its column lets it (mine at its widest: 218 upright, reading "Your turn", 180 elsewhere); its Bela
+ * each plate as wide as its column lets it (mine at its widest: 224 upright, reading "Still there?", 180 elsewhere); its Bela
  * and no-challenge badges on the plate,
  * inside its width (owner, 2026-11-03: Bela as a badge); for the team whose cards show ('mine': me and my partner;
  * 'theirs': the side seats) a "Zvanja 100 + 20" chip (122.9 px in Chromium, 124 here) and six declared cards. Each column
@@ -18,8 +18,8 @@ const TIMER = 3
 const PLATE_ROW = PLATE + GAP + TIMER
 const CHIP_ROW = 20
 const MY_PLATE = 180
-/** On upright phones my plate reads "Your turn" on my turn (owner, 2026-11-03): about 218 at its widest. */
-const MY_TURN_PLATE = 218
+/** On upright phones my plate reads "Your turn" on my turn (owner, 2026-11-03), "Still there?" in its last 10 s: 224 at its widest (Task M). */
+const MY_TURN_PLATE = 224
 /**
  * A long name's plate at its widest: 413.6 px in Chromium (20 W's with the D, the caller's badge, the Bela and no-challenge
  * badges and the countdown; 326.3 with the two badges only; was 230). Its maxWidth caps it everywhere upright and sideways.

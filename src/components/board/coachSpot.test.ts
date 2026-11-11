@@ -1,10 +1,16 @@
 import { describe, test, expect } from 'vitest'
-import { coachSpot, type CoachAt } from './coachSpot'
+import { BID, coachSpot, type CoachAt } from './coachSpot'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { layoutFor } from './model/fit'
 import { boundsOf, fanPlaces, handPlaces, hudBoxes, tableTargets, trickSlots, yourTurnBox, type Layout } from './model/cardTargets'
 import { seatBoxes } from './seatSpot'
 import { busyBoxes } from '../../test/fixtures/busy'
 import { boxOf, hull, overlap, type Box } from '../../test/fixtures/layouts'
+
+// board.css as written (Vitest doesn't load CSS)
+const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'board.css'), 'utf8')
 
 // board-fit's checked windows (spec §7, the testing session's T3 list), as layoutFor lays them out
 const SIZES: [number, number, number][] = [
@@ -55,6 +61,23 @@ describe('coachSpot: Škola bele\'s panel on board-fit\'s layout (open beta §7.
             }
         }
         expect(met).toEqual([])
+    })
+
+    test('its bid panel is board.css\'s .board-bid: centred at its tops; upright four 52-px suits 8 apart with 10 px around (252), Pass on its own row (150 tall with the note); elsewhere 98 tall and at least as wide as measured in Chromium (Pass beside the suits: 325.5 EN, 327.3 HR)', () => {
+        expect(css).toMatch(/\.board-bid \{\s*left: 50%;\s*top: 44%;/)
+        expect(css).toMatch(/\.board\[data-layout="landscape"\] \.board-bid \{\s*top: 46%;/)
+        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-bid \{\s*top: 36%;/)
+        expect([BID.wide.at, BID.landscape.at, BID.portrait.at]).toEqual([0.44, 0.46, 0.36])
+        expect(css).toMatch(/\.board-bid,\s*\.board-bela \{[^}]*padding: 10px;/)
+        expect(css).toMatch(/\.board-bid__buttons,\s*\.board-bela__buttons \{[^}]*gap: 8px;/)
+        expect(css).toMatch(/\.board\[data-layout="portrait"\] \.board-bid__buttons \{\s*display: grid;\s*grid-template-columns: repeat\(4, 52px\);/)
+        expect(BID.portrait.w).toBe(4 * 52 + 3 * 8 + 2 * 10)
+        // measured (.board-bid's box in Chromium, Task M fix round 1): 252 × 150.2 upright; 325.5 / 327.3 × 98.2 elsewhere
+        expect(BID.portrait.h).toBeGreaterThanOrEqual(150.2)
+        for (const one of [BID.landscape, BID.wide]) {
+            expect(one.w).toBeGreaterThanOrEqual(327.3)
+            expect(one.h).toBeGreaterThanOrEqual(98.2)
+        }
     })
 
     test('with my bid panel up it also stays off the bid panel (centred at 36 % upright, 46 % sideways, else 44 %)', () => {
