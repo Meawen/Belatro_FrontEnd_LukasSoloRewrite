@@ -415,11 +415,12 @@ export function tableTargets(layout: Layout): Targets {
  * - Challenge at its widest label, "Challenge used": 13-px semibold text and 12 px each side, about 120, 44 tall; its
  *   info button 44; side by side 2 apart with 2 to spare (landscape), stacked 6 apart (portrait).
  * - The phase chip at its widest with the season (Ruling AB): "Hand finished · Karo · summer" measures 236.9 px in
- *   Chromium (the review of 5bb2902; the group 286.9), so 240 (was 230, an estimate from the T3 shot).
+ *   Chromium (the review of 5bb2902; the group 286.9); the Croatian "Dijeljenje gotovo · Herc · proljeće" 254.3 (open
+ *   beta, Task M), so 256 (was 240 for English only; 230, an estimate from the T3 shot).
  * - Sideways the left group stops at half the board less 58 px (board.css: `max-width: calc(50% - 58px)` of the HUD,
  *   which runs 8 px in from each side).
  */
-const HUD = { top: 8, line: 44, gap: 6, score: 96 + 6 * 9, blok: 48, menu: 44, called: 170, calledNarrow: 74, uncalled: 76, challenge: 120, info: 44, phaseMax: 240, leftCap: 58 };
+const HUD = { top: 8, line: 44, gap: 6, score: 96 + 6 * 9, blok: 48, menu: 44, called: 170, calledNarrow: 74, uncalled: 76, challenge: 120, info: 44, phaseMax: 256, leftCap: 58 };
 
 /** "Your turn" over my hand (Board.tsx `YourTurn`, board.css `.board-your-turn`): about 120 × 26, its top 40 px over my hand's. */
 const YOUR_TURN = { w: 120, h: 26, above: 40 };
