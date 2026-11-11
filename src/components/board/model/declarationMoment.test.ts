@@ -214,12 +214,12 @@ describe('the declaration moment (gameplay rules spec §6, D-9, D-14)', () => {
 
 describe('summaryChips', () => {
     test('each winning seat keeps its values for the rest of the hand', () => {
-        expect(summaryChips(byValue)).toEqual({ ivo: 'Declarations 50 + 20' })
-        expect(summaryChips(tied)).toEqual({ ivo: 'Declarations 20' })
+        expect(summaryChips(byValue)).toEqual({ ivo: 'Decl. 50 + 20' })
+        expect(summaryChips(tied)).toEqual({ ivo: 'Decl. 20' })
         const partners = zvanja([
             seat('ivo', 50, { declarations: [run(50, 'AS')] }), seat('mara', null), seat('lana', 20, { declarations: [run(20, 'DECKO')] }), seat('me', null),
         ], { total: 70, decidedBy: 'VALUE' })
-        expect(summaryChips(partners)).toEqual({ ivo: 'Declarations 50', lana: 'Declarations 20' })
+        expect(summaryChips(partners)).toEqual({ ivo: 'Decl. 50', lana: 'Decl. 20' })
     })
 
     test('nobody won: no chips', () => {

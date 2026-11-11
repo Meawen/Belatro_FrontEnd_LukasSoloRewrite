@@ -26,6 +26,14 @@ describe('the catalogs (spec §1.2)', () => {
         }
     })
 
+    test('the English seat chip says "Decl." (owner, Task M call 2: "Declarations" overran board-fit\'s upright columns); "Declarations" stays everywhere else', () => {
+        expect(en.board.moment.chip('20')).toBe('Decl. 20')
+        expect(en.board.moment.chip('100 + 20')).toBe('Decl. 100 + 20')
+        expect(en.board.moment.title).toBe('Declarations')
+        expect(en.board.moment.srLine('ivo 20', 'Team B scores 20')).toBe('Declarations: ivo 20. Team B scores 20.')
+        expect(hr.board.moment.chip('20')).toBe('Zvanja 20')
+    })
+
     test('the §1.4 names in the page titles', () => {
         const names = (titles: typeof en.titles) => [titles.home, titles.tables, titles.table, titles.matches, titles.friends, titles.profile, titles.settings, titles.ranked]
         expect(names(hr.titles)).toEqual(['Doma', 'Birtija', 'Stol', 'Zapisnik', 'Pajdaši', 'Profil', 'Postavke', 'Rangirano'])

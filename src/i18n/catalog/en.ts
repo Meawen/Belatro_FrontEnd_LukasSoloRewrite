@@ -1193,8 +1193,9 @@ export const en = {
             nothing: (name: string) => `${name} nothing`,
             // the whole moment for screen readers: "Declarations: ivo 20, mara nothing. Team B scores 20."
             srLine: (said: string, line: string) => `Declarations: ${said}. ${line}.`,
-            // a winning seat's chip for the rest of the hand: "Declarations 50 + 20"
-            chip: (points: string) => `Declarations ${points}`,
+            // a winning seat's chip for the rest of the hand: "Decl. 50 + 20" (owner, Task M: "Declarations" overran the
+            // board's upright seat columns; "Declarations" stays everywhere else)
+            chip: (points: string) => `Decl. ${points}`,
             // a belot's line
             belotMine: (suit: string) => `Belot! You hold all eight ${suit}`,
             belot: (name: string, suit: string) => `Belot! ${name} holds all eight ${suit}`,

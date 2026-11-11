@@ -79,7 +79,7 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
         // the chips and declared cards: placed from the plate's top (seatSpot's under), as wide as they are
         expect(css).toMatch(/\.board-seat__under \{[^}]*position: absolute;[^}]*left: 0;[^}]*display: flex;[^}]*flex-direction: column;[^}]*align-items: flex-start;[^}]*gap: 4px;[^}]*width: max-content;/)
         expect(css).toMatch(/\.board-seat\[data-position="right"\] \.board-seat__under \{[^}]*left: auto;[^}]*right: 0;[^}]*align-items: flex-end;/)
-        // seed 7, the hand's second card: dave (my right) holds Declarations 20 and his three declared cards
+        // seed 7, the hand's second card: dave (my right) holds Decl. 20 and his three declared cards
         for (const viewport of [{ width: 812, height: 375 }, { width: 375, height: 812 }, { width: 1440, height: 900 }]) {
             withDpr(2, () => {
                 const where = `${viewport.width}x${viewport.height}`
@@ -106,7 +106,7 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
                 expect(dave.style.transform, where).toBe('translateX(-100%)')
                 expect(px(under, 'maxWidth'), where).toBe(px(dave, 'maxWidth'))
                 expect(dave.querySelector(':scope > .board-seat__chips'), where).toBeNull()
-                expect(under.querySelector(':scope > .board-seat__chips')?.textContent, where).toBe('Declarations 20')
+                expect(under.querySelector(':scope > .board-seat__chips')?.textContent, where).toBe('Decl. 20')
                 expect(under.querySelectorAll(':scope > .board-seat__declared img'), where).toHaveLength(3)
                 // half a trick card wide, crisp (board-fit spec §3.5), 45 % under the next unless the column is narrower
                 const cards = [...under.querySelectorAll<HTMLElement>('.board-seat__declared .ui-card')]
@@ -126,7 +126,7 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
         expect(css).toMatch(/\.board\[data-layout="landscape"\] \.board-seat\[data-position="partner"\] \.board-seat__timer \{[^}]*order: 1;[^}]*flex-basis: 100%;/)
         // aside: its right edge at the plate's left edge, moved left by a margin (seatSpot's aside offset)
         expect(css).toMatch(/\.board-seat__aside \{[^}]*position: absolute;[^}]*top: 0;[^}]*right: 100%;[^}]*display: flex;[^}]*width: max-content;/)
-        // seed 1254, the hand's first card: alice (my partner) holds Declarations 20 and three declared cards
+        // seed 1254, the hand's first card: alice (my partner) holds Decl. 20 and three declared cards
         const t = playTable({ seed: 1254 })
         for (const viewport of [{ width: 812, height: 375 }, { width: 375, height: 812 }, { width: 1440, height: 900 }, { width: 667, height: 323 }]) {
             withDpr(2, () => {
@@ -134,7 +134,7 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
                 const { unmount } = renderBoard({ state: tableState(t[indexOf(t, 'play:')], 'carol', 'snapshot'), viewport })
                 const alice = screen.getByTestId('seat-alice')
                 expect(alice.querySelector('.board-seat__under'), where).toBeNull()
-                expect(alice.querySelector(':scope > .board-seat__chips')?.textContent, where).toBe('Declarations 20')
+                expect(alice.querySelector(':scope > .board-seat__chips')?.textContent, where).toBe('Decl. 20')
                 // 667×323 @2: plate, chip and cards need 320 px, the row has 269
                 const aside = alice.querySelector<HTMLElement>(':scope > .board-seat__aside')
                 expect(aside !== null, where).toBe(viewport.width === 667)
@@ -196,7 +196,7 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
         })
     })
 
-    test('my seat keeps clear of the left seat\'s card backs: in landscape my declared cards start past its fan and my chips wrap upwards, lifted where a lone Declarations chip comes first; on wide windows my plate starts past the fan where it reaches down beside my pile (board-fit spec G2; Ruling X)', () => {
+    test('my seat keeps clear of the left seat\'s card backs: in landscape my declared cards start past its fan and my chips wrap upwards, lifted where a lone Decl. chip comes first; on wide windows my plate starts past the fan where it reaches down beside my pile (board-fit spec G2; Ruling X)', () => {
         expect(css).toMatch(/\.board\[data-layout="landscape"\] \.board-seat\[data-position="me"\] \.board-seat__above > \.board-seat__chips \{[^}]*flex-wrap: wrap-reverse;/)
         // seed 1254, the hand's first card: I declared six cards
         const t = playTable({ seed: 1254 })
@@ -214,11 +214,11 @@ describe('Board: layout details from the visual pass (spec §5.6)', () => {
                 const cards = above.querySelector<HTMLElement>('.board-seat__declared')!
                 const fanRight = Math.max(...fanPlaces(layout, 'left', 8).map((back) => box(back).x1))
                 expect(px(mine, 'left') + Number.parseFloat(cards.style.marginLeft), me).toBeCloseTo(fanRight + 6, 9)
-                // lifted only where my Declarations chip comes first: after Bela it wraps up a line instead
+                // lifted only where my Decl. chip comes first: after Bela it wraps up a line instead
                 const chips = [...above.querySelectorAll('.board-seat__chips > *')].map((one) => one.textContent)
-                expect(chips.at(-1), me).toMatch(/^Declarations/)
+                expect(chips.at(-1), me).toMatch(/^Decl\./)
                 // 4 px and the 8.08-px lift that keeps a lone wide chip 6 px over my hand's first card
-                if (chips[0]?.startsWith('Declarations')) expect(Number(/^calc\(100% \+ ([\d.]+)px\)$/.exec(above.style.bottom)?.[1]), me).toBeCloseTo(4 + 8.078, 3)
+                if (chips[0]?.startsWith('Decl.')) expect(Number(/^calc\(100% \+ ([\d.]+)px\)$/.exec(above.style.bottom)?.[1]), me).toBeCloseTo(4 + 8.078, 3)
                 else expect(above.style.bottom, me).toBe('')
                 unmount()
             })
