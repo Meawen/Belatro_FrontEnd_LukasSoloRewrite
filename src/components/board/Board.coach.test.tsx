@@ -37,6 +37,7 @@ const HAND: GameCard[] = [
 ]
 const playing = () => stateOf(privateFor(PLAY, true, HAND))
 const bidding = () => stateOf(privateFor(view(), true))
+const othersBid = () => stateOf(privateFor(view(), false))
 // carol to play in mid-trick, Challenge available in the HUD; the open window, the hand result's Challenge
 const challenging = () => tableState(find(table, 'play:bob:PIK-BABA'))
 const inTheWindow = () => tableState(find(table, 'window-open'))
@@ -303,16 +304,18 @@ describe('Board: the coach (open beta §7.2, §7.3)', () => {
 
     test.each([
         [{ width: 375, height: 812 }, 2], [{ width: 375, height: 553 }, 2], [{ width: 812, height: 375 }, 2], [{ width: 1280, height: 720 }, 1],
-    ])('the panel sits where board-fit\'s layout leaves room for it (coachSpot), in play and while bidding: %o @%d', (size, dpr) => {
+    ])('the panel sits where board-fit\'s layout leaves room for it (coachSpot): in play, while someone else bids, and with my bid panel up: %o @%d', (size, dpr) => {
         const before = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio')
         Object.defineProperty(window, 'devicePixelRatio', { value: dpr, configurable: true })
         try {
             const layout = layoutFor({ ...size, dpr })
-            for (const [state, bid] of [[playing(), false], [bidding(), true]] as const) {
+            // in play; while someone else bids (no bid panel); on my bid turn, my bid panel up
+            for (const [state, where] of [[playing(), 'play'], [othersBid(), 'bidding'], [bidding(), 'myBid']] as const) {
                 const { unmount } = renderBoard({ state, viewport: size, coach: { allowed: () => true, panel: <p>Lesson</p> } })
-                const at = coachSpot(layout, bid)
+                expect(screen.queryByRole('group', { name: 'Your bid' }) !== null, where).toBe(where === 'myBid')
+                const at = coachSpot(layout, where)
                 const panel = screen.getByTestId('coach-panel')
-                expect([panel.style.left, panel.style.top, panel.style.width, panel.style.maxHeight], `${size.width}x${size.height} bidding ${bid}`)
+                expect([panel.style.left, panel.style.top, panel.style.width, panel.style.maxHeight], `${size.width}x${size.height} ${where}`)
                     .toEqual([`${at.left}px`, `${at.top}px`, `${at.width}px`, `${at.maxHeight}px`])
                 unmount()
             }

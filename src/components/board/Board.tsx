@@ -33,7 +33,7 @@ import {
     type Move,
 } from './model/input';
 import { coachMove, type Coach, type CoachMove } from './coach';
-import { coachSpot } from './coachSpot';
+import { coachSpot, type CoachAt } from './coachSpot';
 import { dropLeaving, emptyStage, landTrick, settleStage, shownPiles, stepStage, sweepHeld, tableTrick, withInput, type Stage } from './stage';
 import { useBoardViewport } from './useBoardViewport';
 import { useChallengeBanner } from './useChallengeBanner';
@@ -374,14 +374,14 @@ export function Board(props: BoardProps) {
     const layout = useMemo(() => layoutFor(box.viewport), [box.viewport]);
     const model = current.model!;
     // Škola bele's panel where board-fit's layout leaves room for a lesson (coachSpot): it moves only when the window does,
-    // and when bidding ends; worked out only with a panel to place
-    const coachBidding = model.phase === 'BIDDING';
+    // when my bid panel comes and goes (BidPanel: model.canBid), and when play opens; worked out only with a panel to place
+    const where: CoachAt = model.phase === 'BIDDING' ? (model.canBid ? 'myBid' : 'bidding') : 'play';
     const placed = Boolean(coach?.panel);
     const coachAt = useMemo(() => {
         if (!placed) return undefined;
-        const { left, top, width, maxHeight } = coachSpot(layout, coachBidding);
+        const { left, top, width, maxHeight } = coachSpot(layout, where);
         return { left, top, width, maxHeight };
-    }, [layout, coachBidding, placed]);
+    }, [layout, where, placed]);
     // a partial trick a right challenge took off the table stays on its slots while the banner says who
     const held = current.kept?.trick ?? null;
     const targets = useMemo(() => cardTargets(held ? { ...model, trick: held } : model, layout), [model, held, layout]);
