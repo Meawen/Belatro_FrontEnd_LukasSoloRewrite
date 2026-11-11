@@ -38,6 +38,8 @@ const MIN_W = 220;
 const MIN_H = 72;
 const MAX_H = 240;
 const RELAXED = { w: 140, h: 48 };
+/** A room that holds a lesson's title, its do line and a few lines of it: what the panel keeps through the bidding. */
+const ROOMY_H = 120;
 /**
  * Where the board is (Board.tsx): in play (the trick's slots taken), bidding while someone else bids (no trick and no
  * bid panel: the felt's middle is free), or bidding on my turn with my bid panel up (BidPanel shows only then,
@@ -153,6 +155,16 @@ function largest(bounds: Box, boxes: Box[], minW: number, minH: number): Box | n
  * over my hand. Nothing covers the trick, my hand, the HUD or another seat. While bidding it never covers a seat.
  */
 export function coachSpot(layout: Layout, at: CoachAt): CoachSpot {
+    // while someone else bids, where my bid turn will put the panel if that place is roomy (desktops, tablets): so it doesn't
+    // cross the felt when my bid panel comes; elsewhere the bigger room, and it moves when my bid panel comes
+    if (at === 'bidding') {
+        const mine = place(layout, 'myBid');
+        if (mine.covers === null && mine.width >= MIN_W && mine.maxHeight >= ROOMY_H) return mine;
+    }
+    return place(layout, at);
+}
+
+function place(layout: Layout, at: CoachAt): CoachSpot {
     const { w: W, h: H } = layout.board;
     const all = obstacles(layout, at);
     const bounds = { x0: EDGE, x1: W - EDGE, y0: 0, y1: H - EDGE };

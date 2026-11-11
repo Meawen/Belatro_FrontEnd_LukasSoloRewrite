@@ -127,6 +127,9 @@ describe('coachSpot: Škola bele\'s panel on board-fit\'s layout (open beta §7.
             const spot = coachSpot(layout, 'play')
             expect([spot.left, spot.top], name(layout)).toEqual([8, 58])
             expect(spot.width, name(layout)).toBeLessThanOrEqual(420)
+            // it stays there through the bidding: while someone else bids it keeps my bid turn's roomy place
+            expect(coachSpot(layout, 'bidding'), name(layout)).toEqual(spot)
+            expect(coachSpot(layout, 'myBid'), name(layout)).toEqual(spot)
         }
         // 1280×720 @1: up to 6 px before my partner's backs (403.5) and 6 px over the left seat's plate (252); the same while bidding
         for (const at of ['play', 'bidding', 'myBid'] as const) {
