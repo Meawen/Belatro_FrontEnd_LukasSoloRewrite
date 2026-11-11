@@ -4,7 +4,7 @@ import hand1 from '../guide/hand1.recording.json';
 import { stepsOf, type GuideStep, type LessonKey } from '../guide/script';
 import { useGuideReplay } from '../guide/useGuideReplay';
 import { Board } from '../components/board/Board';
-import { layoutFor } from '../components/board/model/fit';
+import { kindOf } from '../components/board/model/fit';
 import { ErrorAlert } from '../components/common/ErrorAlert';
 import { LessonPanel } from '../components/guide/LessonPanel';
 import { PLAIN_HIGH_FIRST, TRUMP_HIGH_FIRST, cardPoints } from '../components/info/rulesData';
@@ -26,8 +26,16 @@ const HAND1 = stepsOf(hand1);
 
 type Phase = 'intro' | 'hand' | 'end';
 
-/** The board lays this window out for a phone (portrait or landscape, as layoutFor decides): its coach slot is short. */
-const onPhone = () => ['portrait', 'landscape'].includes(layoutFor({ width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio || 1 }).kind);
+/**
+ * The board lays this window out for a phone, so its coach slot is short: upright (board-fit's `portrait`), or sideways
+ * (`landscape`, any window 500 px tall or less) narrower than board-fit's desktops (1024). A desktop window that short
+ * (1280×480 at 150 %, Ruling AA) is laid out sideways but isn't a phone: Exit's line still shows (Ruling 69).
+ */
+const onPhone = () => {
+    const width = window.innerWidth;
+    const kind = kindOf({ width, height: window.innerHeight, dpr: window.devicePixelRatio || 1 });
+    return kind === 'portrait' || (kind === 'landscape' && width < 1024);
+};
 
 /** Exit, and the line under it that says where it goes (spec §7.1). */
 function Exit({ line, onExit }: { line: string; onExit: () => void }) {

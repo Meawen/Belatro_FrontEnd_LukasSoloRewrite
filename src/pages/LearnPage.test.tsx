@@ -349,6 +349,24 @@ describe('Škola bele, hand 1 (open beta §7.1, §7.2)', () => {
         }
     })
 
+    test.each([
+        [375, 812, true], [375, 553, true], [812, 375, true], [667, 323, true], [932, 430, true],
+        [1280, 480, false], [1366, 500, false], [1024, 768, false], [800, 1000, false],
+    ])('Exit\'s line is for screen readers only on a phone (Ruling 69): %d×%d → %s; a short desktop window (board-fit lays it out sideways) is not a phone', async (width, height, phone) => {
+        vi.stubGlobal('innerWidth', width)
+        vi.stubGlobal('innerHeight', height)
+        try {
+            const user = userEvent.setup()
+            renderLearn()
+            await user.click(button('Deal the cards'))
+            const exit = within(panel()).getByRole('button', { name: 'Exit' })
+            const line = document.getElementById(exit.getAttribute('aria-describedby')!)!
+            expect(line.classList.contains('sr-only')).toBe(phone)
+        } finally {
+            vi.unstubAllGlobals()
+        }
+    })
+
     test('each lesson links its Rules section in a new tab', async () => {
         fake()
         renderLearn()
