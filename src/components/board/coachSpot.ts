@@ -149,10 +149,12 @@ function largest(bounds: Box, boxes: Box[], minW: number, minH: number): Box | n
  * the felt's top-left corner, beside my partner's backs and over the left seat's column; upright at 375×812 in play the
  * band between my partner's column and the trick; while bidding upright the felt's middle, where the trick goes.
  *
- * In play, where no free room holds a lesson (at least 220 × 72), the panel takes one seat's place while a lesson shows,
- * its tag column and backs (Ruling 87): upright my partner's, under the HUD and beside its Challenge column, down to 6 px
- * over the trick and the side seats' plates; sideways the right seat's, from the top of its fan, right of the trick and
- * over my hand. Nothing covers the trick, my hand, the HUD or another seat. While bidding it never covers a seat.
+ * Where no free room holds a lesson (at least 220 × 72), the panel takes one seat's place while a lesson shows, its tag
+ * column and backs: in play upright my partner's, under the HUD and beside its Challenge column, down to 6 px over the
+ * trick and the side seats' plates (Ruling 87); sideways the right seat's, from the top of its fan to over my hand, right
+ * of the trick in play (Ruling 87) and, while bidding too (Ruling 89), right of my bid panel on my bid turn. Upright it
+ * never covers a seat while bidding: 375×553 on my bid turn keeps its 252 × 57 and scrolls, as 667×323's 155 × 130 does
+ * sideways (Ruling 89). Nothing covers the trick, my hand, the HUD or another seat.
  */
 export function coachSpot(layout: Layout, at: CoachAt): CoachSpot {
     // while someone else bids, where my bid turn will put the panel if that place is roomy (desktops, tablets): so it doesn't
@@ -174,9 +176,10 @@ function place(layout: Layout, at: CoachAt): CoachSpot {
     const rest = all.filter((b) => b.of !== seat);
     // sideways from the right seat's top (its fan's): under my partner's row, whatever it holds
     const area = seat === 'right' ? { ...bounds, y0: Math.min(...all.filter((b) => b.of === 'right').map((b) => b.y0)) } : bounds;
-    const play = at === 'play';
-    const room = largest(bounds, all, MIN_W, MIN_H) ?? (play ? largest(area, rest, MIN_W, MIN_H) : null)
-        ?? largest(bounds, all, RELAXED.w, RELAXED.h) ?? (play ? largest(area, rest, RELAXED.w, RELAXED.h) : null)
+    // a seat may be covered in play (Ruling 87) and, sideways, while bidding too (Ruling 89)
+    const mayCover = at === 'play' || layout.kind === 'landscape';
+    const room = largest(bounds, all, MIN_W, MIN_H) ?? (mayCover ? largest(area, rest, MIN_W, MIN_H) : null)
+        ?? largest(bounds, all, RELAXED.w, RELAXED.h) ?? (mayCover ? largest(area, rest, RELAXED.w, RELAXED.h) : null)
         // the biggest free room of any size before ever covering something (a window too small for the table: §7's known misses)
         ?? largest(bounds, all, 1, 1)
         ?? { x0: EDGE, x1: W - EDGE, y0: layout.hud + CLEAR, y1: layout.hud + CLEAR + RELAXED.h };

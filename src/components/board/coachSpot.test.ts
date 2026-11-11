@@ -89,24 +89,22 @@ describe('coachSpot: Škola bele\'s panel on board-fit\'s layout (open beta §7.
         }
     })
 
-    test('in play it covers a seat only where the board has no free room for a lesson (Ruling 87): upright phones shorter than 375×812 my partner\'s fan and tag column, sideways phones the right seat\'s; while bidding it never covers a seat', () => {
+    test('it covers a seat only where the board has no free room for a lesson: in play upright phones shorter than 375×812 my partner\'s fan and tag column (Ruling 87), sideways phones the right seat\'s, in play and while bidding (Rulings 87, 89); upright it never covers a seat while bidding', () => {
         const covered = (at: CoachAt) => Object.fromEntries(layouts.map((layout) => [name(layout), coachSpot(layout, at).covers]))
+        const sideways = (layout: Layout) => layout.kind === 'landscape' && layout.viewport.width < 1024
         const play = Object.fromEntries(layouts.map((layout) => [name(layout),
-            layout.kind === 'landscape' && layout.viewport.width < 1024 ? 'right' : layout.kind === 'portrait' && name(layout) !== '375x812@2' ? 'partner' : null]))
+            sideways(layout) ? 'right' : layout.kind === 'portrait' && name(layout) !== '375x812@2' ? 'partner' : null]))
+        const bidding = Object.fromEntries(layouts.map((layout) => [name(layout), sideways(layout) ? 'right' : null]))
         expect(covered('play')).toEqual(play)
-        expect(covered('bidding')).toEqual(Object.fromEntries(layouts.map((layout) => [name(layout), null])))
-        expect(covered('myBid')).toEqual(Object.fromEntries(layouts.map((layout) => [name(layout), null])))
+        expect(covered('bidding')).toEqual(bidding)
+        expect(covered('myBid')).toEqual(bidding)
     })
 
-    // Where a room under 220 × 72 is all the board has while bidding (no seat may be covered then): Task M fix round 1's
-    // Brief-writer call, measured here so a change shows
+    // Ruling 89's exceptions, accepted as measured: on my bid turn upright at 375×553 (no seat covered while bidding
+    // upright; the partner's area is no better) and sideways at 667×323 (the right seat's place right of my bid panel)
     const SHORT: Record<string, Partial<Record<CoachAt, [number, number]>>> = {
         '375x553@2': { myBid: [251.5, 57.2] },
-        '667x323@2': { bidding: [178.1, 90.4], myBid: [96, 78.4] },
-        '844x340@3': { bidding: [178.1, 107.4], myBid: [184.5, 71.1] },
-        '812x375@2': { bidding: [178.1, 142.4], myBid: [168.5, 104.4] },
-        '915x332@2.625': { bidding: [399.1, 62.6], myBid: [220, 82.9] },
-        '851x329@2.75': { bidding: [178.1, 96.4], myBid: [188, 81.4] },
+        '667x323@2': { myBid: [154.5, 129.8] },
     }
 
     test.each(['play', 'bidding', 'myBid'] as const)('%s: at every checked window the panel has at least 220 × 72, but where the call lists the room the board has', (at) => {
@@ -160,13 +158,19 @@ describe('coachSpot: Škola bele\'s panel on board-fit\'s layout (open beta §7.
         expect(mine.top + mine.maxHeight).toBeCloseTo(467.8, 1)
     })
 
-    test('sideways at 812×375 @2 in play the right seat\'s place (Ruling 87): from its fan\'s top to 6 px over my hand, 6 px right of the trick; while bidding no seat is covered', () => {
+    test('sideways at 812×375 @2 the right seat\'s place (Rulings 87, 89): from its fan\'s top to 6 px over my hand; in play 6 px right of the trick, on my bid turn 6 px right of my bid panel, while someone else bids from the left seat\'s column', () => {
         const layout = layoutFor({ width: 812, height: 375, dpr: 2 })
         const play = coachSpot(layout, 'play')
         expect(play.covers).toBe('right')
         expect(play.left).toBeCloseTo(495.1 + 6, 1)
         expect(play.left + play.width).toBeCloseTo(804, 1)
         expect(play.top + play.maxHeight).toBeCloseTo(314.8 - 6, 1)
-        for (const at of ['bidding', 'myBid'] as const) expect(coachSpot(layout, at).covers, at).toBeNull()
+        const mine = coachSpot(layout, 'myBid')
+        expect(mine.covers).toBe('right')
+        expect(mine.left).toBeCloseTo(812 / 2 + 165 + 6, 1)
+        expect([mine.width, mine.maxHeight].map((n) => +n.toFixed(1))).toEqual([227, 160.7])
+        const others = coachSpot(layout, 'bidding')
+        expect(others.covers).toBe('right')
+        expect([others.width, others.maxHeight].map((n) => +n.toFixed(1))).toEqual([332, 160.7])
     })
 })
