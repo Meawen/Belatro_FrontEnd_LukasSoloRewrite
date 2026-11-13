@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { type Ref } from 'react';
 import { PixelIcon } from '../ui/PixelIcon';
 
 export interface ErrorAlertProps {
     message: string | null;
     className?: string;
+    /** Given, the alert can take focus (not in the tab order): a page moves focus to it when the focused control went away. */
+    ref?: Ref<HTMLDivElement>;
 }
 
-export const ErrorAlert: React.FC<ErrorAlertProps> = ({ message, className }) => {
+export const ErrorAlert: React.FC<ErrorAlertProps> = ({ message, className, ref }) => {
     if (!message) return null;
 
     const classes = [
@@ -17,7 +19,7 @@ export const ErrorAlert: React.FC<ErrorAlertProps> = ({ message, className }) =>
         .join(' ');
 
     return (
-        <div role="alert" className={classes}>
+        <div ref={ref} role="alert" tabIndex={ref ? -1 : undefined} className={classes}>
             <PixelIcon name="warning" className="mt-0.5" />
             <span>{message}</span>
         </div>

@@ -137,7 +137,8 @@ export function GoogleSignIn({ onSignedIn, waitlistToken, onWaitlist, returnTo, 
     const navigate = useNavigate();
     const handed = useReturnState();
     const returnState = returnTo ?? handed;
-    const [refusal, setRefusal] = useState<{ line: string; formLink: boolean } | null>(null);
+    // the refusal's line, and a link under it where the page doesn't offer the next step itself
+    const [refusal, setRefusal] = useState<{ line: string; link: 'form' | 'signIn' | null } | null>(null);
     // one answer at a time: Google's window can answer again before the first is through
     const sending = useRef(false);
 
@@ -176,8 +177,9 @@ export function GoogleSignIn({ onSignedIn, waitlistToken, onWaitlist, returnTo, 
             setRefusal({
                 // A-5: a 404 is a server with Google sign-in off, so the line that points to the form
                 line: isNetworkOrServerFailure(status) ? cat().errors.generic : status === 404 ? cat().auth.google.failed : errorMessage(error, cat().errors.generic),
-                // A-12: spec §3.3's "and a link to it", where the sign-up form isn't on the page
-                formLink: code === 'GOOGLE_EMAIL_UNVERIFIED' && !onWaitlist,
+                // A-12: spec §3.3's "and a link to it", where the sign-up form isn't on the page; spec §8's "Sign in with
+                // that account" where no sign-in is on the page: the guest prompt, the one caller with its own returnTo
+                link: code === 'GOOGLE_EMAIL_UNVERIFIED' && !onWaitlist ? 'form' : code === 'GOOGLE_EMAIL_IN_USE' && returnTo ? 'signIn' : null,
             });
         } finally {
             sending.current = false;
@@ -190,9 +192,13 @@ export function GoogleSignIn({ onSignedIn, waitlistToken, onWaitlist, returnTo, 
             {refusal && (
                 <div className="mt-3 flex flex-col items-center">
                     <ErrorAlert message={refusal.line} className="w-full" />
-                    {refusal.formLink && (
-                        <Link to="/signup" state={returnState} className={`t-callout mt-1 inline-flex min-h-11 items-center ${AUTH_LINK}`}>
-                            {t.auth.google.formLink}
+                    {refusal.link && (
+                        <Link
+                            to={refusal.link === 'form' ? '/signup' : '/login'}
+                            state={returnState}
+                            className={`t-callout mt-1 inline-flex min-h-11 items-center ${AUTH_LINK}`}
+                        >
+                            {refusal.link === 'form' ? t.auth.google.formLink : t.common.signIn}
                         </Link>
                     )}
                 </div>

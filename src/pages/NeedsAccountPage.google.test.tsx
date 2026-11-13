@@ -36,6 +36,7 @@ function renderPrompt(path = '/friends') {
             <Routes>
                 <Route path="/friends" element={<NeedsAccountPage area="friends" />} />
                 <Route path="/signup" element={<AuthPage initialMode="signup" redirectTo="/dashboard" />} />
+                <Route path="/login" element={<h1>Sign-in page</h1>} />
             </Routes>
             <Where />
         </MemoryRouter>,
@@ -43,7 +44,8 @@ function renderPrompt(path = '/friends') {
 }
 
 beforeEach(() => {
-    vi.clearAllMocks()
+    // reset, not clear: no queued answer from one test reaches the next
+    vi.resetAllMocks()
     vi.stubEnv('VITE_GOOGLE_CLIENT_ID', CLIENT_ID)
     beta.signupStatus.mockResolvedValue({ open: true })
 })
@@ -140,6 +142,25 @@ describe('Continue with Google on the guest prompt (Google sign-in spec §2, P-2
         await user.click(screen.getByRole('link', { name: 'Sign up with the form' }))
         expect(await screen.findByRole('heading', { level: 1, name: 'Create Account' })).toBeInTheDocument()
         expect(screen.getByTestId('where')).toHaveTextContent('/signup {"from":"/friends"}')
+    })
+
+    test("GOOGLE_EMAIL_IN_USE: its line, and Sign in under it, carrying this page (spec §8: \"Sign in with that account\")", async () => {
+        const user = userEvent.setup()
+        auth.googleSignIn.mockRejectedValue(new ApiError({ status: 409, message: 'refused', code: 'GOOGLE_EMAIL_IN_USE' }))
+        const google = stubGoogle(CREDENTIAL)
+        renderPrompt()
+        await screen.findByTestId('google-button')
+        await google.answer()
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            'This email already belongs to a Stiglja account. Sign in to it with its password, or with the Google account connected to it; then you can connect Google in Settings.')
+        const signIn = screen.getByRole('link', { name: 'Sign in' })
+        // a 44-px target, as the form link's
+        expect(signIn).toHaveClass('min-h-11')
+        // only for this refusal: the others have no sign-in link
+        expect(screen.queryByRole('link', { name: 'Sign up with the form' })).not.toBeInTheDocument()
+        await user.click(signIn)
+        expect(await screen.findByRole('heading', { level: 1, name: 'Sign-in page' })).toBeInTheDocument()
+        expect(screen.getByTestId('where')).toHaveTextContent('/login {"from":"/friends"}')
     })
 
     test('signup full by the time Google answers: the waitlist at /signup with the Google address, carrying this page', async () => {

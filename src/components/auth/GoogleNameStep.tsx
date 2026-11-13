@@ -44,6 +44,8 @@ const ENDINGS = new Map<string, Ending>([
 ]);
 /** Refusals about the name (A-5, US-G5): under the field, as on the form. The server's rule sentence is one too. */
 const NAME_CODES = new Set(['USERNAME_TAKEN', 'USERNAME_RESERVED', 'IN_GAME']);
+/** Where focus goes once an answer is drawn: the field whose note now says why, the alert, or the control in the button's place. */
+type FocusTarget = 'field' | 'alert' | 'next';
 
 /**
  * Google's name step (Google sign-in spec §3.3, §8): /signup after Google said a new account needs a name. The Google
@@ -73,6 +75,18 @@ export function GoogleNameStep({ email, waitlistToken, onSuccess, onWaitlist, on
     useEffect(() => {
         heading.current?.focus();
     }, []);
+    // a screen reader hears an answer only where focus goes: the field note isn't announced, and a pressed button can be
+    // replaced (Google's button, a next step) or disabled while busy. An answer asks for a target; the next render moves there
+    const field = useRef<HTMLInputElement>(null);
+    const alertBox = useRef<HTMLDivElement>(null);
+    const nextControl = useRef<HTMLButtonElement>(null);
+    const focusAfter = useRef<FocusTarget | null>(null);
+    useEffect(() => {
+        const target = focusAfter.current;
+        if (target === null) return;
+        focusAfter.current = null;
+        ({ field, alert: alertBox, next: nextControl })[target].current?.focus();
+    });
 
     const trimmed = name.trim();
     const ruleLine = check === 'off' ? null : trimmed ? usernameRuleError(trimmed) : check === 'tried' ? t.forms.usernameRequired : null;
@@ -91,6 +105,8 @@ export function GoogleNameStep({ email, waitlistToken, onSuccess, onWaitlist, on
         if ((code && NAME_CODES.has(code)) || line === cat().errors.rules.username) {
             // Ruling 5: at signup, IN_GAME is a guest keeping its own name while still seated
             setNameRefusal(code === 'IN_GAME' ? cat().auth.signUp.inGame : line);
+            // the field's description is now the refusal, and it is read where focus lands
+            focusAfter.current = 'field';
             return;
         }
         const end = code === undefined ? undefined : ENDINGS.get(code);
@@ -100,6 +116,8 @@ export function GoogleNameStep({ email, waitlistToken, onSuccess, onWaitlist, on
             setAlert(line);
             if (end) setEnding(end);
             else setExpired(true);
+            // the next step has Make my account's place; Google's button is Google's iframe, so its line takes focus
+            focusAfter.current = end ? 'next' : 'alert';
             return;
         }
         // worth another try: the name, the credential and the button stay. A 404 is a server with Google sign-in off (S1 A-5)
@@ -157,18 +175,22 @@ export function GoogleNameStep({ email, waitlistToken, onSuccess, onWaitlist, on
         setExpired(false);
         setAlert(null);
         // another Google account: its address shows (SignupForm passes it on), and Make my account waits for a tap
-        if (!sameGoogleAccount(credential, email)) return;
+        if (!sameGoogleAccount(credential, email)) {
+            focusAfter.current = 'next';
+            return;
+        }
         if (nameFits()) void send(credential);
+        else focusAfter.current = 'field';
     };
 
     const next = ending === 'signIn' ? (
-        <Button block onClick={() => navigate('/login', { state: returnState })}>{t.common.signIn}</Button>
+        <Button ref={nextControl} block onClick={() => navigate('/login', { state: returnState })}>{t.common.signIn}</Button>
     ) : ending === 'form' ? (
-        <Button block onClick={onBack}>{t.auth.google.formLink}</Button>
+        <Button ref={nextControl} block onClick={onBack}>{t.auth.google.formLink}</Button>
     ) : expired ? (
         <GoogleButton onCredential={retry} />
     ) : (
-        <Button type="submit" block loading={sending}>{sending ? t.auth.signUp.submitting : c.submit}</Button>
+        <Button ref={nextControl} type="submit" block loading={sending}>{sending ? t.auth.signUp.submitting : c.submit}</Button>
     );
 
     return (
@@ -186,6 +208,7 @@ export function GoogleNameStep({ email, waitlistToken, onSuccess, onWaitlist, on
             <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
                 {ending === null && (
                     <Input
+                        ref={field}
                         label={t.forms.username}
                         name="username"
                         type="text"
@@ -200,7 +223,7 @@ export function GoogleNameStep({ email, waitlistToken, onSuccess, onWaitlist, on
                         error={nameRefusal ?? ruleLine}
                     />
                 )}
-                <ErrorAlert message={alert} />
+                <ErrorAlert ref={alertBox} message={alert} />
                 {next}
                 {ending === null && <TermsLine />}
             </form>

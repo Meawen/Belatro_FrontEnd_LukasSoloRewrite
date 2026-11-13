@@ -383,6 +383,22 @@ describe("Google's answer (spec §1, §6.3, §8)", () => {
         expect(screen.queryByRole('link', { name: 'Sign up with the form' })).not.toBeInTheDocument()
     })
 
+    test("GOOGLE_EMAIL_IN_USE on /login and /signup: the line alone, since their pages already offer sign-in (the guest prompt adds a link)", async () => {
+        auth.googleSignIn.mockRejectedValue(refusal(409, 'GOOGLE_EMAIL_IN_USE'))
+        const login = await withButton('/login')
+        await login.answer()
+        expect(await screen.findByRole('alert')).toHaveTextContent(/^This email already belongs to a Stiglja account\./)
+        expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument()
+        cleanup()
+        const signup = await withButton('/signup')
+        await signup.answer()
+        expect(await screen.findByRole('alert')).toHaveTextContent(/^This email already belongs to a Stiglja account\./)
+        // the form's own "Already have an account? Sign in", and no other
+        const links = screen.getAllByRole('link', { name: 'Sign in' })
+        expect(links).toHaveLength(1)
+        expect(links[0].parentElement).toHaveTextContent('Already have an account? Sign in')
+    })
+
     test('signup full on /signup: the waitlist, saying so, with the Google address in it (spec §4, A-8)', async () => {
         auth.googleSignIn.mockRejectedValue(refusal(409, 'SIGNUP_FULL', 'Signup is full'))
         const google = await withButton('/signup')

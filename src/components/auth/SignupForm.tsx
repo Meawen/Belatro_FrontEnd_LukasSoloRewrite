@@ -65,6 +65,14 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     useEffect(() => {
         if (createdEmail) inboxHeading.current?.focus();
     }, [createdEmail]);
+    // the same when the name step closes back to the form (its way back, or "Sign up with the form")
+    const formHeading = useRef<HTMLHeadingElement>(null);
+    const backToForm = useRef(false);
+    useEffect(() => {
+        if (!backToForm.current || nameStep) return;
+        backToForm.current = false;
+        formHeading.current?.focus();
+    }, [nameStep]);
 
     const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -183,6 +191,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
                     setWaitlist({ notice, email });
                 }}
                 onBack={() => {
+                    backToForm.current = true;
                     clearPendingGoogle();
                     setNameStep(null);
                 }}
@@ -193,7 +202,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     return (
         <>
             <div className="mb-6 text-center">
-                <h1 className="t-title">{t.auth.signUp.createAccount}</h1>
+                <h1 ref={formHeading} tabIndex={-1} className="t-title">{t.auth.signUp.createAccount}</h1>
                 <p className="t-callout mt-2 text-text-2">{invite ? t.auth.signUp.inviteSubtitle : t.auth.signUp.subtitle}</p>
             </div>
 

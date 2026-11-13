@@ -55,11 +55,15 @@ async function openStep(entry?: InitialEntry, onSuccess?: () => void) {
     return done
 }
 
+/** Focus moves in an effect once the answer is drawn, so the test waits for document.activeElement to get there. */
+const focusMovesTo = (target: () => Element) => waitFor(() => expect(document.activeElement).toBe(target()))
+
 const nameField = () => screen.getByLabelText('Username')
 const makeAccount = () => screen.getByRole('button', { name: 'Make my account' })
 
 beforeEach(() => {
-    vi.clearAllMocks()
+    // reset, not clear: an answer queued with mockResolvedValueOnce that a failing test never used must not reach the next
+    vi.resetAllMocks()
     auth.isGuest = false
     beta.signupStatus.mockResolvedValue({ open: true })
 })
@@ -77,9 +81,8 @@ afterEach(() => {
 describe('the name step after Google (Google sign-in spec §3.3, §8 "Name step")', () => {
     test('the Google address, the name field with the rule as its hint, the Terms line, Make my account and the way back', async () => {
         await openStep()
-        const heading = screen.getByRole('heading', { level: 1, name: 'Choose your username' })
         // it took the form's place: reading starts again at its heading
-        expect(heading).toHaveFocus()
+        await focusMovesTo(() => screen.getByRole('heading', { level: 1, name: 'Choose your username' }))
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
         expect(screen.getByText(/^Signing up as/)).toHaveTextContent(`Signing up as ${ADDRESS}`)
         expect(screen.getByText(ADDRESS).tagName).toBe('STRONG')
@@ -208,6 +211,8 @@ describe('the name step after Google (Google sign-in spec §3.3, §8 "Name step"
         await user.click(makeAccount())
         await waitFor(() => expect(nameField()).toHaveAccessibleDescription(line))
         expect(nameField()).toBeInvalid()
+        // focus moves from Make my account to the field, so a screen reader reads the refusal (its description)
+        await focusMovesTo(() => nameField())
         expect(nameField()).toHaveValue('ana')
         expect(screen.queryByRole('alert')).not.toBeInTheDocument()
         expect(peekPendingGoogle()).toEqual({ credential: CREDENTIAL, email: ADDRESS })
@@ -285,6 +290,8 @@ describe('an expired Google token (review focus 4, spec §8)', () => {
         expect(peekPendingGoogle()).toBeNull()
         expect(nameField()).toHaveValue('jura')
         expect(screen.getByRole('alert')).toHaveTextContent("Google sign-in didn't go through. Try Google again.")
+        // Make my account is gone and Google's button is its own iframe: focus goes to the line that says what to do
+        await focusMovesTo(() => screen.getByRole('alert'))
         // Google's button in place of Make my account; the heading, the address and the way back stay
         expect(screen.queryByRole('button', { name: 'Make my account' })).not.toBeInTheDocument()
         expect(google.renderButton).toHaveBeenCalledTimes(1)
@@ -313,6 +320,8 @@ describe('an expired Google token (review focus 4, spec §8)', () => {
         expect(peekPendingGoogle()).toEqual({ credential: ivo, email: 'ivo@gmail.com' })
         expect(screen.queryByRole('alert')).not.toBeInTheDocument()
         expect(screen.queryByTestId('google-button')).not.toBeInTheDocument()
+        // back in Google's button's place, and focused
+        await focusMovesTo(() => makeAccount())
         auth.googleSignup.mockResolvedValueOnce(MEMBER)
         await user.click(makeAccount())
         expect(auth.googleSignup).toHaveBeenLastCalledWith({ credential: ivo, username: 'jura', language: 'en' })
@@ -327,6 +336,7 @@ describe('an expired Google token (review focus 4, spec §8)', () => {
         expect(auth.googleSignup).toHaveBeenCalledTimes(1)
         expect(nameField()).toBeInvalid()
         expect(nameField()).toHaveAccessibleDescription(RULE)
+        await focusMovesTo(() => nameField())
         expect(makeAccount()).toBeEnabled()
         expect(peekPendingGoogle()).toEqual({ credential: fresh, email: ADDRESS })
     })
@@ -341,7 +351,8 @@ describe('the way back, and a reload (spec §3.3, §6.3, P-1)', () => {
         await user.type(nameField(), 'jura')
         await user.click(screen.getByRole('button', { name: 'Use another way to sign up' }))
         expect(peekPendingGoogle()).toBeNull()
-        expect(screen.getByRole('heading', { level: 1, name: 'Create Account' })).toBeInTheDocument()
+        // the form replaced the step: reading starts again at its heading
+        await focusMovesTo(() => screen.getByRole('heading', { level: 1, name: 'Create Account' }))
         expect(screen.getByText('A place has opened for you. Create your account with this link.')).toBeInTheDocument()
         expect(await screen.findByTestId('google-button')).toBeInTheDocument()
         // the name stays with the step
@@ -403,6 +414,8 @@ describe('refusals no retry can fix (spec §3.3, §8; A-6)', () => {
         expect(screen.queryByLabelText('Username')).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Make my account' })).not.toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Use another way to sign up' })).toBeEnabled()
+        // the next step, in Make my account's place, has the focus
+        await focusMovesTo(() => screen.getByRole('button', { name: 'Sign in' }))
         await user.click(screen.getByRole('button', { name: 'Sign in' }))
         expect(await screen.findByRole('heading', { name: 'Sign-in page' })).toBeInTheDocument()
         expect(screen.getByTestId('where')).toHaveTextContent('/login {"from":"/lobby/abc"}')
@@ -418,8 +431,9 @@ describe('refusals no retry can fix (spec §3.3, §8; A-6)', () => {
         expect(peekPendingGoogle()).toBeNull()
         expect(screen.queryByLabelText('Username')).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Make my account' })).not.toBeInTheDocument()
+        await focusMovesTo(() => screen.getByRole('button', { name: 'Sign up with the form' }))
         await user.click(screen.getByRole('button', { name: 'Sign up with the form' }))
-        expect(screen.getByRole('heading', { level: 1, name: 'Create Account' })).toBeInTheDocument()
+        await focusMovesTo(() => screen.getByRole('heading', { level: 1, name: 'Create Account' }))
         expect(screen.getByLabelText('Email')).toBeInTheDocument()
     })
 })
