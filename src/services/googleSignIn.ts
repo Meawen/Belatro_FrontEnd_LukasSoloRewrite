@@ -126,6 +126,16 @@ export function emailFromCredential(credential: string): string | null {
     }
 }
 
+/**
+ * Whether a new ID token is for the address the name step shows (S2 A-2), so the step may send it straight on with the
+ * name already typed: the same address, trimmed and in any case, or one the token doesn't let us read (the server checks
+ * the token again either way). Another Google account's address is not: the step shows it first.
+ */
+export function sameGoogleAccount(credential: string, shownEmail: string): boolean {
+    const email = emailFromCredential(credential);
+    return email === null || email.trim().toLowerCase() === shownEmail.trim().toLowerCase();
+}
+
 /** A Google account with no Stiglja account yet: its ID token, sent again with the chosen name, and its address. */
 export interface PendingGoogle {
     credential: string;
@@ -137,7 +147,10 @@ let pending: PendingGoogle | null = null;
 const pendingListeners = new Set<() => void>();
 const tellPending = () => pendingListeners.forEach((listener) => listener());
 
-/** A `needsName` answer (or the cap, from /login): the credential the name step sends again (S2). */
+/**
+ * A `needsName` answer (or the cap, from /login), or a new tap on Google's button in the name step: the credential the
+ * name step sends again. On /signup it opens the name step (or, while signup is full, prefills the waitlist).
+ */
 export function setPendingGoogle(next: PendingGoogle): void {
     pending = next;
     tellPending();
@@ -148,7 +161,10 @@ export function peekPendingGoogle(): PendingGoogle | null {
     return pending;
 }
 
-/** The name step's way back, and its end (S2). */
+/**
+ * The credential is spent or of no more use: the name step's way back, its success, an expired token, a refusal no retry
+ * can fix, and the waitlist taking over. The name step itself stays open until the way back or the waitlist closes it.
+ */
 export function clearPendingGoogle(): void {
     pending = null;
     tellPending();
@@ -156,7 +172,7 @@ export function clearPendingGoogle(): void {
 
 /**
  * For useSyncExternalStore: tells its listener on every set and clear, so a `needsName` that arrives while /signup is
- * already shown reaches the mounted form. Unused until the name step (S2) reads it.
+ * already shown reaches the mounted form (SignupForm opens the name step).
  */
 export function subscribePendingGoogle(listener: () => void): () => void {
     pendingListeners.add(listener);

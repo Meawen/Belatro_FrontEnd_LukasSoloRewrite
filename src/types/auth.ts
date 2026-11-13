@@ -42,6 +42,23 @@ export interface GoogleSignInRequest {
     waitlistToken?: string;
 }
 
+/**
+ * Google sign-in spec §3.3: POST /api/auth/google/signup's body (B2's GoogleSignupRequest), sent by the name step. It
+ * answers as signup does (JwtResponseDTO), for a new account and for a sign-in to an existing one alike.
+ */
+export interface GoogleSignupRequest {
+    /** The same ID token step 1 was sent, or a newer one: never logged, never stored (P-1). */
+    credential: string;
+    /** The chosen name, trimmed (useAuth sends it in NFC). */
+    username: string;
+    /** The language the site is in: the new account starts in it. */
+    language: Lang;
+    /** /signup?invite=…'s token: a new account is admitted even while signup is full. */
+    waitlistToken?: string;
+    /** This browser was a guest (spec §3.4): sent only then, with the guest's token. */
+    wasGuest?: boolean;
+}
+
 /** POST /api/auth/google's answer (B1's GoogleSignInDTO, nulls left out): signed in, or a new account needs a name. */
 export interface GoogleSignInDTO {
     /** Signed in: the login response's token and user (`user.guest` false). */

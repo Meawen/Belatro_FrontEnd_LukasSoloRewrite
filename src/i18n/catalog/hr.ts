@@ -168,6 +168,12 @@ export const hr = {
             or: 'ili',
             failed: 'Prijava putem Googlea nije se otvorila. Pokušaj ponovno ili koristi korisničko ime i lozinku.',
             formLink: 'Registriraj se putem obrasca',
+            name: {
+                heading: 'Odaberi korisničko ime',
+                signingUpAs: 'Registriraš se s e-adresom',
+                submit: 'Izradi moj račun',
+                back: 'Registriraj se na drugi način',
+            },
         },
         forgot: {
             heading: 'Zaboravljena lozinka?',
@@ -724,6 +730,7 @@ export const hr = {
                     guideHand1: 'Škola: 1. dijeljenje',
                     guideHand2: 'Škola: 2. dijeljenje',
                     guestSignups: 'Registrirani gosti',
+                    googleSignups: 'Registrirani putem Googlea',
                     invitesSent: 'Poslane poveznice',
                     invitesUsed: 'Iskorištene poveznice',
                 },

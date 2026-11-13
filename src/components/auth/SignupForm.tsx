@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Button, Input, Loader } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
@@ -8,22 +8,22 @@ import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage
 import { EMAIL_PATTERN, passwordRuleError, usernameRuleError } from './credentialRules';
 import { AUTH_LINK } from './AuthFrame';
 import { GoogleSignIn } from './GoogleButton';
+import { GoogleNameStep } from './GoogleNameStep';
+import { TermsLine } from './TermsLine';
 import { useReturnState } from './returnState';
 import { cat, useT } from '../../i18n/t';
 import { WaitlistForm } from './WaitlistForm';
 import { useSignupStatus } from '../../hooks/useSignupStatus';
-import { peekPendingGoogle } from '../../services/googleSignIn';
+import { clearPendingGoogle, peekPendingGoogle, subscribePendingGoogle } from '../../services/googleSignIn';
 
 export interface SignupFormProps {
     onSuccess?: () => void;
 }
 
-/** A link inside running text (the R-40 line): underlined, in the accent. */
-const TEXT_LINK = 'text-accent underline underline-offset-2 hover:text-text';
-
 /**
  * Create an account (spec §4.2). "Sign in" is the other URL (X-2) and carries the return path (§4.1). While signup is
- * full it is the waitlist (WaitlistForm, spec §2.2); `?invite=` is a personal link that signs up anyway.
+ * full it is the waitlist (WaitlistForm, spec §2.2); `?invite=` is a personal link that signs up anyway. After Google
+ * said a new account needs a name, it is Google's name step (GoogleNameStep, Google sign-in spec §3.3).
  */
 export function SignupForm({ onSuccess }: SignupFormProps) {
     const [formData, setFormData] = useState({
@@ -46,6 +46,20 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     // the form turned into the waitlist after a submit or Google's answer (Google sign-in A-8): full meanwhile, or a dead
     // link while full; the line says which, and the address is the one typed, or Google's
     const [waitlist, setWaitlist] = useState<{ notice: string; email: string } | null>(null);
+    // P-1, S2 A-1: a Google credential waiting for a name (Google's needsName, here or on /login) opens the name step. The
+    // step stays open with the address it shows until its way back or the waitlist closes it, though the credential may
+    // go before then (a success, an expired token); a new credential (another Google account) changes the address
+    const pending = useSyncExternalStore(subscribePendingGoogle, peekPendingGoogle, peekPendingGoogle);
+    const [nameStep, setNameStep] = useState<{ email: string } | null>(pending && { email: pending.email });
+    const [seenPending, setSeenPending] = useState(pending);
+    if (pending !== seenPending) {
+        setSeenPending(pending);
+        if (pending) setNameStep({ email: pending.email });
+    }
+    // S1 A-8: at the cap the waitlist wins, with Google's address in it, and the credential goes (no name step can use it)
+    useEffect(() => {
+        if (status === 'full' && peekPendingGoogle()) clearPendingGoogle();
+    }, [status, pending]);
     // the check-inbox panel replaces the form that had focus: focus moves to its heading, where reading starts again
     const inboxHeading = useRef<HTMLHeadingElement>(null);
     useEffect(() => {
@@ -155,9 +169,26 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     }
 
     if (waitlist !== null) return <WaitlistForm initialEmail={waitlist.email} notice={waitlist.notice} />;
-    // Google at the cap on /login came here with its address (A-8)
-    if (status === 'full') return <WaitlistForm initialEmail={peekPendingGoogle()?.email} />;
+    // Google at the cap on /login came here with its address (A-8); the waitlist reads it once, so it stays as the credential goes
+    if (status === 'full') return <WaitlistForm initialEmail={nameStep?.email} />;
     if (status === 'asking') return <Loader text={t.common.loading} />;
+    if (nameStep) {
+        return (
+            <GoogleNameStep
+                email={nameStep.email}
+                waitlistToken={invite || undefined}
+                onSuccess={() => onSuccess?.()}
+                onWaitlist={(notice, email) => {
+                    setNameStep(null);
+                    setWaitlist({ notice, email });
+                }}
+                onBack={() => {
+                    clearPendingGoogle();
+                    setNameStep(null);
+                }}
+            />
+        );
+    }
 
     return (
         <>
@@ -219,12 +250,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
                     {isSignupLoading ? t.auth.signUp.submitting : t.auth.signUp.createAccount}
                 </Button>
 
-                {/* R-40: the pages open in a new tab, so the form keeps what was typed */}
-                <p className="t-footnote text-center text-text-2">
-                    {t.auth.signUp.termsBefore}{' '}
-                    <a href="/terms" target="_blank" rel="noopener noreferrer" className={TEXT_LINK}>{t.auth.signUp.termsLink}</a>{t.auth.signUp.termsBetween}{' '}
-                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className={TEXT_LINK}>{t.auth.signUp.privacyLink}</a>.
-                </p>
+                <TermsLine />
             </form>
 
             <p className="t-callout mt-4 text-center text-text-2">

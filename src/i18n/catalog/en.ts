@@ -232,8 +232,23 @@ export const en = {
             // in the button's place when Google's script is blocked, fails to load or has no answer in 10 s, and when the
             // server has Google sign-in off (404); common.retry's button under it loads the script again
             failed: "Google sign-in didn't open. Try again, or use your name and password.",
-            // /login only, under errors.codes.GOOGLE_EMAIL_UNVERIFIED: the link to /signup
+            // under errors.codes.GOOGLE_EMAIL_UNVERIFIED: on /login the link to /signup; in the name step the button that
+            // drops the Google sign-up and shows the form
             formLink: 'Sign up with the form',
+            // the name step (spec §3.3, GoogleNameStep): /signup after Google said a new account needs a name. It takes the
+            // form's place: forms.username's field with errors.rules.username as its hint, the Terms line, and
+            // auth.signUp.submitting on the busy button. An expired Google token shows errors.codes.GOOGLE_INVALID and
+            // Google's button in place of `submit`
+            name: {
+                // the step's h1
+                heading: 'Choose your username',
+                // under the heading: "{signingUpAs} **the Google address**"
+                signingUpAs: 'Signing up as',
+                // the step's button (spec §3.3)
+                submit: 'Make my account',
+                // the way back (spec §3.3): the Google sign-up is dropped and the form shows
+                back: 'Use another way to sign up',
+            },
         },
         // /forgot-password (ForgotPasswordPage)
         forgot: {
@@ -981,6 +996,8 @@ export const en = {
                     guideHand1: 'School: hand 1',
                     guideHand2: 'School: hand 2',
                     guestSignups: 'Guest signups',
+                    // Google sign-in spec §4: accounts made with Google that day
+                    googleSignups: 'Google signups',
                     invitesSent: 'Links sent',
                     invitesUsed: 'Links used',
                 },

@@ -69,11 +69,12 @@ export const doc: LegalDoc = {
                     <li>
                         <strong>Jednostavni brojevi:</strong> da vidimo radi li beta, poslužitelj vodi nekoliko dnevnih zbrojeva:
                         koliko je partija završilo s barem dvoje ljudi za stolom, koliko je puta pokrenuta Škola bele i koliko je
-                        puta završeno svako od njezina dva dijeljenja, koliko se gostiju registriralo te koliko je poveznica za
-                        registraciju iz Reda za stol poslano i iskorišteno. To su samo brojevi. Da bi izbrojio igrače koji se
-                        vraćaju, poslužitelj bilježi i koji su računi i gosti igrali kojeg dana, samo po korisničkom ID-u, i svaku
-                        tu zabilješku briše nakon 40 dana. Kad prolaziš Školu bele, preglednik javlja poslužitelju kad je pokreneš
-                        i kad završiš svako dijeljenje; poslužitelj samo povećava dnevni zbroj za jedan i ne bilježi tko si.
+                        puta završeno svako od njezina dva dijeljenja, koliko se gostiju registriralo, koliko je računa izrađeno
+                        putem Googlea te koliko je poveznica za registraciju iz Reda za stol poslano i iskorišteno. To su samo
+                        brojevi. Da bi izbrojio igrače koji se vraćaju, poslužitelj bilježi i koji su računi i gosti igrali kojeg
+                        dana, samo po korisničkom ID-u, i svaku tu zabilješku briše nakon 40 dana. Kad prolaziš Školu bele,
+                        preglednik javlja poslužitelju kad je pokreneš i kad završiš svako dijeljenje; poslužitelj samo povećava
+                        dnevni zbroj za jedan i ne bilježi tko si.
                     </li>
                 </ul>
             ),

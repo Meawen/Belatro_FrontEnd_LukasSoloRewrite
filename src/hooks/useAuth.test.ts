@@ -66,6 +66,21 @@ describe('useAuth logging', () => {
         expect(console.log).not.toHaveBeenCalled()
     })
 
+    test("a Google sign-up logs neither Google's token, the address in it, nor the issued token, refused or not (spec §6.1)", async () => {
+        const CREDENTIAL = 'eyJhbGciOiJSUzI1NiJ9.eyJlbWFpbCI6ImFuYUBnbWFpbC5jb20ifQ.c2ln'
+        vi.spyOn(authService, 'googleSignup').mockRejectedValueOnce(new ApiError({ message: 'Google sign-in failed, please try again', status: 401, code: 'GOOGLE_INVALID' }))
+        const logs = captureConsole()
+        const { result } = renderHook(() => useAuth())
+        await act(async () => {
+            await expect(result.current.googleSignup({ credential: CREDENTIAL, username: 'ana', language: 'en' })).rejects.toMatchObject({ code: 'GOOGLE_INVALID' })
+        })
+        expect(console.error).toHaveBeenCalledWith('Google sign-up failed:', expect.any(ApiError))
+        vi.spyOn(authService, 'googleSignup').mockResolvedValue(issued)
+        await act(async () => { await result.current.googleSignup({ credential: CREDENTIAL, username: 'ana', language: 'en' }) })
+        expect(logs.leaked(CREDENTIAL, 'ana@gmail.com', TOKEN)).toEqual([])
+        expect(console.log).not.toHaveBeenCalled()
+    })
+
     test('reading the session, signing in, signing up and logging out write nothing to console.log (X-14)', async () => {
         jsdomStorage.setItem('authToken', 'tok-1')
         jsdomStorage.setItem('user', JSON.stringify({ id: 'u1', username: 'ana' }))
@@ -135,6 +150,27 @@ describe('useAuth and the site language (spec §1.1)', () => {
         expect(jsdomStorage.getItem('stiglja:lang')).toBe('en')
         expect(put).not.toHaveBeenCalled()
         expect(result.current.isAuthenticated).toBe(true)
+    })
+
+    test("after a Google sign-up the account's language wins as at sign-in, since step 2 may sign in to an existing account (S2 A-4)", async () => {
+        jsdomStorage.setItem('stiglja:lang', 'hr')
+        const { useAuth, authService, userService, lang } = await load()
+        vi.spyOn(authService, 'googleSignup').mockImplementation(async () => {
+            jsdomStorage.setItem('authToken', 'tok-1')
+            return issued
+        })
+        vi.spyOn(userService, 'getMe').mockResolvedValue({ ...ME, language: 'en' })
+        const put = vi.spyOn(userService, 'setLanguage')
+        captureConsole()
+        const { result } = renderHook(() => useAuth())
+        let response: unknown
+        await act(async () => { response = await result.current.googleSignup({ credential: 'id-token', username: 'ana', language: 'hr' }) })
+        expect(response).toBe(issued)
+        expect(lang.getLang()).toBe('en')
+        expect(jsdomStorage.getItem('stiglja:lang')).toBe('en')
+        expect(put).not.toHaveBeenCalled()
+        expect(result.current.isAuthenticated).toBe(true)
+        expect(JSON.parse(jsdomStorage.getItem('user') ?? 'null')).toEqual(issued.user)
     })
 
     test("an account without a language (an older server) keeps the device's", async () => {
@@ -368,6 +404,48 @@ describe('useAuth and guests (spec §3)', () => {
         let answer: unknown
         await act(async () => { answer = await result.current.googleSignIn({ credential: 'id-token', language: 'en' }) })
         expect(answer).toEqual({ needsName: true, email: 'jura@gmail.com' })
+        expect(jsdomStorage.getItem('authToken')).toBe('g-tok')
+        expect(JSON.parse(jsdomStorage.getItem('user') ?? 'null')).toEqual(GUEST)
+        expect(jsdomStorage.getItem('stiglja:guestSecret')).toBe('secret')
+        expect(result.current.isGuest).toBe(true)
+        expect(result.current.isLoading).toBe(false)
+    })
+
+    test("a guest's Google sign-up goes out on the guest's token with wasGuest and the name in NFC, and the guest ends with it (spec §3.4)", async () => {
+        storeGuest()
+        const member = { id: 'u9', username: 'matič', guest: false }
+        const fetch = vi.fn(async () => jsonResponse(200, { token: 'm-tok', user: member, message: null }))
+        vi.stubGlobal('fetch', fetch)
+        captureConsole()
+        const { result } = renderHook(() => useAuth())
+        expect(result.current.isGuest).toBe(true)
+        await act(async () => {
+            await result.current.googleSignup({ credential: 'id-token', username: 'Matic\u030C', language: 'en', wasGuest: true })
+        })
+        // GET /user/me is stubbed in this block, so this is the one request
+        expect(fetch).toHaveBeenCalledTimes(1)
+        const sent = call(fetch, 0)
+        expect(sent.url).toMatch(/\/api\/auth\/google\/signup$/)
+        expect(sent.method).toBe('POST')
+        expect(sent.authorization).toBe('Bearer g-tok')
+        expect(JSON.parse(String(sent.body))).toEqual({ credential: 'id-token', username: 'Mati\u010D', language: 'en', wasGuest: true })
+        expect(jsdomStorage.getItem('authToken')).toBe('m-tok')
+        expect(JSON.parse(jsdomStorage.getItem('user') ?? 'null')).toEqual(member)
+        expect(jsdomStorage.getItem('stiglja:guestSecret')).toBeNull()
+        expect(result.current.isGuest).toBe(false)
+        expect(result.current.isAuthenticated).toBe(true)
+        expect(result.current.isLoading).toBe(false)
+    })
+
+    test('a refused Google sign-up (409 USERNAME_TAKEN) leaves the guest as it was', async () => {
+        storeGuest()
+        vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(409, { error: 'Username is already taken', code: 'USERNAME_TAKEN' })))
+        captureConsole()
+        const { result } = renderHook(() => useAuth())
+        await act(async () => {
+            await expect(result.current.googleSignup({ credential: 'id-token', username: 'jura', language: 'en', wasGuest: true }))
+                .rejects.toMatchObject({ status: 409, code: 'USERNAME_TAKEN' })
+        })
         expect(jsdomStorage.getItem('authToken')).toBe('g-tok')
         expect(JSON.parse(jsdomStorage.getItem('user') ?? 'null')).toEqual(GUEST)
         expect(jsdomStorage.getItem('stiglja:guestSecret')).toBe('secret')

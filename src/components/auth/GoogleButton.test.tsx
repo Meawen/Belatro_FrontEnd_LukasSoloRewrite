@@ -8,9 +8,10 @@ import { fileURLToPath } from 'node:url'
 import { LoginForm } from './LoginForm'
 import { SignupForm } from './SignupForm'
 import { ApiError } from '../../services/api'
-import { GSI_URL, clearPendingGoogle, peekPendingGoogle, subscribePendingGoogle } from '../../services/googleSignIn'
+import { clearPendingGoogle, peekPendingGoogle, subscribePendingGoogle } from '../../services/googleSignIn'
 import { setLang } from '../../i18n/lang'
 import { captureConsole } from '../../test/captureConsole'
+import { CLIENT_ID, dropGoogleScripts, gsiScripts, stubGoogle, tokenFor } from '../../test/googleStub'
 
 const auth = vi.hoisted(() => ({ login: vi.fn(), signup: vi.fn(), googleSignIn: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({
@@ -20,35 +21,13 @@ vi.mock('../../hooks/useAuth', () => ({
 const beta = vi.hoisted(() => ({ signupStatus: vi.fn(), joinWaitlist: vi.fn() }))
 vi.mock('../../services/betaService', () => ({ betaService: beta }))
 
-const CLIENT_ID = 'visual-test.apps.googleusercontent.com'
 const FAILED = "Google sign-in didn't open. Try again, or use your name and password."
 const GENERIC = 'Something went wrong. Try again.'
 
-/** A Google ID token's shape (header.payload.signature), its payload naming the Google address. */
-const tokenFor = (email: string) => ['eyJhbGciOiJSUzI1NiJ9', Buffer.from(JSON.stringify({ email })).toString('base64url'), 'c2ln'].join('.')
 const CREDENTIAL = tokenFor('ana@gmail.com')
 
 /** A signed-in answer (B1: the login response's token and user). */
 const SIGNED_IN = { token: 'm-tok', user: { id: 'u1', username: 'ana', guest: false }, needsName: false }
-
-const gsiScripts = () => [...document.querySelectorAll(`script[src="${GSI_URL}"]`)]
-
-/** Google Identity Services once its script ran; `answer` is Google's callback after an account was picked in its window. */
-function stubGoogle() {
-    const id = {
-        initialize: vi.fn(),
-        renderButton: vi.fn((parent: HTMLElement) => {
-            const button = document.createElement('div')
-            button.dataset.testid = 'google-button'
-            parent.append(button)
-        }),
-    }
-    vi.stubGlobal('google', { accounts: { id } })
-    const answer = (credential = CREDENTIAL) => act(async () => {
-        id.initialize.mock.lastCall![0].callback({ credential, select_by: 'btn' })
-    })
-    return { ...id, answer }
-}
 
 /** Where the router is, and the state it carries. */
 function Where() {
@@ -87,11 +66,7 @@ beforeEach(() => {
 
 afterEach(() => {
     cleanup()
-    // a load a test left in flight fails, so the next test starts with no script and nothing cached
-    for (const script of gsiScripts()) {
-        script.dispatchEvent(new Event('error'))
-        script.remove()
-    }
+    dropGoogleScripts()
     vi.useRealTimers()
     vi.unstubAllEnvs()
     vi.unstubAllGlobals()
@@ -337,18 +312,19 @@ describe("Google's answer (spec §1, §6.3, §8)", () => {
         expect(peekPendingGoogle()).toBeNull()
     })
 
-    test('a new account from /login: the credential and address wait in memory, and the page goes to /signup with the return path (P-1)', async () => {
+    test("a new account from /login: the credential and address wait in memory, and the page goes to /signup's name step with the return path (P-1)", async () => {
         auth.googleSignIn.mockResolvedValue({ needsName: true, email: 'ana@gmail.com' })
         const google = await withButton({ pathname: '/login', state: { from: '/lobby/abc' } })
         await google.answer()
-        expect(await screen.findByRole('heading', { level: 1, name: 'Create Account' })).toBeInTheDocument()
+        expect(await screen.findByRole('heading', { level: 1, name: 'Choose your username' })).toBeInTheDocument()
+        expect(screen.getByText(/^Signing up as/)).toHaveTextContent('Signing up as ana@gmail.com')
         expect(screen.getByTestId('where')).toHaveTextContent('/signup {"from":"/lobby/abc"}')
         expect(peekPendingGoogle()).toEqual({ credential: CREDENTIAL, email: 'ana@gmail.com' })
         // never in the history entry
         expect(screen.getByTestId('where').textContent).not.toContain(CREDENTIAL)
     })
 
-    test('a new account on /signup: it stays (the invite link with it), and the store tells its subscribers', async () => {
+    test('a new account on /signup: it stays (the invite link with it), the store tells its subscribers, and the name step shows at once', async () => {
         auth.googleSignIn.mockResolvedValue({ needsName: true, email: 'ana@gmail.com' })
         const told = vi.fn()
         const unsubscribe = subscribePendingGoogle(told)
@@ -357,6 +333,8 @@ describe("Google's answer (spec §1, §6.3, §8)", () => {
         expect(told).toHaveBeenCalledTimes(1)
         expect(peekPendingGoogle()).toEqual({ credential: CREDENTIAL, email: 'ana@gmail.com' })
         expect(screen.getByTestId('where')).toHaveTextContent('/signup?invite=tok-1 null')
+        expect(screen.getByRole('heading', { level: 1, name: 'Choose your username' })).toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: 'Create Account' })).not.toBeInTheDocument()
         unsubscribe()
     })
 
@@ -424,7 +402,7 @@ describe("Google's answer (spec §1, §6.3, §8)", () => {
         expect(screen.getByLabelText('Email')).toHaveValue('ana@gmail.com')
     })
 
-    test("signup full from /login: to /signup, whose waitlist has the Google address in it (A-8)", async () => {
+    test("signup full from /login: to /signup, whose waitlist has the Google address in it, and the credential goes (A-8)", async () => {
         auth.googleSignIn.mockRejectedValue(refusal(409, 'SIGNUP_FULL', 'Signup is full'))
         beta.signupStatus.mockResolvedValue({ open: false })
         const google = await withButton({ pathname: '/login', state: { from: '/lobby/abc' } })
@@ -432,7 +410,9 @@ describe("Google's answer (spec §1, §6.3, §8)", () => {
         expect(await screen.findByRole('heading', { level: 1, name: 'Waitlist' })).toBeInTheDocument()
         expect(screen.getByTestId('where')).toHaveTextContent('/signup {"from":"/lobby/abc"}')
         expect(screen.getByLabelText('Email')).toHaveValue('ana@gmail.com')
-        expect(peekPendingGoogle()).toEqual({ credential: CREDENTIAL, email: 'ana@gmail.com' })
+        // the waitlist read the address; the credential is of no more use (S2)
+        await waitFor(() => expect(peekPendingGoogle()).toBeNull())
+        expect(screen.getByLabelText('Email')).toHaveValue('ana@gmail.com')
     })
 
     test('a closed or cancelled Google window changes nothing (A-4)', async () => {
@@ -466,10 +446,17 @@ describe("Google's answer (spec §1, §6.3, §8)", () => {
 
     test('logs neither Google\'s token nor the address in it (spec §6.1)', async () => {
         const logs = captureConsole()
+        // a new account: the name step takes the form's place, and with it Google's button
         auth.googleSignIn.mockResolvedValueOnce({ needsName: true, email: 'ana@gmail.com' })
         const google = await withButton('/signup')
         await google.answer()
+        expect(await screen.findByRole('heading', { level: 1, name: 'Choose your username' })).toBeInTheDocument()
+        cleanup()
+        clearPendingGoogle()
+        // the cap: the waitlist, with the address
         auth.googleSignIn.mockRejectedValueOnce(refusal(409, 'SIGNUP_FULL', 'Signup is full'))
+        renderAt('/signup')
+        await screen.findByTestId('google-button')
         await google.answer()
         expect(await screen.findByRole('heading', { level: 1, name: 'Waitlist' })).toBeInTheDocument()
         expect(logs.leaked(CREDENTIAL, 'ana@gmail.com')).toEqual([])

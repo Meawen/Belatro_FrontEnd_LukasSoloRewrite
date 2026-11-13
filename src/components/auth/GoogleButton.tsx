@@ -16,7 +16,7 @@ import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage
 import { getLang, useLang } from '../../i18n/lang';
 import { cat, useT } from '../../i18n/t';
 import { AUTH_LINK } from './AuthFrame';
-import { useReturnState } from './returnState';
+import { useReturnState, type ReturnState } from './returnState';
 
 /** A drag-resize changes the slot's width on every frame: Google's button is drawn again once it has settled. */
 const SETTLE_MS = 150;
@@ -114,21 +114,29 @@ export interface GoogleSignInProps {
     waitlistToken?: string;
     /**
      * The sign-up form's waitlist (A-8), given by /signup only: there the cap and a dead invite link turn the form into
-     * the waitlist, its address Google's, and a new account's name step comes on the same page (S2). Elsewhere (/login)
-     * both go to /signup.
+     * the waitlist, its address Google's, and a new account's name step comes on the same page. Elsewhere (/login, the
+     * guest prompt) both go to /signup.
      */
     onWaitlist?: (notice: string, email: string) => void;
+    /**
+     * The return path /signup carries on (the name step, the form link): this page's own `{ from }` where it isn't an auth
+     * page (the guest prompt, S2 A-7). By default the one this auth page was handed.
+     */
+    returnTo?: ReturnState;
+    /** The "or" between Google's button and a form under it; the guest prompt has no form (S2 A-7). */
+    divider?: boolean;
 }
 
 /**
  * "Continue with Google" above a sign-in or sign-up form (spec §2, A-3): Google's button, the line for a refusal under
- * it, then "or". Nothing without a client id, so no "or" stands alone.
+ * it, then "or". Nothing without a client id, so no "or" stands alone. The guest prompt has it too, with no "or".
  */
-export function GoogleSignIn({ onSignedIn, waitlistToken, onWaitlist }: GoogleSignInProps) {
+export function GoogleSignIn({ onSignedIn, waitlistToken, onWaitlist, returnTo, divider = true }: GoogleSignInProps) {
     const t = useT();
     const { googleSignIn } = useAuth();
     const navigate = useNavigate();
-    const returnState = useReturnState();
+    const handed = useReturnState();
+    const returnState = returnTo ?? handed;
     const [refusal, setRefusal] = useState<{ line: string; formLink: boolean } | null>(null);
     // one answer at a time: Google's window can answer again before the first is through
     const sending = useRef(false);
@@ -189,11 +197,13 @@ export function GoogleSignIn({ onSignedIn, waitlistToken, onWaitlist }: GoogleSi
                     )}
                 </div>
             )}
-            <div className="my-5 flex items-center gap-3">
-                <span aria-hidden="true" className="h-0.5 flex-1 bg-edge" />
-                <span className="t-footnote text-text-2">{t.auth.google.or}</span>
-                <span aria-hidden="true" className="h-0.5 flex-1 bg-edge" />
-            </div>
+            {divider && (
+                <div className="my-5 flex items-center gap-3">
+                    <span aria-hidden="true" className="h-0.5 flex-1 bg-edge" />
+                    <span className="t-footnote text-text-2">{t.auth.google.or}</span>
+                    <span aria-hidden="true" className="h-0.5 flex-1 bg-edge" />
+                </div>
+            )}
         </>
     );
 }

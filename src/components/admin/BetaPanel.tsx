@@ -165,8 +165,10 @@ const TILES: { key: Exclude<keyof BetaCounts, 'perDay'>; icon: IconName }[] = [
     { key: 'invitesSent7', icon: 'mail' },
     { key: 'invitesUsed7', icon: 'check' },
 ];
-// the 14-day table's columns after the day, with perDay's names
-const COLUMNS: Exclude<keyof BetaDay, 'day'>[] = ['casualWithHumans', 'ranked', 'guideStarted', 'guideHand1', 'guideHand2', 'guestSignups', 'invitesSent', 'invitesUsed'];
+// the 14-day table's columns after the day, with perDay's names; Google's signups are a column only (Google sign-in §4)
+const COLUMNS: Exclude<keyof BetaDay, 'day'>[] = [
+    'casualWithHumans', 'ranked', 'guideStarted', 'guideHand1', 'guideHand2', 'guestSignups', 'googleSignups', 'invitesSent', 'invitesUsed',
+];
 
 /** GET /admin/beta's counts (spec §9, US-18): a tile per number, then a row per Zagreb day, newest first. */
 function CountsSection({ counts }: { counts: BetaCounts }) {

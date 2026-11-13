@@ -64,8 +64,9 @@ describe('Rules, Privacy and Terms (spec §4.15)', () => {
             // Ruling 32: the guest's secret on the device; Ruling 34: the waitlist address in memory, in the retention list
             "If you play as a guest, the site keeps the guest there in the same way, with the guest's secret key, which signs you back in as that guest when your sign-in runs out; signing out removes it too.",
             "IP addresses and waitlist email addresses held in the server's memory to limit attempts: dropped from memory within about an hour, and whenever the server restarts.",
-            // spec §9 (B9, S15): the waitlist link counts, and the guide's counts carry no one's identity
-            'how many guests signed up, and how many waitlist signup links were sent and used. These are numbers only.',
+            // spec §9 (B9, S15): the waitlist link counts, and the guide's counts carry no one's identity; Google sign-in §4
+            // (S1 A-13): the accounts made with Google
+            'how many guests signed up, how many accounts were made with Google, and how many waitlist signup links were sent and used. These are numbers only.',
             "the server only adds one to that day's total and does not record who you are.",
             // Google sign-in spec §7, and A-13: the date, and a removed account's Google connection
             'Last updated: November 2026.',
@@ -94,7 +95,7 @@ describe('Rules, Privacy and Terms (spec §4.15)', () => {
             'Da Stiglja bude sigurna i da radi (naš legitimni interes): ograničavamo koliko se često mogu koristiti prijava, registracija, igra kao gost, Red za stol i brojanje Škole bele te vodimo zapise kako bismo pronašli pogreške i zlouporabe.',
             'Ako igraš kao gost, stranica ondje na isti način čuva gosta i njegov tajni ključ, kojim te preglednik ponovno prijavljuje kao tog gosta kad prijava istekne; odjava briše i ključ.',
             'IP adrese i e-adrese upisane u Red za stol koje držimo u memoriji poslužitelja radi ograničavanja pokušaja: iz memorije ih brišemo unutar otprilike sat vremena i pri svakom ponovnom pokretanju poslužitelja.',
-            'koliko se gostiju registriralo te koliko je poveznica za registraciju iz Reda za stol poslano i iskorišteno. To su samo brojevi.',
+            'koliko se gostiju registriralo, koliko je računa izrađeno putem Googlea te koliko je poveznica za registraciju iz Reda za stol poslano i iskorišteno. To su samo brojevi.',
             'poslužitelj samo povećava dnevni zbroj za jedan i ne bilježi tko si.',
             'Zadnja izmjena: studeni 2026.',
             'Ako koristiš prijavu putem Googlea: Google nam šalje ID tvojeg Google računa, tvoju e-adresu i podatak je li je Google potvrdio.',

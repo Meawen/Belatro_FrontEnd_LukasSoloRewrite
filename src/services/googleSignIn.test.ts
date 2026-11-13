@@ -7,6 +7,7 @@ import {
     loadGoogle,
     peekPendingGoogle,
     renderGoogleButton,
+    sameGoogleAccount,
     setPendingGoogle,
     subscribePendingGoogle,
 } from './googleSignIn'
@@ -67,6 +68,24 @@ describe('emailFromCredential (Google sign-in spec §4: the address, for display
         ['an email that is not a string', credentialWith({ email: 42 })],
     ])('returns null for %s', (_, credential) => {
         expect(emailFromCredential(credential)).toBeNull()
+    })
+})
+
+describe('sameGoogleAccount (S2 A-2: the next tap after an expired token)', () => {
+    test('the address the name step shows, trimmed and in any case', () => {
+        expect(sameGoogleAccount(credentialWith({ email: 'ana@gmail.com' }), 'ana@gmail.com')).toBe(true)
+        expect(sameGoogleAccount(credentialWith({ email: ' Ana@Gmail.COM ' }), 'ana@gmail.com ')).toBe(true)
+        expect(sameGoogleAccount(credentialWith({ email: 'željka@primjer.hr' }), 'ŽELJKA@primjer.hr')).toBe(true)
+    })
+
+    test('another Google account is not', () => {
+        expect(sameGoogleAccount(credentialWith({ email: 'ivo@gmail.com' }), 'ana@gmail.com')).toBe(false)
+        expect(sameGoogleAccount(credentialWith({ email: 'ana@gmail.com' }), '')).toBe(false)
+    })
+
+    test("a token whose address can't be read counts as the same: the server checks it again", () => {
+        expect(sameGoogleAccount('not-a-token', 'ana@gmail.com')).toBe(true)
+        expect(sameGoogleAccount(credentialWith({ sub: '1234' }), 'ana@gmail.com')).toBe(true)
     })
 })
 
@@ -202,5 +221,14 @@ describe('the pending Google credential (P-1: in memory only)', () => {
         setPendingGoogle({ credential: 'id-token', email: 'ana@gmail.com' })
         expect(JSON.stringify({ ...localStorage })).not.toContain('id-token')
         expect(JSON.stringify({ ...sessionStorage })).not.toContain('id-token')
+    })
+
+    test('a reload loses it: a fresh copy of the module has no pending credential (P-1)', async () => {
+        setPendingGoogle({ credential: 'id-token', email: 'ana@gmail.com' })
+        vi.resetModules()
+        const fresh = await import('./googleSignIn')
+        expect(fresh.peekPendingGoogle()).toBeNull()
+        // the copy this file imported still holds it: the two are separate modules, as two page loads are
+        expect(peekPendingGoogle()).toEqual({ credential: 'id-token', email: 'ana@gmail.com' })
     })
 })

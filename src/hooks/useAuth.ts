@@ -11,12 +11,13 @@ import type {
     UserLoginDetailsDTO,
     GoogleSignInRequest,
     GoogleSignInDTO,
+    GoogleSignupRequest,
 } from '../types';
 import { forgetSession } from '../services/guestSecret';
 
 /**
- * A sign-in's steps once authService has stored the token (login, googleSignIn): the user beside it, then the account's
- * language.
+ * A sign-in's steps once authService has stored the token (login, googleSignIn, googleSignup): the user beside it, then
+ * the account's language.
  */
 async function enterAccount(user: UserLoginDetailsDTO | null): Promise<void> {
     // Store user data in localStorage
@@ -153,13 +154,16 @@ export function useAuth() {
         }
     }, [loginMutation]);
 
-    // Google sign-in spec §1, §6.3: signed in, the session is stored as login stores it; a needsName answer stores nothing
-    // (the caller keeps the credential for the name step)
-    const googleSignIn = useCallback(async (request: GoogleSignInRequest): Promise<GoogleSignInDTO> => {
+    // Google sign-in spec §1, §6.3: both Google steps store a signed-in answer's session as login does (the account's
+    // language included: step 2 may sign in to an existing account, S2 A-4); an answer with no token stores nothing
+    const throughGoogle = useCallback(async <T extends { token?: string | null; user?: UserLoginDetailsDTO | null }>(
+        send: () => Promise<T>,
+        failure: string,
+    ): Promise<T> => {
         try {
             setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
-            const response = await authService.google(request);
+            const response = await send();
             if (!response.token) {
                 setAuthState(prev => ({ ...prev, isLoading: false }));
                 return response;
@@ -177,15 +181,28 @@ export function useAuth() {
             return response;
         } catch (error) {
             // the error, never the request: it carries Google's token
-            console.error('Google sign-in failed:', error);
+            console.error(`${failure}:`, error);
             setAuthState(prev => ({
                 ...prev,
-                error: error instanceof Error ? error.message : 'Google sign-in failed',
+                error: error instanceof Error ? error.message : failure,
                 isLoading: false,
             }));
             throw error;
         }
     }, []);
+
+    // step 1: signed in, or needsName (the caller keeps the credential for the name step)
+    const googleSignIn = useCallback(
+        (request: GoogleSignInRequest): Promise<GoogleSignInDTO> => throughGoogle(() => authService.google(request), 'Google sign-in failed'),
+        [throughGoogle],
+    );
+
+    // step 2, the name step (spec §3.3): the name in NFC, as signup sends it (Ruling 35)
+    const googleSignup = useCallback(
+        (request: GoogleSignupRequest): Promise<JwtResponseDTO> =>
+            throughGoogle(() => authService.googleSignup({ ...request, username: request.username.normalize('NFC') }), 'Google sign-up failed'),
+        [throughGoogle],
+    );
 
     const signup = useCallback(async (userData: SignupRequestDTO): Promise<JwtResponseDTO> => {
         try {
@@ -254,6 +271,7 @@ export function useAuth() {
         token: getToken(),
         login,
         googleSignIn,
+        googleSignup,
         signup,
         logout,
         isLoginLoading: loginMutation.isLoading,

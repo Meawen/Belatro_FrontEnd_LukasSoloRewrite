@@ -6,6 +6,7 @@ import type {
     JwtResponseDTO,
     GoogleSignInRequest,
     GoogleSignInDTO,
+    GoogleSignupRequest,
 } from '../types';
 import type { Lang } from '../i18n/lang';
 import { GUEST_SECRET_KEY, forgetSession } from './guestSecret';
@@ -38,6 +39,15 @@ export const authService = {
     // the stored one, so a guest stays a guest, as at login
     async google(request: GoogleSignInRequest): Promise<GoogleSignInDTO> {
         const response = await apiClient.post<GoogleSignInDTO>('/api/auth/google', request, { keepTokenOn401: true });
+        if (response.token) storeAccountToken(response.token);
+        return response;
+    },
+
+    // spec §3.3: the name step sends Google's token again with the chosen name, and the answer is signup's (a new account,
+    // or a sign-in when the address became a member's meanwhile). As at step 1, a guest's token rides along and an expired
+    // Google token (401 GOOGLE_INVALID) leaves the guest signed in
+    async googleSignup(request: GoogleSignupRequest): Promise<JwtResponseDTO> {
+        const response = await apiClient.post<JwtResponseDTO>('/api/auth/google/signup', request, { keepTokenOn401: true });
         if (response.token) storeAccountToken(response.token);
         return response;
     },
