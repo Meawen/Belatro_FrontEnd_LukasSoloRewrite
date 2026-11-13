@@ -26,6 +26,7 @@ const fake = vi.hoisted(() => {
 vi.mock('../../services/gameSocket', () => ({ gameSocket: fake.gameSocket }))
 
 import { ReconnectBanner } from './ReconnectBanner'
+import { setLang } from '../../i18n/lang'
 
 beforeEach(() => {
     vi.clearAllMocks()
@@ -51,5 +52,19 @@ describe('ReconnectBanner (R-30)', () => {
         act(() => fake.set({ isConnected: true, isReconnecting: false }))
         expect(screen.queryByRole('status')).not.toBeInTheDocument()
         expect(screen.queryByText('Reconnecting…')).not.toBeInTheDocument()
+    })
+
+    test('in Croatian: Ponovno se spajamo… and Pokušaj odmah, which tries at once', async () => {
+        const user = userEvent.setup()
+        setLang('hr')
+        try {
+            fake.set({ isConnected: false, isReconnecting: true })
+            render(<ReconnectBanner />)
+            expect(screen.getByRole('status')).toHaveTextContent('Ponovno se spajamo…')
+            await user.click(screen.getByRole('button', { name: 'Pokušaj odmah' }))
+            expect(fake.gameSocket.retryNow).toHaveBeenCalledTimes(1)
+        } finally {
+            setLang('en')
+        }
     })
 })

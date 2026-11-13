@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation, useParams } from 'react-route
 import { MatchRow } from './MatchRow'
 import { matchOutcome, outcomeWord, relativeMatchDate } from './matchOutcome'
 import type { PlayerMatchSummaryDTO } from '../../types/user'
+import { setLang } from '../../i18n/lang'
 
 // Tailwind's own colour scale (bg-emerald-900, text-red-300, …): the design uses tokens only (spec §3.2)
 const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange|teal|pink)-\d/
@@ -107,5 +108,28 @@ describe('MatchRow words and dates (MatchSummaryCard’s rules, kept)', () => {
         const old = new Date(hoursAgo(10 * 24))
         expect(relativeMatchDate(hoursAgo(10 * 24))).toBe(old.toLocaleDateString([], { month: 'short', day: 'numeric' }))
         expect(relativeMatchDate(null)).toBe('Unknown')
+        expect(relativeMatchDate('not a date')).toBe('Unknown')
+    })
+})
+
+describe('MatchRow in Croatian (open beta §1.1)', () => {
+    afterEach(() => setLang('en'))
+
+    test('words and dates in Croatian', () => {
+        setLang('hr')
+        expect(['WIN', 'LOSS', 'DRAW', 'ABANDONED', null].map(outcomeWord)).toEqual(['Pobjeda', 'Poraz', 'Neriješeno', 'ABANDONED', 'Nepoznato'])
+        expect(relativeMatchDate(hoursAgo(30))).toBe('Jučer')
+        expect(relativeMatchDate(hoursAgo(3 * 24 + 1))).toBe('prije 3 dana')
+        expect(relativeMatchDate(null)).toBe('Nepoznato')
+        expect(relativeMatchDate(hoursAgo(2))).toMatch(/^Danas u \d{2}:\d{2}$/)
+        expect(relativeMatchDate(hoursAgo(10 * 24))).toMatch(/^\d{1,2}\. [a-zčćšžđ]+$/)
+
+        const { unmount } = renderRow(summary())
+        expect(screen.getByRole('link', { name: /Pobjeda/ })).toBeInTheDocument()
+        expect(screen.getByText('RANGIRANO')).toBeInTheDocument()
+        expect(screen.getByText('EKIPA A · EKIPA B')).toBeInTheDocument()
+        unmount()
+        renderRow(summary({ result: 'Team A wins by forfeit' }))
+        expect(screen.getByText('Predaja')).toBeInTheDocument()
     })
 })

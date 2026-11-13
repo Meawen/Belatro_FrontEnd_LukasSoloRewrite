@@ -6,6 +6,7 @@ import { boxStyle, cardMotion, useArc, type Anchor } from './cardMotion';
 import type { HandCardModel } from './model/boardModel';
 import type { Target, Targets } from './model/cardTargets';
 import type { Entrance } from './stage';
+import { useT } from '../../i18n/t';
 
 interface HandCardProps {
     card: HandCardModel;
@@ -26,6 +27,7 @@ interface HandCardProps {
  * (spring.quick); the hover lift and the bidding suit ring are CSS on inner layers (board.css, D-35).
  */
 function HandCard({ card, target, layoutId, entrance, from, instant, reduced, tabIndex, onPress, register }: HandCardProps) {
+    const t = useT();
     const arc = useArc();
     const present = useIsPresent();
     const off = !card.enabled || !present;
@@ -37,7 +39,8 @@ function HandCard({ card, target, layoutId, entrance, from, instant, reduced, ta
             data-testid={present ? 'hand-card' : undefined}
             data-card={card.id}
             data-suit={card.card.boja}
-            aria-label={card.label}
+            data-marked={card.marked || undefined}
+            aria-label={card.marked ? t.board.hand.marked(card.label) : card.label}
             disabled={off}
             aria-disabled={off}
             tabIndex={tabIndex}
@@ -86,6 +89,7 @@ const MOVES: Record<string, (i: number, n: number) => number> = {
  * ←/→, Home and End move between the playable cards (one tab stop); Enter and Space play.
  */
 export function Hand({ cards, targets, deal, entrances, instant, reduced, onPress }: HandProps) {
+    const t = useT();
     const elements = useRef(new Map<string, HTMLButtonElement>());
     const [active, setActive] = useState<string | null>(null);
     const playable = cards.filter((card) => card.enabled);
@@ -127,7 +131,7 @@ export function Hand({ cards, targets, deal, entrances, instant, reduced, onPres
     });
 
     return (
-        <div role="toolbar" aria-label="Your hand" data-testid="hand" className="board-region board-hand" onKeyDown={onKeyDown}>
+        <div role="toolbar" aria-label={t.board.hand.label} data-testid="hand" className="board-region board-hand" onKeyDown={onKeyDown}>
             {reduced ? <AnimatePresence>{buttons}</AnimatePresence> : buttons}
         </div>
     );

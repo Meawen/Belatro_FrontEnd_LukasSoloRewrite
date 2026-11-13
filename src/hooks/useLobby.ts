@@ -3,6 +3,7 @@ import { ApiError, lobbyService } from '../services';
 import { errorMessage } from '../utils/errorMessage';
 import { useApi, useMutation } from './useApi';
 import { usePolling } from './usePolling';
+import { cat } from '../i18n/t';
 import type {
     LobbyDTO,
     CreateLobbyDTO,
@@ -24,7 +25,7 @@ export interface LobbyState {
     loadError: unknown;
     /** GET /lobbies/{id} answered 404: the host closed the lobby, or it was reaped after 24 h. */
     closed: boolean;
-    /** "Could not refresh the lobby: …" after a failed poll; `lobby` stays the last good one. */
+    /** "Could not refresh the table: …" after a failed poll; `lobby` stays the last good one. */
     pollError: string | null;
     /** Fetch now (Try again, after an action). Never rejects. */
     refresh: () => Promise<void>;
@@ -51,7 +52,7 @@ export function useLobby(lobbyId: string, polling = true): LobbyState {
             }
             setState((prev) =>
                 prev.lobby
-                    ? { ...prev, pollError: `Could not refresh the lobby: ${errorMessage(e, 'unknown error')}` }
+                    ? { ...prev, pollError: cat().table.refreshFailed(errorMessage(e, cat().table.unknownError)) }
                     : { ...prev, loading: false, loadError: e },
             );
         }

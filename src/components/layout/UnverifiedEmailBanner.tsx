@@ -1,14 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { ME_CHANGED, useMe } from '../../hooks/useUser';
 import { ResendConfirmationButton } from '../auth/ResendConfirmationButton';
 import { Banner } from '../ui';
+import { useT } from '../../i18n/t';
+import { formatLongDate } from '../../i18n/format';
 
 /** Unverified accounts may play casual, not ranked; say so on every page until confirmed. */
 export const UnverifiedEmailBanner: React.FC = () => {
-    const { isAuthenticated } = useAuth();
-    const { data: me, refetch } = useMe(isAuthenticated);
+    const { isAuthenticated, isGuest } = useAuth();
+    // a guest has no address and no Settings (spec §3.3): nothing to confirm, so nothing to ask
+    const { data: me, refetch } = useMe(isAuthenticated && !isGuest);
+    const t = useT();
+    const { pathname } = useLocation();
     // The address a resend answered 409 "Nothing to confirm" for: it can never be confirmed
     // (for example a malformed legacy value), so stop asking to confirm it.
     const [unconfirmable, setUnconfirmable] = useState<string | null>(null);
@@ -27,9 +32,14 @@ export const UnverifiedEmailBanner: React.FC = () => {
         return () => window.removeEventListener(ME_CHANGED, onMeChanged);
     }, [isAuthenticated]);
 
-    if (!isAuthenticated || !me || me.emailVerified) return null;
+    // a guest has no address and no Settings (spec §3.3): nothing to confirm
+    // Doma's ranked button says the same and offers the same resend (spec §5)
+    if (!isAuthenticated || isGuest || !me || me.emailVerified || pathname === '/dashboard') return null;
 
     const address = me.pendingEmail ?? me.email;
+    // spec §2.1 (D-25): an unconfirmed account is removed on this day; null for one that never is (or an unreadable day)
+    const removeDay = formatLongDate(me.verifyBy ?? '');
+    const removal = removeDay ? t.shell.unverified.removeBy(removeDay) : null;
 
     // The button also fires ME_CHANGED, so the re-fetch above runs too: if the address was
     // confirmed in another tab since this page loaded, the banner goes.
@@ -38,24 +48,24 @@ export const UnverifiedEmailBanner: React.FC = () => {
     };
 
     return (
-        <Banner label="Email confirmation" icon="mail">
+        <Banner label={t.shell.unverified.label} icon="mail">
             {address ? (
                 <span className="flex flex-col items-start gap-2">
                     {unconfirmable === address ? (
-                        <span>Add or change your email address to play ranked.</span>
+                        <span>{t.shell.unverified.unconfirmable}{removal && <>{' '}{removal}</>}</span>
                     ) : (
                         // no promise of a mail: an address another account holds is accepted but never mailed
-                        <span>Confirm {address} to play ranked: use the link if one arrived, or ask for a new one.</span>
+                        <span>{t.shell.unverified.confirm(address)}{removal && <>{' '}{removal}</>}</span>
                     )}
                     {/* a new address gets a fresh button, not the old one's "nothing to confirm" */}
                     <ResendConfirmationButton key={address} onNothingToConfirm={handleNothingToConfirm} />
                 </span>
             ) : (
                 <span>
-                    Add an email address to play ranked.{' '}
+                    {t.shell.unverified.noAddress}{removal && <>{' '}{removal}</>}{' '}
                     {/* X-11: e-mail management lives in Settings → Account (D-32) */}
                     <Link to="/settings" className="inline-flex min-h-11 items-center font-semibold text-accent underline underline-offset-2">
-                        Open settings
+                        {t.shell.unverified.openSettings}
                     </Link>
                 </span>
             )}

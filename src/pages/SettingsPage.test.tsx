@@ -45,7 +45,7 @@ async function renderSettings(reducedMotion: 'always' | 'never' = 'never') {
 const effects = () => within(screen.getByRole('group', { name: 'Table effects' }))
 
 describe('Settings (spec §4.13)', () => {
-    test('the page is titled Settings and starts with Table effects, Full until the player picks', async () => {
+    test('the page is titled Settings, with Table effects Full until the player picks', async () => {
         await renderSettings()
         expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Settings'])
         expect(document.title).toBe('Settings · Stiglja')
@@ -53,6 +53,20 @@ describe('Settings (spec §4.13)', () => {
         expect(effects().getAllByRole('button').map((b) => b.textContent)).toEqual(['Full', 'Calm', 'Off'])
         expect(effects().getByRole('button', { name: 'Full' })).toHaveAttribute('aria-pressed', 'true')
         expect(screen.queryByText(/reduced motion/)).not.toBeInTheDocument()
+    })
+
+    // open beta §1.1
+    test('Language comes first, then Table effects', async () => {
+        await renderSettings()
+        expect(screen.getAllByRole('heading', { level: 2 }).slice(0, 2).map((h) => h.textContent)).toEqual(['Language', 'Table effects'])
+    })
+
+    test('picking Hrvatski turns the page title and the document Croatian', async () => {
+        await renderSettings()
+        await userEvent.setup().click(within(screen.getByRole('group', { name: 'Language' })).getByRole('button', { name: 'Hrvatski' }))
+        expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Postavke')
+        expect(document.title).toBe('Postavke · Stiglja')
+        expect(document.documentElement.lang).toBe('hr')
     })
 
     test('the pick is kept on this device, and a stored pick shows as picked', async () => {
@@ -97,5 +111,18 @@ describe('Settings (spec §4.13)', () => {
         expect(screen.getByText('Signed in as ana')).toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Log out' }))
         expect(auth.logout).toHaveBeenCalledTimes(1)
+    })
+
+    // open beta §1.1; setLang comes after the reset, with the page, so both share one language store
+    test('the page in Croatian', async () => {
+        const { setLang } = await import('../i18n/lang')
+        setLang('hr')
+        await renderSettings()
+        expect(screen.getAllByRole('heading', { level: 2 }).slice(0, 3).map((h) => h.textContent)).toEqual(['Jezik', 'Efekti stola', 'Račun'])
+        expect(within(screen.getByRole('group', { name: 'Efekti stola' })).getAllByRole('button').map((b) => b.textContent)).toEqual(['Sve', 'Mirno', 'Isključeno'])
+        expect(screen.getByText('Igraš kao ana')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Promijeni e-adresu' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Promijeni lozinku' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Odjavi se' })).toBeInTheDocument()
     })
 })

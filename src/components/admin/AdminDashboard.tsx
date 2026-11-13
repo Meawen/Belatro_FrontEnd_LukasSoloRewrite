@@ -1,16 +1,22 @@
 import React from 'react';
 import { AdminStats } from './AdminStats';
+import { BetaPanel } from './BetaPanel';
 import { UserManagement } from './UserManagement';
 import { useMe } from '../../hooks/useUser';
 import { ErrorState, Loader, Panel } from '../ui';
+import { useT } from '../../i18n/t';
 
-/** /admin (spec §4.14): only for ROLE_ADMIN per GET /user/me; the real statistics and the user management. */
+/**
+ * /admin (spec §4.14): only for ROLE_ADMIN per GET /user/me; the signup cap and the waitlist (open beta §2.2), the real
+ * statistics and the user management.
+ */
 export const AdminDashboard: React.FC = () => {
     // Roles come only from GET /user/me; the stored login user never carried them.
     const { data: me, error } = useMe();
+    const t = useT();
 
     if (!me && !error) {
-        return <Loader text="Checking permissions..." />;
+        return <Loader text={t.admin.checking} />;
     }
 
     const isAdmin = me?.roles?.includes('ROLE_ADMIN') ?? false;
@@ -18,13 +24,14 @@ export const AdminDashboard: React.FC = () => {
     if (!isAdmin) {
         return (
             <Panel>
-                <ErrorState icon="lock" title="Access Denied" body="You don't have permission to access the admin panel." />
+                <ErrorState icon="lock" title={t.admin.denied} body={t.admin.deniedBody} />
             </Panel>
         );
     }
 
     return (
         <div className="flex flex-col gap-8">
+            <BetaPanel />
             <AdminStats />
             <UserManagement />
         </div>

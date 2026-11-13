@@ -120,14 +120,13 @@
 .board-hand-card:disabled {
     cursor: default;
 }
-/* the owner's hover lift (D-35, §5.6.5): −24 px and 1.08 over 160 ms, on an inner layer, z-order up */
+/* the owner's hover lift (D-35, §5.6.5): −24 px and 1.08 over 160 ms, on an inner layer. In its fan order, not raised
+   (owner, 2026-11-11): raised, the hovered card's resting box took its right neighbour's exposed strip, so a click there
+   played the hovered card */
 .board-card__lift {
     transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 @media (hover: hover) and (pointer: fine) {
-    .board-hand-card:not(:disabled):hover {
-        z-index: 40;
-    }
     .board-hand-card:not(:disabled):hover .board-card__lift {
         transform: translateY(-24px) scale(1.08);
     }
@@ -888,4 +887,27 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+/* Škola bele's coach (open beta §7.2, §7.3). A marked hand card rings in the success green on its ring layer (the
+   pending card's gold ring stays on top while it waits). The panel's place, width and the most it grows down come from
+   board-fit's layout (coachSpot.ts, inline): the biggest free room, off the trick, my hand, the HUD and the seats; past
+   its room the lesson scrolls. Above the seats, below everything painted after it (the HUD, the bid panel, the moment,
+   the banner, the error) and the sheets. The region takes no taps (board-region); only the panel does. */
+.board-hand-card[data-marked] .board-card__ring {
+    box-shadow: 0 0 0 3px var(--success);
+    opacity: 1;
+}
+.board-coach {
+    z-index: var(--z-chips);
+}
+.board-coach__panel {
+    position: absolute;
+    overflow: auto;
+    padding: 10px 14px 12px;
+    background: var(--material-ink);
+    color: var(--text);
+    clip-path: var(--notch-6);
+    box-shadow: inset 0 -3px 0 var(--accent-ledge);
+    pointer-events: auto;
 }

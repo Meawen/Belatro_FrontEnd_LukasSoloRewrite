@@ -8,11 +8,13 @@ import { challengeHeader } from './model/challengeMoment';
 import { blokRows } from './model/hands';
 import { secondsLeft, type BoardModel, type Team } from './model/boardModel';
 import type { MatchHands } from '../../hooks/useMatchHands';
+import { useT } from '../../i18n/t';
 
 /** The post-hand challenge window (BelotGameService: 10 s): where its bar starts. */
 export const WINDOW_SECONDS = 10;
 
 function WindowBar({ expiresAt, skew }: { expiresAt: number; skew: number }) {
+    const t = useT();
     const now = useNow();
     const [left] = useState(() => Math.max(0, (expiresAt - (Date.now() + skew)) / 1000));
     return (
@@ -23,7 +25,7 @@ function WindowBar({ expiresAt, skew }: { expiresAt: number; skew: number }) {
                     <m.i initial={{ scaleX: Math.min(1, left / WINDOW_SECONDS) }} animate={{ scaleX: 0 }} transition={{ duration: left, ease: 'linear' }} />
                 </MotionConfig>
             </span>
-            <p className="t-footnote text-text-2">{`Next hand in ${secondsLeft(expiresAt, skew, now)} s`}</p>
+            <p className="t-footnote text-text-2">{t.board.result.nextIn(secondsLeft(expiresAt, skew, now))}</p>
         </div>
     );
 }
@@ -48,6 +50,7 @@ export interface HandResultProps {
  * ("Next hand shortly" before the server sets it), and Challenge with its hint while it shows.
  */
 export function HandResult({ model, open, hands, delta, onChallenge, challengePending, challengeFrozen }: HandResultProps) {
+    const t = useT();
     const ended = hands?.ended ?? null;
     const teamOf = (id: string): Team | null => model.seats.find((seat) => seat.id === id)?.team ?? null;
     const row = ended ? blokRows(hands?.hands ?? null, teamOf).find((r) => r.handNo === ended.handNo) ?? null : null;
@@ -59,7 +62,7 @@ export function HandResult({ model, open, hands, delta, onChallenge, challengePe
         <Sheet
             open={open}
             onClose={() => {}}
-            title={challengeHeader(model.lastChallenge) ?? (ended?.handNo ? `Hand ${ended.handNo}` : model.phaseLabel)}
+            title={challengeHeader(model.lastChallenge) ?? (ended?.handNo ? t.board.result.hand(ended.handNo) : model.phaseLabel)}
             modal={false}
             dismissible={false}
             side="bottom"
@@ -74,9 +77,10 @@ export function HandResult({ model, open, hands, delta, onChallenge, challengePe
                             <div key={label} className="board-result__row">
                                 <dt className="t-callout font-semibold">{label}</dt>
                                 <dd className="flex items-center gap-2">
-                                    {row?.padanje === team && <Tag tone="warn">Pad</Tag>}
-                                    {row?.capot === team && <Tag tone="win">Capot</Tag>}
-                                    {decl > 0 && <span className="t-footnote text-text-2">{`incl. ${decl} zvanja`}</span>}
+                                    {row?.padanje === team && <Tag tone="warn">{team === mine ? t.board.result.fellMine : t.board.result.fellTheirs}</Tag>}
+                                    {row?.capot === team && <Tag tone="win">{t.board.capot}</Tag>}
+                                    {/* R1-44: a team that fell scores 0, so no declarations beside it (the server's summary keeps them) */}
+                                    {decl > 0 && row?.padanje !== team && <span className="t-footnote text-text-2">{t.board.result.decl(decl)}</span>}
                                     <span className="t-score">{team === 'A' ? points.a : points.b}</span>
                                 </dd>
                             </div>
@@ -84,7 +88,7 @@ export function HandResult({ model, open, hands, delta, onChallenge, challengePe
                     })}
                 </dl>
             )}
-            {model.window ? <WindowBar key={model.window.expiresAt} expiresAt={model.window.expiresAt} skew={model.skew} /> : <p className="t-footnote text-text-2">Next hand shortly</p>}
+            {model.window ? <WindowBar key={model.window.expiresAt} expiresAt={model.window.expiresAt} skew={model.skew} /> : <p className="t-footnote text-text-2">{t.board.result.nextSoon}</p>}
             {model.challenge !== 'hidden' && model.handComplete && (
                 <Challenge place="sheet" state={model.challenge} pending={challengePending} frozen={challengeFrozen} onChallenge={onChallenge} />
             )}

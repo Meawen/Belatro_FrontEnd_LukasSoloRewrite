@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { LadderPanel } from './LadderPanel'
@@ -8,6 +8,7 @@ import { ApiError } from '../../services/api'
 import { userService } from '../../services/userService'
 import { act } from '@testing-library/react'
 import { FEW_LADDER, LADDER, rankedUser } from '../../test/fixtures/ranks'
+import { setLang } from '../../i18n/lang'
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', username: 'ana_k' }, isAuthenticated: true }) }))
 vi.mock('../../hooks/useUser', async (importOriginal) => ({
@@ -160,5 +161,27 @@ describe('LadderPanel on a backend before team Elo', () => {
             getLadder.mockRestore()
             delete (document as { visibilityState?: unknown }).visibilityState
         }
+    })
+})
+
+describe('LadderPanel in Croatian (open beta §1.1; Raspored rangova)', () => {
+    afterEach(() => setLang('en'))
+
+    test('the ladder in Croatian', () => {
+        setLang('hr')
+        const { unmount } = render(<LadderPanel />)
+        expect(screen.getByRole('heading', { level: 2, name: 'Raspored rangova' })).toBeInTheDocument()
+        expect(screen.getByText('412 rangiranih igrača')).toBeInTheDocument()
+        expect(screen.getByRole('group', { name: 'Raspored rangova: igrači po rejtingu' })).toBeInTheDocument()
+        expect(screen.getByText('Ti')).toBeInTheDocument()
+        expect(screen.getByText('Ispred si 49 % rangiranih igrača')).toBeInTheDocument()
+        const legend = screen.getByRole('list', { name: 'Igrači po rangu' })
+        expect(within(legend).getByText('Dober pajdaš.')).toBeInTheDocument()
+        expect(screen.getByText('37 igrača se još svrstava')).toBeInTheDocument()
+        unmount()
+
+        me(rankedUser({ key: 'CUCEK', eloRating: 1236, rankedGamesPlayed: 3 }))
+        render(<LadderPanel />)
+        expect(screen.getByText('Odigraj još 7 rangiranih partija da se svrstaš.')).toBeInTheDocument()
     })
 })

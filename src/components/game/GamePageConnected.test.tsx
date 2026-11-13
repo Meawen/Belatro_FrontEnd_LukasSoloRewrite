@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useState } from 'react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom'
 import GamePageConnected from './GamePageConnected'
@@ -8,8 +8,11 @@ import { useGameViews, type GameViews } from '../../hooks/useGameViews'
 import type { BoardState } from '../board/model/accept'
 import type { PrivateGameView, PublicGameView } from '../../types/game'
 import { captureConsole } from '../../test/captureConsole'
+import { setLang } from '../../i18n/lang'
 
-vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u3', username: 'carol' } }) }))
+// carol, a member unless a test makes her a guest
+const auth = vi.hoisted(() => ({ isGuest: false }))
+vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u3', username: 'carol' }, isGuest: auth.isGuest }) }))
 vi.mock('../../hooks/useGameViews', () => ({ useGameViews: vi.fn() }))
 // The banner reads the real socket store; here it is a marker that shows where the page mounts it
 vi.mock('./ReconnectBanner', () => ({ ReconnectBanner: () => <p>Reconnect banner slot</p> }))
@@ -42,10 +45,18 @@ function views(pub: PublicGameView | null, priv: PrivateGameView | null = null, 
     }
 }
 
+/** Where a way out of the game led. */
+function Where() {
+    return <p>at {useLocation().pathname}</p>
+}
+
 function renderPage() {
     render(
         <MemoryRouter initialEntries={['/game/g1']}>
-            <Routes><Route path="/game/:gameId" element={<GamePageConnected />} /></Routes>
+            <Routes>
+                <Route path="/game/:gameId" element={<GamePageConnected />} />
+                <Route path="*" element={<Where />} />
+            </Routes>
         </MemoryRouter>,
     )
 }
@@ -72,6 +83,7 @@ vi.setConfig({ testTimeout: 20_000 })
 
 beforeEach(() => {
     vi.clearAllMocks()
+    auth.isGuest = false
     rematchMock.useRematch.mockReturnValue(rematchMock.state)
     // jsdom draws nothing: no 2D context for the arena's canvas
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
@@ -84,7 +96,7 @@ describe('GamePageConnected', () => {
     test('waits for the connection and the first snapshot', () => {
         vi.mocked(useGameViews).mockReturnValue(views(null, null, { isConnected: false }))
         renderPage()
-        expect(screen.getByText('Connecting to game...')).toBeInTheDocument()
+        expect(screen.getByText('Shuffling…')).toBeInTheDocument()
         expect(vi.mocked(useGameViews).mock.calls[0][0]).toBe('g1')
     })
 
@@ -168,8 +180,8 @@ describe('GamePageConnected', () => {
             </MemoryRouter>,
         )
         expect(screen.getByText("This game isn't yours or has ended")).toBeInTheDocument()
-        expect(screen.queryByText('Loading game state...')).not.toBeInTheDocument()
-        await user.click(screen.getByRole('button', { name: 'Back to dashboard' }))
+        expect(screen.queryByText('Shuffling…')).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Back to home' }))
         expect(screen.getByText('Dashboard page')).toBeInTheDocument()
     })
 
@@ -184,7 +196,7 @@ describe('GamePageConnected', () => {
                 </MemoryRouter>,
             )
             expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: 'Go to dashboard' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Back to home' })).toBeInTheDocument()
             expect(screen.getByText('App shell')).toBeInTheDocument()
         } finally {
             vi.restoreAllMocks()
@@ -204,6 +216,38 @@ describe('GamePageConnected', () => {
         const play = screen.getByTestId('play-notice')
         expect(play).toHaveTextContent("A player declined — you're back in the queue")
         expect(play).toHaveAttribute('data-navigation', 'REPLACE')
+    })
+
+    test('the game page in Croatian: the first frame, not yours, the h1, a declined match\'s notice', () => {
+        setLang('hr')
+        try {
+            // connecting, and connected while the first state comes: the same first frame (spec §1.4 Loading)
+            for (const isConnected of [false, true]) {
+                vi.mocked(useGameViews).mockReturnValue(views(null, null, { isConnected }))
+                renderPage()
+                expect(screen.getByText('Mešamo karte…')).toBeInTheDocument()
+                expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Partija')
+                cleanup()
+            }
+            vi.mocked(useGameViews).mockReturnValue(views(null, null, { notAvailable: true }))
+            renderPage()
+            expect(screen.getByText('Ova partija nije tvoja ili je već gotova')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Vrati se Doma' })).toBeInTheDocument()
+            expect(screen.queryByText('Mešamo karte…')).not.toBeInTheDocument()
+            cleanup()
+            vi.mocked(useGameViews).mockReturnValue(views({ ...publicView, gameState: 'CANCELLED', endReason: 'DECLINED', forfeitTeamId: null }))
+            render(
+                <MemoryRouter initialEntries={['/game/g1']}>
+                    <Routes>
+                        <Route path="/game/:gameId" element={<GamePageConnected />} />
+                        <Route path="/play" element={<PlayPageStub />} />
+                    </Routes>
+                </MemoryRouter>,
+            )
+            expect(screen.getByTestId('play-notice')).toHaveTextContent('Igrač je odbio partiju — opet ti tražimo pajdaše')
+        } finally {
+            setLang('en')
+        }
     })
 
     test('a ranked forfeit keeps its table: only a declined match goes back to /play', () => {
@@ -232,5 +276,125 @@ describe('GamePageConnected', () => {
         expect(rematchMock.useRematch).toHaveBeenLastCalledWith('g1', true)
         await user.click(screen.getByRole('button', { name: 'Play again' }))
         expect(rematchMock.state.playAgain).toHaveBeenCalledTimes(1)
+    })
+
+    test("a guest's game-over sheet has no Match details (spec §3.3)", () => {
+        vi.mocked(useGameViews).mockReturnValue(views({ ...publicView, gameState: 'COMPLETED', winnerTeamId: 'A' }))
+        auth.isGuest = true
+        renderPage()
+        expect(screen.getByRole('button', { name: 'Play again' })).toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'Match details' })).not.toBeInTheDocument()
+        cleanup()
+        auth.isGuest = false
+        renderPage()
+        expect(screen.getByRole('link', { name: 'Match details' })).toHaveAttribute('href', '/matches/g1')
+    })
+})
+
+describe('the ways out of a game (spec §6)', () => {
+    const over = { ...publicView, gameState: 'COMPLETED', winnerTeamId: 'A' } as PublicGameView
+    const cancelled = { ...publicView, gameState: 'CANCELLED', endReason: 'CANCELLED', forfeitTeamId: null } as PublicGameView
+
+    test('a member: Home declines a rematch on offer and goes Doma', async () => {
+        vi.mocked(useGameViews).mockReturnValue(views(over))
+        renderPage()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Home' }))
+        expect(rematchMock.state.leave).toHaveBeenCalledTimes(1)
+        expect(rematchMock.state.leave).toHaveBeenCalledWith('/dashboard')
+    })
+
+    test('a member with no rematch on offer: Home just goes Doma', async () => {
+        vi.mocked(useGameViews).mockReturnValue(views(cancelled))
+        renderPage()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Home' }))
+        expect(screen.getByText('at /dashboard')).toBeInTheDocument()
+        expect(rematchMock.state.leave).not.toHaveBeenCalled()
+    })
+
+    test('a guest: Back goes to the landing page and Play with people to sign-up, each declining a rematch on offer', async () => {
+        const user = userEvent.setup()
+        auth.isGuest = true
+        vi.mocked(useGameViews).mockReturnValue(views(over))
+        renderPage()
+        await user.click(screen.getByRole('button', { name: 'Back' }))
+        expect(rematchMock.state.leave).toHaveBeenLastCalledWith('/')
+        await user.click(screen.getByRole('button', { name: 'Play with people' }))
+        expect(rematchMock.state.leave).toHaveBeenLastCalledWith('/signup')
+        expect(rematchMock.state.leave).toHaveBeenCalledTimes(2)
+    })
+
+    test('a guest with no rematch on offer: Back opens the landing page, Play with people the sign-up page', async () => {
+        const user = userEvent.setup()
+        auth.isGuest = true
+        vi.mocked(useGameViews).mockReturnValue(views(cancelled))
+        renderPage()
+        await user.click(screen.getByRole('button', { name: 'Back' }))
+        expect(screen.getByText('at /')).toBeInTheDocument()
+        cleanup()
+        renderPage()
+        await user.click(screen.getByRole('button', { name: 'Play with people' }))
+        expect(screen.getByText('at /signup')).toBeInTheDocument()
+        expect(rematchMock.state.leave).not.toHaveBeenCalled()
+    })
+
+    test("a guest's game that isn't theirs or has ended: Back opens the landing page, never Doma (review Minor 6)", async () => {
+        auth.isGuest = true
+        vi.mocked(useGameViews).mockReturnValue(views(null, null, { notAvailable: true }))
+        renderPage()
+        expect(screen.queryByRole('button', { name: 'Back to home' })).not.toBeInTheDocument()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Back' }))
+        expect(screen.getByText('at /')).toBeInTheDocument()
+    })
+
+    test("the game menu's way out: a guest's Back opens the landing page, a member's Back to home opens Doma (review Minor 6)", async () => {
+        const user = userEvent.setup()
+        auth.isGuest = true
+        vi.mocked(useGameViews).mockReturnValue(views(publicView))
+        renderPage()
+        await user.click(screen.getByRole('button', { name: 'Game menu' }))
+        const menu = screen.getByRole('dialog', { name: 'Game menu' })
+        expect(within(menu).queryByRole('button', { name: 'Back to home' })).not.toBeInTheDocument()
+        await user.click(within(menu).getByRole('button', { name: 'Back' }))
+        expect(screen.getByText('at /')).toBeInTheDocument()
+        cleanup()
+        auth.isGuest = false
+        renderPage()
+        await user.click(screen.getByRole('button', { name: 'Game menu' }))
+        await user.click(within(screen.getByRole('dialog', { name: 'Game menu' })).getByRole('button', { name: 'Back to home' }))
+        expect(screen.getByText('at /dashboard')).toBeInTheDocument()
+    })
+
+    test('a game that stops without a cancel frame takes a member Doma and a guest to the landing page', () => {
+        vi.mocked(useGameViews).mockReturnValue(views(publicView))
+        renderPage()
+        act(() => vi.mocked(useGameViews).mock.lastCall?.[1]?.())
+        expect(screen.getByText('at /dashboard')).toBeInTheDocument()
+        cleanup()
+        auth.isGuest = true
+        renderPage()
+        act(() => vi.mocked(useGameViews).mock.lastCall?.[1]?.())
+        expect(screen.getByText('at /')).toBeInTheDocument()
+    })
+
+    test('the ways out in Croatian', () => {
+        setLang('hr')
+        try {
+            vi.mocked(useGameViews).mockReturnValue(views(over))
+            renderPage()
+            expect(screen.getByRole('button', { name: 'Doma' })).toBeInTheDocument()
+            cleanup()
+            auth.isGuest = true
+            renderPage()
+            expect(screen.getByRole('button', { name: 'Igraj s ljudima' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Natrag' })).toBeInTheDocument()
+            cleanup()
+            // a guest's game that isn't theirs: Natrag, not Vrati se Doma
+            vi.mocked(useGameViews).mockReturnValue(views(null, null, { notAvailable: true }))
+            renderPage()
+            expect(screen.getByRole('button', { name: 'Natrag' })).toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Vrati se Doma' })).not.toBeInTheDocument()
+        } finally {
+            setLang('en')
+        }
     })
 })

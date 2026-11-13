@@ -14,6 +14,7 @@ import { fade, spring } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
 import { cx } from './cx';
 import { IconButton } from './IconButton';
+import { useT } from '../../i18n/t';
 
 export type SheetSide = 'auto' | 'bottom' | 'center' | 'full';
 
@@ -86,6 +87,7 @@ function SheetLayer({
     const wide = useSyncExternalStore(subscribeToWidth, isWide, () => false);
     const resolved = side === 'auto' ? (wide ? 'center' : 'bottom') : side;
     const titleId = useId();
+    const t = useT();
     const panelRef = useRef<HTMLDivElement>(null);
     const returnTo = useRef<HTMLElement | null>(null);
 
@@ -180,7 +182,7 @@ function SheetLayer({
                         <h2 id={titleId} className="t-title">
                             {title}
                         </h2>
-                        {showClose && <IconButton icon="x" aria-label="Close" onClick={onClose} />}
+                        {showClose && <IconButton icon="x" aria-label={t.common.close} onClick={onClose} />}
                     </div>
                     <div className="ui-sheet__body">{children}</div>
                 </m.div>

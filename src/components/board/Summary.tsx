@@ -1,4 +1,5 @@
 import type { BoardModel } from './model/boardModel';
+import { useT } from '../../i18n/t';
 
 /**
  * "This hand", always in the DOM and visually hidden (spec §5.3.3): one `bid` line per bid, the
@@ -6,10 +7,11 @@ import type { BoardModel } from './model/boardModel';
  * list, so it can be reviewed while its buttons are disabled (M-10).
  */
 export function Summary({ model }: { model: BoardModel }) {
+    const t = useT();
     const waiting = !model.yourTurn && !model.finished;
     return (
         <div className="sr-only">
-            <h2>This hand</h2>
+            <h2>{t.board.thisHand}</h2>
             {model.summary.bids.length > 0 && (
                 <ol>
                     {model.summary.bids.map((line, i) => <li key={i} data-testid="bid">{line}</li>)}
@@ -21,8 +23,8 @@ export function Summary({ model }: { model: BoardModel }) {
                 </ul>
             )}
             {model.summary.yourTeam && <p data-testid="your-team">{model.summary.yourTeam}</p>}
-            {model.hand.length > 0 && <p>{`Your hand: ${model.hand.map((card) => card.label).join(', ')}`}</p>}
-            {waiting && <p>Waiting for other players...</p>}
+            {model.hand.length > 0 && <p>{t.board.hand.list(model.hand.map((card) => card.label).join(', '))}</p>}
+            {waiting && <p>{t.board.waiting}</p>}
         </div>
     );
 }

@@ -1,10 +1,12 @@
 import { useAuth } from '../../hooks/useAuth';
 import { useMe } from '../../hooks/useUser';
 import type { IconName } from '../ui';
+import type { Catalog } from '../../i18n/catalog/types';
 
 /** One destination of the main navigation (spec §4.1). */
 export interface NavItem {
-    label: string;
+    /** Its name: the page's title (titles.*), so the link and the page's heading read the same. */
+    title: keyof Catalog['titles'];
     to: string;
     icon: IconName;
     /** Only for ROLE_ADMIN per GET /user/me (spec §4.1 AC 4). */
@@ -15,21 +17,21 @@ export interface NavItem {
 
 /** Every destination, in the sidebar's order (spec §4.1). */
 export const NAV_ITEMS: readonly NavItem[] = [
-    { label: 'Play', to: '/dashboard', icon: 'home' },
-    { label: 'Ranked', to: '/play', icon: 'play' },
-    { label: 'Lobbies', to: '/lobbies', icon: 'cards', also: ['/lobby'] },
-    { label: 'Matches', to: '/matches', icon: 'list' },
-    { label: 'Friends', to: '/friends', icon: 'people' },
-    { label: 'Leaderboard', to: '/users', icon: 'trophy' },
-    { label: 'Profile', to: '/profile', icon: 'user' },
-    { label: 'Settings', to: '/settings', icon: 'gear' },
-    { label: 'Rules', to: '/rules', icon: 'book' },
-    { label: 'Admin', to: '/admin', icon: 'shield', adminOnly: true },
+    { title: 'home', to: '/dashboard', icon: 'home' },
+    { title: 'ranked', to: '/play', icon: 'play' },
+    { title: 'tables', to: '/lobbies', icon: 'cards', also: ['/lobby'] },
+    { title: 'matches', to: '/matches', icon: 'list' },
+    { title: 'friends', to: '/friends', icon: 'people' },
+    { title: 'leaderboard', to: '/users', icon: 'trophy' },
+    { title: 'profile', to: '/profile', icon: 'user' },
+    { title: 'settings', to: '/settings', icon: 'gear' },
+    { title: 'rules', to: '/rules', icon: 'book' },
+    { title: 'admin', to: '/admin', icon: 'shield', adminOnly: true },
 ];
 
 const TAB_PATHS = ['/dashboard', '/lobbies', '/matches', '/profile'];
 
-/** The phone tab bar's links: Play, Lobbies, Matches, Profile (then More). */
+/** The phone tab bar's links: Home, Tables, Matches, Profile (then More). */
 export const TAB_ITEMS: readonly NavItem[] = NAV_ITEMS.filter((item) => TAB_PATHS.includes(item.to));
 
 /** Under More: Ranked, Friends, Leaderboard, Settings, Rules, Admin (then Log out). */

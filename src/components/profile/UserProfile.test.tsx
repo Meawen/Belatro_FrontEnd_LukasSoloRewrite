@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -9,6 +9,7 @@ import { useLadder, useRatingHistory } from '../../hooks/useRatings'
 import { LADDER, history, rankedUser } from '../../test/fixtures/ranks'
 import { ApiError } from '../../services/api'
 import type { PlayerMatchSummaryDTO } from '../../types/user'
+import { setLang } from '../../i18n/lang'
 
 // Tailwind's own colour scale (from-amber-500, text-emerald-300, …): the design uses tokens only (spec §3.2)
 const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange|teal|lime|pink)-\d/
@@ -59,6 +60,8 @@ beforeEach(() => {
         cancelFriendRequest: vi.fn(), removeFriend: vi.fn(),
     } as never)
 })
+
+afterEach(() => setLang('en'))
 
 describe('UserProfile (carried)', () => {
     test("someone else's profile has no deletion section", () => {
@@ -231,5 +234,15 @@ describe('UserProfile climb', () => {
         renderProfile('u2')
         expect(useRatingHistory).not.toHaveBeenCalled()
         expect(screen.queryByRole('heading', { name: 'Your climb' })).not.toBeInTheDocument()
+    })
+})
+
+describe('UserProfile in Croatian (open beta §1.1)', () => {
+    test('your profile in Croatian: the numbers, Recent matches, and none yet', () => {
+        setLang('hr')
+        const { container } = renderProfile()
+        expect([...container.querySelectorAll('dt')].map((dt) => dt.textContent)).toEqual(['Elo', 'Partije', 'Razina'])
+        expect(screen.getByRole('heading', { level: 2, name: 'Zadnje partije' })).toBeInTheDocument()
+        expect(screen.getByText('Još nema partija')).toBeInTheDocument()
     })
 })

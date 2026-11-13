@@ -3,6 +3,7 @@ import { act, cleanup, screen, within } from '@testing-library/react'
 import { privateFor, renderBoard, seating, stateOf, tableState, view } from './testing'
 import { find, indexOf, playTable } from '../../test/fixtures/views/table'
 import type { GamePhase } from '../../types/game'
+import { setLang } from '../../i18n/lang'
 
 // jsdom draws nothing: no 2D context for the arena's canvas
 // the whole board renders in every test: slower than a 5-s default on a busy machine
@@ -104,9 +105,10 @@ describe('Board: seats, phase, team and trick (GameTable cases, R-31)', () => {
             'carol: 100',
         ])
         // the seats' chips say the same
-        expect(within(screen.getByTestId('seat-alice')).getByText('Zvanja 50 + 20')).toBeInTheDocument()
-        expect(within(screen.getByTestId('seat-carol')).getByText('Zvanja 100')).toBeInTheDocument()
-        expect(screen.getByTestId('seat-bob')).not.toHaveTextContent('Zvanja')
+        expect(within(screen.getByTestId('seat-alice')).getByText('Decl. 50 + 20')).toBeInTheDocument()
+        expect(within(screen.getByTestId('seat-carol')).getByText('Decl. 100')).toBeInTheDocument()
+        // bob's team didn't score: no chip on his seat
+        expect(screen.getByTestId('seat-bob')).not.toHaveTextContent('Decl.')
     })
 
     test('phases are shown in words; the raw state stays in data-phase', () => {
@@ -256,5 +258,86 @@ describe('Board: the DOM contract on real views (spec §5.10, §7.2)', () => {
         const labels = screen.getAllByTestId('hand-card').map((card) => card.getAttribute('aria-label'))
         expect(screen.getByText(`Your hand: ${labels.join(', ')}`)).toBeInTheDocument()
         expect(screen.getByRole('region', { name: 'Game table' })).toBeInTheDocument()
+    })
+})
+
+describe('Board: the table in Croatian (open beta §1.4)', () => {
+    test("the table in Croatian: §1.4's words, the trump, the season, the challenge", () => {
+        setLang('hr')
+        try {
+            renderBoard({ state: stateOf(privateFor(view({
+                gameState: 'PLAYING',
+                currentPlayerId: 'carol',
+                turnExpiresAt: Date.now() + 30_000,
+                bids: [
+                    { playerId: 'alice', action: 'PASS', selectedTrump: null },
+                    { playerId: 'bob', action: 'CALL_TRUMP', selectedTrump: 'HERC' },
+                ],
+                belaDeclaredByPlayer: { bob: true },
+                currentTrick: { leadPlayerId: 'bob', trump: 'HERC', plays: { bob: { boja: 'PIK', rank: 'AS' } } },
+            }), true)) })
+            expect(screen.getByRole('region', { name: 'Igraći stol' })).toBeInTheDocument()
+            expect(screen.getByTestId('game-phase').textContent).toBe('Igra')
+            expect(screen.getByTestId('trump').textContent).toBe('Herc')
+            expect(screen.getByText('· proljeće')).toBeInTheDocument()
+            expect(screen.getByTestId('your-turn').textContent).toBe('Na tebi je!')
+            expect(within(screen.getByTestId('seat-carol')).getByText('Ti')).toBeInTheDocument()
+            // Bela is a badge on the plate (board-fit): its words for screen readers are the live line's
+            expect(within(screen.getByTestId('seat-bob')).getByText('bob: Bela!')).toHaveClass('sr-only')
+            expect(within(screen.getByTestId('seat-bob')).getByText('bob zove Herc')).toHaveClass('sr-only')
+            const hand = screen.getByRole('toolbar', { name: 'Tvoje karte' })
+            expect(within(hand).getByRole('button', { name: 'As Herc' })).toBeInTheDocument()
+            expect(within(hand).getByRole('button', { name: 'Dečko Tref' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Prijavi prekršaj' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Što je prijava prekršaja?' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Izbornik igre' })).toBeInTheDocument()
+            expect(screen.getByText('Štih: bob As Pik')).toBeInTheDocument()
+            expect(screen.getByText(/^Tvoje karte: /)).toBeInTheDocument()
+            expect(within(screen.getByTestId('seat-dave')).getByText('karata')).toHaveClass('sr-only')
+        } finally {
+            setLang('en')
+        }
+    })
+
+    test.each([
+        ['en', 'Your turn', 'Still there?'],
+        ['hr', 'Na tebi je!', 'Zaspal si?'],
+    ] as const)('"Still there?" in the last 10 s of my turn (S5 call 7), %s', (lang, turn, away) => {
+        vi.useFakeTimers()
+        setLang(lang)
+        try {
+            board(view({ currentPlayerId: 'carol', turnExpiresAt: Date.now() + 25_000 }), true)
+            expect(screen.getByTestId('your-turn').textContent).toBe(turn)
+            act(() => { vi.advanceTimersByTime(14_000) })
+            expect(screen.getByTestId('your-turn').textContent).toBe(turn)
+            act(() => { vi.advanceTimersByTime(1_000) })
+            expect(screen.getByTestId('your-turn').textContent).toBe(away)
+        } finally {
+            setLang('en')
+        }
+    })
+
+    test.each([
+        ['en', 'Your turn', 'Still there?'],
+        ['hr', 'Na tebi je!', 'Zaspal si?'],
+    ] as const)('"Still there?" wherever "Your turn" shows: my plate on upright phones, the label over my hand sideways and on desktops (board-fit merge), %s', (lang, turn, away) => {
+        setLang(lang)
+        try {
+            for (const viewport of [{ width: 375, height: 812 }, { width: 812, height: 375 }, { width: 1440, height: 900 }]) {
+                vi.useFakeTimers()
+                const where = `${viewport.width}x${viewport.height}`
+                const { unmount } = renderBoard({ state: stateOf(privateFor(view({ currentPlayerId: 'carol', turnExpiresAt: Date.now() + 25_000 }), true)), me: 'carol', viewport })
+                const label = () => screen.getByTestId('your-turn')
+                // upright the label is my plate's name; elsewhere it sits over my hand
+                expect(label().classList.contains('board-seat__label'), where).toBe(viewport.width === 375)
+                expect(label().textContent, where).toBe(turn)
+                act(() => { vi.advanceTimersByTime(15_000) })
+                expect(label().textContent, where).toBe(away)
+                unmount()
+                vi.useRealTimers()
+            }
+        } finally {
+            setLang('en')
+        }
     })
 })

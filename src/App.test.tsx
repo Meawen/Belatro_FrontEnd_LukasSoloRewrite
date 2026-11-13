@@ -6,13 +6,16 @@ import App from './App'
 import { useUser } from './hooks/useUser'
 import { userService } from './services/userService'
 import { captureConsole } from './test/captureConsole'
+import { authService } from './services/authService'
+import { lobbyService } from './services/lobbyService'
 
-// One switch for every test: signed in (the default) or signed out, and the stored token.
-const auth = vi.hoisted(() => ({ isAuthenticated: true, token: 'tok-1' }))
+// One switch for every test: signed in (the default) or signed out, a member (the default) or a guest, and the stored token.
+const auth = vi.hoisted(() => ({ isAuthenticated: true, guest: false, token: 'tok-1' }))
 vi.mock('./hooks/useAuth', () => ({
     useAuth: () => ({
-        user: auth.isAuthenticated ? { id: 'u1', username: 'ana' } : null,
+        user: !auth.isAuthenticated ? null : auth.guest ? { id: 'g1', username: 'gost_4821', guest: true } : { id: 'u1', username: 'ana' },
         isAuthenticated: auth.isAuthenticated,
+        isGuest: auth.isAuthenticated && auth.guest,
         isLoading: false,
         logout: vi.fn(),
         token: auth.isAuthenticated ? auth.token : null,
@@ -31,6 +34,21 @@ vi.mock('./components/match/MatchHistory', () => ({
 }))
 // The game page's table opens the game socket; here a stand-in (GamePageConnected's own tests cover it).
 vi.mock('./components/game/GamePageConnected', () => ({ default: () => <h1>The table</h1> }))
+// The one-click bot game (spec §6): its request is NeedsAccountPage's own test's; here a stub.
+const bots = vi.hoisted(() => ({ startBotGame: vi.fn() }))
+vi.mock('./services/botGame', () => ({ startBotGame: bots.startBotGame }))
+// The signup cap and the waitlist (spec §2): their requests are betaService.test's. Signup status stays asked unless a
+// test answers it (the doors read Sign up meanwhile), so no answer lands after a test that doesn't wait for one.
+const beta = vi.hoisted(() => ({ signupStatus: vi.fn(), confirmWaitlist: vi.fn() }))
+vi.mock('./services/betaService', () => ({ betaService: beta }))
+// A table's room polls its lobby; here a stand-in that names the table it was given (and notes each table it showed).
+const rooms = vi.hoisted(() => ({ shown: [] as string[] }))
+vi.mock('./components/lobby/LobbyRoom', () => ({
+    LobbyRoom: ({ lobbyId }: { lobbyId: string }) => {
+        rooms.shown.push(lobbyId)
+        return <h1>The room {lobbyId}</h1>
+    },
+}))
 
 // Node 26's own localStorage global is unusable here; borrow jsdom's (see api.test.ts)
 const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }).window
@@ -43,7 +61,13 @@ function renderAt(path: string) {
 
 beforeEach(() => {
     auth.isAuthenticated = true
+    auth.guest = false
     auth.token = 'tok-1'
+    bots.startBotGame.mockReset()
+    beta.signupStatus.mockReset()
+    beta.signupStatus.mockReturnValue(new Promise(() => {}))
+    beta.confirmWaitlist.mockReset()
+    rooms.shown = []
     vi.mocked(useUser).mockReturnValue({ user: null, isLoading: false, error: null, refetch: vi.fn() } as never)
     vi.stubGlobal('localStorage', jsdomStorage)
     // The shell's own requests (GET /user/me, …) get an empty 204, never a network
@@ -56,13 +80,13 @@ afterEach(() => {
 })
 
 describe('App error boundary (R-29)', () => {
-    test('a page that throws shows the fallback with Reload and Go to dashboard, not a blank page', () => {
+    test('a page that throws shows the fallback with Reload and Back to home, not a blank page', () => {
         // React reports the caught error on the console
         const logs = captureConsole()
         renderAt('/matches')
         expect(screen.getByText('Something went wrong')).toBeInTheDocument()
         expect(screen.getByText('Reload')).toBeInTheDocument()
-        expect(screen.getByText('Go to dashboard')).toBeInTheDocument()
+        expect(screen.getByText('Back to home')).toBeInTheDocument()
         // the root fallback sits in the minimal wordmark frame (spec §4.1)
         expect(screen.getByText('Stiglja')).toBeInTheDocument()
         expect(logs.text()).toContain('render failed')
@@ -108,11 +132,11 @@ describe('Home with a game in progress (spec §2.5 R-33)', () => {
 })
 
 describe('Privacy and Terms (R-40)', () => {
-    test('/privacy is readable signed out and names who runs the service', () => {
+    test('/privacy is readable signed out and names who runs the service', async () => {
         auth.isAuthenticated = false
         renderAt('/privacy')
         expect(screen.getByRole('heading', { level: 1, name: 'Privacy notice' })).toBeInTheDocument()
-        expect(screen.getByText('Stiglja is run by Lukas Miholić, Bregana, Croatia.')).toBeInTheDocument()
+        expect(await screen.findByText('Stiglja is run by Lukas Miholić, Bregana, Croatia.')).toBeInTheDocument()
     })
 
     test('/terms is readable signed out', () => {
@@ -137,20 +161,39 @@ describe('Privacy and Terms (R-40)', () => {
     })
 })
 
+describe('The waitlist link (spec §2.2, B7)', () => {
+    test("/waitlist/confirm opens signed out and signed in, and asks nothing before the click (B7's link)", async () => {
+        for (const signedIn of [false, true]) {
+            auth.isAuthenticated = signedIn
+            const fetch = vi.fn(async () => new Response(null, { status: 204 }))
+            vi.stubGlobal('fetch', fetch)
+            renderAt('/waitlist/confirm?token=t1')
+            expect(screen.getByRole('heading', { level: 1, name: 'Confirm your place on the waitlist' }), String(signedIn)).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Confirm my place' })).toBeEnabled()
+            expect(document.title).toBe('Waitlist · Stiglja')
+            await act(async () => {})
+            const urls = fetch.mock.calls.map(([url]) => String(url))
+            expect(urls.filter((url) => url.endsWith('/waitlist/confirm')), String(signedIn)).toEqual([])
+            expect(beta.confirmWaitlist, String(signedIn)).not.toHaveBeenCalled()
+            cleanup()
+        }
+    })
+})
+
 describe('Rules (R-41)', () => {
-    test('/rules is readable signed out and says a challenge is per game (gameplay rules §1)', () => {
+    test('/rules is readable signed out and says a challenge is per game (gameplay rules §1)', async () => {
         auth.isAuthenticated = false
         renderAt('/rules')
         expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
-        expect(screen.getByText('Each player has one challenge per game. A right challenge keeps it; a wrong one uses it up.')).toBeInTheDocument()
+        expect(await screen.findByText('Each player has one challenge per game. A right challenge keeps it; a wrong one uses it up.')).toBeInTheDocument()
     })
 
     // owner 2026-10-11: Rules sits in the shell, with the sidebar, like every other signed-in page
-    test('signed in: /rules is in the shell, with the navigation', () => {
+    test('signed in: /rules is in the shell, with the navigation', async () => {
         renderAt('/rules')
         expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
         expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
-        expect(screen.getByRole('heading', { level: 2, name: 'How to play' })).toBeInTheDocument()
+        expect(await screen.findByRole('heading', { level: 2, name: 'How to play' })).toBeInTheDocument()
         expect(document.title).toBe('Rules · Stiglja')
     })
 
@@ -161,10 +204,26 @@ describe('Rules (R-41)', () => {
         expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument()
     })
 
-    test('"Read Guide" on the dashboard opens the rules', async () => {
+    test('"Bela school" on Doma opens Škola bele (spec §7.1)', async () => {
         renderAt('/dashboard')
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Read Guide' }))
-        expect(screen.getByRole('heading', { level: 1, name: 'Rules' })).toBeInTheDocument()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Bela school' }))
+        // its own chunk (S13): the page comes once the chunk has loaded
+        expect(await screen.findByRole('heading', { level: 1, name: 'Bela school' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/learn')
+    })
+
+    test("the Rules page's top link opens Škola bele, signed in and out", async () => {
+        // the shell's own requests log their lines; this test reads none of them
+        captureConsole()
+        const user = userEvent.setup()
+        for (const signedIn of [true, false]) {
+            auth.isAuthenticated = signedIn
+            renderAt('/rules')
+            await user.click(screen.getByRole('link', { name: 'Rather learn by playing? Try Bela school ›' }))
+            expect(await screen.findByRole('heading', { level: 1, name: 'Bela school' }), signedIn ? 'signed in' : 'signed out').toBeInTheDocument()
+            expect(window.location.pathname).toBe('/learn')
+            cleanup()
+        }
     })
 
     test('an expired stored token: /rules asks nothing, signs nobody out and stays readable', async () => {
@@ -247,5 +306,225 @@ describe('The shell (spec §4.1)', () => {
         renderAt('/users')
         expect(screen.getByText('Please log in to view the user leaderboard.')).toBeInTheDocument()
         expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument()
+    })
+})
+
+describe('A guest (spec §3.2, §3.3)', () => {
+    beforeEach(() => {
+        auth.guest = true
+    })
+
+    test.each([
+        ['/play', 'Ranked'],
+        ['/lobbies', 'Tables'],
+        ['/matches', 'Matches'],
+        ['/matches/m1', 'Matches'],
+        ['/friends', 'Friends'],
+        ['/users', 'Leaderboard'],
+        ['/profile', 'Profile'],
+        ['/profile/u7', 'Profile'],
+        ['/settings', 'Settings'],
+    ])('%s: a guest sees what it is and how to unlock it, in the shell', (path, name) => {
+        renderAt(path)
+        expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(new RegExp(`^${name}$`))
+        expect(screen.getByText('This needs an account')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Sign up' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Play against bots as a guest' })).toBeInTheDocument()
+        expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
+        expect(document.title).toBe(`${name} · Stiglja`)
+    })
+
+    test('Sign up leads to the sign-up form, not back here (PublicRoute and AuthPage let a guest through)', async () => {
+        beta.signupStatus.mockResolvedValue({ open: true })
+        renderAt('/friends')
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Sign up' }))
+        expect(window.location.pathname).toBe('/signup')
+        expect(await screen.findByRole('heading', { name: 'Create Account' })).toBeInTheDocument()
+        expect((window.history.state as { usr?: { from?: string } } | null)?.usr?.from).toBe('/friends')
+    })
+
+    test('Play against bots as a guest opens the new game', async () => {
+        bots.startBotGame.mockResolvedValue({ gameId: 'g7', lobbyId: 'l7' })
+        renderAt('/play')
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Play against bots as a guest' }))
+        expect(await screen.findByRole('heading', { name: 'The table' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/game/g7')
+    })
+
+    test("a guest opens a friend's table and a game (spec §3.2)", async () => {
+        renderAt('/lobby/abc')
+        expect(screen.getByRole('heading', { name: 'The room abc' })).toBeInTheDocument()
+        expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
+        expect(screen.queryByText('This needs an account')).not.toBeInTheDocument()
+        cleanup()
+        renderAt('/game/g1')
+        expect(await screen.findByRole('heading', { name: 'The table' })).toBeInTheDocument()
+    })
+
+    test('a guest sees no email banner, and from /dashboard (the landing page, call 3) still gets the way back to a running game', async () => {
+        vi.spyOn(userService, 'getMe').mockResolvedValue({
+            id: 'g1', username: 'gost_4821', email: null, pendingEmail: null, emailVerified: false, roles: ['ROLE_GUEST'], deletionRequested: false, guest: true,
+        } as never)
+        vi.spyOn(userService, 'getActiveGame').mockResolvedValue('g1')
+        renderAt('/dashboard')
+        expect(await screen.findByRole('button', { name: 'Return to your game' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/')
+        await act(async () => {})
+        expect(screen.queryByRole('region', { name: 'Email confirmation' })).not.toBeInTheDocument()
+        cleanup()
+        renderAt('/lobby/abc')
+        await act(async () => {})
+        expect(screen.queryByRole('region', { name: 'Email confirmation' })).not.toBeInTheDocument()
+    })
+
+    test('the shell asks nothing about the guest by id: GET /user/{id} refuses a guest (B4)', async () => {
+        const fetch = vi.fn(async () => new Response(null, { status: 204 }))
+        vi.stubGlobal('fetch', fetch)
+        renderAt('/lobby/abc')
+        await act(async () => {})
+        expect(vi.mocked(useUser)).not.toHaveBeenCalledWith('g1')
+        expect(fetch.mock.calls.map(([url]) => String(url))).not.toContainEqual(expect.stringMatching(/\/user\/g1/))
+    })
+
+    test('a member still gets the page itself', () => {
+        auth.guest = false
+        renderAt('/settings')
+        expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument()
+        expect(screen.queryByText('This needs an account')).not.toBeInTheDocument()
+    })
+})
+
+describe('The landing page and Doma (spec §4, §5)', () => {
+    const unverified = { id: 'u1', username: 'ana', email: null, pendingEmail: 'ana@example.com', emailVerified: false, roles: ['ROLE_USER'], deletionRequested: false }
+
+    test('signed out, / is the landing page, and each door goes where it says', async () => {
+        auth.isAuthenticated = false
+        const user = userEvent.setup()
+        renderAt('/')
+        expect(screen.getByRole('heading', { level: 1, name: 'Belot for four, online.' })).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Teach me' }))
+        // Škola bele (spec §7.1), signed out too
+        expect(await screen.findByRole('heading', { level: 1, name: 'Bela school' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/learn')
+        cleanup()
+
+        beta.signupStatus.mockResolvedValue({ open: true })
+        renderAt('/')
+        await user.click(screen.getByRole('button', { name: 'Sign up' }))
+        expect(window.location.pathname).toBe('/signup')
+        expect(await screen.findByRole('heading', { name: 'Create Account' })).toBeInTheDocument()
+        cleanup()
+
+        // as S8's: the guest's token and user are stored before it answers, and from then on this is a guest
+        const startGuest = vi.spyOn(authService, 'startGuest').mockImplementation(async () => {
+            jsdomStorage.setItem('authToken', 'g-tok')
+            jsdomStorage.setItem('user', JSON.stringify({ id: 'g1', username: 'gost_4821', guest: true }))
+            auth.isAuthenticated = true
+            auth.guest = true
+            return { token: 'g-tok', user: { id: 'g1', username: 'gost_4821', guest: true }, message: null }
+        })
+        bots.startBotGame.mockResolvedValue({ gameId: 'g7', lobbyId: 'l7' })
+        renderAt('/')
+        await user.click(screen.getByRole('button', { name: 'Play now' }))
+        expect(await screen.findByRole('heading', { name: 'The table' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/game/g7')
+        expect(startGuest).toHaveBeenCalledTimes(1)
+        expect(bots.startBotGame).toHaveBeenCalledTimes(1)
+    })
+
+    test('a member at / goes to Doma', () => {
+        renderAt('/')
+        expect(window.location.pathname).toBe('/dashboard')
+        expect(screen.getByRole('heading', { level: 1, name: 'Hi, ana! What are we playing?' })).toBeInTheDocument()
+    })
+
+    test('a guest at / sees the landing page as themselves, and a guest at /dashboard goes there too (call 3)', async () => {
+        auth.guest = true
+        renderAt('/')
+        expect(await screen.findByRole('heading', { level: 2, name: 'Continue as gost_4821' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/')
+        cleanup()
+        renderAt('/dashboard')
+        expect(window.location.pathname).toBe('/')
+        expect(await screen.findByRole('heading', { level: 2, name: 'Continue as gost_4821' })).toBeInTheDocument()
+        expect(screen.queryByText('This needs an account')).not.toBeInTheDocument()
+    })
+
+    test('neither page asks GET /user/{own id} for a guest (B4)', async () => {
+        auth.guest = true
+        const fetch = vi.fn(async () => new Response(null, { status: 204 }))
+        vi.stubGlobal('fetch', fetch)
+        for (const path of ['/', '/dashboard']) {
+            renderAt(path)
+            await act(async () => {})
+            cleanup()
+        }
+        expect(fetch).toHaveBeenCalled()
+        expect(fetch.mock.calls.map(([url]) => String(url))).not.toContainEqual(expect.stringMatching(/\/user\/g1$/))
+        expect(vi.mocked(useUser)).not.toHaveBeenCalledWith('g1')
+    })
+
+    test("an unverified member's Doma shows the ranked lock, not the shell's email banner (call 6)", async () => {
+        vi.spyOn(userService, 'getMe').mockResolvedValue(unverified as never)
+        renderAt('/dashboard')
+        const people = screen.getByRole('region', { name: 'Against people' })
+        expect(await within(people).findByRole('button', { name: 'Resend confirmation email' })).toBeInTheDocument()
+        await act(async () => {})
+        expect(screen.queryByRole('region', { name: 'Email confirmation' })).not.toBeInTheDocument()
+        expect(screen.getAllByRole('button', { name: 'Resend confirmation email' })).toHaveLength(1)
+    })
+})
+
+// The plan's "one click → the game page, with no lobby screen in between"
+describe('One click to a bot game (spec §6)', () => {
+    let lobbyCalls: ReturnType<typeof vi.spyOn>[] = []
+    beforeEach(() => {
+        bots.startBotGame.mockResolvedValue({ gameId: 'g7', lobbyId: 'l7' })
+        lobbyCalls = [vi.spyOn(lobbyService, 'createLobby'), vi.spyOn(lobbyService, 'startMatch'), vi.spyOn(lobbyService, 'fillBots')]
+    })
+
+    /** After the click: the game page, one step on in history, never the room, and no table made, filled or started. */
+    async function expectTheGameAlone(before: number) {
+        expect(await screen.findByRole('heading', { name: 'The table' })).toBeInTheDocument()
+        expect(window.location.pathname).toBe('/game/g7')
+        expect(window.history.length).toBe(before + 1)
+        expect(rooms.shown).toEqual([])
+        expect(screen.queryByRole('heading', { name: /^The room/ })).not.toBeInTheDocument()
+        for (const call of lobbyCalls) expect(call).not.toHaveBeenCalled()
+    }
+
+    test('from Doma, Play now', async () => {
+        renderAt('/dashboard')
+        const button = within(screen.getByRole('region', { name: 'Against bots' })).getByRole('button', { name: 'Play now' })
+        const before = window.history.length
+        await userEvent.setup().click(button)
+        await expectTheGameAlone(before)
+    })
+
+    test('from an empty Birtija, Play against bots', async () => {
+        renderAt('/lobbies')
+        const button = await screen.findByRole('button', { name: 'Play against bots' })
+        const before = window.history.length
+        await userEvent.setup().click(button)
+        await expectTheGameAlone(before)
+    })
+
+    test("signed out, the landing page's Play now, as a new guest", async () => {
+        auth.isAuthenticated = false
+        // as S9's: the guest's token and user are stored before it answers, and from then on this is a guest
+        const startGuest = vi.spyOn(authService, 'startGuest').mockImplementation(async () => {
+            jsdomStorage.setItem('authToken', 'g-tok')
+            jsdomStorage.setItem('user', JSON.stringify({ id: 'g1', username: 'gost_4821', guest: true }))
+            auth.isAuthenticated = true
+            auth.guest = true
+            return { token: 'g-tok', user: { id: 'g1', username: 'gost_4821', guest: true }, message: null }
+        })
+        renderAt('/')
+        const button = screen.getByRole('button', { name: 'Play now' })
+        const before = window.history.length
+        await userEvent.setup().click(button)
+        await expectTheGameAlone(before)
+        expect(startGuest).toHaveBeenCalledTimes(1)
+        expect(startGuest.mock.invocationCallOrder[0]).toBeLessThan(bots.startBotGame.mock.invocationCallOrder[0])
     })
 })

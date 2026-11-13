@@ -1,6 +1,8 @@
 import type { LobbyDTO, LobbyTeam } from '../../types/lobby';
 import type { UserSimpleDTO } from '../../types/user';
 import { botCount, isBot, LOBBY_CAP, memberCount } from './lobbyModel';
+import { cat } from '../../i18n/t';
+import { displayName } from '../common/displayName';
 
 /** A table seat: A1 is Team A's first player in the server's list, B2 Team B's second. */
 export type SeatKey = 'A1' | 'B1' | 'A2' | 'B2';
@@ -102,21 +104,23 @@ export function fillableSeats(lobby: LobbyDTO): number {
 
 /** A seat's accessible name (spec §4.7); a bot's ends ", bot", and the host's, whose tap removes it, starts "Remove" (R37). */
 export function seatLabel(seat: TableSeat, lobby: LobbyDTO, viewerId: string | null): string {
-    const team = `team ${seat.team}`;
-    if (seat.player === null) return `${seatAction(seat, lobby, viewerId) === 'sit' ? 'Sit here' : 'Open seat'}, ${team}`;
-    const name = seat.player.username ?? 'Unknown';
-    if (viewerId != null && seat.player.id === viewerId) return `${name} (you), ${team}`;
-    if (isBot(seat.player)) return `${isHost(lobby, viewerId) ? 'Remove ' : ''}${name}, ${team}, bot`;
-    return isHost(lobby, seat.player.id) ? `${name}, ${team}, host` : `${name}, ${team}`;
+    const c = cat().table.seat;
+    const team = c.team(seat.team);
+    if (seat.player === null) return `${seatAction(seat, lobby, viewerId) === 'sit' ? c.sitHere : c.open}, ${team}`;
+    const name = displayName(seat.player.username ?? cat().common.unknown);
+    if (viewerId != null && seat.player.id === viewerId) return `${name} ${c.you}, ${team}`;
+    if (isBot(seat.player)) return `${isHost(lobby, viewerId) ? c.remove(name) : name}, ${team}, ${c.bot}`;
+    return isHost(lobby, seat.player.id) ? `${name}, ${team}, ${c.host}` : `${name}, ${team}`;
 }
 
 /** Whether the host may start, and the reason line that says why not (spec §4.7 Action bar). */
 export function startReadiness(lobby: LobbyDTO): { ready: boolean; reason: string } {
+    const c = cat().table;
     const missing = LOBBY_CAP - memberCount(lobby);
-    if (missing > 0) return { ready: false, reason: `Waiting for ${missing} more ${missing === 1 ? 'player' : 'players'}.` };
+    if (missing > 0) return { ready: false, reason: c.waitingFor(missing) };
     const standing = lobby.unassignedPlayers ?? [];
-    if (standing.length > 0) return { ready: false, reason: `${standing[0].username ?? 'Someone'} hasn't taken a seat yet.` };
-    return { ready: isReadyToStart(lobby), reason: 'Everyone is seated.' };
+    if (standing.length > 0) return { ready: false, reason: c.notSeatedYet(displayName(standing[0].username ?? c.someone)) };
+    return { ready: isReadyToStart(lobby), reason: c.everyoneSeated };
 }
 
 /** The hint under the table, for everyone but the host. */
@@ -124,19 +128,21 @@ export function lobbyHint(lobby: LobbyDTO, viewerId: string | null): string | nu
     if (isHost(lobby, viewerId)) return null;
     const team = teamOf(lobby, viewerId);
     // true either way: a join lands in Unassigned, or in a bot's seat when four are there with a bot
-    if (team === null) return 'You are looking at this lobby. Join to play.';
-    if (team === 'U') return 'Pick a seat. Partners sit opposite each other.';
-    return 'The host starts the match when all four seats are taken.';
+    const c = cat().table.hint;
+    if (team === null) return c.outsider;
+    if (team === 'U') return c.unseated;
+    return c.seated;
 }
 
 /** The hint under the table for the host: a public lobby with a bot gives that bot's seat to whoever joins. */
 export function hostHint(lobby: LobbyDTO, viewerId: string | null): string | null {
     if (!isHost(lobby, viewerId) || lobby.privateLobby || botCount(lobby) === 0) return null;
-    return "Anyone who joins takes a bot's seat. To play alone, create a private lobby.";
+    return cat().table.hint.host;
 }
 
 /** A member's status line in the action bar. */
 export function memberStatus(lobby: LobbyDTO, viewerId: string | null): string {
     const team = teamOf(lobby, viewerId);
-    return team === 'A' || team === 'B' ? `You're on Team ${team}.` : 'Tap an open seat.';
+    const c = cat().table;
+    return team === 'A' || team === 'B' ? c.onTeam(team) : c.tapSeat;
 }

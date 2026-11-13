@@ -1,5 +1,6 @@
 import type { PlayerMatchSummaryDTO } from '../../types/user';
 import { matchOutcome, type MatchOutcome } from './matchOutcome';
+import { cat } from '../../i18n/t';
 
 /** What the Recent form strip shows for one page of the list (spec §4.9). */
 export interface RecentFormSummary {
@@ -24,11 +25,10 @@ export function recentForm(summaries: readonly PlayerMatchSummaryDTO[]): RecentF
     };
 }
 
-const counted = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-/** "2 wins · 1 loss on this page · won the last 2". */
+/** "2 wins · 1 loss on this page · won the last 2", in the site's language. */
 export function formLine(form: RecentFormSummary): string {
-    const line = `${counted(form.wins, 'win', 'wins')} · ${counted(form.losses, 'loss', 'losses')} on this page`;
+    const c = cat().matches.form;
+    const line = c.line(form.wins, form.losses);
     if (!form.streak) return line;
-    return `${line} · ${form.streak.outcome === 'win' ? 'won' : 'lost'} the last ${form.streak.count}`;
+    return `${line} · ${form.streak.outcome === 'win' ? c.won(form.streak.count) : c.lost(form.streak.count)}`;
 }

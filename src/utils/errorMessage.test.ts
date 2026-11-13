@@ -1,6 +1,10 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi } from 'vitest'
+import { JSDOM } from 'jsdom'
 import { errorMessage, isNetworkOrServerFailure } from './errorMessage'
 import { ApiError } from '../services/api'
+
+// Node 26's own localStorage global is unusable here; borrow jsdom's (see services/api.test.ts)
+const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }).window
 
 describe('errorMessage', () => {
     test("returns an Error's message, incl. the backend's message carried by ApiError", () => {
@@ -12,6 +16,26 @@ describe('errorMessage', () => {
         expect(errorMessage('boom', 'fallback')).toBe('fallback')
         expect(errorMessage(undefined, 'fallback')).toBe('fallback')
         expect(errorMessage({ message: 'not an Error' }, 'fallback')).toBe('fallback')
+    })
+
+    test("an ApiError reads in the site's language (spec §1.1)", async () => {
+        vi.stubGlobal('localStorage', jsdomStorage)
+        vi.resetModules()
+        try {
+            // one module copy: errorMessage's instanceof needs the same ApiError class
+            const { errorMessage: message } = await import('./errorMessage')
+            const { ApiError: FreshApiError } = await import('../services/api')
+            const { setLang } = await import('../i18n/lang')
+            const full = new FreshApiError({ status: 409, message: 'Lobby is full', code: 'LOBBY_FULL' })
+            expect(message(full, 'fallback')).toBe('This table is full.')
+            setLang('hr')
+            expect(message(full, 'fallback')).toBe('Ovaj je stol pun.')
+            expect(message(new Error('boom'), 'fallback')).toBe('boom')
+            expect(message('x', 'fallback')).toBe('fallback')
+        } finally {
+            jsdomStorage.clear()
+            vi.unstubAllGlobals()
+        }
     })
 })
 

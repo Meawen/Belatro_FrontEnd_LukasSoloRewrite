@@ -169,6 +169,8 @@ export interface PrivateGameView {
     yourTurn: boolean;
     /** My challenge is gone for the rest of the game (gameplay rules spec §1). */
     challengeUsed: boolean;
+    /** The cards the rules let me play, on my turn while playing; null otherwise (backend B8, open beta §7.3). An older backend sends none. */
+    legalCards?: GameCard[] | null;
 }
 
 export interface QueueStatusDTO {

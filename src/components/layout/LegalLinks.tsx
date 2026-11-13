@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { cx } from '../ui/cx';
+import { useT } from '../../i18n/t';
 
 /** The players' one contact address; Cloudflare Email Routing forwards it to the owner. */
 export const SUPPORT_EMAIL = 'support@stiglja.com';
@@ -22,11 +23,14 @@ const LINK = 'inline-flex min-h-11 items-center text-text-2 underline-offset-4 h
  * The links every visitor may follow, signed in or not: in the footer, on the sign-in page and
  * on the public pages (R-40). Only routed pages and the support address.
  */
-export const LegalLinks: React.FC<LegalLinksProps> = ({ className = '' }) => (
-    <nav aria-label="Site links" className={cx('t-footnote flex flex-wrap items-center gap-x-5', className)}>
-        <Link to="/rules" className={LINK}>Rules</Link>
-        <Link to="/privacy" className={LINK}>Privacy</Link>
-        <Link to="/terms" className={LINK}>Terms</Link>
-        <a href={`mailto:${SUPPORT_EMAIL}`} className={LINK}>Contact: {SUPPORT_EMAIL}</a>
-    </nav>
-);
+export const LegalLinks: React.FC<LegalLinksProps> = ({ className = '' }) => {
+    const t = useT();
+    return (
+        <nav aria-label={t.shell.links.label} className={cx('t-footnote flex flex-wrap items-center gap-x-5', className)}>
+            <Link to="/rules" className={LINK}>{t.shell.links.rules}</Link>
+            <Link to="/privacy" className={LINK}>{t.shell.links.privacy}</Link>
+            <Link to="/terms" className={LINK}>{t.shell.links.terms}</Link>
+            <a href={`mailto:${SUPPORT_EMAIL}`} className={LINK}>{t.shell.links.contact} {SUPPORT_EMAIL}</a>
+        </nav>
+    );
+};

@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { LobbyTable } from './LobbyTable'
 import type { LobbyDTO } from '../../types/lobby'
+import { setLang } from '../../i18n/lang'
 
 const mira = { id: 'u9', username: 'mira_z', bot: false }
 const luka = { id: 'u2', username: 'luka', bot: false }
@@ -281,6 +282,19 @@ describe('LobbyTable (spec §4.7)', () => {
         expect(avatar.querySelector('svg')).not.toBeNull()
         expect(seatAt('right').querySelector('.ui-avatar')).toHaveTextContent(/^I$/)
         expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
+    })
+
+    test('in Croatian an open seat\'s plate says „Slobodno”, so it fits the 104-px seat; its name stays „Slobodno mjesto” (R1-36)', () => {
+        setLang('hr')
+        try {
+            render(<LobbyTable lobby={lobby()} viewerId="u3" />)
+            const open = seatAt('top')
+            expect(open).toHaveAccessibleName('Slobodno mjesto, ekipa B')
+            expect(within(open).getByText('Slobodno')).toHaveClass('truncate')
+            expect(within(open).queryByText('Slobodno mjesto')).not.toBeInTheDocument()
+        } finally {
+            setLang('en')
+        }
     })
 
     test('the mini table (the quick-look) draws the same seats without buttons', () => {

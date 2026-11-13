@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { LoginForm } from './LoginForm'
 import { ApiError } from '../../services/api'
 import { captureConsole } from '../../test/captureConsole'
+import { setLang } from '../../i18n/lang'
 
 const auth = vi.hoisted(() => ({ login: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({
@@ -12,6 +13,7 @@ vi.mock('../../hooks/useAuth', () => ({
 }))
 
 beforeEach(() => vi.clearAllMocks())
+afterEach(() => setLang('en'))
 
 /** Where the router is, and the state it carries. */
 function Where() {
@@ -53,6 +55,41 @@ describe('LoginForm', () => {
         await user.type(screen.getByLabelText('Password'), 'long-enough-1')
         await user.click(screen.getByRole('button', { name: /sign in/i }))
         expect(await screen.findByText('Bad credentials')).toBeInTheDocument()
+    })
+
+    test('a translated "Bad credentials" (HTTP_401) reads as a wrong username or password (Ruling 16)', async () => {
+        const user = userEvent.setup()
+        auth.login.mockRejectedValue(new ApiError({ status: 401, message: 'Ungültige Anmeldedaten', code: 'HTTP_401' }))
+        render(<MemoryRouter><LoginForm onSuccess={vi.fn()} /></MemoryRouter>)
+        await user.type(screen.getByLabelText('Username'), 'ana')
+        await user.type(screen.getByLabelText('Password'), 'long-enough-1')
+        await user.click(screen.getByRole('button', { name: /sign in/i }))
+        expect(await screen.findByText('Wrong username or password. Check both and try again.')).toBeInTheDocument()
+        expect(screen.queryByText('Ungültige Anmeldedaten')).not.toBeInTheDocument()
+    })
+
+    test('wrong credentials read in Croatian on a Croatian site', async () => {
+        setLang('hr')
+        const user = userEvent.setup()
+        auth.login.mockRejectedValue(new ApiError({ status: 401, message: 'Bad credentials', code: 'BAD_CREDENTIALS' }))
+        render(<MemoryRouter><LoginForm onSuccess={vi.fn()} /></MemoryRouter>)
+        await user.type(screen.getByLabelText('Korisničko ime'), 'ana')
+        await user.type(screen.getByLabelText('Lozinka'), 'long-enough-1')
+        await user.click(screen.getByRole('button', { name: 'Prijavi se' }))
+        expect(await screen.findByText('Pogrešno korisničko ime ili lozinka. Provjeri oboje i pokušaj ponovno.')).toBeInTheDocument()
+        expect(screen.queryByText('Bad credentials')).not.toBeInTheDocument()
+    })
+
+    test('sign-in in Croatian', async () => {
+        setLang('hr')
+        render(<MemoryRouter><LoginForm onSuccess={vi.fn()} /></MemoryRouter>)
+        expect(screen.getByRole('heading', { level: 1, name: 'Opet si tu!' })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Zaboravljena lozinka?' })).toHaveAttribute('href', '/forgot-password')
+        expect(screen.getByRole('link', { name: 'Registriraj se' })).toHaveAttribute('href', '/signup')
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Prijavi se' }))
+        expect(screen.getByText('Upiši korisničko ime.')).toBeInTheDocument()
+        expect(screen.getByText('Upiši lozinku.')).toBeInTheDocument()
+        expect(auth.login).not.toHaveBeenCalled()
     })
 
     test('links to the forgot-password page', () => {

@@ -9,9 +9,7 @@ import { Avatar, Button, Sheet, Tag } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import type { MatchDTO } from '../../types';
 import type { UserSimpleDTO } from '../../types/user';
-
-/** The server's 409 once a match can no longer be declined: a bid was made, or 30 s passed (R-25). */
-export const DECLINE_TOO_LATE = 'This match can no longer be declined';
+import { cat, useT } from '../../i18n/t';
 
 /** A found match is accepted for the player after this many seconds. */
 export const ACCEPT_COUNTDOWN_SECONDS = 15;
@@ -22,6 +20,7 @@ function Team({ name, tone, players, isMe }: {
     players: UserSimpleDTO[] | null;
     isMe: (player: UserSimpleDTO) => boolean;
 }) {
+    const t = useT();
     return (
         <section aria-label={name} className="notch bg-surface-2 p-3">
             <h3 className={tone === 'team-a' ? 't-caption text-team-a' : 't-caption text-team-b-text'}>{name}</h3>
@@ -30,7 +29,7 @@ function Team({ name, tone, players, isMe }: {
                     <li key={player.id ?? player.username ?? ''} className="flex min-w-0 items-center gap-2">
                         <Avatar initial={player.username ?? '?'} tone={tone} size="sm" />
                         <span className="t-callout truncate">{player.username}</span>
-                        {isMe(player) && <Tag tone="you">YOU</Tag>}
+                        {isMe(player) && <Tag tone="you">{t.common.youCaps}</Tag>}
                     </li>
                 ))}
             </ul>
@@ -92,8 +91,9 @@ export const MatchFoundModal: React.FC = () => {
             acceptMatch(); // This clears the match state
         } catch (error) {
             setDeclineError(error instanceof ApiError && error.status === 409
-                ? DECLINE_TOO_LATE
-                : errorMessage(error, 'Could not decline the match'));
+                // The server's 409 once a match can no longer be declined: a bid was made, or 30 s passed (R-25).
+                ? cat().errors.codes.DECLINE_TOO_LATE
+                : errorMessage(error, cat().ranked.found.declineFailed));
         } finally {
             decliningRef.current = false;
             setIsDeclining(false);
@@ -101,6 +101,7 @@ export const MatchFoundModal: React.FC = () => {
     };
 
     const match = foundMatch ?? shown;
+    const t = useT();
     const isMe = (player: UserSimpleDTO) =>
         (player.id != null && player.id === user?.id) || (player.username != null && player.username === user?.username);
 
@@ -111,15 +112,15 @@ export const MatchFoundModal: React.FC = () => {
             onClose={() => {}}
             dismissible={false}
             side="full"
-            title="Match found"
+            title={t.ranked.found.title}
             initialFocus={acceptRef}
             className="items-center"
         >
             {match && (
                 <div className="flex w-[min(560px,calc(100vw-32px))] flex-col gap-5">
                     <div className="grid gap-3 sm:grid-cols-2">
-                        <Team name="Team A" tone="team-a" players={match.teamA} isMe={isMe} />
-                        <Team name="Team B" tone="team-b" players={match.teamB} isMe={isMe} />
+                        <Team name={t.common.team('A')} tone="team-a" players={match.teamA} isMe={isMe} />
+                        <Team name={t.common.team('B')} tone="team-b" players={match.teamB} isMe={isMe} />
                     </div>
 
                     <div className="flex flex-col gap-2">
@@ -131,15 +132,15 @@ export const MatchFoundModal: React.FC = () => {
                                 style={{ transform: `scaleX(${countdown / ACCEPT_COUNTDOWN_SECONDS})` }}
                             />
                         </div>
-                        <p className="t-callout text-text-2">Auto-accepting in {countdown} seconds...</p>
+                        <p className="t-callout text-text-2">{t.ranked.found.autoAccept(countdown)}</p>
                     </div>
 
                     <div className="flex flex-col gap-3 sm:flex-row">
                         <Button ref={acceptRef} block onClick={handleAccept}>
-                            Accept Match
+                            {t.ranked.found.accept}
                         </Button>
                         <Button variant="secondary" block onClick={handleDecline} disabled={isDeclining}>
-                            Decline
+                            {t.ranked.found.decline}
                         </Button>
                     </div>
 

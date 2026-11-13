@@ -3,26 +3,40 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { HomePage } from './HomePage'
-import { useUser } from '../hooks/useUser'
+import { notifyMeChanged, useUser } from '../hooks/useUser'
 import { userService } from '../services/userService'
+import { lobbyService } from '../services/lobbyService'
 import { matchHistoryService } from '../services/matchHistoryService'
+import { ApiError } from '../services/api'
 import { ACTIVE_GAME_POLL_MS } from '../components/layout/ActiveGameBanner'
-import type { PlayerMatchSummaryDTO } from '../types/user'
+import type { PlayerMatchSummaryDTO, UserDto } from '../types/user'
+import type { LobbyDTO } from '../types/lobby'
 import { rankedUser } from '../test/fixtures/ranks'
+import { setLang } from '../i18n/lang'
+import { LONG_NAMES } from '../dev/devTable'
 
 // Tailwind's own colour scale (bg-amber-600, text-emerald-950, …): the design uses tokens only (spec §3.2)
 const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange|teal|lime|pink)-\d/
 
+const home = vi.hoisted(() => ({ username: 'ana' }))
 vi.mock('../hooks/useAuth', () => ({
-    useAuth: () => ({ user: { id: 'u1', username: 'ana' }, isAuthenticated: true, isLoading: false, token: 'tok-1' }),
+    useAuth: () => ({ user: { id: 'u1', username: home.username }, isAuthenticated: true, isLoading: false, token: 'tok-1' }),
 }))
 // The player's numbers come from GET /user/{id} through useUser
 vi.mock('../hooks/useUser', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../hooks/useUser')>()),
     useUser: vi.fn(),
 }))
-vi.mock('../services/userService', () => ({ userService: { getActiveGame: vi.fn() } }))
+vi.mock('../services/userService', () => ({ userService: { getActiveGame: vi.fn(), getMe: vi.fn(), resendEmailConfirmation: vi.fn() } }))
+vi.mock('../services/lobbyService', () => ({ lobbyService: { getAllOpenLobbies: vi.fn() } }))
 vi.mock('../services/matchHistoryService', () => ({ matchHistoryService: { getMatchSummary: vi.fn() } }))
+// The one-click bot game (spec §6): its request is botGame.test's; here a stub
+const bots = vi.hoisted(() => ({ startBotGame: vi.fn() }))
+vi.mock('../services/botGame', () => ({ startBotGame: bots.startBotGame }))
+
+const VERIFIED: UserDto = {
+    id: 'u1', username: 'ana', email: 'ana@example.com', pendingEmail: null, emailVerified: true, roles: ['ROLE_USER'], deletionRequested: false,
+}
 
 function row(matchId: string, yourOutcome: string): PlayerMatchSummaryDTO {
     return { matchId, endTime: null, result: 'Team A wins 1001–650', yourOutcome, gameMode: 'RANKED' }
@@ -52,44 +66,29 @@ async function settle() {
 
 beforeEach(() => {
     vi.clearAllMocks()
+    home.username = 'ana'
     vi.mocked(useUser).mockReturnValue({
         user: { id: 'u1', username: 'ana', eloRating: 1450, level: 0, gamesPlayed: 42 },
         isLoading: false, error: null, refetch: vi.fn(),
     } as never)
     vi.mocked(userService.getActiveGame).mockResolvedValue(null)
+    vi.mocked(userService.getMe).mockResolvedValue(VERIFIED)
+    vi.mocked(lobbyService.getAllOpenLobbies).mockResolvedValue([{ id: 'l1' }, { id: 'l2' }] as LobbyDTO[])
     vi.mocked(matchHistoryService.getMatchSummary).mockResolvedValue([])
+    bots.startBotGame.mockReset()
 })
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+    vi.useRealTimers()
+    setLang('en')
+})
 
-describe('Home (spec §4.4; D-26)', () => {
+describe('Doma (spec §5, option B)', () => {
     test('greets the player in the page’s only h1, and the tab is titled Home', async () => {
         renderHome()
         await settle()
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
-        expect(screen.getByRole('heading', { level: 1, name: 'Hi, ana' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: 'Hi, ana! What are we playing?' })).toBeInTheDocument()
         expect(document.title).toBe('Home · Stiglja')
-    })
-
-    test('"Play ranked" shows the player’s Elo and leads to /play', async () => {
-        renderHome()
-        await settle()
-        const play = screen.getByRole('button', { name: 'Play ranked' })
-        expect(within(play.closest('section') as HTMLElement).getByText('1450')).toBeInTheDocument()
-        await userEvent.setup().click(play)
-        expect(screen.getByText('at /play')).toBeInTheDocument()
-    })
-
-    test('Lobbies: "Open lobbies" leads to /lobbies, "Create lobby" opens the create sheet there', async () => {
-        const user = userEvent.setup()
-        const { unmount } = renderHome()
-        await settle()
-        await user.click(screen.getByRole('button', { name: 'Open lobbies' }))
-        expect(screen.getByText('at /lobbies')).toBeInTheDocument()
-        unmount()
-        renderHome()
-        await settle()
-        await user.click(screen.getByRole('button', { name: 'Create lobby' }))
-        expect(screen.getByText('at /lobbies?create=1')).toBeInTheDocument()
     })
 
     test('the stats strip is Elo, Games and Level; nothing on Home uses the raw palette', async () => {
@@ -98,6 +97,188 @@ describe('Home (spec §4.4; D-26)', () => {
         const strip = screen.getByTestId('dashboard-elo').closest('dl') as HTMLElement
         expect(within(strip).getAllByRole('term').map((term) => term.textContent)).toEqual(['Elo', 'Games', 'Level'])
         expect(container.innerHTML).not.toMatch(RAW_PALETTE)
+    })
+
+    test('the game card sits above the two halves (spec §5)', async () => {
+        vi.mocked(userService.getActiveGame).mockResolvedValue('g1')
+        renderHome()
+        const card = await screen.findByRole('region', { name: 'Game in progress' })
+        const bots = screen.getByRole('region', { name: 'Against bots' })
+        expect(card.compareDocumentPosition(bots) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    test('two halves, each with one primary action: Play now and Play ranked (spec §5, §8)', async () => {
+        renderHome()
+        await settle()
+        for (const [half, action] of [['Against bots', 'Play now'], ['Against people', 'Play ranked']]) {
+            const region = screen.getByRole('region', { name: half })
+            const primary = region.querySelectorAll('.ui-btn--primary')
+            expect(primary, half).toHaveLength(1)
+            expect(primary[0]).toHaveTextContent(action)
+        }
+    })
+
+    test('with a game running, Return to your game is the main button and Play now secondary; without one, Play now is (Ruling 71)', async () => {
+        vi.mocked(userService.getActiveGame).mockResolvedValue('g1')
+        const { unmount } = renderHome()
+        const card = await screen.findByRole('region', { name: 'Game in progress' })
+        expect(within(card).getByRole('button', { name: 'Return to your game' })).toHaveClass('ui-btn--primary')
+        expect(screen.getByRole('button', { name: 'Play now' })).toHaveClass('ui-btn--secondary')
+        expect(screen.getByRole('region', { name: 'Against bots' }).querySelectorAll('.ui-btn--primary')).toHaveLength(0)
+        unmount()
+
+        vi.mocked(userService.getActiveGame).mockResolvedValue(null)
+        renderHome()
+        await settle()
+        expect(screen.queryByRole('region', { name: 'Game in progress' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Play now' })).toHaveClass('ui-btn--primary')
+    })
+
+    test("Against bots: you and three bots, and it says your rating doesn't change", async () => {
+        renderHome()
+        await settle()
+        const half = screen.getByRole('region', { name: 'Against bots' })
+        const seats = within(half).getByRole('list', { name: 'Seats at the table' })
+        expect(within(seats).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['You', 'Bot', 'Bot', 'Bot'])
+        expect(half).toHaveTextContent("Three bots, and the game starts at once. It doesn't change your rating.")
+    })
+
+    test('Play now starts a game against three bots and opens it (spec §6)', async () => {
+        bots.startBotGame.mockResolvedValue({ gameId: 'g7', lobbyId: 'l7' })
+        renderHome()
+        await settle()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Play now' }))
+        expect(await screen.findByText('at /game/g7')).toBeInTheDocument()
+        expect(bots.startBotGame).toHaveBeenCalledTimes(1)
+    })
+
+    test("Play now refused: the bots' 503, and ALREADY_IN_GAME with the way back", async () => {
+        const user = userEvent.setup()
+        bots.startBotGame.mockRejectedValueOnce(new ApiError({ status: 503, message: 'Service Unavailable' }))
+        const { unmount } = renderHome()
+        await settle()
+        await user.click(screen.getByRole('button', { name: 'Play now' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent("Bots aren't available right now. Try again later.")
+        expect(screen.getByRole('button', { name: 'Play now' })).toBeEnabled()
+        unmount()
+
+        vi.mocked(userService.getActiveGame).mockReset().mockResolvedValueOnce(null).mockResolvedValue('g1')
+        bots.startBotGame.mockRejectedValueOnce(new ApiError({ status: 409, message: 'You already have a game in progress', code: 'ALREADY_IN_GAME' }))
+        renderHome()
+        await settle()
+        expect(screen.queryByRole('region', { name: 'Game in progress' })).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Play now' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent('You already have a game in progress. Go back to it first.')
+        const card = await screen.findByRole('region', { name: 'Game in progress' })
+        expect(within(card).getByRole('button', { name: 'Return to your game' })).toBeInTheDocument()
+        expect(userService.getActiveGame).toHaveBeenCalledTimes(2)
+    })
+
+    test('Play now refused by the limit (429) or with no answer: the line, and Play now again (spec §8)', async () => {
+        const user = userEvent.setup()
+        bots.startBotGame
+            .mockRejectedValueOnce(new ApiError({ status: 429, message: 'Too many requests, try again later', code: 'RATE_LIMITED' }))
+            .mockRejectedValueOnce(new ApiError({ status: 0, message: 'Failed to fetch' }))
+        renderHome()
+        await settle()
+        for (const line of ['Too many tries. Wait a little, then try again.', "Bots aren't available right now. Try again later."]) {
+            await user.click(screen.getByRole('button', { name: 'Play now' }))
+            expect(await screen.findByText(line)).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Play now' })).toBeEnabled()
+        }
+    })
+
+    test('Against people: Play ranked opens /play, Private table opens the create sheet with Private on, Tables (n) opens the Birtija', async () => {
+        const user = userEvent.setup()
+        for (const [name, path] of [['Play ranked', '/play'], ['Private table', '/lobbies?create=private'], ['Tables (2)', '/lobbies']]) {
+            const { unmount } = renderHome()
+            await settle()
+            await user.click(within(screen.getByRole('region', { name: 'Against people' })).getByRole('button', { name }))
+            expect(screen.getByText(`at ${path}`), name).toBeInTheDocument()
+            unmount()
+        }
+        expect(lobbyService.getAllOpenLobbies).toHaveBeenCalledTimes(3)
+
+        vi.mocked(lobbyService.getAllOpenLobbies).mockRejectedValue(new ApiError({ status: 503, message: 'Service Unavailable' }))
+        renderHome()
+        await settle()
+        expect(within(screen.getByRole('region', { name: 'Against people' })).getByRole('button', { name: 'Tables' })).toBeInTheDocument()
+    })
+
+    test('an unverified address locks Play ranked, says why, and offers to resend the email (spec §5, §8)', async () => {
+        vi.mocked(userService.getMe).mockResolvedValue({ ...VERIFIED, emailVerified: false, pendingEmail: 'ana@example.com', email: null, verifyBy: '2026-11-06T10:00:00Z' })
+        renderHome()
+        await settle()
+        const half = screen.getByRole('region', { name: 'Against people' })
+        const ranked = within(half).getByRole('button', { name: 'Play ranked' })
+        expect(ranked).toBeDisabled()
+        // spec §2.1 (US-26): the day the account goes, on the first screen after signing up (the banner gives way here)
+        expect(within(half).getByText(/Confirm ana@example\.com to play ranked/)).toHaveTextContent(
+            'Confirm ana@example.com to play ranked: use the link if one arrived, or ask for a new one. If no email address is confirmed by November 6, 2026, the account will be removed.')
+        expect(ranked).toHaveAccessibleDescription(/Confirm ana@example\.com to play ranked/)
+        expect(within(half).getByRole('button', { name: 'Resend confirmation email' })).toBeInTheDocument()
+        await userEvent.setup().click(ranked)
+        expect(screen.queryByText('at /play')).not.toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: 'Hi, ana! What are we playing?' })).toBeInTheDocument()
+    })
+
+    test('no address at all: the lock leads to Settings', async () => {
+        vi.mocked(userService.getMe).mockResolvedValue({ ...VERIFIED, emailVerified: false, email: null, pendingEmail: null })
+        renderHome()
+        await settle()
+        const half = screen.getByRole('region', { name: 'Against people' })
+        expect(within(half).getByText('Add an email address to play ranked.')).toBeInTheDocument()
+        expect(within(half).getByRole('link', { name: 'Open settings' })).toHaveAttribute('href', '/settings')
+        expect(within(half).getByRole('button', { name: 'Play ranked' })).toBeDisabled()
+    })
+
+    test('an address confirmed meanwhile unlocks Play ranked: Doma asks GET /user/me again when this tab says it changed (Ruling 48)', async () => {
+        vi.mocked(userService.getMe).mockResolvedValueOnce({ ...VERIFIED, emailVerified: false, pendingEmail: 'ana@example.com', email: null })
+        renderHome()
+        await settle()
+        const half = screen.getByRole('region', { name: 'Against people' })
+        expect(within(half).getByRole('button', { name: 'Play ranked' })).toBeDisabled()
+        // what a resend that finds nothing to confirm, or Settings, fires (useUser's notifyMeChanged)
+        await act(async () => notifyMeChanged())
+        await settle()
+        expect(userService.getMe).toHaveBeenCalledTimes(2)
+        expect(within(half).getByRole('button', { name: 'Play ranked' })).toBeEnabled()
+        expect(within(half).queryByRole('button', { name: 'Resend confirmation email' })).not.toBeInTheDocument()
+    })
+
+    test("a verified member's Play ranked is enabled", async () => {
+        renderHome()
+        await settle()
+        const half = screen.getByRole('region', { name: 'Against people' })
+        expect(within(half).getByRole('button', { name: 'Play ranked' })).toBeEnabled()
+        expect(within(half).queryByRole('button', { name: 'Resend confirmation email' })).not.toBeInTheDocument()
+    })
+
+    test('New to bela? leads to Bela school (/learn)', async () => {
+        renderHome()
+        await settle()
+        expect(screen.getByRole('heading', { level: 2, name: 'New to bela?' })).toBeInTheDocument()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Bela school' }))
+        expect(screen.getByText('at /learn')).toBeInTheDocument()
+    })
+
+    test('Doma in Croatian (§1.4, §5)', async () => {
+        setLang('hr')
+        renderHome()
+        await settle()
+        expect(screen.getByRole('heading', { level: 1, name: 'Bok, ana! Što igramo?' })).toBeInTheDocument()
+        for (const name of ['Protiv botova', 'Protiv ljudi', 'Prvi put igraš belu?']) expect(screen.getByRole('heading', { level: 2, name })).toBeInTheDocument()
+        for (const name of ['Igraj odmah', 'Igraj rangirano', 'Stol za ekipu', 'Birtija (2)', 'Škola bele']) expect(screen.getByRole('button', { name })).toBeInTheDocument()
+        const seats = screen.getByRole('list', { name: 'Mjesta za stolom' })
+        expect(within(seats).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Ti', 'Bot', 'Bot', 'Bot'])
+        expect(document.title).toBe('Doma · Stiglja')
+    })
+
+    test('a 20-character name wraps in the greeting (long names fit)', async () => {
+        home.username = LONG_NAMES.dave
+        renderHome()
+        await settle()
+        expect(screen.getByRole('heading', { level: 1, name: `Hi, ${LONG_NAMES.dave}! What are we playing?` })).toHaveClass('break-words')
     })
 })
 

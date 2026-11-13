@@ -36,9 +36,15 @@ const fake = vi.hoisted(() => {
     }
     return { handlers, published, counters, state, gameSocket, deliver, setConnected }
 })
-vi.mock('../services/gameSocket', () => ({ gameSocket: fake.gameSocket }))
+// Only the singleton is faked; the module's other exports (the socket's lines, which i18n/socketErrors maps) stay real.
+vi.mock('../services/gameSocket', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../services/gameSocket')>()),
+    gameSocket: fake.gameSocket,
+}))
 
 import { useGameWebSocket } from './useGameWebSocket'
+import { AUTH_REQUIRED_MESSAGE } from '../services/gameSocket'
+import { setLang } from '../i18n/lang'
 
 beforeEach(() => {
     fake.handlers.clear()
@@ -188,5 +194,19 @@ describe('useGameWebSocket rematch (R-45)', () => {
         ])
         act(() => result.current.unsubscribeFromRematch('g1'))
         expect(fake.handlers.get('/topic/games/g1/rematch')?.size).toBe(0)
+    })
+})
+
+describe('useGameWebSocket and the site language (open beta §1.1)', () => {
+    test("the socket's own line comes out in the site's language", () => {
+        fake.state.error = AUTH_REQUIRED_MESSAGE
+        try {
+            expect(renderHook(() => useGameWebSocket({})).result.current.connectionError).toBe('Authentication required')
+            setLang('hr')
+            expect(renderHook(() => useGameWebSocket({})).result.current.connectionError).toBe('Za igru je potrebna prijava.')
+        } finally {
+            setLang('en')
+            fake.state.error = null
+        }
     })
 })

@@ -8,6 +8,8 @@ import { indexOf, playTable, type FanOut } from '../../test/fixtures/views/table
 import type { MatchHands } from '../../hooks/useMatchHands'
 import type { RematchState } from '../../hooks/useRematch'
 import type { PublicGameView } from '../../types/game'
+import type { HandDTO } from '../../types/match'
+import { setLang } from '../../i18n/lang'
 
 // the whole board renders in every test: slower than a 5-s default on a busy machine
 vi.setConfig({ testTimeout: 20_000 })
@@ -36,9 +38,9 @@ describe('Board: the end of the game (GameTable cases, R-20, R-25, R-31)', () =>
     test('a finished game names the winner and offers the way back', async () => {
         const user = userEvent.setup()
         const { props } = renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A', teamAScore: 1001, teamBScore: 640 }) })
-        expect(screen.getByRole('heading', { name: 'Game over' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'You won!' })).toBeInTheDocument()
         expect(screen.getByText('Team A wins')).toBeInTheDocument()
-        await user.click(screen.getByRole('button', { name: 'Back to lobbies' }))
+        await user.click(screen.getByRole('button', { name: 'Home' }))
         expect(props.onLeave).toHaveBeenCalledTimes(1)
     })
 
@@ -59,19 +61,73 @@ describe('Board: the end of the game (GameTable cases, R-20, R-25, R-31)', () =>
         expect(screen.getByRole('heading', { name: 'Game over' })).toBeInTheDocument()
         expect(screen.queryByRole('heading', { name: 'Match cancelled' })).not.toBeInTheDocument()
     })
+
+    test("a guest's end sheet leaves out Match details, a member-only page (spec §3.3)", () => {
+        renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A', teamAScore: 1001, teamBScore: 640 }), guest: true })
+        expect(screen.queryByRole('link', { name: 'Match details' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument()
+    })
+
+    test('one primary action in each ending: Play again when a rematch may follow, else the way out (spec §8)', () => {
+        const primaries = () => [...document.querySelectorAll('.board-end .ui-btn--primary')].map((button) => button.textContent)
+        renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: rematch() })
+        expect(primaries()).toEqual(['Play again'])
+        cleanup()
+        renderBoard({ state: ended({ gameState: 'CANCELLED', endReason: 'CANCELLED' }) })
+        expect(primaries()).toEqual(['Home'])
+    })
+
+    test("a guest's end: Play again, Play with people and Back; with no rematch, Back and Play with people (spec §6)", async () => {
+        const user = userEvent.setup()
+        const buttons = () => within(document.querySelector<HTMLElement>('.board-end')!).getAllByRole('button').map((button) => button.textContent)
+        const onSignUp = vi.fn()
+        const { props } = renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: rematch(), guest: true, onSignUp })
+        expect(buttons()).toEqual(['Play again', 'Play with people', 'Back'])
+        expect(screen.queryByRole('button', { name: 'Home' })).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Play with people' }))
+        expect(onSignUp).toHaveBeenCalledTimes(1)
+        await user.click(screen.getByRole('button', { name: 'Back' }))
+        expect(props.onLeave).toHaveBeenCalledTimes(1)
+        cleanup()
+        renderBoard({ state: ended({ gameState: 'CANCELLED', endReason: 'CANCELLED' }), guest: true, onSignUp })
+        expect(buttons()).toEqual(['Back', 'Play with people'])
+        expect([...document.querySelectorAll('.board-end .ui-btn--primary')].map((button) => button.textContent)).toEqual(['Back'])
+    })
+
+    test('a member never sees Play with people, even when the page passes it', () => {
+        renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: rematch(), onSignUp: vi.fn() })
+        expect(screen.queryByRole('button', { name: 'Play with people' })).not.toBeInTheDocument()
+        cleanup()
+        renderBoard({ state: ended({ gameState: 'CANCELLED', endReason: 'CANCELLED' }), onSignUp: vi.fn() })
+        expect(screen.queryByRole('button', { name: 'Play with people' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument()
+    })
+
+    test("the guest's end in Croatian (§1.4, §6)", () => {
+        setLang('hr')
+        try {
+            renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: rematch(), guest: true, onSignUp: vi.fn() })
+            expect(within(document.querySelector<HTMLElement>('.board-end')!).getAllByRole('button').map((button) => button.textContent))
+                .toEqual(['Ajmo još jednu!', 'Igraj s ljudima', 'Natrag'])
+        } finally {
+            setLang('en')
+        }
+    })
 })
 
 describe('Board: Play again after the game (GameTable cases, R-45)', () => {
-    test('game over offers Play again and Leave, with how many want a rematch', async () => {
+    test('game over offers Play again and Home, with how many want a rematch', async () => {
         const user = userEvent.setup()
         const state = rematch({ votes: 2 })
-        renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: state })
-        expect(screen.getByTestId('rematch-votes').textContent).toBe('2/4 want a rematch')
-        expect(screen.queryByRole('button', { name: 'Back to lobbies' })).not.toBeInTheDocument()
+        const { props } = renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: state })
+        expect(screen.getByTestId('rematch-votes').textContent).toBe('2/4 want to play again')
+        expect(screen.queryByRole('button', { name: 'Back to tables' })).not.toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: 'Play again' }))
         expect(state.playAgain).toHaveBeenCalledTimes(1)
-        await user.click(screen.getByRole('button', { name: 'Leave' }))
-        expect(state.leave).toHaveBeenCalledTimes(1)
+        await user.click(screen.getByRole('button', { name: 'Home' }))
+        expect(props.onLeave).toHaveBeenCalledTimes(1)
+        // the page declines the rematch on the way out (GamePageConnected)
+        expect(state.leave).not.toHaveBeenCalled()
     })
 
     test('a ranked forfeit offers it too; a plain cancel offers only the way back', () => {
@@ -80,12 +136,12 @@ describe('Board: Play again after the game (GameTable cases, R-45)', () => {
         cleanup()
         renderBoard({ state: ended({ gameState: 'CANCELLED', endReason: 'CANCELLED' }), rematch: rematch() })
         expect(screen.queryByRole('button', { name: 'Play again' })).not.toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Back to lobbies' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument()
     })
 
     test('someone left: their name, and Play again is off', () => {
         renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'B' }), rematch: rematch({ votes: 1, cancelledBy: 'bob' }) })
-        expect(screen.getByText('bob left — no rematch')).toBeInTheDocument()
+        expect(screen.getByText('bob left — no new game')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Play again' })).toBeDisabled()
     })
 
@@ -96,13 +152,43 @@ describe('Board: Play again after the game (GameTable cases, R-45)', () => {
         expect(screen.getByRole('button', { name: 'Play again' })).toBeDisabled()
         await user.click(screen.getByRole('button', { name: 'Play again' }))
         expect(state.playAgain).not.toHaveBeenCalled()
-        expect(screen.getByRole('button', { name: 'Leave' })).toBeEnabled()
+        expect(screen.getByRole('button', { name: 'Home' })).toBeEnabled()
     })
 
     test('two minutes without a start: Rematch expired, and Play again is off', () => {
         renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: rematch({ votes: 3, expired: true }) })
-        expect(screen.getByText('Rematch expired')).toBeInTheDocument()
+        expect(screen.getByText('Too late to play again')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Play again' })).toBeDisabled()
+    })
+
+    test('the end in Croatian: win, loss, forfeit (§1.4, §6)', () => {
+        setLang('hr')
+        try {
+            renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: rematch({ votes: 2 }) })
+            expect(screen.getByRole('heading', { name: 'Kaj ste dobri, pajdaši!' })).toBeInTheDocument()
+            expect(screen.getByText('Ekipa A je pobijedila')).toBeInTheDocument()
+            expect(screen.getByTestId('rematch-votes').textContent).toBe('2/4 za još jednu')
+            expect(screen.getByRole('button', { name: 'Ajmo još jednu!' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Doma' })).toBeInTheDocument()
+            expect(screen.getByRole('link', { name: 'Detalji partije' })).toHaveAttribute('href', '/matches/g1')
+            cleanup()
+            renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'B' }) })
+            expect(screen.getByRole('heading', { name: 'Bu bolje drugi put.' })).toBeInTheDocument()
+            expect(screen.getByText('Ekipa B je pobijedila')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Doma' })).toBeInTheDocument()
+            cleanup()
+            renderBoard({ state: ended({ gameState: 'CANCELLED', endReason: 'FORFEIT', forfeitTeamId: 'B' }) })
+            expect(screen.getByRole('heading', { name: 'Kraj partije' })).toBeInTheDocument()
+            expect(screen.getByTestId('end-reason').textContent).toBe('Ekipa B je predala — pobijedila je ekipa A')
+            cleanup()
+            renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'B' }), rematch: rematch({ votes: 1, cancelledBy: 'bob' }) })
+            expect(screen.getByText('bob odlazi — nema nove partije')).toBeInTheDocument()
+            cleanup()
+            renderBoard({ state: ended({ gameState: 'COMPLETED', winnerTeamId: 'A' }), rematch: rematch({ votes: 3, expired: true }) })
+            expect(screen.getByText('Prekasno je za još jednu')).toBeInTheDocument()
+        } finally {
+            setLang('en')
+        }
     })
 })
 
@@ -162,12 +248,12 @@ describe('Board: the hand result and the end sheet on real views (spec §5.4, R-
         rerenderWith({ state: tableState(decider[indexOf(decider, 'game-over')]) })
         // the hand result goes back down as the end sheet rises
         await waitFor(() => expect(screen.queryByTestId('hand-result')).not.toBeInTheDocument())
-        const end = screen.getByRole('region', { name: 'Game over' })
+        const end = screen.getByRole('region', { name: 'Next time.' })
         expect(within(end).getByText('Team B wins')).toBeInTheDocument()
         // the live region says it too (spec §5.8)
         expect(within(screen.getByRole('log')).getByText('Team B wins')).toBeInTheDocument()
         expect(screen.queryByTestId('end-reason')).not.toBeInTheDocument()
-        expect(screen.getByTestId('rematch-votes').textContent).toBe('1/4 want a rematch')
+        expect(screen.getByTestId('rematch-votes').textContent).toBe('1/4 want to play again')
         expect(screen.getByRole('link', { name: 'Match details' })).toHaveAttribute('href', '/matches/g1')
         expect(screen.getByTestId('score-a').textContent).toBe('1001')
         expect(within(end).getByText('1001')).toHaveClass('t-score-xl')
@@ -186,6 +272,89 @@ describe('Board: the hand result and the end sheet on real views (spec §5.4, R-
                 count.set(id, (count.get(id) ?? 0) + 1)
             })
             for (const id of singular) expect(count.get(id) ?? 0, `${fanOut.label}: ${id}`).toBeLessThanOrEqual(1)
+        }
+    })
+})
+
+describe('Board: the hand result says padanje, štiglja and the zvanja (§1.4)', () => {
+    // carol (team A) called and fell; team B took all eight tricks (capot) and declared 20
+    const hand: HandDTO = {
+        handNo: 1, trumpCalls: [{ order: 0, player: 'carol', trump: 'HERC' }], tricks: [], challenges: [],
+        handSummary: {
+            teamAPoints: 0, teamBPoints: 252, teamADeclPoints: 0, teamBDeclPoints: 20, teamATricksWon: 0, teamBTricksWon: 8,
+            padanje: true, capot: true, finalScoreA: 0, finalScoreB: 272,
+        },
+    }
+    const result = (me = 'carol') => renderBoard({
+        state: stateOf(privateFor(view({ gameState: 'HAND_COMPLETE', teamAScore: 0, teamBScore: 272 }), false)),
+        hands: { hands: [hand], ended: hand, loading: false, error: null, refresh: vi.fn() },
+        me,
+    })
+
+    test('in English: "Fell! You fell." on my row, "They fell." on theirs, Capot and the zvanja', () => {
+        result()
+        const sheet = screen.getByTestId('hand-result')
+        expect(within(sheet).getByRole('heading', { name: 'Hand 1' })).toBeInTheDocument()
+        expect(within(sheet).getByText('Fell! You fell.')).toBeInTheDocument()
+        expect(within(sheet).getByText('Capot')).toBeInTheDocument()
+        expect(within(sheet).getByText('incl. 20 from declarations')).toBeInTheDocument()
+        expect(within(sheet).getByText('Next hand shortly')).toBeInTheDocument()
+        expect(within(sheet).queryByText('They fell.')).not.toBeInTheDocument()
+        cleanup()
+        result('bob')
+        expect(within(screen.getByTestId('hand-result')).getByText('They fell.')).toBeInTheDocument()
+        expect(screen.queryByText('Fell! You fell.')).not.toBeInTheDocument()
+    })
+
+    test('in Croatian: "Pad! Pali ste.", "Pad! Pali su.", "Štiglja!"', () => {
+        setLang('hr')
+        try {
+            result()
+            const sheet = screen.getByTestId('hand-result')
+            expect(within(sheet).getByRole('heading', { name: 'Dijeljenje 1' })).toBeInTheDocument()
+            expect(within(sheet).getByText('Pad! Pali ste.')).toBeInTheDocument()
+            expect(within(sheet).getByText('Štiglja!')).toBeInTheDocument()
+            expect(within(sheet).getByText('od toga zvanja 20')).toBeInTheDocument()
+            expect(within(sheet).getByText('Sljedeće dijeljenje uskoro')).toBeInTheDocument()
+            expect(within(sheet).getByRole('button', { name: 'Prijavi prekršaj' })).toBeInTheDocument()
+            cleanup()
+            result('bob')
+            expect(within(screen.getByTestId('hand-result')).getByText('Pad! Pali su.')).toBeInTheDocument()
+        } finally {
+            setLang('en')
+        }
+    })
+
+    test('a team that fell shows no declarations beside its 0, in either language (R1-44)', () => {
+        // carol's team A declared 50 and fell: the server's summary still carries the 50 (BelotGame's hand end)
+        const fell: HandDTO = { ...hand, handSummary: { ...hand.handSummary!, teamADeclPoints: 50, teamBDeclPoints: 0, capot: false } }
+        const shown = () => renderBoard({
+            state: stateOf(privateFor(view({ gameState: 'HAND_COMPLETE', teamAScore: 0, teamBScore: 272 }), false)),
+            hands: { hands: [fell], ended: fell, loading: false, error: null, refresh: vi.fn() },
+            me: 'carol',
+        })
+        shown()
+        const sheet = screen.getByTestId('hand-result')
+        expect(within(sheet).getByText('Fell! You fell.')).toBeInTheDocument()
+        expect(within(sheet).queryByText(/^incl\. /)).not.toBeInTheDocument()
+        cleanup()
+        setLang('hr')
+        try {
+            shown()
+            expect(within(screen.getByTestId('hand-result')).getByText('Pad! Pali ste.')).toBeInTheDocument()
+            expect(within(screen.getByTestId('hand-result')).queryByText(/^od toga zvanja/)).not.toBeInTheDocument()
+        } finally {
+            setLang('en')
+        }
+    })
+
+    test("in the window: the bar's seconds in Croatian", () => {
+        setLang('hr')
+        try {
+            renderBoard({ state: stateOf(privateFor(view({ gameState: 'HAND_COMPLETE', challengeWindowExpiresAt: Date.now() + 8_000 }), false)) })
+            expect(within(screen.getByTestId('hand-result')).getByText(/^Sljedeće dijeljenje za \d+ s$/)).toBeInTheDocument()
+        } finally {
+            setLang('en')
         }
     })
 })

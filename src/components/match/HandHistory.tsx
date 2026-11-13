@@ -7,11 +7,13 @@ import type { ChallengeDTO, HandDTO, HandSummary, MatchDTO, TrumpCallDTO } from 
 import { PlayerChip } from './PlayerChip';
 import { TricksPlayed } from './TricksPlayed';
 import { teamOfPlayer } from './trickReplay';
-
-const counted = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+import { useT } from '../../i18n/t';
+import type { Catalog } from '../../i18n/catalog/types';
+import { displayName } from '../common/displayName';
 
 /** A bid as a chip: the suit called, in its suit's colour (spec §3.2 suit chips); anything else as written, e.g. PASS. */
 export function CallTag({ call }: { call: string | null }) {
+    const t = useT();
     const suit = BOJE.find((boja) => boja === call);
     if (suit) {
         return (
@@ -20,7 +22,7 @@ export function CallTag({ call }: { call: string | null }) {
             </Tag>
         );
     }
-    return <Tag>{call || 'Unknown'}</Tag>;
+    return <Tag>{call === 'PASS' ? t.matchDetails.pass : call || t.common.unknown}</Tag>;
 }
 
 /** A hand's fouls: only `legal === false` counts (R-16: null means "not known yet"). */
@@ -30,23 +32,26 @@ function illegalCount(hand: HandDTO): number {
 
 /** Item 6, "Hand summary": each team's points (with declarations), tricks, trump calls, CAPOT, HAND AWARDED (PADANJE). */
 function HandSummaryBox({ hand, summary }: { hand: HandDTO; summary: HandSummary }) {
+    const t = useT();
     return (
-        <section aria-label="Hand summary" className="notch bg-surface p-3">
-            <h3 className="t-caption mb-2 text-text-2">Hand summary</h3>
+        <section aria-label={t.matchDetails.handSummary} className="notch bg-surface p-3">
+            <h3 className="t-caption mb-2 text-text-2">{t.matchDetails.handSummary}</h3>
             <div className="t-callout grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
                 <span className="text-team-a">
-                    Team A: {summary.teamAPoints} pts{summary.teamADeclPoints > 0 && ` (${summary.teamADeclPoints} decl)`}
+                    {t.matchDetails.teamPoints('A', summary.teamAPoints)}
+                    {summary.teamADeclPoints > 0 && ` (${t.matchDetails.decl(summary.teamADeclPoints)})`}
                 </span>
                 <span className="text-team-b">
-                    Team B: {summary.teamBPoints} pts{summary.teamBDeclPoints > 0 && ` (${summary.teamBDeclPoints} decl)`}
+                    {t.matchDetails.teamPoints('B', summary.teamBPoints)}
+                    {summary.teamBDeclPoints > 0 && ` (${t.matchDetails.decl(summary.teamBDeclPoints)})`}
                 </span>
-                <span className="text-text-2">Tricks: {hand.tricks?.length || 0}</span>
-                <span className="text-text-2">Trump calls: {hand.trumpCalls?.length || 0}</span>
+                <span className="text-text-2">{t.matchDetails.tricksCount(hand.tricks?.length || 0)}</span>
+                <span className="text-text-2">{t.matchDetails.callsCount(hand.trumpCalls?.length || 0)}</span>
             </div>
             {(summary.capot || summary.padanje) && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                    {summary.capot && <Tag tone="mode">CAPOT</Tag>}
-                    {summary.padanje && <Tag tone="warn">HAND AWARDED (PADANJE)</Tag>}
+                    {summary.capot && <Tag tone="mode">{t.matchDetails.capot}</Tag>}
+                    {summary.padanje && <Tag tone="warn">{t.matchDetails.awarded}</Tag>}
                 </div>
             )}
         </section>
@@ -59,23 +64,25 @@ function HandSummaryBox({ hand, summary }: { hand: HandDTO; summary: HandSummary
  * said it scores. That total is what was said: the no-trick rule can void it later, so the hand summary's points
  * stay the hand's points.
  */
-function zvanjaLine(zvanja: ZvanjaView, me: string | null): string {
-    const name = (playerId: string) => (playerId === me ? 'You' : playerId);
-    if (zvanja.belot) return `Belot: ${heldAllEight(name(zvanja.belot.playerId), zvanja.belot.suit)}.`;
-    if (zvanja.winnerTeam === null) return 'Declarations: none.';
+function zvanjaLine(zvanja: ZvanjaView, me: string | null, t: Catalog): string {
+    const c = t.matchDetails.zvanja;
+    const name = (playerId: string) => (playerId === me ? t.common.you : displayName(playerId));
+    if (zvanja.belot) return c.belot(heldAllEight(name(zvanja.belot.playerId), zvanja.belot.suit));
+    if (zvanja.winnerTeam === null) return c.none;
     const said = zvanja.seats.map((seat) => {
         if (seat.said === null) return `${name(seat.playerId)} –`;
         const height = heightText(seat);
         return `${name(seat.playerId)} ${seat.said}${height ? ` (${height})` : ''}`;
     });
-    return `Declarations: ${said.join(', ')}. Team ${zvanja.winnerTeam} scores ${zvanja.total}.`;
+    return c.said(said.join(', '), zvanja.winnerTeam, zvanja.total);
 }
 
 /** The hand's declarations line, under its summary; an older hand has no `zvanja` and no line. */
 function ZvanjaLine({ zvanja, me }: { zvanja: ZvanjaView; me: string | null }) {
+    const t = useT();
     return (
-        <section aria-label="Declarations" className="notch bg-surface p-3">
-            <p className="t-callout">{zvanjaLine(zvanja, me)}</p>
+        <section aria-label={t.matchDetails.zvanja.label} className="notch bg-surface p-3">
+            <p className="t-callout">{zvanjaLine(zvanja, me, t)}</p>
         </section>
     );
 }
@@ -85,9 +92,10 @@ const TEAM_EDGE = { A: 'shadow-[inset_3px_0_0_var(--team-a)]', B: 'shadow-[inset
 
 /** Item 6, "Trump declarations": who said what, PASS or the suit. */
 function Declarations({ calls, match, me }: { calls: TrumpCallDTO[]; match: MatchDTO; me: string | null }) {
+    const t = useT();
     return (
-        <section aria-label="Trump declarations" className="notch bg-surface p-3">
-            <h3 className="t-caption mb-2 text-text-2">Trump declarations</h3>
+        <section aria-label={t.matchDetails.calls} className="notch bg-surface p-3">
+            <h3 className="t-caption mb-2 text-text-2">{t.matchDetails.calls}</h3>
             <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                 {calls.map((call, i) => {
                     const team = teamOfPlayer(match, call.player);
@@ -105,9 +113,10 @@ function Declarations({ calls, match, me }: { calls: TrumpCallDTO[]; match: Matc
 
 /** Item 6, "Challenges": who challenged, and whether it held. */
 function Challenges({ challenges, match, me }: { challenges: ChallengeDTO[]; match: MatchDTO; me: string | null }) {
+    const t = useT();
     return (
-        <section aria-label="Challenges" className="notch bg-surface p-3">
-            <h3 className="t-caption mb-2 text-text-2">Challenges</h3>
+        <section aria-label={t.matchDetails.challenges} className="notch bg-surface p-3">
+            <h3 className="t-caption mb-2 text-text-2">{t.matchDetails.challenges}</h3>
             <ul className="flex flex-col gap-1.5">
                 {challenges.map((challenge, i) => (
                     <li key={i} className="notch t-callout flex items-center justify-between gap-2 bg-bg px-2.5 py-2">
@@ -115,10 +124,10 @@ function Challenges({ challenges, match, me }: { challenges: ChallengeDTO[]; mat
                             <span className={cx('notch grid size-7 shrink-0 place-items-center', challenge.success ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger-text')}>
                                 <PixelIcon name={challenge.success ? 'check' : 'x'} />
                             </span>
-                            <span>Challenge by</span>
+                            <span>{t.matchDetails.challengeBy}</span>
                             <PlayerChip player={challenge.player} match={match} me={me} />
                         </span>
-                        <Tag tone={challenge.success ? 'win' : 'bad'}>{challenge.success ? 'SUCCESS' : 'FAIL'}</Tag>
+                        <Tag tone={challenge.success ? 'win' : 'bad'}>{challenge.success ? t.matchDetails.challengeHeld : t.matchDetails.challengeFailed}</Tag>
                     </li>
                 ))}
             </ul>
@@ -129,15 +138,16 @@ function Challenges({ challenges, match, me }: { challenges: ChallengeDTO[]; mat
 /** Item 5: one hand's row, and its details while it is open. */
 function HandRow({ hand, index, match, me }: { hand: HandDTO; index: number; match: MatchDTO; me: string | null }) {
     const [open, setOpen] = useState(false);
+    const t = useT();
     const number = hand.handNo || index + 1;
     const summary = hand.handSummary;
     const calls = hand.trumpCalls ?? [];
     const illegal = illegalCount(hand);
     // the row's text would run together ("Hand 1PADANJE…"): its name says the same with commas
     const name = [
-        `Hand ${number}`,
-        summary?.padanje && 'PADANJE',
-        illegal > 0 && `${illegal} ILLEGAL`,
+        t.matchDetails.hand(number),
+        summary?.padanje && t.matchDetails.padanje,
+        illegal > 0 && t.matchDetails.illegal(illegal),
         summary && `${summary.finalScoreA || 0} - ${summary.finalScoreB || 0}`,
     ].filter(Boolean).join(', ');
     return (
@@ -154,9 +164,9 @@ function HandRow({ hand, index, match, me }: { hand: HandDTO; index: number; mat
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="t-headline flex flex-wrap items-center gap-1.5">
-                        Hand {number}
-                        {summary?.padanje && <Tag tone="warn">PADANJE</Tag>}
-                        {illegal > 0 && <Tag tone="bad">{illegal} ILLEGAL</Tag>}
+                        {t.matchDetails.hand(number)}
+                        {summary?.padanje && <Tag tone="warn">{t.matchDetails.padanje}</Tag>}
+                        {illegal > 0 && <Tag tone="bad">{t.matchDetails.illegal(illegal)}</Tag>}
                     </span>
                     {summary && (
                         <span className="t-score tabular-nums text-text-2">
@@ -189,10 +199,11 @@ function HandRow({ hand, index, match, me }: { hand: HandDTO; index: number; mat
 
 /** Item 5: "Game history ({n} hands)", one collapsible row per hand (spec §4.9); `me` is my username. */
 export function HandHistory({ hands, match, me }: { hands: HandDTO[]; match: MatchDTO; me: string | null }) {
+    const t = useT();
     return (
-        <Panel as="section" aria-label="Game history" padding="none" className="p-3 sm:p-4">
+        <Panel as="section" aria-label={t.matchDetails.history} padding="none" className="p-3 sm:p-4">
             <h2 className="t-title mb-3">
-                Game history <span className="t-footnote text-text-3">({counted(hands.length, 'hand', 'hands')})</span>
+                {t.matchDetails.history} <span className="t-footnote text-text-3">({t.matchDetails.handCount(hands.length)})</span>
             </h2>
             <ul className="flex flex-col gap-2">
                 {hands.map((hand, index) => (

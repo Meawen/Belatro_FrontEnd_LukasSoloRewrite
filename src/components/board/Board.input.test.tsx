@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { actions, privateFor, renderBoard, stateOf, tableState, view } from './testing'
 import { find, indexOf, playTable } from '../../test/fixtures/views/table'
 import type { GameCard } from '../../types/game'
+import { setLang } from '../../i18n/lang'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -103,7 +104,22 @@ describe('Board: bids and plays (GameTable cases, R-23, R-32)', () => {
         renderBoard({ state: stateOf(privateFor(view({ bids: threePasses }), true)), me: 'dave' })
         expect(screen.getByRole('button', { name: 'Pass' })).toBeDisabled()
         expect(screen.getByRole('button', { name: 'Call Herc' })).toBeEnabled()
-        expect(screen.getByTestId('dealer-must-call')).toHaveTextContent('The dealer must call trump')
+        expect(screen.getByTestId('dealer-must-call')).toHaveTextContent('You must call trump.')
+    })
+
+    test('the forced call in Croatian (§1.4): "Mus! Moraš zvati.", and each seat that passed says Dalje', () => {
+        setLang('hr')
+        try {
+            const threePasses = ['alice', 'bob', 'carol'].map((playerId) => ({ playerId, action: 'PASS' as const, selectedTrump: null }))
+            renderBoard({ state: stateOf(privateFor(view({ bids: threePasses }), true)), me: 'dave' })
+            expect(screen.getByRole('group', { name: 'Biraš adut' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Dalje' })).toBeDisabled()
+            expect(screen.getByRole('button', { name: 'Zovi Herc' })).toBeEnabled()
+            expect(screen.getByTestId('dealer-must-call')).toHaveTextContent('Mus! Moraš zvati.')
+            for (const id of ['alice', 'bob', 'carol']) expect(within(screen.getByTestId(`seat-${id}`)).getByText('Dalje')).toBeInTheDocument()
+        } finally {
+            setLang('en')
+        }
     })
 
     test('with fewer than three passes Pass stays available', () => {
@@ -137,6 +153,21 @@ describe('Board: bela (R-32)', () => {
         await user.click(screen.getByRole('button', { name: 'Play + Bela' }))
         expect(moves.play).toHaveBeenCalledWith({ boja: 'HERC', rank: 'BABA' }, true)
         expect(screen.queryByTestId('bela-prompt')).not.toBeInTheDocument()
+    })
+
+    test('the bela prompt in Croatian', async () => {
+        const user = userEvent.setup()
+        setLang('hr')
+        try {
+            withHand(kingAndQueenOfTrump)
+            await user.click(screen.getByRole('button', { name: 'Baba Herc' }))
+            const prompt = screen.getByRole('group', { name: 'Baba Herc: zoveš belu?' })
+            expect(within(prompt).getByText('Baba Herc: zoveš belu?')).toBeInTheDocument()
+            expect(within(prompt).getByRole('button', { name: 'Baci' })).toBeInTheDocument()
+            expect(within(prompt).getByRole('button', { name: 'Baci + bela' })).toBeInTheDocument()
+        } finally {
+            setLang('en')
+        }
     })
 
     test('Play sends the same card without bela', async () => {
@@ -256,9 +287,12 @@ describe('Board: the input rules (spec §5.3.5, D-9, O-2)', () => {
         expect(moves.play).toHaveBeenCalledWith(expect.objectContaining({ boja: cards[0].getAttribute('data-card')!.split('-')[0] }), false)
     })
 
-    test('the owner’s hover lift and the bidding suit ring are kept for fine pointers (D-35, §5.6.5)', () => {
+    test('the owner’s hover lift and the bidding suit ring are kept for fine pointers (D-35, §5.6.5), the lifted card in its fan order (owner, 2026-11-11)', () => {
         expect(css).toMatch(/@media \(hover: hover\) and \(pointer: fine\)[\s\S]*?\.board-hand-card:not\(:disabled\):hover \.board-card__lift \{\s*transform: translateY\(-24px\) scale\(1\.08\);/)
         expect(css).toMatch(/\.board-card__lift \{\s*transition: transform 160ms/)
+        // no z-order raise on the hovered card (owner, Task M, 2026-11-11): raised, its resting box took its right
+        // neighbour's exposed strip, so a click there played the hovered card (e2e/visual/checks/hit.mjs, hit-hover)
+        expect(css).not.toMatch(/\.board-hand-card:not\(:disabled\):hover \{[^}]*z-index/)
         for (const suit of ['HERC', 'KARA', 'PIK', 'TREF']) {
             expect(css).toContain(`.board[data-phase="BIDDING"]:has([data-suit="${suit}"]:hover) .board-hand-card[data-suit="${suit}"] .board-card__ring`)
         }

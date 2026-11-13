@@ -8,6 +8,7 @@ import { NAV_ITEMS, SIDEBAR_ICONS_QUERY, isCurrent, useIsAdmin, visibleItems } f
 import { NavIcon } from './NavIcon';
 import { useMediaQuery } from './useMediaQuery';
 import { Wordmark } from './Wordmark';
+import { useT } from '../../i18n/t';
 
 /**
  * The desktop navigation (spec §4.1, D-25): shown when the tab bar is not. 232 px with labels from
@@ -16,11 +17,12 @@ import { Wordmark } from './Wordmark';
  */
 export function Sidebar() {
     const { pathname } = useLocation();
-    const { user, logout } = useAuth();
+    const { user, isGuest, logout } = useAuth();
     const isAdmin = useIsAdmin();
     const compact = useMediaQuery(SIDEBAR_ICONS_QUERY);
-    // the rank comes with GET /user/{id}, not /user/me (ranks spec §6.5)
-    const { user: profile } = useUser(user?.id ?? undefined);
+    // the rank comes with GET /user/{id}, not /user/me (ranks spec §6.5); a guest has no rank, and that route refuses it (B4)
+    const { user: profile } = useUser(isGuest ? undefined : user?.id ?? undefined);
+    const t = useT();
 
     return (
         <aside
@@ -32,7 +34,7 @@ export function Sidebar() {
             <div className={cx('flex h-16 shrink-0 items-center', compact ? 'justify-center' : 'px-5')}>
                 <Wordmark compact={compact} className="t-title" />
             </div>
-            <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+            <nav aria-label={t.nav.label} className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
                 <ul className="flex flex-col gap-1">
                     {visibleItems(NAV_ITEMS, isAdmin).map((item) => {
                         const current = isCurrent(item, pathname);
@@ -41,7 +43,7 @@ export function Sidebar() {
                                 <Link
                                     to={item.to}
                                     aria-current={current ? 'page' : undefined}
-                                    aria-label={compact ? item.label : undefined}
+                                    aria-label={compact ? t.titles[item.title] : undefined}
                                     className={cx(
                                         'notch focus-inside press t-callout flex min-h-11 items-center gap-3 font-semibold',
                                         compact ? 'justify-center' : 'px-3',
@@ -49,7 +51,7 @@ export function Sidebar() {
                                     )}
                                 >
                                     <NavIcon name={item.icon} />
-                                    {!compact && <span className="truncate">{item.label}</span>}
+                                    {!compact && <span className="truncate">{t.titles[item.title]}</span>}
                                 </Link>
                             </li>
                         );
@@ -68,10 +70,10 @@ export function Sidebar() {
                         )}
                     </div>
                     {compact ? (
-                        <IconButton icon="logout" aria-label="Log out" onClick={() => void logout()} />
+                        <IconButton icon="logout" aria-label={t.common.logOut} onClick={() => void logout()} />
                     ) : (
                         <Button variant="quiet" leftIcon={<PixelIcon name="logout" />} className="justify-start" onClick={() => void logout()}>
-                            Log out
+                            {t.common.logOut}
                         </Button>
                     )}
                 </div>

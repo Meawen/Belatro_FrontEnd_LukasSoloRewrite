@@ -128,7 +128,7 @@ describe('useLobby (spec §4.7 Data)', () => {
         getLobby.mockRejectedValue(new ApiError({ status: 503, message: 'Service Unavailable' }))
         await wait(LOBBY_POLL_MS)
         expect(result.current.lobby?.id).toBe('l1')
-        expect(result.current.pollError).toBe('Could not refresh the lobby: Service Unavailable')
+        expect(result.current.pollError).toBe('Could not refresh the table: Service Unavailable')
         rerender({ on: false })
         await wait(3 * LOBBY_POLL_MS)
         expect(getLobby).toHaveBeenCalledTimes(2)

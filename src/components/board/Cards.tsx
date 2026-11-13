@@ -6,6 +6,7 @@ import type { GameCard } from '../../types/game';
 import type { Target } from './model/cardTargets';
 import type { Entrance } from './stage';
 import { boxStyle, cardMotion, useArc, type Anchor } from './cardMotion';
+import { useT } from '../../i18n/t';
 
 /** The two sides of a card that turns over: its face, and the red back (X-13) behind it; `exact` as its target's. */
 export function Faces({ card, width, exact }: { card: GameCard; width: number; exact?: boolean }) {
@@ -33,6 +34,7 @@ export interface TrickCardProps {
 
 /** A card in the trick region (spec §5.10): `trick-card`, `data-card`, `data-seat`. */
 export function TrickCard({ card, id, playerId, layoutId, target, entrance, from, instant, reduced, winner }: TrickCardProps) {
+    const t = useT();
     const arc = useArc();
     const present = useIsPresent();
     return (
@@ -56,7 +58,7 @@ export function TrickCard({ card, id, playerId, layoutId, target, entrance, from
                         animate={{ scale: 1, opacity: 1 }}
                         transition={reduced ? fade : spring.quick}
                     >
-                        <PixelIcon name="crown" label="won the trick" />
+                        <PixelIcon name="crown" label={t.board.wonTrick} />
                     </m.span>
                 </>
             )}

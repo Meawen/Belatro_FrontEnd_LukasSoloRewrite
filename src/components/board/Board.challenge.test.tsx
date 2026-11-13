@@ -12,6 +12,7 @@ import { endedHand } from './model/hands'
 import { devHands } from '../../dev/devTable'
 import { find, indexOf, playTable, type FanOut } from '../../test/fixtures/views/table'
 import type { MatchHands } from '../../hooks/useMatchHands'
+import { setLang } from '../../i18n/lang'
 
 // board.css as written (Vitest doesn't load CSS); not new URL(…, import.meta.url), which Vite turns into an import
 const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'board.css'), 'utf8')
@@ -731,6 +732,24 @@ describe('Board: the banner shows above an open hand result on a short landscape
             expect(panel()!.style.top, where).toBe(`${spot.y}px`)
             cleanup()
             vi.useRealTimers()
+        }
+    })
+
+    test('in Croatian the team letter keeps its word too: "ekipa B" on one line (S5)', () => {
+        const t = playTable({ challenge: { by: 'dave', after: 'window', foul: true } })
+        const said = indexOf(t, 'challenge:')
+        vi.useFakeTimers()
+        setLang('hr')
+        try {
+            vi.setSystemTime(t[said - 1].at)
+            const { rerenderWith } = renderBoard({ state: tableState(t[said - 1], 'carol', 'snapshot') })
+            vi.setSystemTime(t[said].at)
+            rerenderWith({ state: tableState(t[said]) })
+            expect(panel()!.textContent).toBe('dave prijavljuje prekršaj!')
+            after(1200)
+            expect(panel()!.textContent).toBe('Prekršaj potvrđen: ekipa B nosi dijeljenje')
+        } finally {
+            setLang('en')
         }
     })
 

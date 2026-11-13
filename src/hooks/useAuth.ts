@@ -1,6 +1,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { authService } from '../services';
+import { authService, userService } from '../services';
+import { adoptAccountLang, getLang } from '../i18n/lang';
+import { loadEnglish } from '../i18n/t';
 import { useMutation } from './useApi';
 import type {
     LoginRequestDTO,
@@ -8,6 +10,7 @@ import type {
     JwtResponseDTO,
     UserLoginDetailsDTO,
 } from '../types';
+import { forgetSession } from '../services/guestSecret';
 
 interface AuthState {
     user: UserLoginDetailsDTO | null;
@@ -57,8 +60,8 @@ export function useAuth() {
                         // Token exists but no user data - this shouldn't happen normally
                         // Clear invalid state
                         authService.logout();
-                        localStorage.removeItem('user');
-                        localStorage.removeItem('authToken');
+                        // Ruling 44: the whole session, a guest's secret too
+                        forgetSession();
                         setAuthState({
                             user: null,
                             isAuthenticated: false,
@@ -71,8 +74,7 @@ export function useAuth() {
                     if (isMounted) {
                         // Clear invalid data
                         authService.logout();
-                        localStorage.removeItem('user');
-                        localStorage.removeItem('authToken');
+                        forgetSession();
                         setAuthState({
                             user: null,
                             isAuthenticated: false,
@@ -103,11 +105,23 @@ export function useAuth() {
         try {
             setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
-            const response = await loginMutation.mutate(credentials);
+            // Ruling 35: the typed name in NFC (a decomposed č is c + U+030C), the form the server stores
+            const response = await loginMutation.mutate({ ...credentials, username: credentials.username?.normalize('NFC') ?? null });
 
             // Store user data in localStorage
             if (response.user) {
                 localStorage.setItem('user', JSON.stringify(response.user));
+            }
+
+            // spec §1.1: after sign-in the account's language wins. The login response carries none
+            // (UserLoginDetailsDTO is {id, username}), so it comes from GET /user/me; best effort.
+            try {
+                const { language } = await userService.getMe();
+                // the English catalog loads on demand: it is here before the switch, so no page is half in English. One
+                // that fails or takes over 3 s keeps the device's language, and a toast says so (Ruling 62)
+                if (language !== 'en' || (await loadEnglish())) adoptAccountLang(language);
+            } catch {
+                // an older server or a failed read: the device's language stays
             }
 
             setAuthState({
@@ -133,7 +147,13 @@ export function useAuth() {
         try {
             setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
-            const response = await signupMutation.mutate(userData);
+            // spec §1.1: signup records the language the site was in
+            // Ruling 35: the typed name in NFC, as at sign-in
+            const response = await signupMutation.mutate({
+                ...userData,
+                username: userData.username?.normalize('NFC') ?? null,
+                language: userData.language ?? getLang(),
+            });
 
             // Store user data in localStorage
             if (response.user) {
@@ -167,8 +187,8 @@ export function useAuth() {
             console.error('Logout request failed:', error);
         } finally {
             // Always clear ALL auth-related local storage items
-            localStorage.removeItem('user');
-            localStorage.removeItem('authToken');
+            // Ruling 32: a guest's sign-out ends the guest, so its secret goes too
+            forgetSession();
 
             setAuthState({
                 user: null,
@@ -184,6 +204,9 @@ export function useAuth() {
 
     return {
         ...authState,
+        // spec §3: the stored user of a guest carries guest: true (POST /api/auth/guest, B4); never read from the name
+        // (Ruling 38)
+        isGuest: authState.user?.guest === true,
         token: getToken(),
         login,
         signup,

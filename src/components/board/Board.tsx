@@ -10,7 +10,7 @@ import { showToast } from '../ui/toastStore';
 import { Arena } from './Arena';
 import { BelaPrompt } from './BelaPrompt';
 import { BidPanel } from './BidPanel';
-import { BlokColumn, BlokTable, BLOK_HINT } from './BelaBlok';
+import { BlokColumn, BlokTable } from './BelaBlok';
 import { ChallengeBanner } from './ChallengeBanner';
 import { DeclarationMoment } from './DeclarationMoment';
 import { EndSheet } from './EndSheet';
@@ -21,17 +21,19 @@ import { Hand } from './Hand';
 import { Hud } from './Hud';
 import { Peek } from './Peek';
 import { Piles } from './Piles';
-import { Seats } from './Seats';
+import { Seats, TurnText } from './Seats';
 import { Summary } from './Summary';
 import { announce, seatName } from './announce';
 import { cardTargets, type Layout, type Targets } from './model/cardTargets';
 import { layoutFor } from './model/fit';
-import { YOUR_TURN_TEXT, turnOnPlate } from './yourTurn';
+import { turnOnPlate } from './yourTurn';
 import { BELOT_HOLD_MS, momentKey, momentSrLine } from './model/declarationMoment';
 import {
     answerBela, challengePending, pendingUntil, pressBid, pressCard, pressChallenge, unlock, waitingForDeclarations, type ChallengeSent, type InputResult,
     type Move,
 } from './model/input';
+import { coachMove, type Coach, type CoachMove } from './coach';
+import { coachSpot, type CoachAt } from './coachSpot';
 import { dropLeaving, emptyStage, landTrick, settleStage, shownPiles, stepStage, sweepHeld, tableTrick, withInput, type Stage } from './stage';
 import { useBoardViewport } from './useBoardViewport';
 import { useChallengeBanner } from './useChallengeBanner';
@@ -42,6 +44,7 @@ import type { BoardModel, HandCardModel, Team } from './model/boardModel';
 import type { GameActions } from '../../hooks/useGameViews';
 import type { MatchHands } from '../../hooks/useMatchHands';
 import type { RematchState } from '../../hooks/useRematch';
+import { useT } from '../../i18n/t';
 import './board.css';
 
 /** A recovered 4th card lands before its trick sweeps; a sweep or fade is over after this long. */
@@ -83,6 +86,7 @@ function useStageTimers(stage: Stage, setStage: Dispatch<SetStateAction<Stage>>)
 
 /** The trick region (spec §5.10): `trick-card` with `data-card` and `data-seat`, and the trick in words (§5.8). */
 function TrickRegion({ stage, model, targets, reduced }: { stage: Stage; model: BoardModel; targets: Targets; reduced: boolean }) {
+    const t = useT();
     const trick = tableTrick(stage);
     const instant = stage.events === null;
     const cards = (trick?.plays ?? []).map((play) => {
@@ -106,7 +110,7 @@ function TrickRegion({ stage, model, targets, reduced }: { stage: Stage; model: 
         );
     });
     const words = trick && trick.plays.length > 0
-        ? `Trick: ${trick.plays.map((play) => `${seatName(model, play.playerId)} ${cardLabel(play.card)}`).join(', ')}`
+        ? t.board.trickWords(trick.plays.map((play) => `${seatName(model, play.playerId)} ${cardLabel(play.card)}`).join(', '))
         : '';
     return (
         <div className="board-region board-trick">
@@ -187,13 +191,13 @@ interface MomentLocal {
 
 /**
  * "Your turn" over my hand (spec §5.3.3 `your-turn`): only while I can bid or play (`shown`), never in HAND_COMPLETE;
- * placed by the hand as it is.
+ * placed by the hand as it is; "Still there?" in its last 10 s.
  */
-function YourTurn({ shown, hand, targets, layout }: { shown: boolean; hand: HandCardModel[]; targets: Targets; layout: Layout }) {
+function YourTurn({ shown, hand, targets, layout, expiresAt, skew }: { shown: boolean; hand: HandCardModel[]; targets: Targets; layout: Layout; expiresAt: number | null; skew: number }) {
     if (!shown || turnOnPlate(layout.kind)) return null;
     const tops = hand.map((card) => targets.cards[card.id]?.top ?? layout.board.h);
     const top = (tops.length ? Math.min(...tops) : layout.board.h - layout.hand.h) - 40;
-    return <span data-testid="your-turn" className="board-your-turn notch t-footnote font-semibold" style={{ top }}>{YOUR_TURN_TEXT}</span>;
+    return <span data-testid="your-turn" className="board-your-turn notch t-footnote font-semibold" style={{ top }}><TurnText expiresAt={expiresAt} skew={skew} /></span>;
 }
 
 export interface BoardProps {
@@ -210,10 +214,16 @@ export interface BoardProps {
     hands?: MatchHands | null;
     /** The rematch after the game (R-45). Without it a finished game offers only the way back. */
     rematch?: RematchState;
-    /** "Back to lobbies". */
+    /** The end sheet's way out (open beta §6): Doma, or the landing page for a guest. */
     onLeave: () => void;
+    /** A guest's game (spec §3.3): the end sheet leaves out Match details. */
+    guest?: boolean;
+    /** A guest's "Igraj s ljudima" on the end sheet (open beta §6): sign up. */
+    onSignUp?: () => void;
     /** A fixed size instead of the window: the dev board's layout presets. */
     viewport?: { width: number; height: number };
+    /** Škola bele (open beta §7.2, §7.3): asked before every move leaves; marks cards; a panel under the HUD. Without it, a real game. */
+    coach?: Coach;
 }
 
 /**
@@ -222,7 +232,8 @@ export interface BoardProps {
  * waits for an animation: the timers only decide when finished tricks leave the table.
  */
 export function Board(props: BoardProps) {
-    const { state, me, actions, error, isConnected, hands, rematch, onLeave, viewport } = props;
+    const { state, me, actions, error, isConnected, hands, rematch, onLeave, guest, onSignUp, viewport, coach } = props;
+    const t = useT();
     const [stage, setStage] = useState(() => emptyStage(me));
     let current = stage;
     if (stage.state !== state) {
@@ -244,23 +255,80 @@ export function Board(props: BoardProps) {
         const input = result.move && !send(result.move) ? unlock(result.input) : result.input;
         setStage((s) => withInput(s, input));
     };
-    const onCard = (id: string) => apply(pressCard(latest.current.model!, latest.current.local.input, id, Date.now()));
-    const onBela = (declareBela: boolean) => apply(answerBela(latest.current.model!, latest.current.local.input, declareBela, Date.now()));
-    const onBid = (call: Boja | 'PASS') => apply(pressBid(latest.current.model!, latest.current.local.input, call, Date.now()));
     const closeBela = () => setStage((s) => withInput(s, { ...s.local.input, belaCardId: null }));
 
     // Challenge (gameplay rules §6): one tap; disabled until the server answers with a newer state, or with an error
     // (a refused press changes no state). A send that didn't go out keeps nothing.
     const [challengeSent, setChallengeSent] = useState<ChallengeSent | null>(null);
-    const onChallenge = () => {
-        // a frozen Challenge (the step before, while a banner says who) is inert
-        if (challenge.frozen) return;
-        const sent = pressChallenge(latest.current.model!, challengeSent);
-        if (sent && actions.challenge()) setChallengeSent(sent);
+    // each press as it acts without a coach, on the newest model; a confirm that answers later runs the newest render's
+    const presses = {
+        card: (id: string) => apply(pressCard(latest.current.model!, latest.current.local.input, id, Date.now())),
+        bela: (declareBela: boolean) => apply(answerBela(latest.current.model!, latest.current.local.input, declareBela, Date.now())),
+        bid: (call: Boja | 'PASS') => apply(pressBid(latest.current.model!, latest.current.local.input, call, Date.now())),
+        challenge: () => {
+            // a frozen Challenge (the step before, while a banner says who) is inert
+            if (challenge.frozen) return;
+            const sent = pressChallenge(latest.current.model!, challengeSent);
+            if (sent && actions.challenge()) setChallengeSent(sent);
+        },
     };
+    const newest = useRef(presses);
+    newest.current = presses;
     useEffect(() => {
         if (error !== null) setChallengeSent(null);
     }, [error]);
+
+    // The coach (open beta §7.2, §7.3): asked before a move leaves, after a dry run of the press on the newest model
+    // (a press that would send nothing asks nothing). A refused move sends and changes nothing; a confirm that answers
+    // later re-runs the press on the newest model (a turn that passed meanwhile sends nothing), and while it is open
+    // every other press is ignored. Without a coach every press goes at once, as before.
+    const asking = useRef(false);
+    const mounted = useRef(false);
+    useEffect(() => {
+        // set here, not only by the initial value: StrictMode unmounts and mounts again
+        mounted.current = true;
+        return () => { mounted.current = false; };
+    }, []);
+    const coached = (coach: Coach, move: CoachMove | null, go: () => void) => {
+        if (asking.current) return;
+        if (move === null) return go();
+        if (!coach.allowed(move)) return coach.onRefused?.(move);
+        if (!coach.confirm) return go();
+        asking.current = true;
+        // a confirm that throws becomes a rejection, so the guard always clears
+        Promise.resolve().then(() => coach.confirm!(move)).then((yes) => yes, () => false).then((yes) => {
+            asking.current = false;
+            if (yes && mounted.current) go();
+        });
+    };
+    const onCard = (id: string) => {
+        if (!coach) return presses.card(id);
+        const { model: newestModel, local } = latest.current;
+        const tap = pressCard(newestModel!, local.input, id, Date.now());
+        // a bela card opens its prompt (nothing leaves yet): refused at once when neither answer may go
+        const bela = !tap.move && tap.input !== local.input ? newestModel!.hand.find((held) => held.id === tap.input.belaCardId) : undefined;
+        if (bela && !asking.current) {
+            const plain: CoachMove = { kind: 'play', card: bela.card, bela: false };
+            if (!coach.allowed(plain) && !coach.allowed({ ...plain, bela: true })) return coach.onRefused?.(plain);
+        }
+        coached(coach, tap.move && coachMove(tap.move), () => newest.current.card(id));
+    };
+    const onBela = (declareBela: boolean) => {
+        if (!coach) return presses.bela(declareBela);
+        const answer = answerBela(latest.current.model!, latest.current.local.input, declareBela, Date.now()).move;
+        coached(coach, answer && coachMove(answer), () => newest.current.bela(declareBela));
+    };
+    const onBid = (call: Boja | 'PASS') => {
+        if (!coach) return presses.bid(call);
+        const bid = pressBid(latest.current.model!, latest.current.local.input, call, Date.now()).move;
+        coached(coach, bid && coachMove(bid), () => newest.current.bid(call));
+    };
+    const onChallenge = () => {
+        if (!coach) return presses.challenge();
+        // the frozen check first, as without a coach: a frozen Challenge asks nothing
+        if (challenge.frozen) return;
+        coached(coach, pressChallenge(latest.current.model!, challengeSent) ? { kind: 'challenge' } : null, () => newest.current.challenge());
+    };
 
     // the menu, Bela Blok (a sheet on phones) and the peek; opening a panel of stored hands asks for fresh ones
     const [panel, setPanel] = useState<'menu' | 'blok' | 'peek' | null>(null);
@@ -270,7 +338,7 @@ export function Board(props: BoardProps) {
     };
     const onPile = (team: Team) => {
         if (team === (latest.current.model?.myTeam ?? 'A')) open('peek');
-        else showToast("You can only look at your team's tricks");
+        else showToast(t.board.piles.closed);
     };
 
     // one polite message per event (spec §5.8); a challenge is said by the banner and here, never a toast (gameplay rules §6)
@@ -305,6 +373,15 @@ export function Board(props: BoardProps) {
     const box = useBoardViewport(viewport);
     const layout = useMemo(() => layoutFor(box.viewport), [box.viewport]);
     const model = current.model!;
+    // Škola bele's panel where board-fit's layout leaves room for a lesson (coachSpot): it moves only when the window does,
+    // when my bid panel comes and goes (BidPanel: model.canBid), and when play opens; worked out only with a panel to place
+    const where: CoachAt = model.phase === 'BIDDING' ? (model.canBid ? 'myBid' : 'bidding') : 'play';
+    const placed = Boolean(coach?.panel);
+    const coachAt = useMemo(() => {
+        if (!placed) return undefined;
+        const { left, top, width, maxHeight } = coachSpot(layout, where);
+        return { left, top, width, maxHeight };
+    }, [layout, where, placed]);
     // a partial trick a right challenge took off the table stays on its slots while the banner says who
     const held = current.kept?.trick ?? null;
     const targets = useMemo(() => cardTargets(held ? { ...model, trick: held } : model, layout), [model, held, layout]);
@@ -345,6 +422,9 @@ export function Board(props: BoardProps) {
         return () => window.clearTimeout(timer);
     }, [wakeAt, wakes]);
     const hand = waiting ? model.hand.map((card) => (card.enabled ? { ...card, enabled: false } : card)) : model.hand;
+    // the coach's marks (open beta §7.2, §7.3), by card id
+    const marks = coach?.marked;
+    const marked = marks ? hand.map((card) => (marks.includes(card.id) ? { ...card, marked: true } : card)) : hand;
     // the moment's button goes with focus on it: focus moves to my first playable card, else to the table (never <body>)
     const focus = useTableFocus();
 
@@ -361,7 +441,7 @@ export function Board(props: BoardProps) {
             <section
                 ref={focus.table}
                 tabIndex={-1}
-                aria-label="Game table"
+                aria-label={t.board.label}
                 className={cx('board', viewport ? 'board--framed' : 'board--screen')}
                 data-layout={layout.kind}
                 data-phase={model.phase}
@@ -374,9 +454,14 @@ export function Board(props: BoardProps) {
                         <Backs stage={current} model={model} targets={targets} reduced={reduced} />
                         {piles && <Piles counts={piles} targets={targets} myTeam={model.myTeam ?? 'A'} onTap={onPile} />}
                         <TrickRegion stage={current} model={model} targets={targets} reduced={reduced} />
-                        <Hand cards={hand} targets={targets} deal={current.deal} entrances={current.entrances} instant={instant} reduced={reduced} onPress={onCard} />
+                        <Hand cards={marked} targets={targets} deal={current.deal} entrances={current.entrances} instant={instant} reduced={reduced} onPress={onCard} />
                         <Seats model={shown} targets={targets} layout={layout} instant={instant} playOpen={!waiting} />
-                        <YourTurn shown={shown.yourTurn} hand={hand} targets={targets} layout={layout} />
+                        {coach?.panel && (
+                            <div className="board-region board-coach">
+                                <div data-testid="coach-panel" className="board-coach__panel" style={coachAt}>{coach.panel}</div>
+                            </div>
+                        )}
+                        <YourTurn shown={shown.yourTurn} hand={hand} targets={targets} layout={layout} expiresAt={shown.turn?.expiresAt ?? null} skew={shown.skew} />
                         <BidPanel model={model} onBid={onBid} />
                         {model.belaPrompt && targets.cards[model.belaPrompt.id] && (
                             <BelaPrompt card={model.belaPrompt} target={targets.cards[model.belaPrompt.id]} onAnswer={onBela} onDismiss={closeBela} />
@@ -402,11 +487,11 @@ export function Board(props: BoardProps) {
                     waits for a right challenge's banner (resultOpen) */}
                 <HandResult model={sheet ? sheet.model : model} open={resultOpen} hands={sheet ? sheet.hands : hands} delta={sheet ? sheet.delta : current.handDelta}
                     onChallenge={onChallenge} challengePending={challengeWaiting} challengeFrozen={frozen !== null} />
-                <EndSheet model={model} open={model.end !== null && current.held === null && !holding} rematch={rematch} onLeave={onLeave} />
-                <GameMenu model={model} open={panel === 'menu'} onClose={() => setPanel(null)} onBlok={layout.blok ? null : () => open('blok')} />
-                <Sheet open={panel === 'blok' && !layout.blok} onClose={() => setPanel(null)} title="Bela Blok" showClose data-testid="bela-blok">
+                <EndSheet model={model} open={model.end !== null && current.held === null && !holding} rematch={rematch} onLeave={onLeave} guest={guest} onSignUp={onSignUp} />
+                <GameMenu model={model} open={panel === 'menu'} onClose={() => setPanel(null)} onBlok={layout.blok ? null : () => open('blok')} leave={coach?.leave} guest={guest} />
+                <Sheet open={panel === 'blok' && !layout.blok} onClose={() => setPanel(null)} title={t.board.blok.title} showClose data-testid="bela-blok">
                     <BlokTable model={shown} hands={shownHands} />
-                    <p className="t-footnote text-text-3 mt-3">{BLOK_HINT}</p>
+                    <p className="t-footnote text-text-3 mt-3">{t.board.blok.hint}</p>
                 </Sheet>
                 <Peek model={model} hands={hands} open={panel === 'peek'} onClose={() => setPanel(null)} />
                 <div role="log" aria-live="polite" className="sr-only">

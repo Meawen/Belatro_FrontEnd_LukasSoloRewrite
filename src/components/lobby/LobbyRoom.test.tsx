@@ -10,8 +10,11 @@ import { lobbyService } from '../../services/lobbyService'
 import { ApiError } from '../../services/api'
 import type { LobbyDTO } from '../../types/lobby'
 import type { MatchDTO } from '../../types/match'
+import { setLang } from '../../i18n/lang'
 
-vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', username: 'ana' } }) }))
+// ana, a member unless a test makes her a guest (a guest reaches a table only by its link, spec §3.2)
+const auth = vi.hoisted(() => ({ isGuest: false }))
+vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', username: 'ana' }, isGuest: auth.isGuest }) }))
 vi.mock('../../services/matchService', () => ({ matchService: { getMatchByLobbyId: vi.fn() } }))
 
 const ana = { id: 'u1', username: 'ana', bot: false }
@@ -54,6 +57,7 @@ function renderLobby() {
                 <Route path="/lobby/:lobbyId" element={<LobbyRoom lobbyId="l1" />} />
                 <Route path="/game/:gameId" element={<GamePage />} />
                 <Route path="/lobbies" element={<p>the lobby list</p>} />
+                <Route path="/" element={<p>the landing page</p>} />
             </Routes>
             <Toaster />
         </MemoryRouter>,
@@ -68,6 +72,8 @@ const sheet = (name: string) => screen.getByRole('dialog', { name })
 
 beforeEach(() => {
     vi.clearAllMocks()
+    auth.isGuest = false
+    sessionStorage.clear()
     vi.spyOn(lobbyService, 'getLobby').mockResolvedValue(lobby())
     vi.spyOn(lobbyService, 'switchTeam').mockResolvedValue(lobby())
     vi.spyOn(lobbyService, 'joinLobby').mockResolvedValue(lobby())
@@ -171,7 +177,7 @@ describe('LobbyRoom: polling (spec §4.7 Data, States)', () => {
         vi.mocked(lobbyService.getLobby).mockImplementation(() => new Promise<LobbyDTO>(() => {}))
         await wait(2000)
         expect(screen.getByRole('heading', { name: 'Friday' })).toBeInTheDocument()
-        expect(screen.queryByText('Loading lobby...')).not.toBeInTheDocument()
+        expect(screen.queryByText('Loading table...')).not.toBeInTheDocument()
     })
 
     test('a failed poll keeps the last good lobby on screen and says so without blocking it', async () => {
@@ -184,8 +190,8 @@ describe('LobbyRoom: polling (spec §4.7 Data, States)', () => {
         vi.mocked(lobbyService.getLobby).mockRejectedValue(unavailable())
         await wait(2000)
         expect(screen.getByRole('heading', { name: 'Friday' })).toBeInTheDocument()
-        expect(screen.getByRole('alert')).toHaveTextContent('Could not refresh the lobby: Service Unavailable')
-        expect(screen.queryByText("Couldn't load this lobby")).not.toBeInTheDocument()
+        expect(screen.getByRole('alert')).toHaveTextContent('Could not refresh the table: Service Unavailable')
+        expect(screen.queryByText("Couldn't load this table")).not.toBeInTheDocument()
 
         serve(lobby({ teamBPlayers: [cy] }))
         await wait(2000)
@@ -197,9 +203,9 @@ describe('LobbyRoom: polling (spec §4.7 Data, States)', () => {
         vi.mocked(lobbyService.getLobby).mockRejectedValue(new ApiError({ status: 500, message: 'Internal Server Error' }))
         renderLobby()
         await settle()
-        expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load this lobby")
+        expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load this table")
         expect(screen.getByText('Internal Server Error')).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Back to lobbies' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Back to tables' })).toBeInTheDocument()
         expect(screen.queryByRole('heading', { name: 'Friday' })).not.toBeInTheDocument()
     })
 
@@ -208,13 +214,13 @@ describe('LobbyRoom: polling (spec §4.7 Data, States)', () => {
         vi.mocked(lobbyService.getLobby).mockRejectedValue(unavailable())
         renderLobby()
         await settle()
-        expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load this lobby")
+        expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load this table")
 
         vi.mocked(lobbyService.getLobby).mockImplementation(() => new Promise<LobbyDTO>(() => {}))
         await wait(2000)
-        expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load this lobby")
+        expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load this table")
         expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
-        expect(screen.queryByText('Loading lobby...')).not.toBeInTheDocument()
+        expect(screen.queryByText('Loading table...')).not.toBeInTheDocument()
         expect(lobbyService.getLobby).toHaveBeenCalledTimes(1)
     })
 
@@ -254,30 +260,30 @@ describe('LobbyRoom: polling (spec §4.7 Data, States)', () => {
         const h1s = () => screen.getAllByRole('heading', { level: 1 }).map((heading) => heading.textContent)
         vi.mocked(lobbyService.getLobby).mockImplementation(() => new Promise<LobbyDTO>(() => {}))
         renderLobby()
-        expect(screen.getByText('Loading lobby...')).toBeInTheDocument()
-        expect(h1s()).toEqual(['Lobby'])
+        expect(screen.getByText('Loading table...')).toBeInTheDocument()
+        expect(h1s()).toEqual(['Table'])
         cleanup()
         vi.mocked(lobbyService.getLobby).mockRejectedValue(new ApiError({ status: 500, message: 'Internal Server Error' }))
         renderLobby()
         await settle()
-        expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load this lobby")
-        expect(h1s()).toEqual(['Lobby'])
+        expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load this table")
+        expect(h1s()).toEqual(['Table'])
         cleanup()
         serve(lobby({ teamBPlayers: [cy] }))
         renderLobby()
         await settle()
         vi.mocked(lobbyService.getLobby).mockRejectedValue(lobbyGone())
         await wait(2000)
-        expect(screen.getByText('This lobby was closed.')).toBeInTheDocument()
-        expect(h1s()).toEqual(['Lobby'])
+        expect(screen.getByText('This table was closed.')).toBeInTheDocument()
+        expect(h1s()).toEqual(['Table'])
         cleanup()
         serve(lobby({ hostUser: bob, teamAPlayers: [bob], unassignedPlayers: [ana] }))
         renderLobby()
         await settle()
         serve(lobby({ hostUser: bob, teamAPlayers: [bob], unassignedPlayers: [] }))
         await wait(2000)
-        expect(screen.getByText('You were removed from this lobby.')).toBeInTheDocument()
-        expect(h1s()).toEqual(['Lobby'])
+        expect(screen.getByText('You were removed from this table.')).toBeInTheDocument()
+        expect(h1s()).toEqual(['Table'])
     })
 
     test('a 404 poll shows "This lobby was closed." with the way back (AC 6)', async () => {
@@ -286,10 +292,10 @@ describe('LobbyRoom: polling (spec §4.7 Data, States)', () => {
         await settle()
         vi.mocked(lobbyService.getLobby).mockRejectedValue(lobbyGone())
         await wait(2000)
-        expect(screen.getByText('This lobby was closed.')).toBeInTheDocument()
+        expect(screen.getByText('This table was closed.')).toBeInTheDocument()
         expect(screen.queryByRole('heading', { name: 'Friday' })).not.toBeInTheDocument()
         vi.useRealTimers()
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Back to lobbies' }))
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Back to tables' }))
         expect(screen.getByText('the lobby list')).toBeInTheDocument()
     })
 
@@ -300,8 +306,8 @@ describe('LobbyRoom: polling (spec §4.7 Data, States)', () => {
         await settle()
         serve(lobby({ hostUser: bob, teamAPlayers: [bob], unassignedPlayers: [] }))
         await wait(2000)
-        expect(screen.getByText('You were removed from this lobby.')).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Back to lobbies' })).toBeInTheDocument()
+        expect(screen.getByText('You were removed from this table.')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Back to tables' })).toBeInTheDocument()
         await wait(3 * 2000)
         expect(lobbyService.getLobby).toHaveBeenCalledTimes(2)
     })
@@ -372,23 +378,23 @@ describe('LobbyRoom: joining, leaving and the host (spec §4.7 Actions)', () => 
     test('a non-member sees "Join lobby"; after joining they appear Not seated (AC 1)', async () => {
         serve(lobby({ hostUser: bob, teamAPlayers: [bob], teamBPlayers: [], unassignedPlayers: [] }))
         renderLobby()
-        expect(await screen.findByText('You are looking at this lobby. Join to play.')).toBeInTheDocument()
+        expect(await screen.findByText('You are looking at this table. Join to play.')).toBeInTheDocument()
         expect(screen.getAllByRole('button', { name: /^Open seat, team/ })).toHaveLength(3)
         serve(lobby({ hostUser: bob, teamAPlayers: [bob], teamBPlayers: [], unassignedPlayers: [ana] }))
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Join lobby' }))
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Join table' }))
         expect(lobbyService.joinLobby).toHaveBeenCalledWith('l1', { lobbyId: 'l1', password: null })
         expect(await screen.findByText('· you')).toBeInTheDocument()
         expect(screen.getByText('Pick a seat. Partners sit opposite each other.')).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Join lobby' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Join table' })).not.toBeInTheDocument()
     })
 
     test('a private lobby asks an outsider for its password in a sheet whose submit is "Join"', async () => {
         const user = userEvent.setup()
         serve(lobby({ hostUser: bob, teamAPlayers: [bob], teamBPlayers: [], privateLobby: true }))
         renderLobby()
-        await user.click(await screen.findByRole('button', { name: 'Join lobby' }))
-        await user.type(within(sheet('Private lobby')).getByLabelText('Password'), 'pw-1')
-        await user.click(within(sheet('Private lobby')).getByRole('button', { name: 'Join' }))
+        await user.click(await screen.findByRole('button', { name: 'Join table' }))
+        await user.type(within(sheet('Private table')).getByLabelText('Password'), 'pw-1')
+        await user.click(within(sheet('Private table')).getByRole('button', { name: 'Join' }))
         expect(lobbyService.joinLobby).toHaveBeenCalledWith('l1', { lobbyId: 'l1', password: 'pw-1' })
     })
 
@@ -399,10 +405,10 @@ describe('LobbyRoom: joining, leaving and the host (spec §4.7 Actions)', () => 
         serve(lobby({ hostUser: bob }))
         renderLobby()
         await user.click(await screen.findByRole('button', { name: 'Leave' }))
-        expect(screen.getAllByRole('button', { name: 'Leave lobby' })).toHaveLength(1)
-        await user.click(within(sheet('Leave this lobby?')).getByRole('button', { name: 'Leave lobby' }))
+        expect(screen.getAllByRole('button', { name: 'Leave table' })).toHaveLength(1)
+        await user.click(within(sheet('Leave this table?')).getByRole('button', { name: 'Leave table' }))
         expect(lobbyService.leaveLobby).toHaveBeenCalledWith('l1')
-        expect(await within(sheet('Leave this lobby?')).findByRole('alert')).toHaveTextContent('User is not part of this lobby.')
+        expect(await within(sheet('Leave this table?')).findByRole('alert')).toHaveTextContent('User is not part of this lobby.')
         expect(confirm).not.toHaveBeenCalled()
     })
 
@@ -411,10 +417,10 @@ describe('LobbyRoom: joining, leaving and the host (spec §4.7 Actions)', () => 
         serve(lobby({ hostUser: bob }))
         renderLobby()
         await user.click(await screen.findByRole('button', { name: 'Leave' }))
-        await user.click(within(sheet('Leave this lobby?')).getByRole('button', { name: 'Stay' }))
+        await user.click(within(sheet('Leave this table?')).getByRole('button', { name: 'Stay' }))
         expect(lobbyService.leaveLobby).not.toHaveBeenCalled()
         await user.click(screen.getByRole('button', { name: 'Leave' }))
-        await user.click(within(sheet('Leave this lobby?')).getByRole('button', { name: 'Leave lobby' }))
+        await user.click(within(sheet('Leave this table?')).getByRole('button', { name: 'Leave table' }))
         expect(await screen.findByText('the lobby list')).toBeInTheDocument()
     })
 
@@ -445,11 +451,11 @@ describe('LobbyRoom: joining, leaving and the host (spec §4.7 Actions)', () => 
         const user = userEvent.setup()
         vi.mocked(lobbyService.deleteLobby).mockRejectedValue(new ApiError({ status: 404, message: 'Lobby not found' }))
         renderLobby()
-        await user.click(await screen.findByRole('button', { name: 'Lobby options' }))
-        await user.click(within(sheet('Lobby options')).getByRole('button', { name: 'Close lobby' }))
-        await user.click(within(sheet('Close this lobby?')).getByRole('button', { name: 'Close lobby' }))
+        await user.click(await screen.findByRole('button', { name: 'Table options' }))
+        await user.click(within(sheet('Table options')).getByRole('button', { name: 'Close table' }))
+        await user.click(within(sheet('Close this table?')).getByRole('button', { name: 'Close table' }))
         expect(lobbyService.deleteLobby).toHaveBeenCalledWith('l1')
-        expect(await within(sheet('Close this lobby?')).findByRole('alert')).toHaveTextContent('Lobby not found')
+        expect(await within(sheet('Close this table?')).findByRole('alert')).toHaveTextContent('Lobby not found')
     })
 
     test('the host is offered delete, not leave - the server refuses a leaving host', async () => {
@@ -459,20 +465,20 @@ describe('LobbyRoom: joining, leaving and the host (spec §4.7 Actions)', () => 
         expect(screen.queryByRole('button', { name: 'Leave' })).not.toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: 'ana (you), team A' }))
         expect(within(sheet('Your seat')).getByRole('button', { name: 'Stand up' })).toBeInTheDocument()
-        expect(within(sheet('Your seat')).queryByRole('button', { name: 'Leave lobby' })).not.toBeInTheDocument()
+        expect(within(sheet('Your seat')).queryByRole('button', { name: 'Leave table' })).not.toBeInTheDocument()
         await user.click(within(sheet('Your seat')).getByRole('button', { name: 'Cancel' }))
-        await user.click(screen.getByRole('button', { name: 'Lobby options' }))
-        expect(within(sheet('Lobby options')).getByRole('button', { name: 'Close lobby' })).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Table options' }))
+        expect(within(sheet('Table options')).getByRole('button', { name: 'Close table' })).toBeInTheDocument()
     })
 
     test('closing asks first, each confirm button has its own name, then everyone goes back to the list', async () => {
         const user = userEvent.setup()
         renderLobby()
-        await user.click(await screen.findByRole('button', { name: 'Lobby options' }))
-        await user.click(within(sheet('Lobby options')).getByRole('button', { name: 'Close lobby' }))
+        await user.click(await screen.findByRole('button', { name: 'Table options' }))
+        await user.click(within(sheet('Table options')).getByRole('button', { name: 'Close table' }))
         expect(screen.getByText('Everyone goes back to the list.')).toBeInTheDocument()
-        expect(screen.getAllByRole('button', { name: 'Close lobby' })).toHaveLength(1)
-        await user.click(within(sheet('Close this lobby?')).getByRole('button', { name: 'Close lobby' }))
+        expect(screen.getAllByRole('button', { name: 'Close table' })).toHaveLength(1)
+        await user.click(within(sheet('Close this table?')).getByRole('button', { name: 'Close table' }))
         expect(await screen.findByText('the lobby list')).toBeInTheDocument()
     })
 
@@ -483,17 +489,69 @@ describe('LobbyRoom: joining, leaving and the host (spec §4.7 Actions)', () => 
         expect(await screen.findByRole('heading', { level: 1, name: 'Friday' })).toBeInTheDocument()
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
         expect(document.title).toBe('Friday · Stiglja')
-        expect(screen.getByRole('link', { name: 'Lobbies' })).toHaveAttribute('href', '/lobbies')
+        expect(screen.getByRole('link', { name: 'Tables' })).toHaveAttribute('href', '/lobbies')
         expect(screen.getByText('Casual')).toBeInTheDocument()
         expect(screen.getByText('Private')).toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: 'Copy invite link' }))
+        // this tab didn't create the table, so the invite says who knows its password (spec §5)
+        expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/lobby/l1\nThe host knows the password.`)
+        expect(screen.getByRole('status')).toHaveTextContent('Invite link copied')
+    })
+
+    test('a private table this tab created: the invite carries its password (spec §5)', async () => {
+        const user = userEvent.setup()
+        sessionStorage.setItem('stiglja:table-password:l1', 'kuna7')
+        serve(lobby({ privateLobby: true }))
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Copy invite link' }))
+        const invite = `${window.location.origin}/lobby/l1\nPassword: kuna7`
+        expect(await navigator.clipboard.readText()).toBe(invite)
+        expect(screen.getByRole('status')).toHaveTextContent('Invite link and password copied')
+
+        await navigator.clipboard.writeText('')
+        await user.click(screen.getByRole('button', { name: 'Table options' }))
+        await user.click(within(sheet('Table options')).getByRole('button', { name: 'Copy invite link' }))
+        expect(await navigator.clipboard.readText()).toBe(invite)
+    })
+
+    test("a public table's invite is the link alone", async () => {
+        const user = userEvent.setup()
+        sessionStorage.setItem('stiglja:table-password:l1', 'kuna7')
+        serve(lobby({ privateLobby: false }))
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Copy invite link' }))
         expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/lobby/l1`)
         expect(screen.getByRole('status')).toHaveTextContent('Invite link copied')
+    })
+
+    test("a guest at a friend's table goes back to the landing page, never the Birtija (spec §3.2, §6)", async () => {
+        const user = userEvent.setup()
+        auth.isGuest = true
+        serve(lobby({ hostUser: bob }))
+        renderLobby()
+        expect(await screen.findByRole('link', { name: 'Back' })).toHaveAttribute('href', '/')
+        expect(screen.queryByRole('link', { name: 'Tables' })).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Leave' }))
+        await user.click(within(sheet('Leave this table?')).getByRole('button', { name: 'Leave table' }))
+        expect(await screen.findByText('the landing page')).toBeInTheDocument()
+        cleanup()
+
+        vi.useFakeTimers()
+        serve(lobby({ hostUser: bob }))
+        renderLobby()
+        await settle()
+        vi.mocked(lobbyService.getLobby).mockRejectedValue(lobbyGone())
+        await wait(2000)
+        expect(screen.getByText('This table was closed.')).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/')
+        vi.useRealTimers()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Back' }))
+        expect(screen.getByText('the landing page')).toBeInTheDocument()
     })
 })
 
 describe('LobbyRoom: bots (casual bots spec §7)', () => {
-    const HOST_HINT = "Anyone who joins takes a bot's seat. To play alone, create a private lobby."
+    const HOST_HINT = "Anyone who joins takes a bot's seat. To play alone, create a private table."
     const alone = () => lobby({ teamAPlayers: [ana], teamBPlayers: [], unassignedPlayers: [] })
 
     test('the host\'s "+ Bot" chip adds a bot on that seat\'s team, and the lobby refreshes', async () => {
@@ -614,9 +672,9 @@ describe('LobbyRoom: bots (casual bots spec §7)', () => {
         expect(follows(screen.getByTestId('lobby-table'), fill)).toBe(true)
         expect(follows(fill, screen.getByText('Not seated'))).toBe(true)
         expect(follows(fill, screen.getByText(HOST_HINT))).toBe(true)
-        const bar = screen.getByRole('region', { name: 'Lobby actions' })
+        const bar = screen.getByRole('region', { name: 'Table actions' })
         expect(within(bar).getAllByRole('button').map((button) => button.textContent)).toEqual(['', 'Start match'])
-        expect(within(bar).getByRole('button', { name: 'Lobby options' })).toBeInTheDocument()
+        expect(within(bar).getByRole('button', { name: 'Table options' })).toBeInTheDocument()
     })
 
     test('while a fill runs, no seat and no chip takes a tap', async () => {
@@ -661,7 +719,7 @@ describe('LobbyRoom: bots (casual bots spec §7)', () => {
         cleanup()
         serve(lobby({ hostUser: bob, teamAPlayers: [bob], teamBPlayers: [], unassignedPlayers: [] }))
         renderLobby()
-        expect(await screen.findByRole('button', { name: 'Join lobby' })).toBeInTheDocument()
+        expect(await screen.findByRole('button', { name: 'Join table' })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /^Add a bot/ })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Fill with bots' })).not.toBeInTheDocument()
     })
@@ -715,10 +773,10 @@ describe('LobbyRoom: bots (casual bots spec §7)', () => {
         serve(lobby({ teamAPlayers: [ana, bob], teamBPlayers: [botAna], unassignedPlayers: [dan] }))
         renderLobby()
         await user.click(await screen.findByRole('button', { name: 'bob, team A' }))
-        expect(within(sheet('Remove bob?')).getByText('They leave the lobby at once and can join again from the list.')).toBeInTheDocument()
+        expect(within(sheet('Remove bob?')).getByText('They leave the table at once and can join again from the list.')).toBeInTheDocument()
         await user.click(within(sheet('Remove bob?')).getByRole('button', { name: 'Cancel' }))
         await user.click(screen.getByRole('button', { name: 'dan' }))
-        expect(within(sheet('Remove dan?')).getByText('They leave the lobby at once and can join again from the list.')).toBeInTheDocument()
+        expect(within(sheet('Remove dan?')).getByText('They leave the table at once and can join again from the list.')).toBeInTheDocument()
         expect(lobbyService.kickPlayer).not.toHaveBeenCalled()
     })
 
@@ -772,9 +830,9 @@ describe('LobbyRoom: bots (casual bots spec §7)', () => {
     test('an outsider at a table of three bots is told to join to play; the join seats them in a bot\'s place', async () => {
         serve(lobby({ hostUser: bob, teamAPlayers: [bob, botAna], teamBPlayers: [botTin, botNika], unassignedPlayers: [] }))
         renderLobby()
-        expect(await screen.findByText('You are looking at this lobby. Join to play.')).toBeInTheDocument()
+        expect(await screen.findByText('You are looking at this table. Join to play.')).toBeInTheDocument()
         serve(lobby({ hostUser: bob, teamAPlayers: [bob, botAna], teamBPlayers: [botTin, ana], unassignedPlayers: [] }))
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Join lobby' }))
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Join table' }))
         expect(await screen.findByRole('button', { name: 'ana (you), team B' })).toBeInTheDocument()
         expect(screen.getByText('The host starts the match when all four seats are taken.')).toBeInTheDocument()
         expect(screen.queryByText('Not seated')).not.toBeInTheDocument()
@@ -912,8 +970,8 @@ describe('LobbyRoom: focus after a request at the table (R38, R43)', () => {
         renderLobby()
         await screen.findByRole('button', { name: 'Add a bot to team A' })
         await user.click(chipAt('top') as HTMLElement)
-        await user.click(screen.getByRole('button', { name: 'Lobby options' }))
-        const options = sheet('Lobby options')
+        await user.click(screen.getByRole('button', { name: 'Table options' }))
+        const options = sheet('Table options')
         expect(options).toContainElement(document.activeElement as HTMLElement)
         serve(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [], unassignedPlayers: [] }))
         await act(async () => land(alone()))
@@ -984,5 +1042,73 @@ describe('LobbyRoom: focus after a request at the table (R38, R43)', () => {
         fireEvent.click(chipAt('right') as HTMLElement)
         await screen.findByRole('button', { name: 'Remove Bot-Tin, team B, bot' })
         await waitFor(() => expect(document.activeElement).toBe(chipAt('left')))
+    })
+})
+
+describe('LobbyRoom in Croatian (open beta §1.1, §1.4)', () => {
+    afterEach(() => setLang('en'))
+
+    test('Stol in Croatian: the host\'s table, its bots and the way back', async () => {
+        const user = userEvent.setup()
+        setLang('hr')
+        serve(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [botTin], unassignedPlayers: [] }))
+        renderLobby()
+        expect(await screen.findByRole('heading', { level: 1, name: 'Friday' })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Birtija' })).toHaveAttribute('href', '/lobbies')
+        expect(screen.getByText('Nerangirano')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'ana (ti), ekipa A' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Makni Bot-Ana, ekipa A, bot' })).toBeInTheDocument()
+        expect(screen.getByText('za stolom')).toBeInTheDocument()
+        const bar = screen.getByRole('region', { name: 'Radnje za stolom' })
+        expect(within(bar).getByRole('button', { name: 'Opcije stola' })).toBeInTheDocument()
+        expect(within(bar).getByRole('button', { name: 'Počni partiju' })).toBeDisabled()
+        expect(within(bar).getByText('Čekamo još 1 igrača.')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Popuni botovima' })).toBeInTheDocument()
+
+        // the chip's bot fills the table: focus lands on Start, found by its Croatian text (enabledStart)
+        serve(lobby({ teamAPlayers: [ana, botAna], teamBPlayers: [botTin, botNika], unassignedPlayers: [] }))
+        await user.click(screen.getByRole('button', { name: 'Dodaj bota u ekipu B' }))
+        await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Počni partiju' })))
+    })
+
+    test('a closed table in Croatian: its h1 and the way back to Birtija', async () => {
+        vi.useFakeTimers()
+        setLang('hr')
+        renderLobby()
+        await settle()
+        vi.mocked(lobbyService.getLobby).mockRejectedValue(lobbyGone())
+        await wait(2000)
+        expect(screen.getByText('Ovaj je stol zatvoren.')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: 'Stol' })).toBeInTheDocument()
+        vi.useRealTimers()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Natrag u Birtiju' }))
+        expect(screen.getByText('the lobby list')).toBeInTheDocument()
+    })
+
+    test('the invite in Croatian', async () => {
+        const user = userEvent.setup()
+        setLang('hr')
+        sessionStorage.setItem('stiglja:table-password:l1', 'kuna7')
+        serve(lobby({ privateLobby: true }))
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Kopiraj poveznicu za poziv' }))
+        expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/lobby/l1\nLozinka: kuna7`)
+        expect(screen.getByRole('status')).toHaveTextContent('Poveznica za poziv i lozinka su kopirane')
+        cleanup()
+
+        sessionStorage.clear()
+        renderLobby()
+        await user.click(await screen.findByRole('button', { name: 'Kopiraj poveznicu za poziv' }))
+        expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/lobby/l1\nLozinku zna domaćin.`)
+        expect(screen.getByRole('status')).toHaveTextContent('Poveznica za poziv je kopirana')
+    })
+
+    test("a guest's way back in Croatian", async () => {
+        setLang('hr')
+        auth.isGuest = true
+        serve(lobby({ hostUser: bob }))
+        renderLobby()
+        expect(await screen.findByRole('link', { name: 'Natrag' })).toHaveAttribute('href', '/')
+        expect(screen.queryByRole('link', { name: 'Birtija' })).not.toBeInTheDocument()
     })
 })

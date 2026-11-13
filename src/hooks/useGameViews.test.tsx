@@ -39,6 +39,7 @@ vi.mock('./useGameWebSocket', () => ({
 }))
 
 import { useGameViews } from './useGameViews'
+import { setLang } from '../i18n/lang'
 import { cardId } from '../components/board/model/rules'
 import { indexOf, playTable } from '../test/fixtures/views/table'
 
@@ -88,7 +89,7 @@ describe('useGameViews: today\'s useBelatroGame behaviours', () => {
     test('actions send this game\'s moves and clear the last error', () => {
         const { result } = renderHook(() => useGameViews('g1'))
         act(() => ws.options.onGameError?.('The dealer must call trump'))
-        expect(result.current.error).toBe('The dealer must call trump')
+        expect(result.current.error).toBe('You must call trump.')
         act(() => result.current.actions.bidTrump('HERC'))
         expect(ws.placeBid).toHaveBeenCalledWith('g1', false, 'HERC')
         expect(result.current.error).toBeNull()
@@ -165,12 +166,38 @@ describe('useGameViews: today\'s useBelatroGame behaviours', () => {
         act(() => ws.options.onGameError?.('Game not found'))
         expect(first.result.current.notAvailable).toBe(true)
         first.unmount()
-        // a page showing its table: another tab's "Game not found" is only shown, never fatal
+        // a page showing its table: another tab's "Game not found" is neither shown nor fatal
         const second = renderHook(() => useGameViews('g1'))
         act(() => ws.options.onPrivateGameUpdate?.(privateView))
         act(() => ws.options.onGameError?.('Game not found'))
         expect(second.result.current.notAvailable).toBe(false)
-        expect(second.result.current.error).toBe('Game not found')
+        expect(second.result.current.error).toBeNull()
+    })
+
+    test("another game's refusal is neither shown nor fatal (S2 review, S5 call 3)", () => {
+        const { result } = renderHook(() => useGameViews('g1'))
+        act(() => ws.options.onGameError?.('Not a participant in game g2'))
+        expect(result.current.error).toBeNull()
+        expect(result.current.notAvailable).toBe(false)
+        act(() => ws.options.onPrivateGameUpdate?.(privateView))
+        act(() => ws.options.onGameError?.('Not a participant in game g2'))
+        expect(result.current.error).toBeNull()
+        expect(result.current.notAvailable).toBe(false)
+        // a refusal of this table's own move still shows
+        act(() => ws.options.onGameError?.("You can't challenge now"))
+        expect(result.current.error).toBe("You can't challenge now.")
+    })
+
+    test('a move that could not go out says so in Croatian (carried d)', () => {
+        setLang('hr')
+        try {
+            ws.playCard.mockReturnValueOnce(false)
+            const { result } = renderHook(() => useGameViews('g1'))
+            act(() => result.current.actions.play({ boja: 'KARA', rank: 'DESETKA' }))
+            expect(result.current.error).toBe('Nije poslano — ponovno se spajamo')
+        } finally {
+            setLang('en')
+        }
     })
 
     test('a reconnect asks again through the subscription, with a fresh allowance of 3 refreshes', () => {
@@ -227,8 +254,26 @@ describe('useGameViews: today\'s useBelatroGame behaviours', () => {
     test("a rematch refusal is shown as the table's error, not as \"not your game\" (R-45)", () => {
         const { result } = renderHook(() => useGameViews('g1'))
         act(() => ws.options.onGameError?.('Rematch is not available for game g1'))
-        expect(result.current.error).toBe('Rematch is not available for game g1')
+        expect(result.current.error).toBe("Play again isn't available for this game.")
         expect(result.current.notAvailable).toBe(false)
+    })
+
+    test('a refused move reads in Croatian on a Croatian site', () => {
+        const { result } = renderHook(() => useGameViews('g1'))
+        // a sentence the SPA doesn't know: English shows it as it is
+        act(() => ws.options.onGameError?.('Something new'))
+        expect(result.current.error).toBe('Something new')
+        setLang('hr')
+        try {
+            act(() => ws.options.onGameError?.("You can't challenge now"))
+            expect(result.current.error).toBe('Sad ne možeš prijaviti prekršaj.')
+            act(() => ws.options.onGameError?.('Wait for the post-hand pause to end'))
+            expect(result.current.error).toBe('Pričekaj da počne sljedeće dijeljenje.')
+            act(() => ws.options.onGameError?.('Something new'))
+            expect(result.current.error).toBe('Nešto je pošlo po zlu. Pokušaj ponovno.')
+        } finally {
+            setLang('en')
+        }
     })
 })
 

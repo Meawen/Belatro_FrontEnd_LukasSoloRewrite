@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { Button } from '../ui/Button';
 import { IconButton } from '../ui/IconButton';
-import { CHALLENGE_HINT, CHALLENGE_USED_INFO } from '../game/gameView';
+import { useT } from '../../i18n/t';
 
 export interface ChallengeProps {
     onChallenge: () => void;
@@ -21,6 +21,7 @@ export interface ChallengeProps {
  * hidden until revealed; once my challenge is gone it says why the button is greyed.
  */
 export function Challenge({ onChallenge, place, state, pending, frozen = false }: ChallengeProps) {
+    const t = useT();
     const [open, setOpen] = useState(false);
     const hint = useId();
     const used = state === 'used';
@@ -37,13 +38,14 @@ export function Challenge({ onChallenge, place, state, pending, frozen = false }
                 {/* its own panel on a portrait phone, where the two stack (board.css): opaque behind a greyed button */}
                 <span className="board-challenge__main">
                     <Button size="sm" variant="secondary" aria-describedby={hint} disabled={used || frozen} loading={pending} onClick={onChallenge}>
-                        {used ? 'Challenge used' : 'Challenge'}
+                        {used ? t.board.challenge.used : t.board.challenge.button}
                     </Button>
                 </span>
-                <IconButton size="sm" icon="info" aria-label="What does Challenge do?" aria-expanded={open} aria-controls={hint} onClick={() => setOpen((shown) => !shown)} />
+                <IconButton size="sm" icon="info" aria-label={t.board.challenge.info} aria-expanded={open} aria-controls={hint} onClick={() => setOpen((shown) => !shown)} />
             </span>
             <span id={hint} data-testid="challenge-hint" className={open ? 'board-challenge__hint notch t-footnote' : 'sr-only'}>
-                {used ? CHALLENGE_USED_INFO : CHALLENGE_HINT}
+                {/* while available: one challenge per player per game (gameplay rules §1, §6); once gone, why it's greyed (D-7) */}
+                {used ? t.board.challenge.usedInfo : t.board.challenge.hint}
             </span>
         </span>
     );

@@ -8,6 +8,8 @@ import { userService } from '../../services/userService';
 import { ApiError } from '../../services/api';
 import type { ChangePasswordRequest } from '../../types/user';
 import { passwordRuleError } from '../auth/credentialRules';
+import { errorMessage } from '../../utils/errorMessage';
+import { cat, useT } from '../../i18n/t';
 
 export interface ChangePasswordFormProps {
     onSuccess: () => void;
@@ -30,6 +32,7 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSucces
     // stops a second submit that lands before React re-renders the button as disabled: it would
     // go out on the token the first one rotated away, and overlap the first one's socket hold
     const sending = useRef(false);
+    const t = useT();
 
     const changePasswordMutation = useMutation((request: ChangePasswordRequest) =>
         userService.changePassword(request)
@@ -41,16 +44,16 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSucces
 
         const newErrors: Record<string, string> = {};
         if (!formData.currentPassword) {
-            newErrors.currentPassword = 'Current password is required';
+            newErrors.currentPassword = cat().forms.currentPasswordRequired;
         }
         if (!formData.newPassword) {
-            newErrors.newPassword = 'New password is required';
+            newErrors.newPassword = cat().settings.changePassword.newPasswordRequired;
         } else {
             const passwordError = passwordRuleError(formData.newPassword);
             if (passwordError) newErrors.newPassword = passwordError;
         }
         if (formData.confirmPassword !== formData.newPassword) {
-            newErrors.confirmPassword = 'Passwords do not match';
+            newErrors.confirmPassword = cat().forms.passwordsDontMatch;
         }
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
@@ -66,10 +69,10 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSucces
             onSuccess();
         } catch (error) {
             if (error instanceof ApiError && error.status === 401 && !error.invalidToken) {
-                setErrors({ submit: 'Current password is incorrect' });
+                setErrors({ submit: cat().errors.codes.WRONG_PASSWORD });
             } else {
                 setErrors({
-                    submit: error instanceof Error ? error.message : 'Failed to change password'
+                    submit: errorMessage(error, cat().settings.changePassword.failed)
                 });
             }
         } finally {
@@ -89,30 +92,30 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSucces
     return (
         <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
             <Input
-                label="Current Password"
+                label={t.settings.changePassword.currentPassword}
                 type="password"
                 value={formData.currentPassword}
                 onChange={(e) => handleChange('currentPassword', e.target.value)}
                 error={errors.currentPassword}
-                placeholder="Enter current password..."
+                placeholder={t.forms.currentPasswordPlaceholder}
                 required
             />
             <Input
-                label="New Password"
+                label={t.settings.changePassword.newPassword}
                 type="password"
                 value={formData.newPassword}
                 onChange={(e) => handleChange('newPassword', e.target.value)}
                 error={errors.newPassword}
-                placeholder="Enter new password..."
+                placeholder={t.settings.changePassword.newPasswordPlaceholder}
                 required
             />
             <Input
-                label="Confirm New Password"
+                label={t.settings.changePassword.confirmNewPassword}
                 type="password"
                 value={formData.confirmPassword}
                 onChange={(e) => handleChange('confirmPassword', e.target.value)}
                 error={errors.confirmPassword}
-                placeholder="Repeat new password..."
+                placeholder={t.settings.changePassword.confirmNewPasswordPlaceholder}
                 required
             />
 
@@ -120,10 +123,10 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSucces
 
             <div className="flex flex-wrap justify-end gap-2 pt-2">
                 <Button variant="secondary" onClick={onCancel} disabled={changePasswordMutation.isLoading}>
-                    Cancel
+                    {t.common.cancel}
                 </Button>
                 <Button type="submit" loading={changePasswordMutation.isLoading}>
-                    Change Password
+                    {t.settings.account.changePassword}
                 </Button>
             </div>
         </form>

@@ -2,15 +2,14 @@ import { Tag } from '../ui/Chip';
 import { blokRows } from './model/hands';
 import type { BoardModel, Team } from './model/boardModel';
 import type { MatchHands } from '../../hooks/useMatchHands';
-
-/** The desktop column's hint (spec §5.4). */
-export const BLOK_HINT = "Tap your team's pile to look at the tricks you've won this hand.";
+import { useT } from '../../i18n/t';
 
 /**
  * Bela Blok (spec §5.4, US-35): one row per hand (#, Mi, Vi, PAD/CAPOT) from the stored hands' final
  * scores, and the running totals, which are the view's scores.
  */
 export function BlokTable({ model, hands }: { model: BoardModel; hands: MatchHands | null | undefined }) {
+    const t = useT();
     const teamOf = (id: string): Team | null => model.seats.find((seat) => seat.id === id)?.team ?? null;
     const rows = blokRows(hands?.hands ?? null, teamOf);
     const mine: Team = model.myTeam ?? 'A';
@@ -18,8 +17,8 @@ export function BlokTable({ model, hands }: { model: BoardModel; hands: MatchHan
     const points = (row: { a: number; b: number }, team: Team) => (team === 'A' ? row.a : row.b);
     const tags = (row: (typeof rows)[number], team: Team) => (
         <>
-            {row.padanje === team && <Tag tone="warn" className="mr-1">Pad</Tag>}
-            {row.capot === team && <Tag tone="win" className="mr-1">Capot</Tag>}
+            {row.padanje === team && <Tag tone="warn" className="mr-1">{t.board.blok.pad}</Tag>}
+            {row.capot === team && <Tag tone="win" className="mr-1">{t.board.capot}</Tag>}
         </>
     );
     return (
@@ -33,7 +32,7 @@ export function BlokTable({ model, hands }: { model: BoardModel; hands: MatchHan
             </thead>
             <tbody>
                 {rows.length === 0 ? (
-                    <tr><td colSpan={3} className="board-blok__empty">No hands yet</td></tr>
+                    <tr><td colSpan={3} className="board-blok__empty">{t.board.blok.empty}</td></tr>
                 ) : rows.map((row) => (
                     <tr key={row.handNo}>
                         <td>{row.handNo}</td>
@@ -44,7 +43,7 @@ export function BlokTable({ model, hands }: { model: BoardModel; hands: MatchHan
             </tbody>
             <tfoot>
                 <tr>
-                    <td><span className="sr-only">Total</span></td>
+                    <td><span className="sr-only">{t.board.blok.total}</span></td>
                     <td>{points(model.scores, mine)}</td>
                     <td>{points(model.scores, theirs)}</td>
                 </tr>
@@ -55,11 +54,12 @@ export function BlokTable({ model, hands }: { model: BoardModel; hands: MatchHan
 
 /** On desktops Bela Blok is a permanent 320-px column beside the board (spec §5.6.3). */
 export function BlokColumn({ model, hands }: { model: BoardModel; hands: MatchHands | null | undefined }) {
+    const t = useT();
     return (
         <aside data-testid="bela-blok" aria-labelledby="board-blok-title" className="board-blok">
-            <h2 id="board-blok-title" className="t-title">Bela Blok</h2>
+            <h2 id="board-blok-title" className="t-title">{t.board.blok.title}</h2>
             <BlokTable model={model} hands={hands} />
-            <p className="t-footnote text-text-3">{BLOK_HINT}</p>
+            <p className="t-footnote text-text-3">{t.board.blok.hint}</p>
         </aside>
     );
 }

@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent, type RefObject } from 'react';
 import { Button, Input, PixelIcon, Sheet, type IconName } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { errorMessage } from '../../utils/errorMessage';
+import { useT } from '../../i18n/t';
 
 /** One request at a time from a sheet: busy while it runs; a refusal is shown with the server's text. */
 function useSheetAction(fallback: string) {
@@ -48,7 +49,8 @@ export function ConfirmSheet({ open, onClose, title, ...body }: ConfirmSheetProp
 
 type ConfirmBodyProps = Omit<ConfirmSheetProps, 'open' | 'title'> & { cancelRef: RefObject<HTMLButtonElement | null> };
 
-function ConfirmBody({ body, confirmLabel, confirmIcon, cancelLabel = 'Cancel', onConfirm, fallbackError, onClose, cancelRef }: ConfirmBodyProps) {
+function ConfirmBody({ body, confirmLabel, confirmIcon, cancelLabel, onConfirm, fallbackError, onClose, cancelRef }: ConfirmBodyProps) {
+    const t = useT();
     const { busy, error, run } = useSheetAction(fallbackError);
     return (
         <div className="flex flex-col gap-4">
@@ -59,7 +61,7 @@ function ConfirmBody({ body, confirmLabel, confirmIcon, cancelLabel = 'Cancel', 
                     {confirmLabel}
                 </Button>
                 <Button ref={cancelRef} variant="quiet" block onClick={onClose}>
-                    {cancelLabel}
+                    {cancelLabel ?? t.common.cancel}
                 </Button>
             </div>
         </div>
@@ -77,30 +79,32 @@ export interface SeatSheetProps {
 
 /** The viewer's own seat: stand up ('U'), or leave the lobby. */
 export function SeatSheet({ open, onClose, ...rest }: SeatSheetProps) {
+    const t = useT();
     return (
-        <Sheet open={open} onClose={onClose} title="Your seat">
+        <Sheet open={open} onClose={onClose} title={t.table.seatSheet.title}>
             <SeatBody {...rest} onClose={onClose} />
         </Sheet>
     );
 }
 
 function SeatBody({ canLeave, onStandUp, onLeave, onClose }: Omit<SeatSheetProps, 'open'>) {
-    const { busy, error, run } = useSheetAction('Failed to leave lobby');
+    const t = useT();
+    const { busy, error, run } = useSheetAction(t.table.failed.leave);
     return (
         <div className="flex flex-col gap-4">
-            <p className="t-body text-text-2">{canLeave ? 'Stand up to free the seat, or leave the lobby.' : 'Stand up to free the seat.'}</p>
+            <p className="t-body text-text-2">{canLeave ? t.table.seatSheet.bodyLeave : t.table.seatSheet.body}</p>
             <ErrorAlert message={error} />
             <div className="flex flex-col gap-2">
                 <Button variant="secondary" block disabled={busy} onClick={onStandUp}>
-                    Stand up
+                    {t.table.seatSheet.standUp}
                 </Button>
                 {canLeave && (
                     <Button variant="danger" block leftIcon={<PixelIcon name="door" />} loading={busy} onClick={() => void run(onLeave)}>
-                        Leave lobby
+                        {t.table.leave}
                     </Button>
                 )}
                 <Button variant="quiet" block onClick={onClose}>
-                    Cancel
+                    {t.common.cancel}
                 </Button>
             </div>
         </div>
@@ -117,19 +121,20 @@ export interface OptionsSheetProps {
 
 /** The host's options (spec §4.7). */
 export function OptionsSheet({ open, onClose, onCopy, onCloseLobby }: OptionsSheetProps) {
+    const t = useT();
     return (
-        <Sheet open={open} onClose={onClose} title="Lobby options">
+        <Sheet open={open} onClose={onClose} title={t.table.options}>
             <div className="flex flex-col gap-4">
-                <p className="t-body text-text-2">Only you can see these.</p>
+                <p className="t-body text-text-2">{t.table.optionsBody}</p>
                 <div className="flex flex-col gap-2">
                     <Button variant="secondary" block leftIcon={<PixelIcon name="link" />} onClick={onCopy}>
-                        Copy invite link
+                        {t.table.copyInvite}
                     </Button>
                     <Button variant="danger" block leftIcon={<PixelIcon name="trash" />} onClick={onCloseLobby}>
-                        Close lobby
+                        {t.table.close}
                     </Button>
                     <Button variant="quiet" block onClick={onClose}>
-                        Cancel
+                        {t.common.cancel}
                     </Button>
                 </div>
             </div>
@@ -146,8 +151,9 @@ export interface PasswordSheetProps {
 
 /** An outsider joining a private lobby from its page (spec §4.7): the submit reads "Join". */
 export function PasswordSheet({ open, onClose, onJoin }: PasswordSheetProps) {
+    const t = useT();
     return (
-        <Sheet open={open} onClose={onClose} title="Private lobby">
+        <Sheet open={open} onClose={onClose} title={t.tables.privateTable}>
             <PasswordBody onClose={onClose} onJoin={onJoin} />
         </Sheet>
     );
@@ -155,7 +161,8 @@ export function PasswordSheet({ open, onClose, onJoin }: PasswordSheetProps) {
 
 function PasswordBody({ onClose, onJoin }: Omit<PasswordSheetProps, 'open'>) {
     const [password, setPassword] = useState('');
-    const { busy, error, run } = useSheetAction('Failed to join lobby');
+    const t = useT();
+    const { busy, error, run } = useSheetAction(t.table.failed.join);
     const submit = (event: FormEvent) => {
         event.preventDefault();
         void run(async () => {
@@ -169,15 +176,15 @@ function PasswordBody({ onClose, onJoin }: Omit<PasswordSheetProps, 'open'>) {
     };
     return (
         <form onSubmit={submit} className="flex flex-col gap-4">
-            <p className="t-body text-text-2">Enter the password the host gave you.</p>
-            <Input label="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="off" />
+            <p className="t-body text-text-2">{t.table.passwordBody}</p>
+            <Input label={t.forms.password} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="off" />
             <ErrorAlert message={error} />
             <div className="flex flex-col gap-2">
                 <Button type="submit" block leftIcon={<PixelIcon name="lock" />} loading={busy}>
-                    Join
+                    {t.table.passwordSubmit}
                 </Button>
                 <Button variant="quiet" block onClick={onClose}>
-                    Cancel
+                    {t.common.cancel}
                 </Button>
             </div>
         </form>

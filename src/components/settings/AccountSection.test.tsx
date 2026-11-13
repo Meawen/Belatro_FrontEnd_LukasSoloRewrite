@@ -218,6 +218,18 @@ describe('Account: the address (moved from ProfileStats)', () => {
         expect(screen.getByRole('button', { name: 'Resend confirmation email' })).toBeInTheDocument()
     })
 
+    test('an unconfirmed signup sees the day it goes, with the resend (spec §2.1)', () => {
+        mockMe({ ...meBase, email: null, pendingEmail: 'new@example.com', emailVerified: false, verifyBy: '2026-11-06T10:00:00Z' })
+        const { unmount } = renderAccount()
+        expect(screen.getByTestId('verify-by')).toHaveTextContent('If no email address is confirmed by November 6, 2026, the account will be removed.')
+        expect(screen.getByRole('button', { name: 'Resend confirmation email' })).toBeInTheDocument()
+        unmount()
+
+        mockMe({ ...meBase, email: null, pendingEmail: 'new@example.com', emailVerified: false })
+        renderAccount()
+        expect(screen.queryByTestId('verify-by')).not.toBeInTheDocument()
+    })
+
     test('a legacy unconfirmed address is marked and can be confirmed', () => {
         mockMe({ ...meBase, emailVerified: false })
         renderAccount()

@@ -1,6 +1,7 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, afterEach } from 'vitest'
 import { OUTCOME_MS, WHO_MS, challengeAt, challengeHeader, challengeSrLine, type ChallengeSaid } from './challengeMoment'
 import type { LastChallengeView } from '../../../types/game'
+import { setLang } from '../../../i18n/lang'
 
 // ivo (team B) challenges; the name is seatName's: the seat id, or "You" for me
 const right: ChallengeSaid = { name: 'ivo', mine: false, team: 'B', foulFound: true }
@@ -53,5 +54,20 @@ describe('the challenge said out loud (gameplay rules spec §6, D-5)', () => {
         expect(challengeHeader({ ...last, foulFound: false })).toBeNull()
         expect(challengeHeader({ ...last, thisHand: false })).toBeNull()
         expect(challengeHeader(null)).toBeNull()
+    })
+})
+
+describe('the challenge in Croatian (S5 call 4)', () => {
+    afterEach(() => setLang('en'))
+
+    test('who, the outcome and the hand-result header: "prijava", "ekipa"', () => {
+        setLang('hr')
+        expect(challengeAt(right, 0).text).toBe('ivo prijavljuje prekršaj!')
+        expect(challengeAt(mineRight, 0).text).toBe('Prijavljuješ prekršaj!')
+        expect(challengeAt(right, WHO_MS).text).toBe('Prekršaj potvrđen: ekipa B nosi dijeljenje')
+        expect(challengeAt(wrong, WHO_MS).text).toBe('Nema prekršaja: ivo više nema prijave')
+        expect(challengeAt(mineWrong, WHO_MS).text).toBe('Nema prekršaja: više nemaš prijave')
+        expect(challengeSrLine(wrong)).toBe('ivo prijavljuje prekršaj! Nema prekršaja: ivo više nema prijave')
+        expect(challengeHeader({ number: 3, playerId: 'ivo', team: 'B', foulFound: true, thisHand: true })).toBe('Prekršaj potvrđen: ekipa B nosi dijeljenje')
     })
 })

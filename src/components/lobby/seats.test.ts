@@ -1,6 +1,7 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, afterEach } from 'vitest'
 import { canAddBot, fillableSeats, hostHint, isReadyToStart, lobbyHint, memberStatus, seatAction, seatLabel, seatedCount, startReadiness, tableSeats, takesBots, teamOf } from './seats'
 import type { LobbyDTO } from '../../types/lobby'
+import { setLang } from '../../i18n/lang'
 
 // people as a backend with bots sends them: the flag is always there, false for a person
 const mira = { id: 'u9', username: 'mira_z', bot: false }
@@ -151,7 +152,7 @@ describe('seats (spec §4.7, §5.3.2)', () => {
 
     test('the host\'s hint: in a public lobby with a bot, a joiner takes the bot\'s seat', () => {
         const withBot = lobby({ teamBPlayers: [ana] })
-        expect(hostHint(withBot, 'u9')).toBe("Anyone who joins takes a bot's seat. To play alone, create a private lobby.")
+        expect(hostHint(withBot, 'u9')).toBe("Anyone who joins takes a bot's seat. To play alone, create a private table.")
         expect(hostHint(lobby({ teamBPlayers: [ana], privateLobby: true }), 'u9')).toBeNull()
         expect(hostHint(lobby(), 'u9')).toBeNull()
         expect(hostHint(withBot, 'u2')).toBeNull()
@@ -196,10 +197,41 @@ describe('seats (spec §4.7, §5.3.2)', () => {
     test('hints under the table and the member\'s status line', () => {
         const l = lobby({ unassignedPlayers: [tea] })
         expect(lobbyHint(l, 'u9')).toBeNull()
-        expect(lobbyHint(l, 'u7')).toBe('You are looking at this lobby. Join to play.')
+        expect(lobbyHint(l, 'u7')).toBe('You are looking at this table. Join to play.')
         expect(lobbyHint(l, 'u4')).toBe('Pick a seat. Partners sit opposite each other.')
         expect(lobbyHint(l, 'u3')).toBe('The host starts the match when all four seats are taken.')
         expect(memberStatus(l, 'u4')).toBe('Tap an open seat.')
         expect(memberStatus(l, 'u3')).toBe("You're on Team B.")
+    })
+})
+
+describe('seats in Croatian (open beta §1.1)', () => {
+    afterEach(() => setLang('en'))
+
+    test('in Croatian: seat names, the reason line, the hints', () => {
+        setLang('hr')
+        const l = lobby({ unassignedPlayers: [tea] })
+        const label = (viewer: string | null, key: string) => seatLabel(tableSeats(l, viewer).find((s) => s.key === key)!, l, viewer)
+        expect(label('u4', 'B2')).toBe('Sjedni ovdje, ekipa B')
+        expect(label('u3', 'B2')).toBe('Slobodno mjesto, ekipa B')
+        expect(label('u4', 'A1')).toBe('mira_z, ekipa A, domaćin')
+        expect(label('u3', 'B1')).toBe('ivo (ti), ekipa B')
+        const withBot = lobby({ teamBPlayers: [ivo, ana] })
+        const botLabel = (viewer: string | null) => seatLabel(tableSeats(withBot, viewer).find((s) => s.key === 'B2')!, withBot, viewer)
+        expect(botLabel('u9')).toBe('Makni Bot-Ana, ekipa B, bot')
+        expect(botLabel('u3')).toBe('Bot-Ana, ekipa B, bot')
+
+        expect(startReadiness(lobby({ teamAPlayers: [mira], teamBPlayers: [] })).reason).toBe('Čekamo još 3 igrača.')
+        expect(startReadiness(lobby()).reason).toBe('Čekamo još 1 igrača.')
+        expect(startReadiness(lobby({ unassignedPlayers: [tea, dino], teamBPlayers: [] })).reason).toBe('tea_r još nije za stolom.')
+        expect(startReadiness(lobby({ teamBPlayers: [ivo, tea] })).reason).toBe('Svi sjede.')
+
+        expect(lobbyHint(l, 'u7')).toBe('Gledaš ovaj stol. Pridruži se da igraš.')
+        expect(lobbyHint(l, 'u4')).toBe('Odaberi mjesto. Partneri sjede jedan nasuprot drugome.')
+        expect(lobbyHint(l, 'u3')).toBe('Domaćin pokreće partiju kad sva četiri mjesta budu zauzeta.')
+        expect(memberStatus(l, 'u4')).toBe('Odaberi slobodno mjesto.')
+        expect(memberStatus(l, 'u3')).toBe('Ti si u ekipi B.')
+        expect(hostHint(lobby({ teamBPlayers: [ana] }), 'u9')).toBe(
+            'Tko se pridruži, sjeda na mjesto bota. Ako želiš igrati samo s botovima, otvori Stol za ekipu.')
     })
 })

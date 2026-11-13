@@ -18,8 +18,8 @@ export interface RematchState {
     expired: boolean;
     /** Vote for a rematch (Play again), once: a second vote started a second rematch with bots at the table (R29). */
     playAgain: () => void;
-    /** Decline the rematch for everyone, then go back to the lobbies (Leave). */
-    leave: () => void;
+    /** Decline the rematch for everyone, then go to `to`: the game page's way out (open beta §6). */
+    leave: (to: string) => void;
 }
 
 /**
@@ -64,9 +64,9 @@ export function useRematch(gameId: string, offered: boolean): RematchState {
         setVoted(true);
     }, [gameId, voteRematch]);
 
-    const leave = useCallback(() => {
+    const leave = useCallback((to: string) => {
         declineRematch(gameId);
-        navigate('/lobbies');
+        navigate(to);
     }, [gameId, declineRematch, navigate]);
 
     return { votes, voted, cancelledBy, expired, playAgain, leave };

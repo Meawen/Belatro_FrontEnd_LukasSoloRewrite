@@ -1,5 +1,6 @@
 import type { Team } from './boardModel';
 import type { LastChallengeView } from '../../../types/game';
+import { cat } from '../../../i18n/t';
 
 /** The banner says who challenged this long (gameplay rules §6)… */
 export const WHO_MS = 1200;
@@ -21,13 +22,17 @@ export interface ChallengeStep {
     text: string | null;
 }
 
-const whoLine = ({ name, mine }: ChallengeSaid) => (mine ? `${name} challenge!` : `${name} challenges!`);
+const whoLine = ({ name, mine }: ChallengeSaid) => {
+    const c = cat().board.challenge;
+    return mine ? c.whoMine : c.who(name);
+};
 
-const foulLine = (team: Team) => `Foul found: Team ${team} takes the hand`;
+const foulLine = (team: Team) => cat().board.challenge.foul(team);
 
-const outcomeLine = (said: ChallengeSaid) => (said.foulFound
-    ? foulLine(said.team)
-    : `No foul: ${said.mine ? 'you have' : `${said.name} has`} no challenge left`);
+const outcomeLine = (said: ChallengeSaid) => {
+    const c = cat().board.challenge;
+    return said.foulFound ? c.foul(said.team) : said.mine ? c.noFoulMine : c.noFoul(said.name);
+};
 
 /** The banner `elapsed` ms after it started: "Ivo challenges!", then "Foul found: Team B takes the hand" or "No foul: …". */
 export function challengeAt(said: ChallengeSaid, elapsed: number): ChallengeStep {

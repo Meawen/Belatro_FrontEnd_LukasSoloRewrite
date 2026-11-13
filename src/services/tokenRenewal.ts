@@ -75,6 +75,12 @@ export function renewIfExpiring(now: number = Date.now()): Promise<boolean> {
     if (inFlight) return inFlight;
     const token = localStorage.getItem('authToken');
     if (!token) return Promise.resolve(false);
+    // Ruling 32: a guest's expired token can't be renewed, but the guest signs back in with its secret (a member's
+    // expired token is left alone, as before)
+    if (isExpired(token, now)) {
+        const resumed = gameSocket.resumeGuest(token);
+        return resumed ? resumed.then((outcome) => outcome === 'resumed') : Promise.resolve(false);
+    }
     const due = renewAt(token, now);
     if (due === null || now <= due) return Promise.resolve(false);
     const renewal = renew(token).finally(() => {

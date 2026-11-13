@@ -42,7 +42,7 @@ async function joinWithPassword(password: string) {
     const user = userEvent.setup()
     renderQuickLook(lobby({ privateLobby: true }))
     await user.type(screen.getByLabelText('Password'), password)
-    await user.click(screen.getByRole('button', { name: 'Join lobby' }))
+    await user.click(screen.getByRole('button', { name: 'Join table' }))
 }
 
 beforeEach(() => {
@@ -81,7 +81,7 @@ describe('LobbyQuickLook (spec §4.6)', () => {
     test('a public lobby joins with no password and goes straight in (AC 3, D-19)', async () => {
         renderQuickLook(lobby())
         expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Join lobby' }))
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Join table' }))
         expect(lobbyService.joinLobby).toHaveBeenCalledWith('l1', { lobbyId: 'l1', password: null })
         expect(await screen.findByText('lobby page l1')).toBeInTheDocument()
     })
@@ -95,24 +95,24 @@ describe('LobbyQuickLook (spec §4.6)', () => {
 
     test('a member enters the lobby without joining again', async () => {
         renderQuickLook(lobby({ unassignedPlayers: [ana] }))
-        expect(screen.queryByRole('button', { name: 'Join lobby' })).not.toBeInTheDocument()
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Enter lobby' }))
+        expect(screen.queryByRole('button', { name: 'Join table' })).not.toBeInTheDocument()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Go to table' }))
         expect(lobbyService.joinLobby).not.toHaveBeenCalled()
         expect(await screen.findByText('lobby page l1')).toBeInTheDocument()
     })
 
     test('a full lobby offers only a disabled "Lobby full" to an outsider', () => {
         renderQuickLook(lobby({ teamAPlayers: [bob, cy], teamBPlayers: [dan], unassignedPlayers: [{ id: 'u5', username: 'eve' }] }))
-        expect(screen.getByRole('button', { name: 'Lobby full' })).toBeDisabled()
-        expect(screen.queryByRole('button', { name: 'Join lobby' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Table full' })).toBeDisabled()
+        expect(screen.queryByRole('button', { name: 'Join table' })).not.toBeInTheDocument()
     })
 
     test('a lobby whose other seats are bots is not full: an outsider can join (casual bots spec §7)', async () => {
         const bots = [1, 2, 3].map((n) => ({ id: `b${n}`, username: `Bot-${n}`, bot: true }))
         renderQuickLook(lobby({ teamAPlayers: [bob, bots[0]], teamBPlayers: [bots[1], bots[2]] }))
-        expect(screen.queryByRole('button', { name: 'Lobby full' })).not.toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Join lobby' })).toBeEnabled()
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Join lobby' }))
+        expect(screen.queryByRole('button', { name: 'Table full' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Join table' })).toBeEnabled()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Join table' }))
         expect(lobbyService.joinLobby).toHaveBeenCalledWith('l1', { lobbyId: 'l1', password: null })
     })
 
@@ -124,13 +124,13 @@ describe('LobbyQuickLook (spec §4.6)', () => {
         expect(within(table).getByText('players · 3 bots')).toBeInTheDocument()
         expect(within(table).queryByText('4/4')).not.toBeInTheDocument()
         expect(within(table).queryByText('Ready to deal')).not.toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Join lobby' })).toBeEnabled()
+        expect(screen.getByRole('button', { name: 'Join table' })).toBeEnabled()
     })
 
     test('a lobby that left the open list says so and offers only Close', async () => {
         renderQuickLook(lobby(), true)
-        expect(screen.getByText('This lobby is no longer open')).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Join lobby' })).not.toBeInTheDocument()
+        expect(screen.getByText('This table is no longer open')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Join table' })).not.toBeInTheDocument()
         expect(screen.queryByTestId('lobby-table')).not.toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Close' }))
         expect(onClose).toHaveBeenCalled()

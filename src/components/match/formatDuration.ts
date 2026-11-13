@@ -1,6 +1,8 @@
+import { cat } from '../../i18n/t';
+
 /** "h:mm:ss" from an hour on, else "m:ss"; "Unknown" without both times (today's Match Details rule). */
 export function formatDuration(startTime: string | null, endTime: string | null): string {
-    if (!startTime || !endTime) return 'Unknown';
+    if (!startTime || !endTime) return cat().common.unknown;
     const durationMs = new Date(endTime).getTime() - new Date(startTime).getTime();
     const hours = Math.floor(durationMs / 3_600_000);
     const minutes = Math.floor((durationMs % 3_600_000) / 60_000);

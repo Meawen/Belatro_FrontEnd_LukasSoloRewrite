@@ -10,12 +10,12 @@ import type { Boja, GameCard, PlayerPublicInfo, PublicGameView } from '../types/
 import type { HandDTO, TrickDTO } from '../types/match';
 
 export const SEATS = ['alice', 'bob', 'carol', 'dave'] as const;
-/** names=long: every seat named by the longest username the backend allows (20 of [A-Za-z0-9_]), wide letters and narrow. */
+/** names=long: every seat named by the longest username the backend allows (20 of [A-Za-z0-9_čćšžđČĆŠŽĐ]): wide letters, and Croatian ones in both cases (dave). */
 export const LONG_NAMES: Readonly<Record<(typeof SEATS)[number], string>> = {
     alice: 'WWWWWWWWWWWWWWWWWWWW',
     bob: 'MMMMMMMMMMMMMMMMMMMM',
     carol: 'mmmmmmmmmmmmmmmmmmmm',
-    dave: 'aaaaaaaaaaaaaaaaaaaa',
+    dave: 'ŠĐŽČĆšđžčćŠĐŽČĆšđžčć',
 };
 export const LAYOUTS = ['fit', '375x812', '812x375', '1440x900'] as const;
 export type DevLayout = (typeof LAYOUTS)[number];
@@ -67,6 +67,11 @@ export interface DevOptions {
      * "No challenge" badge: with names=long and seed=1254 (carol declares six cards), every tag column at its biggest.
      */
     busy: boolean;
+    /**
+     * coach=demo: a stand-in coach (open beta §7.2, §7.3) for the hit check and a look at the marks; coach=long: the same
+     * with a lesson taller than the room above the bid panel (it scrolls); else none.
+     */
+    coach: 'demo' | 'long' | null;
 }
 
 const one = <T extends string>(value: string | null, allowed: readonly T[], fallback: T): T =>
@@ -90,7 +95,7 @@ function parseChallenge(value: string | null): ChallengeOption | null {
     return { by, after: when, foul: outcome === 'right' };
 }
 
-/** `/dev/board?seat=carol&at=window-open&layout=375x812&effects=off&motion=reduce&chaos=1&controls=0&skip=1&play=1&speed=2&seed=7&trump=KARA&hands=2&scores=990,900&names=long&bots=bob,dave&live=1&t=700&belot=bob:PIK&challenge=dave:2:right&busy=1` */
+/** `/dev/board?seat=carol&at=window-open&layout=375x812&effects=off&motion=reduce&chaos=1&controls=0&skip=1&play=1&speed=2&seed=7&trump=KARA&hands=2&scores=990,900&names=long&bots=bob,dave&live=1&t=700&belot=bob:PIK&challenge=dave:2:right&busy=1&coach=demo` */
 export function parseDevOptions(search: string): DevOptions {
     const q = new URLSearchParams(search);
     const scores = (q.get('scores') ?? '').split(',').map(Number);
@@ -117,6 +122,7 @@ export function parseDevOptions(search: string): DevOptions {
         belot: parseBelot(q.get('belot')),
         challenge: parseChallenge(q.get('challenge')),
         busy: q.get('busy') === '1',
+        coach: q.get('coach') === 'demo' || q.get('coach') === 'long' ? (q.get('coach') as 'demo' | 'long') : null,
     };
 }
 

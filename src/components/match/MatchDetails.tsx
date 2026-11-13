@@ -11,10 +11,12 @@ import type { HandDTO, MatchDTO, MoveDTO } from '../../types/match';
 import type { UserSimpleDTO } from '../../types/user';
 import { HandHistory } from './HandHistory';
 import { formatDuration } from './formatDuration';
-import { matchOutcome, type MatchOutcome } from './matchOutcome';
-import { parseMatchResult, yourResult } from './matchResult';
+import { matchOutcome, modeWord, type MatchOutcome } from './matchOutcome';
+import { byBelot, parseMatchResult, resultText, yourResult } from './matchResult';
 import { matchesPath, pageFromState } from './matchesPath';
 import { useMatchDetails, type MatchDetailsData } from './useMatchDetails';
+import { useT } from '../../i18n/t';
+import { displayName } from '../common/displayName';
 
 // The result colour on the hero's tile and title (spec §4.9), as on the list's rows; text pairs on --surface
 const TONE: Record<MatchOutcome, { tile: string; word: string; icon: IconName }> = {
@@ -28,20 +30,22 @@ function Hero({ match, result }: { match: MatchDTO; result: string | null }) {
     const outcome = matchOutcome(result);
     const tone = outcome ? TONE[outcome] : null;
     const players = (match.teamA?.length ?? 0) + (match.teamB?.length ?? 0);
+    const t = useT();
+    const title = result === 'WIN' ? t.matchDetails.you.win : result === 'LOSS' ? t.matchDetails.you.loss : result ? resultText(result) : t.matchDetails.unknownResult;
     return (
         <Panel as="section" padding="lg" className="flex flex-wrap items-center gap-4">
             <span className={cx('notch grid size-15 shrink-0 place-items-center', tone?.tile ?? 'bg-surface-2 text-text-2')}>
                 <PixelIcon name={tone?.icon ?? 'more'} scale={3} />
             </span>
             <div className="min-w-0 flex-1">
-                <h1 className={cx('t-display break-words', tone?.word ?? 'text-text')}>{result || 'Unknown Result'}</h1>
+                <h1 className={cx('t-display break-words', tone?.word ?? 'text-text')}>{title}</h1>
                 <p className="t-footnote mt-2 flex flex-wrap items-center gap-2 text-text-2">
-                    <span>{`Match ID: ${match.id?.slice(-12) || 'Unknown'}`}</span>
-                    <Tag tone={match.gameMode === 'RANKED' ? 'mode' : 'neutral'}>{match.gameMode || 'Unknown'}</Tag>
+                    <span>{t.matchDetails.matchId(match.id?.slice(-12) || t.common.unknown)}</span>
+                    <Tag tone={match.gameMode === 'RANKED' ? 'mode' : 'neutral'}>{modeWord(match.gameMode)}</Tag>
                 </p>
             </div>
             <p className="flex items-baseline gap-2">
-                <span className="t-score-xl tabular-nums">{players}</span> <span className="t-callout text-text-2">Players</span>
+                <span className="t-score-xl tabular-nums">{players}</span> <span className="t-callout text-text-2">{t.matchDetails.players(players)}</span>
             </p>
         </Panel>
     );
@@ -59,15 +63,16 @@ function Tile({ label, value, numeric = true }: { label: string; value: ReactNod
 
 /** Item 3: "Team A" / "Team B", "{n} members", each member's avatar and name, YOU on mine. */
 function TeamPanel({ team, members, myId }: { team: 'A' | 'B'; members: UserSimpleDTO[]; myId: string | null | undefined }) {
+    const t = useT();
     return (
-        <Panel as="section" aria-label={`Team ${team}`}>
+        <Panel as="section" aria-label={t.common.team(team)}>
             <div className="flex items-center gap-3">
                 <span aria-hidden="true" className={cx('notch grid size-9 place-items-center t-headline text-ink', team === 'A' ? 'bg-team-a' : 'bg-team-b')}>
                     {team}
                 </span>
                 <div>
-                    <h2 className="t-headline">Team {team}</h2>
-                    <p className="t-footnote text-text-3">{members.length} members</p>
+                    <h2 className="t-headline">{t.common.team(team)}</h2>
+                    <p className="t-footnote text-text-3">{t.matchDetails.members(members.length)}</p>
                 </div>
             </div>
             <ul className="mt-3 flex flex-col gap-1.5">
@@ -75,9 +80,9 @@ function TeamPanel({ team, members, myId }: { team: 'A' | 'B'; members: UserSimp
                     const me = !!myId && player.id === myId;
                     return (
                         <li key={player.id ?? index} className={cx('notch flex items-center gap-3 bg-bg px-2 py-2', me && 'shadow-[inset_0_0_0_2px_var(--accent)]')}>
-                            <Avatar initial={player.username || '?'} tone={team === 'A' ? 'team-a' : 'team-b'} size="sm" />
-                            <span className="t-callout min-w-0 truncate">{player.username || 'Unknown'}</span>
-                            {me && <span className="t-caption text-accent">YOU</span>}
+                            <Avatar initial={displayName(player.username || '?')} tone={team === 'A' ? 'team-a' : 'team-b'} size="sm" />
+                            <span className="t-callout min-w-0 truncate">{displayName(player.username || t.common.unknown)}</span>
+                            {me && <span className="t-caption text-accent">{t.common.youCaps}</span>}
                         </li>
                     );
                 })}
@@ -88,22 +93,21 @@ function TeamPanel({ team, members, myId }: { team: 'A' | 'B'; members: UserSimp
 
 /** A team's final score: the number alone in `final-a` / `final-b`, then its label (spec §7.4 reads both). */
 function FinalScore({ team, score, decl }: { team: 'A' | 'B'; score: number; decl: number }) {
+    const t = useT();
     return (
         <div>
             <div data-testid={team === 'A' ? 'final-a' : 'final-b'} className={cx('t-score-xl tabular-nums', team === 'A' ? 'text-team-a' : 'text-team-b')}>
                 {score}
             </div>
-            <div className="t-footnote">Team {team} Final</div>
-            {decl > 0 && <div className="t-footnote text-text-3">{decl} decl</div>}
+            <div className="t-footnote">{t.matchDetails.final(team)}</div>
+            {decl > 0 && <div className="t-footnote text-text-3">{t.matchDetails.decl(decl)}</div>}
         </div>
     );
 }
 
-/** A game won by belot: "Team A wins 1001–420 by belot" (gameplay rules §3). */
-const BY_BELOT = /\bby belot\b/i;
-
 /** Item 4: the final scores from `result` (R-36) with the match's declarations; a forfeit or a belot says so. */
 function MatchSummary({ result, hands }: { result: string; hands: HandDTO[] | null }) {
+    const t = useT();
     const scores = parseMatchResult(result);
     const decl = (team: 'A' | 'B') =>
         (hands ?? []).reduce((sum, hand) => sum + ((team === 'A' ? hand.handSummary?.teamADeclPoints : hand.handSummary?.teamBDeclPoints) || 0), 0);
@@ -112,18 +116,18 @@ function MatchSummary({ result, hands }: { result: string; hands: HandDTO[] | nu
         // a forfeit result carries no points (R-36)
         body = (
             <div className="text-center">
-                <p className="t-headline">Won by forfeit</p>
-                <p className="t-footnote mt-1 text-text-2">{result}</p>
+                <p className="t-headline">{t.matchDetails.wonByForfeit}</p>
+                <p className="t-footnote mt-1 text-text-2">{resultText(result)}</p>
             </div>
         );
     } else if (scores) {
-        const resultLine = <p className="t-callout max-w-40 text-text-2">{result}</p>;
+        const resultLine = <p className="t-callout max-w-40 text-text-2">{resultText(result)}</p>;
         body = (
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
                 <FinalScore team="A" score={scores.teamAScore} decl={decl('A')} />
-                {BY_BELOT.test(result) ? (
+                {byBelot(result) ? (
                     <div>
-                        <p className="t-headline">Won by belot</p>
+                        <p className="t-headline">{t.matchDetails.wonByBelot}</p>
                         {resultLine}
                     </div>
                 ) : (
@@ -133,11 +137,11 @@ function MatchSummary({ result, hands }: { result: string; hands: HandDTO[] | nu
             </div>
         );
     } else {
-        body = <p className="t-callout text-center text-text-2">{result}</p>;
+        body = <p className="t-callout text-center text-text-2">{resultText(result)}</p>;
     }
     return (
-        <Panel as="section" aria-label="Match summary">
-            <h2 className="t-title mb-3">Match summary</h2>
+        <Panel as="section" aria-label={t.matchDetails.summary}>
+            <h2 className="t-title mb-3">{t.matchDetails.summary}</h2>
             {body}
         </Panel>
     );
@@ -145,23 +149,24 @@ function MatchSummary({ result, hands }: { result: string; hands: HandDTO[] | nu
 
 /** Item 7: the raw moves (Order / Player / Card), for a match without structured hands. */
 function RawMoves({ moves }: { moves: MoveDTO[] }) {
+    const t = useT();
     return (
-        <Panel as="section" aria-label="Game moves">
-            <h2 className="t-title mb-3">Game moves ({moves.length})</h2>
+        <Panel as="section" aria-label={t.matchDetails.movesLabel}>
+            <h2 className="t-title mb-3">{t.matchDetails.moves(moves.length)}</h2>
             <div className="max-h-64 overflow-y-auto">
                 <table className="t-callout w-full">
                     <thead>
                         <tr className="t-caption text-left text-text-2">
-                            <th className="px-2 py-1">Order</th>
-                            <th className="px-2 py-1">Player</th>
-                            <th className="px-2 py-1">Card</th>
+                            <th className="px-2 py-1">{t.matchDetails.order}</th>
+                            <th className="px-2 py-1">{t.matchDetails.player}</th>
+                            <th className="px-2 py-1">{t.matchDetails.card}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {moves.map((move, index) => (
                             <tr key={index} className="shadow-[inset_0_-1px_0_var(--surface-3)]">
                                 <td className="px-2 py-1 tabular-nums">{move.order}</td>
-                                <td className="px-2 py-1">{move.player}</td>
+                                <td className="px-2 py-1">{move.player && displayName(move.player)}</td>
                                 <td className="px-2 py-1 font-mono text-accent">{move.card}</td>
                             </tr>
                         ))}
@@ -174,13 +179,17 @@ function RawMoves({ moves }: { moves: MoveDTO[] }) {
 
 /** Items 5 and 7 with their states: the hands, or "Couldn't load the hands" and a retry, or the raw moves. */
 function HandsSection({ details, me }: { details: MatchDetailsData; me: string | null }) {
+    const t = useT();
     if (details.handsFailed || details.handsLoading) {
         return (
-            <Panel as="section" aria-label="Game history">
+            <Panel as="section" aria-label={t.matchDetails.history}>
                 {details.handsLoading ? (
                     <Loader />
                 ) : (
-                    <ErrorState title="Couldn't load the hands" action={<Button variant="secondary" onClick={details.retryHands}>Try again</Button>} />
+                    <ErrorState
+                        title={t.matchDetails.handsLoadFailed}
+                        action={<Button variant="secondary" onClick={details.retryHands}>{t.common.retry}</Button>}
+                    />
                 )}
             </Panel>
         );
@@ -201,21 +210,22 @@ export function MatchDetails({ id }: { id: string }) {
     const listPath = matchesPath(pageFromState(useLocation().state));
     const details = useMatchDetails(id);
     const match = details.loading || details.failed ? null : details.match;
-    const toList = <Button onClick={() => navigate(listPath)}>Back to Match History</Button>;
+    const t = useT();
+    const toList = <Button onClick={() => navigate(listPath)}>{t.matchDetails.backToList}</Button>;
 
     let content: ReactNode;
     if (details.loading) {
-        content = <Loader text="Loading match…" />;
+        content = <Loader text={t.matchDetails.loading} />;
     } else if (details.failed) {
         content = (
             <Panel>
-                <ErrorState title="Couldn't load this match" action={<Button variant="secondary" onClick={details.retry}>Try again</Button>} />
+                <ErrorState title={t.matchDetails.loadFailed} action={<Button variant="secondary" onClick={details.retry}>{t.common.retry}</Button>} />
             </Panel>
         );
     } else if (!match) {
         content = (
             <Panel>
-                <EmptyState icon="info" title="Match data is not available" action={toList} />
+                <EmptyState icon="info" title={t.matchDetails.notAvailable} action={toList} />
             </Panel>
         );
     } else {
@@ -226,10 +236,10 @@ export function MatchDetails({ id }: { id: string }) {
             <div className="flex flex-col gap-3">
                 <Hero match={match} result={yourResult(match, user?.id)} />
                 <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <Tile label="Duration" value={formatDuration(match.startTime, match.endTime)} />
-                    <Tile label="Mode" value={match.gameMode || 'Unknown'} numeric={false} />
-                    <Tile label="Hands" value={hands ? hands.length : '—'} />
-                    <Tile label="Tricks" value={hands ? hands.reduce((total, hand) => total + (hand.tricks?.length ?? 0), 0) : '—'} />
+                    <Tile label={t.matchDetails.tile.duration} value={formatDuration(match.startTime, match.endTime)} />
+                    <Tile label={t.matchDetails.tile.mode} value={modeWord(match.gameMode)} numeric={false} />
+                    <Tile label={t.matchDetails.tile.hands} value={hands ? hands.length : '—'} />
+                    <Tile label={t.matchDetails.tile.tricks} value={hands ? hands.reduce((total, hand) => total + (hand.tricks?.length ?? 0), 0) : '—'} />
                 </dl>
                 <div className="grid gap-3 md:grid-cols-2">
                     <TeamPanel team="A" members={match.teamA ?? []} myId={user?.id} />
@@ -247,7 +257,7 @@ export function MatchDetails({ id }: { id: string }) {
         // from scrolling the page sideways
         <div className="overflow-x-clip">
             <m.div initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={spring.ui}>
-                <Page title="Match details" heading={match ? null : undefined} back={{ to: listPath, label: 'Match History' }}>
+                <Page title={t.titles.matchDetails} heading={match ? null : undefined} back={{ to: listPath, label: t.titles.matches }}>
                     {content}
                 </Page>
             </m.div>

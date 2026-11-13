@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useEnhancedRanked } from '../../hooks/useEnhancedRanked';
 import { cx } from '../ui/cx';
+import { useT } from '../../i18n/t';
+import type { Catalog } from '../../i18n/catalog/types';
 import './QueueStatus.css';
 
 /** The server's estimate; "Calculating..." while it has none (≤ 0; −1 past the 400-point gap, R-47). */
-const formatWaitTime = (seconds?: number) => {
-    if (!seconds || seconds < 0) return 'Calculating...';
-    if (seconds < 60) return `${seconds}s`;
+const formatWaitTime = (seconds: number | undefined, t: Catalog) => {
+    if (!seconds || seconds < 0) return t.ranked.calculating;
+    if (seconds < 60) return t.ranked.seconds(seconds);
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+    return remainingSeconds > 0 ? t.ranked.minutesSeconds(minutes, remainingSeconds) : t.ranked.minutes(minutes);
 };
 
 /** "m:ss" */
@@ -34,12 +36,13 @@ function useClock(running: boolean): number {
 export const QueueStatus: React.FC = () => {
     const { isInQueue, queueStatus, queuedSince } = useEnhancedRanked();
     const now = useClock(isInQueue);
+    const t = useT();
     if (!isInQueue) return null;
 
     const tiles = [
-        { label: 'Players in queue', value: String(queueStatus?.queueSize ?? '—') },
-        { label: 'Estimated wait', value: formatWaitTime(queueStatus?.estWaitSeconds) },
-        { label: 'Time in queue', value: queuedSince === null ? '—' : formatTimeInQueue(now - queuedSince) },
+        { label: t.ranked.inQueue, value: String(queueStatus?.queueSize ?? '—') },
+        { label: t.ranked.wait, value: formatWaitTime(queueStatus?.estWaitSeconds, t) },
+        { label: t.ranked.timeInQueue, value: queuedSince === null ? '—' : formatTimeInQueue(now - queuedSince) },
     ];
 
     return (
@@ -51,13 +54,13 @@ export const QueueStatus: React.FC = () => {
                     <span />
                     <span />
                 </span>
-                <p className="t-headline">Searching for a match</p>
+                <p className="t-headline">{t.ranked.searching}</p>
             </div>
             <dl className="grid gap-2 sm:grid-cols-3">
                 {tiles.map(({ label, value }) => (
                     <div key={label} className="notch flex items-baseline justify-between gap-3 bg-surface-2 px-3 py-2 sm:block">
                         <dt className="t-caption text-text-2">{label}</dt>
-                        <dd className={cx('tabular-nums sm:mt-1', value === 'Calculating...' ? 't-callout' : 't-score')}>{value}</dd>
+                        <dd className={cx('tabular-nums sm:mt-1', value === t.ranked.calculating ? 't-callout' : 't-score')}>{value}</dd>
                     </div>
                 ))}
             </dl>

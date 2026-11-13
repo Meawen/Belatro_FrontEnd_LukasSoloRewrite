@@ -1,9 +1,10 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { TabBar } from './TabBar'
 import { useMe } from '../../hooks/useUser'
+import { setLang } from '../../i18n/lang'
 
 const auth = vi.hoisted(() => ({ logout: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({
@@ -36,15 +37,16 @@ beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(useMe).mockReturnValue({ data: { roles: ['ROLE_USER'] } } as never)
 })
+afterEach(() => setLang('en'))
 
 describe('TabBar (spec §4.1, R-37 amended)', () => {
-    test('shows Play, Lobbies, Matches, Profile and More, the current page marked', () => {
+    test('shows Home, Tables, Matches, Profile and More, the current page marked', () => {
         renderTabBar('/matches')
         const nav = screen.getByRole('navigation', { name: 'Main navigation' })
-        expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Play', 'Lobbies', 'Matches', 'Profile'])
+        expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Tables', 'Matches', 'Profile'])
         expect(within(nav).getByRole('button', { name: 'More' })).toHaveAttribute('aria-expanded', 'false')
         expect(within(nav).getByRole('link', { name: 'Matches' })).toHaveAttribute('aria-current', 'page')
-        expect(within(nav).getByRole('link', { name: 'Play' })).toHaveAttribute('href', '/dashboard')
+        expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/dashboard')
     })
 
     test('More lists the other destinations, Settings among them, then Log out', async () => {
@@ -85,5 +87,16 @@ describe('TabBar (spec §4.1, R-37 amended)', () => {
         const { user, sheet } = await openMore()
         await user.click(within(sheet).getByRole('button', { name: 'Log out' }))
         expect(auth.logout).toHaveBeenCalledTimes(1)
+    })
+
+    test("the tab bar in Croatian: §1.4's names", async () => {
+        setLang('hr')
+        renderTabBar()
+        const nav = screen.getByRole('navigation', { name: 'Glavna navigacija' })
+        expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Doma', 'Birtija', 'Zapisnik', 'Profil'])
+        await userEvent.setup().click(within(nav).getByRole('button', { name: 'Više' }))
+        const sheet = screen.getByRole('dialog', { name: 'Više' })
+        expect(within(sheet).getAllByRole('link').map((link) => link.textContent)).toEqual(['Rangirano', 'Pajdaši', 'Ljestvica', 'Postavke', 'Pravila'])
+        expect(within(sheet).getByRole('button', { name: 'Odjavi se' })).toBeInTheDocument()
     })
 })

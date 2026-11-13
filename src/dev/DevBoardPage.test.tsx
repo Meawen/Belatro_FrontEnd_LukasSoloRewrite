@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { MotionGlobalConfig } from 'motion/react'
@@ -96,5 +96,24 @@ describe('/dev/board (spec §4.17)', () => {
         expect(screen.queryByRole('button', { name: 'Step' })).not.toBeInTheDocument()
         expect(screen.getByTestId('game-phase')).toHaveTextContent('Hand finished')
         expect(MotionGlobalConfig.skipAnimations).toBe(true)
+    })
+
+    test('coach=demo: a stand-in coach marks every other card and shows its panel (open beta §7.2, §7.3)', () => {
+        open('?seat=carol&at=play:bob:PIK-BABA&controls=0&skip=1&coach=demo')
+        expect(within(screen.getByTestId('coach-panel')).getByRole('button', { name: 'Coach preview' })).toBeInTheDocument()
+        expect(document.querySelectorAll('[data-testid="hand-card"][data-marked]')).toHaveLength(4)
+        cleanup()
+        open('?seat=carol&at=play:bob:PIK-BABA&controls=0&skip=1')
+        expect(screen.queryByTestId('coach-panel')).not.toBeInTheDocument()
+        expect(document.querySelectorAll('[data-marked]')).toHaveLength(0)
+    })
+
+    test('coach=long: the same stand-in with a lesson taller than the room above the bid panel, its button last', () => {
+        open('?seat=carol&at=bid:bob:PASS&controls=0&skip=1&coach=long')
+        const panel = screen.getByTestId('coach-panel')
+        expect(panel.querySelectorAll('p')).toHaveLength(4)
+        expect(panel.lastElementChild).toBe(within(panel).getByRole('button', { name: 'Coach preview' }))
+        expect(screen.getByRole('group', { name: 'Your bid' })).toBeInTheDocument()
+        expect(document.querySelectorAll('[data-testid="hand-card"][data-marked]')).toHaveLength(3)
     })
 })

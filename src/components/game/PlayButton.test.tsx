@@ -1,8 +1,9 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
+import { act, render, screen } from '@testing-library/react'
 import { PlayButton } from './PlayButton'
 import { useEnhancedRanked } from '../../hooks/useEnhancedRanked'
 import { ApiError } from '../../services/api'
+import { setLang } from '../../i18n/lang'
 
 vi.mock('../../hooks/useEnhancedRanked', () => ({ useEnhancedRanked: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAuthenticated: true }) }))
@@ -20,7 +21,7 @@ beforeEach(() => vi.clearAllMocks())
 
 describe('PlayButton', () => {
     test('a ranked 403 explains what to do and offers a resend', () => {
-        ranked(new ApiError({ status: 403, message: 'Verify your email to play ranked' }))
+        ranked(new ApiError({ status: 403, message: 'Verify your email to play ranked', code: 'EMAIL_NOT_VERIFIED' }))
         render(<PlayButton />)
         // no promise of a mail: an address another account holds never gets a link
         expect(screen.getByText(/Verify your email to play ranked/)).toHaveTextContent(
@@ -44,10 +45,10 @@ describe('PlayButton', () => {
         expect(screen.queryByRole('button', { name: 'Resend confirmation email' })).not.toBeInTheDocument()
     })
 
-    test('the queue button: Find Match is the primary action, busy while joining, Leave Queue the secondary one (spec §4.5)', () => {
+    test('the queue button: Play ranked is the primary action, busy while joining, Leave Queue the secondary one (spec §4.5)', () => {
         ranked(null)
         const { rerender } = render(<PlayButton />)
-        expect(screen.getByRole('button', { name: 'Find Match' })).toHaveClass('ui-btn--primary')
+        expect(screen.getByRole('button', { name: 'Play ranked' })).toHaveClass('ui-btn--primary')
         ranked(null, { isJoining: true })
         rerender(<PlayButton />)
         const joining = screen.getByRole('button', { name: 'Joining Queue...' })
@@ -57,5 +58,21 @@ describe('PlayButton', () => {
         rerender(<PlayButton />)
         expect(screen.getByRole('button', { name: 'Leave Queue' })).toHaveClass('ui-btn--secondary')
         expect(screen.getByRole('button', { name: 'Leave Queue' })).toBeEnabled()
+    })
+})
+
+describe('PlayButton in Croatian (open beta §1.1, §1.4)', () => {
+    afterEach(() => setLang('en'))
+
+    test('in Croatian: the button follows the switch', () => {
+        ranked(null)
+        const { unmount } = render(<PlayButton />)
+        const button = screen.getByRole('button', { name: 'Play ranked' })
+        act(() => setLang('hr'))
+        expect(button).toHaveAccessibleName('Igraj rangirano')
+        unmount()
+        ranked(new ApiError({ status: 500, message: 'Internal Server Error' }))
+        render(<PlayButton />)
+        expect(screen.getByText('Pogreška: Nešto je pošlo po zlu. Pokušaj ponovno.')).toBeInTheDocument()
     })
 })

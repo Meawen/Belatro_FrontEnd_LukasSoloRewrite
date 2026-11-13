@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { ApiError, rankedService } from '../services';
 import { gameSocket } from '../services/gameSocket';
 import { useMutation } from './useApi';
+import { cat } from '../i18n/t';
+import { localiseSocketError } from '../i18n/socketErrors';
 import type { MatchDTO, QueueStatusDTO } from '../types';
 
 const QUEUE_STATUS_DESTINATION = '/user/queue/ranked/status';
@@ -132,7 +134,7 @@ export function useRankedQueueState() {
 
         // MATCH_FOUND arrives over the WebSocket; queueing without it would go unnoticed.
         if (!isConnected) {
-            throw new Error('Not connected to the game server');
+            throw new Error(cat().errors.socket.notConnected);
         }
 
         try {
@@ -217,7 +219,7 @@ export function useRankedQueueState() {
         // WebSocket state
         isWebSocketConnected: socketState.isConnected,
         isWebSocketConnecting: socketState.isConnecting,
-        webSocketError: socketState.error,
+        webSocketError: localiseSocketError(socketState.error),
     };
 }
 

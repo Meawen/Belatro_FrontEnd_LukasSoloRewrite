@@ -20,6 +20,8 @@ import { apiClient } from './api'
 import { createGameSocket, gameSocket } from './gameSocket'
 import { userService } from './userService'
 import { useAuth } from '../hooks/useAuth'
+import { GUEST_SECRET_KEY } from './guestSecret'
+import { renewIfExpiring } from './tokenRenewal'
 
 // Node 26's own localStorage global is unusable here; borrow jsdom's (see api.test.ts)
 const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }).window
@@ -192,5 +194,75 @@ describe('a password change in one tab while another tab holds a game socket', (
         const logouts = fetch.mock.calls.filter(([url]) => url.endsWith('/api/auth/logout'))
         expect(logouts).toEqual([])
         expect(jsdomStorage.getItem('authToken')).toBe('tok-2')
+    })
+})
+
+/** A JWT whose exp is this far from now; the SPA reads exp without checking the signature (as guestResume.test.ts). */
+function jwt(expiresInMs: number): string {
+    const exp = Math.floor((Date.now() + expiresInMs) / 1000)
+    const payload = btoa(JSON.stringify({ sub: 'gost_4821', iat: exp - 120 * 60, exp })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    return `eyJhbGciOiJIUzI1NiJ9.${payload}.signature`
+}
+
+describe("a guest's session ends on the landing page (Rulings 7, 32)", () => {
+    beforeEach(() => {
+        jsdomStorage.setItem('user', '{"id":"g1","username":"gost_4821","guest":true}')
+        jsdomStorage.setItem('authToken', 'tok-g')
+        jsdomStorage.setItem(GUEST_SECRET_KEY, 'secret-g')
+    })
+
+    const forgotten = () => [jsdomStorage.getItem('authToken'), jsdomStorage.getItem('user'), jsdomStorage.getItem(GUEST_SECRET_KEY)]
+
+    test('a 401 forgets the guest (token, user and secret) and opens the landing page, which says so', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sessionExpired()))
+        await expect(apiClient.get('/user/me')).rejects.toMatchObject({ status: 401 })
+        await vi.waitFor(() => expect(assign).toHaveBeenCalled())
+        expect(assign).toHaveBeenCalledTimes(1)
+        expect(assign).toHaveBeenCalledWith('/?reason=guest-ended')
+        expect(forgotten()).toEqual([null, null, null])
+    })
+
+    test('a refused resume ends the guest the same way', async () => {
+        jsdomStorage.setItem('authToken', jwt(-60 * 60_000))
+        // S8's sign-in with the secret: the server no longer knows this guest
+        const fetch = vi.fn().mockResolvedValue(jsonResponse(401, { error: 'Bad credentials', code: 'BAD_CREDENTIALS' }))
+        vi.stubGlobal('fetch', fetch)
+        await expect(renewIfExpiring()).resolves.toBe(false)
+        expect(fetch).toHaveBeenCalledTimes(1)
+        expect(fetch).toHaveBeenCalledWith(expect.stringMatching(/\/api\/auth\/login$/), expect.anything())
+        expect(assign).toHaveBeenCalledTimes(1)
+        expect(assign).toHaveBeenCalledWith('/?reason=guest-ended')
+        expect(forgotten()).toEqual([null, null, null])
+    })
+
+    // Ruling 44: someone who never had an account meets no sign-in wall, and is not taken off the page they read;
+    // Ruling 48 adds the sign-in, sign-up and forgotten-password forms and the leaderboard, Ruling 62 the waitlist's link,
+    // the R4 review Škola bele (/learn, which needs no session until hand 2)
+    test.each(['/privacy', '/terms', '/rules', '/confirm-email', '/waitlist/confirm', '/reset-password', '/forgot-password', '/login', '/signup', '/users', '/learn'])(
+        'on %s, a page that needs no session, the guest is forgotten and the reader stays',
+        async (pathname) => {
+            vi.stubGlobal('location', { ...window.location, pathname, assign })
+            vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sessionExpired()))
+            await expect(apiClient.get('/user/me/active-game')).rejects.toMatchObject({ status: 401 })
+            await vi.waitFor(() => expect(forgotten()).toEqual([null, null, null]))
+            expect(assign).not.toHaveBeenCalled()
+        },
+    )
+
+    test('a guest removed meanwhile who opens Škola bele: the refused resume forgets it, and the learner stays on /learn', async () => {
+        vi.stubGlobal('location', { ...window.location, pathname: '/learn', assign })
+        jsdomStorage.setItem('authToken', jwt(-60 * 60_000))
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(401, { error: 'Bad credentials', code: 'BAD_CREDENTIALS' })))
+        await expect(renewIfExpiring()).resolves.toBe(false)
+        expect(forgotten()).toEqual([null, null, null])
+        expect(assign).not.toHaveBeenCalled()
+    })
+
+    test('anywhere else the guest goes to the landing page, never to sign-in', async () => {
+        vi.stubGlobal('location', { ...window.location, pathname: '/lobby/abc', assign })
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sessionExpired()))
+        await expect(apiClient.get('/lobbies/abc')).rejects.toMatchObject({ status: 401 })
+        await vi.waitFor(() => expect(assign).toHaveBeenCalledWith('/?reason=guest-ended'))
+        expect(assign).not.toHaveBeenCalledWith('/login?reason=session-ended')
     })
 })

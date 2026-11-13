@@ -13,24 +13,25 @@ import { spring } from '../../motion/tokens';
 import type { LobbyDTO, LobbyTeam } from '../../types/lobby';
 import type { UserSimpleDTO } from '../../types/user';
 import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
+import { cat, useT } from '../../i18n/t';
 import { LobbyActionBar, type LobbyRole } from './LobbyActionBar';
 import { ConfirmSheet, OptionsSheet, PasswordSheet, SeatSheet } from './LobbySheets';
 import { LobbyTable, type SeatBusy } from './LobbyTable';
 import { isBot, isMember, lobbyName } from './lobbyModel';
 import { fillableSeats, hostHint, isHost, lobbyHint, memberStatus, seatAction, startReadiness, tableSeats, takesBots, teamOf, type SeatPosition, type TableSeat } from './seats';
+import { displayName } from '../common/displayName';
+import { tablePassword } from './tablePassword';
 
 export interface LobbyRoomProps {
     lobbyId: string;
 }
 
-const BACK = { to: '/lobbies', label: 'Lobbies' };
-
-/** A bot request with no usable answer: the backend's 503 (no bot free) reaches the wire as Spring's default body (R25). */
-const BOTS_UNAVAILABLE = "Bots aren't available right now. Try again later.";
-
-/** A bot request's failure: a refusal (403, 409) in the server's words; no answer or a 5xx as BOTS_UNAVAILABLE. */
+/**
+ * A bot request's failure: a refusal (403, 409) in the server's words; no answer or a 5xx as "Bots aren't available
+ * right now": the backend's 503 (no bot free) reaches the wire as Spring's default body (R25).
+ */
 function botFailure(e: unknown, fallback: string): string {
-    return e instanceof ApiError && isNetworkOrServerFailure(e.status) ? BOTS_UNAVAILABLE : errorMessage(e, fallback);
+    return e instanceof ApiError && isNetworkOrServerFailure(e.status) ? cat().table.botsUnavailable : errorMessage(e, fallback);
 }
 
 /**
@@ -41,10 +42,11 @@ type FocusAfter = (ok: boolean, lobby: LobbyDTO) => HTMLElement | null;
 
 const TABLE = '[data-testid="lobby-table"]';
 
-/** The host's "Start match" in the action bar, when it is enabled. */
+/** The host's "Start match" in the action bar, when it is enabled; found by its words in the site's language. */
 function enabledStart(): HTMLButtonElement | null {
-    const buttons = document.querySelectorAll<HTMLButtonElement>('[role="region"][aria-label="Lobby actions"] button');
-    return [...buttons].find((button) => button.textContent === 'Start match' && !button.disabled) ?? null;
+    const c = cat().table;
+    const buttons = document.querySelectorAll<HTMLButtonElement>(`[role="region"][aria-label="${c.actions}"] button`);
+    return [...buttons].find((button) => button.textContent === c.start && !button.disabled) ?? null;
 }
 
 /** A seat's button, found by its place: a request may have remounted it. */
@@ -78,7 +80,7 @@ function afterBot(lobby: LobbyDTO, viewerId: string | null, seated: Set<string>,
  * from a 2-s poll; members follow a started match into the game.
  */
 export function LobbyRoom({ lobbyId }: LobbyRoomProps) {
-    const { user } = useAuth();
+    const { user, isGuest } = useAuth();
     const me = user?.id ?? null;
     const navigate = useNavigate();
     const [removed, setRemoved] = useState(false);
@@ -114,7 +116,7 @@ export function LobbyRoom({ lobbyId }: LobbyRoomProps) {
                 .catch((e) => {
                     if (cancelled) return;
                     const notYet = e instanceof ApiError && e.status === 404;
-                    setFollowError(notYet ? null : `Could not open the match: ${errorMessage(e, 'unknown error')}`);
+                    setFollowError(notYet ? null : cat().table.followFailed(errorMessage(e, cat().table.unknownError)));
                     retry = window.setTimeout(follow, LOBBY_POLL_MS);
                 });
         };
@@ -125,31 +127,39 @@ export function LobbyRoom({ lobbyId }: LobbyRoomProps) {
         };
     }, [lobbyClosed, member, lobbyId, navigate]);
 
+    const t = useT();
+    // spec §3.2, §3.3: a guest reaches a table only by its link and can't open the Birtija, so their way back is the
+    // landing page; a member's is the Birtija
+    const away: Away = isGuest
+        ? { to: '/', label: t.common.back, button: t.common.back }
+        : { to: '/lobbies', label: t.titles.tables, button: t.table.backToTables };
+    const back = { to: away.to, label: away.label };
+
     // Only the first load shows a spinner; later polls keep the page in place.
     if (loading && lobby === null) {
         return (
-            <Page title="Lobby" back={BACK}>
-                <Loader text="Loading lobby..." />
+            <Page title={t.titles.table} back={back}>
+                <Loader text={t.table.loading} />
             </Page>
         );
     }
-    if (closed) return <LobbyGone title="This lobby was closed." />;
-    if (removed) return <LobbyGone title="You were removed from this lobby." />;
+    if (closed) return <LobbyGone title={t.table.closed} away={away} />;
+    if (removed) return <LobbyGone title={t.table.removed} away={away} />;
 
     // Only a failed first load replaces the page; a failed poll leaves the last lobby up.
     if (lobby === null) {
         return (
-            <Page title="Lobby" back={BACK}>
+            <Page title={t.titles.table} back={back}>
                 <ErrorState
-                    title="Couldn't load this lobby"
-                    body={errorMessage(loadError, 'Failed to load lobby')}
+                    title={t.table.loadFailed}
+                    body={errorMessage(loadError, t.table.loadFailedBody)}
                     action={
                         <>
                             <Button variant="secondary" onClick={() => void refresh()}>
-                                Try again
+                                {t.common.retry}
                             </Button>
-                            <Button variant="quiet" onClick={() => navigate('/lobbies')}>
-                                Back to lobbies
+                            <Button variant="quiet" onClick={() => navigate(away.to)}>
+                                {away.button}
                             </Button>
                         </>
                     }
@@ -158,15 +168,23 @@ export function LobbyRoom({ lobbyId }: LobbyRoomProps) {
         );
     }
 
-    return <LobbyView lobbyId={lobbyId} lobby={lobby} me={me} refresh={refresh} notice={pollError ?? followError} following={lobbyClosed && member} />;
+    return <LobbyView lobbyId={lobbyId} lobby={lobby} me={me} refresh={refresh} notice={pollError ?? followError} following={lobbyClosed && member} away={away} />;
+}
+
+/** Where this viewer goes back to (spec §3.2): the Birtija, or the landing page for a guest. */
+interface Away {
+    to: string;
+    label: string;
+    button: string;
 }
 
 /** The end of a lobby, for this viewer: closed (404) or removed by the host. */
-function LobbyGone({ title }: { title: string }) {
+function LobbyGone({ title, away }: { title: string; away: Away }) {
     const navigate = useNavigate();
+    const t = useT();
     return (
-        <Page title="Lobby" back={BACK}>
-            <EmptyState icon="door" title={title} action={<Button onClick={() => navigate('/lobbies')}>Back to lobbies</Button>} />
+        <Page title={t.titles.table} back={{ to: away.to, label: away.label }}>
+            <EmptyState icon="door" title={title} action={<Button onClick={() => navigate(away.to)}>{away.button}</Button>} />
         </Page>
     );
 }
@@ -182,10 +200,13 @@ interface LobbyViewProps {
     notice: string | null;
     /** The lobby closed and this member is following it into the game. */
     following: boolean;
+    /** Where Leave, Close table and the back link go (spec §3.2). */
+    away: Away;
 }
 
-function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyViewProps) {
+function LobbyView({ lobbyId, lobby, me, refresh, notice, following, away }: LobbyViewProps) {
     const navigate = useNavigate();
+    const t = useT();
     const [sheet, setSheet] = useState<OpenSheet>(null);
     // who "Remove {name}?" is about: a person; a bot goes with one tap (R37)
     const [removing, setRemoving] = useState('');
@@ -218,15 +239,20 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     const botControls = takesBots(lobby) && !launching;
     const closeSheet = () => setSheet(null);
 
+    // spec §5: a Stol za ekipu's invite carries its password when this tab created the table and kept it
+    // (tablePassword); otherwise it says the host knows it. A public table's invite is the link alone.
     const copyInvite = () => {
+        const c = cat().table;
         const link = `${window.location.origin}/lobby/${lobbyId}`;
+        const password = lobby.privateLobby ? tablePassword(lobbyId) : null;
+        const text = lobby.privateLobby ? `${link}\n${password ? c.sharePassword(password) : c.shareHostKnows}` : link;
         if (!navigator.clipboard) {
-            showToast(link);
+            showToast(text);
             return;
         }
-        navigator.clipboard.writeText(link).then(
-            () => showToast('Invite link copied'),
-            () => showToast(link),
+        navigator.clipboard.writeText(text).then(
+            () => showToast(password ? c.invitePasswordCopied : c.inviteCopied),
+            () => showToast(text),
         );
     };
 
@@ -255,9 +281,9 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     // was; one that failed leaves focus on the seat tapped
     const changeSeat = (targetTeam: LobbyTeam, seat: TableSeat) =>
         atTable(
-            { key: seat.key, label: teamOf(lobby, me) === 'U' && targetTeam !== 'U' ? 'Joining…' : 'Switching…' },
+            { key: seat.key, label: teamOf(lobby, me) === 'U' && targetTeam !== 'U' ? cat().table.busy.joining : cat().table.busy.switching },
             () => lobbyService.switchTeam(lobbyId, { lobbyId, targetTeam }),
-            (e) => errorMessage(e, 'Failed to switch team'),
+            (e) => errorMessage(e, cat().table.failed.switch),
             (ok) => seatButton(ok ? 'bottom' : seat.position),
         );
 
@@ -265,27 +291,27 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     const addBot = (seat: TableSeat) => {
         const seated = new Set(tableSeats(lobby, me).flatMap((each) => (each.player?.username ? [each.player.username] : [])));
         return atTable(
-            { key: seat.key, label: 'Adding…' },
+            { key: seat.key, label: cat().table.busy.adding },
             () => lobbyService.addBot(lobbyId, seat.team),
-            (e) => botFailure(e, 'Failed to add a bot'),
+            (e) => botFailure(e, cat().table.failed.addBot),
             (ok, fresh) => (ok ? afterBot(fresh, me, seated, seat.position) : (botChip(seat.position) ?? seatButton(seat.position))),
         );
     };
 
     const fillWithBots = () =>
         atTable(
-            { key: null, label: 'Filling with bots…' },
+            { key: null, label: cat().table.busy.filling },
             () => lobbyService.fillBots(lobbyId),
-            (e) => botFailure(e, 'Failed to fill with bots'),
+            (e) => botFailure(e, cat().table.failed.fill),
             () => enabledStart(),
         );
 
     // a bot goes at once, with no sheet: re-adding one is one tap too, and nothing is lost (R37)
     const removeBot = (seat: TableSeat, username: string) =>
         atTable(
-            { key: seat.key, label: 'Removing…' },
+            { key: seat.key, label: cat().table.busy.removing },
             () => lobbyService.kickPlayer(lobbyId, { usernameToKick: username }),
-            (e) => errorMessage(e, 'Failed to remove the bot'),
+            (e) => errorMessage(e, cat().table.failed.removeBot),
             () => seatButton(seat.position),
         );
 
@@ -313,7 +339,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
 
     const leave = async () => {
         await lobbyService.leaveLobby(lobbyId);
-        navigate('/lobbies');
+        navigate(away.to);
     };
 
     const kick = async () => {
@@ -324,7 +350,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
 
     const closeLobby = async () => {
         await lobbyService.deleteLobby(lobbyId);
-        navigate('/lobbies');
+        navigate(away.to);
     };
 
     // POST /lobbies/join puts the caller in Unassigned, or, in a lobby of four with a bot, in that bot's seat; the next
@@ -343,7 +369,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
         setJoining(true);
         setActionError(null);
         join(null)
-            .catch((e) => setActionError(errorMessage(e, 'Failed to join lobby')))
+            .catch((e) => setActionError(errorMessage(e, cat().table.failed.join)))
             .finally(() => setJoining(false));
     };
 
@@ -356,7 +382,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
             if (match?.id) navigate(`/game/${match.id}`, { replace: true });
             else setStarting(false);
         } catch (e) {
-            setActionError(errorMessage(e, 'Failed to start match'));
+            setActionError(errorMessage(e, cat().table.failed.start));
             setStarting(false);
         }
     };
@@ -364,9 +390,9 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
     return (
         <Page
             title={lobbyName(lobby)}
-            back={BACK}
+            back={{ to: away.to, label: away.label }}
             meta={<LobbyChips lobby={lobby} />}
-            actions={<IconButton icon="link" aria-label="Copy invite link" variant="secondary" onClick={copyInvite} />}
+            actions={<IconButton icon="link" aria-label={t.table.copyInvite} variant="secondary" onClick={copyInvite} />}
         >
             <div className="flex flex-col gap-4">
                 <ErrorAlert message={actionError} />
@@ -387,7 +413,7 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
                             loading={busy !== null && busy.key === null}
                             onClick={() => void fillWithBots()}
                         >
-                            Fill with bots
+                            {t.table.fill}
                         </Button>
                     )}
                     <NotSeated lobby={lobby} viewerId={me} hostView={host} onRemove={askRemove} />
@@ -412,23 +438,23 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
             <ConfirmSheet
                 open={sheet === 'leave'}
                 onClose={closeSheet}
-                title="Leave this lobby?"
-                body="Your seat opens for someone else."
-                confirmLabel="Leave lobby"
+                title={t.table.leaveTitle}
+                body={t.table.leaveBody}
+                confirmLabel={t.table.leave}
                 confirmIcon="door"
-                cancelLabel="Stay"
+                cancelLabel={t.table.stay}
                 onConfirm={leave}
-                fallbackError="Failed to leave lobby"
+                fallbackError={t.table.failed.leave}
             />
             <ConfirmSheet
                 open={sheet === 'remove'}
                 onClose={closeSheet}
-                title={`Remove ${removing}?`}
-                body="They leave the lobby at once and can join again from the list."
-                confirmLabel={`Remove ${removing}`}
+                title={t.table.removeTitle(displayName(removing))}
+                body={t.table.removeBody}
+                confirmLabel={t.table.removeConfirm(displayName(removing))}
                 confirmIcon="x"
                 onConfirm={kick}
-                fallbackError="Failed to kick player"
+                fallbackError={t.table.failed.kick}
             />
             <OptionsSheet
                 open={sheet === 'options'}
@@ -442,12 +468,12 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
             <ConfirmSheet
                 open={sheet === 'close'}
                 onClose={closeSheet}
-                title="Close this lobby?"
-                body="Everyone goes back to the list."
-                confirmLabel="Close lobby"
+                title={t.table.closeTitle}
+                body={t.table.closeBody}
+                confirmLabel={t.table.close}
                 confirmIcon="trash"
                 onConfirm={closeLobby}
-                fallbackError="Failed to delete lobby"
+                fallbackError={t.table.failed.close}
             />
             <PasswordSheet open={sheet === 'password'} onClose={closeSheet} onJoin={join} />
         </Page>
@@ -455,28 +481,30 @@ function LobbyView({ lobbyId, lobby, me, refresh, notice, following }: LobbyView
 }
 
 function LobbyChips({ lobby }: { lobby: LobbyDTO }) {
+    const t = useT();
     return (
         <span className="flex flex-wrap gap-1.5">
-            <Chip>{lobby.gameMode === 'RANKED' ? 'Ranked' : 'Casual'}</Chip>
-            {lobby.privateLobby && <Chip icon="lock">Private</Chip>}
-            {lobby.hostUser?.username && <Chip icon="crown">{lobby.hostUser.username}</Chip>}
+            <Chip>{lobby.gameMode === 'RANKED' ? t.table.ranked : t.table.casual}</Chip>
+            {lobby.privateLobby && <Chip icon="lock">{t.tables.private}</Chip>}
+            {lobby.hostUser?.username && <Chip icon="crown">{displayName(lobby.hostUser.username)}</Chip>}
         </span>
     );
 }
 
 /** Members who have not taken a seat. For the host each other member's chip opens "Remove {name}?". */
 function NotSeated({ lobby, viewerId, hostView, onRemove }: { lobby: LobbyDTO; viewerId: string | null; hostView: boolean; onRemove: (member: UserSimpleDTO) => void }) {
+    const t = useT();
     const players = lobby.unassignedPlayers ?? [];
     if (players.length === 0) return null;
     return (
         <div className="flex flex-wrap items-center gap-x-2">
-            <span className="t-footnote text-text-3">Not seated</span>
+            <span className="t-footnote text-text-3">{t.table.notSeated}</span>
             {players.map((player) => {
                 const you = viewerId !== null && player.id === viewerId;
                 const chip = (
                     <Chip>
-                        {player.username}
-                        {you && <span className="text-accent"> · you</span>}
+                        {player.username && displayName(player.username)}
+                        {you && <span className="text-accent"> · {t.table.youSuffix}</span>}
                     </Chip>
                 );
                 return hostView && !you ? (

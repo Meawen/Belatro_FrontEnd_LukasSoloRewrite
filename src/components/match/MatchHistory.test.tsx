@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { MatchHistory } from './MatchHistory'
 import { apiClient } from '../../services/api'
 import type { PlayerMatchSummaryDTO } from '../../types/user'
+import { setLang } from '../../i18n/lang'
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', username: 'ana' } }) }))
 
@@ -62,8 +63,8 @@ describe('Match History (spec §4.9 list)', () => {
         const get = answer({ 0: rows(2) })
         renderList()
         expect(await screen.findByText('2 matches')).toBeInTheDocument()
-        expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Match History'])
-        expect(document.title).toBe('Match History · Stiglja')
+        expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Matches'])
+        expect(document.title).toBe('Matches · Stiglja')
 
         let release!: (value: unknown) => void
         get.mockImplementation((() => new Promise((resolve) => (release = resolve))) as never)
@@ -157,5 +158,27 @@ describe('Match History (spec §4.9 list)', () => {
         expect(screen.queryByText('No matches yet')).not.toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Previous' }))
         expect(screen.getByTestId('where')).toHaveTextContent('/matches?page=2 null')
+    })
+})
+
+describe('Match History in Croatian (open beta §1.1, §1.4)', () => {
+    afterEach(() => setLang('en'))
+
+    test('Zapisnik in Croatian', async () => {
+        setLang('hr')
+        answer({ 0: rows(4) })
+        const { unmount } = renderList()
+        expect(await screen.findByText('4 partije')).toBeInTheDocument()
+        expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Zapisnik'])
+        expect(document.title).toBe('Zapisnik · Stiglja')
+        expect(screen.getByRole('region', { name: 'Zadnji rezultati' })).toHaveTextContent('2 pobjede · 2 poraza na ovoj stranici · 1 pobjeda zaredom')
+        expect(screen.getAllByRole('link', { name: /Pobjeda/ }).length).toBeGreaterThan(0)
+        unmount()
+
+        answer({})
+        renderList()
+        expect(await screen.findByText('Još nema partija')).toBeInTheDocument()
+        expect(screen.getByText('Odigraj partiju i pojavit će se ovdje.')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Pronađi partiju' })).toBeInTheDocument()
     })
 })

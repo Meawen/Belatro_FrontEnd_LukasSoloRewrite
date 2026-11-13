@@ -7,6 +7,7 @@ import { ClimbChart } from './ClimbChart';
 import { climbBands } from './climbGeometry';
 import { forecastLines } from './forecastText';
 import { nextRankName } from './rankNames';
+import { useT } from '../../i18n/t';
 
 export interface ClimbPanelProps {
     userId: string;
@@ -21,6 +22,7 @@ export function ClimbPanel({ userId, rank, ladder }: ClimbPanelProps) {
     const titleId = useId();
     const { data: history, isLoading, error, refetch } = useRatingHistory(userId);
     const bands = useMemo(() => climbBands(rank, ladder), [rank, ladder]);
+    const t = useT();
     // a backend before team Elo has no rating history: no section at all (§4.2)
     if (isNotFound(error)) return null;
 
@@ -28,16 +30,16 @@ export function ClimbPanel({ userId, rank, ladder }: ClimbPanelProps) {
     if (!history) {
         content = error ? (
             <div className="flex flex-wrap items-center gap-3">
-                <p className="t-callout text-text-2">Couldn't load your climb.</p>
+                <p className="t-callout text-text-2">{t.rank.climb.loadFailed}</p>
                 <Button variant="secondary" size="sm" onClick={() => refetch().catch(() => {})}>
-                    Try again
+                    {t.common.retry}
                 </Button>
             </div>
         ) : (
-            <Loader layout="inline" text="Loading your climb…" className="self-start" />
+            <Loader layout="inline" text={t.rank.climb.loading} className="self-start" />
         );
     } else if (history.points.length === 0) {
-        content = <p className="t-callout text-text-2">Your climb starts with your first ranked game.</p>;
+        content = <p className="t-callout text-text-2">{t.rank.climb.empty}</p>;
     } else {
         const { primary, luck } = forecastLines(history, rank, nextRankName(rank, ladder));
         content = (
@@ -60,7 +62,7 @@ export function ClimbPanel({ userId, rank, ladder }: ClimbPanelProps) {
     return (
         <section aria-labelledby={titleId} className="flex flex-col gap-3">
             <h2 id={titleId} className="t-title">
-                Your climb
+                {t.rank.climb.title}
             </h2>
             <Panel className="flex flex-col gap-3">{content}</Panel>
         </section>

@@ -108,10 +108,10 @@ describe('my own column never reaches my hand or the trick (board-fit spec G1, Â
             const room = spot.beside!.room
             expect(122.9, where).toBeLessThanOrEqual(room)
             expect(chips.length, where).toBe(1)
-            // the plate (218 at most on my turn: "Your turn" and its badges, owner 2026-11-03) and its timer bar; the chips from
+            // the plate (224 at most on my turn: "Still there?" and its badges, Task M) and its timer bar; the chips from
             // 4 px after it, bottom-aligned with it
-            const plate = { x0: spot.left, x1: spot.left + 218, y0: spot.top, y1: spot.top + 33 }
-            const row = { x0: spot.left, x1: spot.left + 218 + 4 + room, y0: spot.top + 6, y1: spot.top + 26 }
+            const plate = { x0: spot.left, x1: spot.left + 224, y0: spot.top, y1: spot.top + 33 }
+            const row = { x0: spot.left, x1: spot.left + 224 + 4 + room, y0: spot.top + 6, y1: spot.top + 26 }
             expect(row.x1, where).toBe(layout.board.w - 8)
             for (const mine of [plate, row]) {
                 strips(layout).forEach((strip, i) => expect(overlap(mine, strip), `${where} card ${i} ${show(mine)} ${show(strip)}`).toBe(false))

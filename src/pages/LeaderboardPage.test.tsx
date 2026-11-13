@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { LeaderboardPage } from './LeaderboardPage'
 import { userService } from '../services/userService'
 import { LADDER, rankedUser } from '../test/fixtures/ranks'
+import { setLang } from '../i18n/lang'
 
 const auth = vi.hoisted(() => ({ isAuthenticated: true }))
 vi.mock('../hooks/useAuth', () => ({
@@ -81,5 +82,21 @@ describe('/users: the ladder', () => {
         renderUsers()
         expect(screen.queryByRole('heading', { name: 'The ladder' })).not.toBeInTheDocument()
         expect(getLadder).not.toHaveBeenCalled()
+    })
+})
+
+describe('/users in Croatian (open beta §1.1)', () => {
+    afterEach(() => setLang('en'))
+
+    test('signed out, in Croatian', async () => {
+        auth.isAuthenticated = false
+        setLang('hr')
+        renderUsers()
+        expect(screen.getByRole('heading', { level: 1, name: 'Ljestvica' })).toBeInTheDocument()
+        expect(screen.getByText('Potrebna je prijava')).toBeInTheDocument()
+        expect(screen.getByText('Prijavi se da vidiš ljestvicu.')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Registriraj se' })).toBeInTheDocument()
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Prijavi se' }))
+        expect(screen.getByRole('heading', { name: 'Sign-in page' })).toBeInTheDocument()
     })
 })

@@ -6,6 +6,7 @@ import { Sidebar } from './Sidebar'
 import { useMe, useUser } from '../../hooks/useUser'
 import { rankedUser } from '../../test/fixtures/ranks'
 import { viewport } from '../../test/viewport'
+import { setLang } from '../../i18n/lang'
 
 const auth = vi.hoisted(() => ({ logout: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({
@@ -13,13 +14,16 @@ vi.mock('../../hooks/useAuth', () => ({
 }))
 vi.mock('../../hooks/useUser', () => ({ useMe: vi.fn(), useUser: vi.fn(() => ({ user: null })) }))
 
-const EVERYONE = ['Play', 'Ranked', 'Lobbies', 'Matches', 'Friends', 'Leaderboard', 'Profile', 'Settings', 'Rules']
+const EVERYONE = ['Home', 'Ranked', 'Tables', 'Matches', 'Friends', 'Leaderboard', 'Profile', 'Settings', 'Rules']
 
 beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(useMe).mockReturnValue({ data: { roles: ['ROLE_USER'] } } as never)
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+    vi.unstubAllGlobals()
+    setLang('en')
+})
 
 function renderSidebar(path = '/dashboard') {
     render(<MemoryRouter initialEntries={[path]}><Sidebar /></MemoryRouter>)
@@ -37,7 +41,7 @@ describe('Sidebar admin link', () => {
     test('hides it from everyone else', () => {
         const nav = renderSidebar()
         expect(within(nav).queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument()
-        expect(within(nav).getByRole('link', { name: 'Play' })).toBeInTheDocument()
+        expect(within(nav).getByRole('link', { name: 'Home' })).toBeInTheDocument()
         // hidden because /user/me says so, not because isAdmin is hard-coded
         expect(vi.mocked(useMe)).toHaveBeenCalledWith(true)
     })
@@ -54,14 +58,14 @@ describe('Sidebar (spec §4.1, X-9)', () => {
     test('lists every destination in order, the current page marked', () => {
         const nav = renderSidebar('/lobby/abc')
         expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(EVERYONE)
-        expect(within(nav).getByRole('link', { name: 'Lobbies' })).toHaveAttribute('aria-current', 'page')
-        expect(within(nav).getByRole('link', { name: 'Play' })).not.toHaveAttribute('aria-current')
+        expect(within(nav).getByRole('link', { name: 'Tables' })).toHaveAttribute('aria-current', 'page')
+        expect(within(nav).getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current')
     })
 
     test('at 1024 px the links show their labels', () => {
         viewport(1024, 768)
         const nav = renderSidebar()
-        expect(within(nav).getByText('Lobbies')).toBeInTheDocument()
+        expect(within(nav).getByText('Tables')).toBeInTheDocument()
         expect(screen.getByText('Log out')).toBeInTheDocument()
     })
 
@@ -69,7 +73,7 @@ describe('Sidebar (spec §4.1, X-9)', () => {
         viewport(800, 1000)
         const nav = renderSidebar()
         expect(within(nav).getAllByRole('link').map((link) => link.getAttribute('aria-label'))).toEqual(EVERYONE)
-        expect(within(nav).queryByText('Lobbies')).not.toBeInTheDocument()
+        expect(within(nav).queryByText('Tables')).not.toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument()
     })
 
@@ -78,6 +82,17 @@ describe('Sidebar (spec §4.1, X-9)', () => {
         expect(screen.getByText('ana')).toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Log out' }))
         expect(auth.logout).toHaveBeenCalledTimes(1)
+    })
+
+    test("the nav in Croatian: §1.4's names", () => {
+        vi.mocked(useMe).mockReturnValue({ data: { roles: ['ROLE_ADMIN'] } } as never)
+        setLang('hr')
+        viewport(1024, 768)
+        render(<MemoryRouter initialEntries={['/dashboard']}><Sidebar /></MemoryRouter>)
+        const nav = screen.getByRole('navigation', { name: 'Glavna navigacija' })
+        expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(
+            ['Doma', 'Rangirano', 'Birtija', 'Zapisnik', 'Pajdaši', 'Ljestvica', 'Profil', 'Postavke', 'Pravila', 'Administracija'])
+        expect(screen.getByRole('button', { name: 'Odjavi se' })).toBeInTheDocument()
     })
 })
 

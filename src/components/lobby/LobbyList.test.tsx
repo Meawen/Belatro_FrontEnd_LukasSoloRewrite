@@ -36,7 +36,7 @@ function renderList(lobbies: LobbyDTO[] | null, more: Partial<LobbyListProps> = 
 }
 
 /** The rows' lobby names, top to bottom. */
-const order = () => within(screen.getByRole('list', { name: 'Open lobbies' })).getAllByRole('button').map((row) => row.getAttribute('aria-label')!.split(',')[0])
+const order = () => within(screen.getByRole('list', { name: 'Open tables' })).getAllByRole('button').map((row) => row.getAttribute('aria-label')!.split(',')[0])
 
 beforeEach(() => vi.clearAllMocks())
 afterEach(() => vi.useRealTimers())
@@ -67,8 +67,8 @@ describe('LobbyList (spec §4.6)', () => {
         expect(row).not.toHaveTextContent('Full')
         await user.click(row)
         const sheet = screen.getByRole('dialog', { name: 'Kod Mire' })
-        expect(within(sheet).getByRole('button', { name: 'Join lobby' })).toBeEnabled()
-        expect(within(sheet).queryByRole('button', { name: 'Lobby full' })).not.toBeInTheDocument()
+        expect(within(sheet).getByRole('button', { name: 'Join table' })).toBeEnabled()
+        expect(within(sheet).queryByRole('button', { name: 'Table full' })).not.toBeInTheDocument()
     })
 
     test('four people are full whatever the seats: "4 of 4", the Full tag, and "Lobby full" in the quick-look', async () => {
@@ -77,7 +77,7 @@ describe('LobbyList (spec §4.6)', () => {
         expect(row).toHaveTextContent('4 of 4')
         expect(row).toHaveTextContent('Full')
         await userEvent.setup().click(row)
-        expect(within(screen.getByRole('dialog', { name: 'Kod Mire' })).getByRole('button', { name: 'Lobby full' })).toBeDisabled()
+        expect(within(screen.getByRole('dialog', { name: 'Kod Mire' })).getByRole('button', { name: 'Table full' })).toBeDisabled()
     })
 
     test('the seat squares tell a bot\'s seat from a person\'s and a free one, in each team\'s order', () => {
@@ -97,11 +97,11 @@ describe('LobbyList (spec §4.6)', () => {
         expect(order()).toEqual(['Alpha', 'Bravo'])
         await user.selectOptions(screen.getByLabelText('Sort by'), 'Most players')
         expect(order()).toEqual(['Bravo', 'Alpha'])
-        await user.type(screen.getByLabelText('Search lobbies'), 'TEA')
+        await user.type(screen.getByLabelText('Search tables'), 'TEA')
         expect(order()).toEqual(['Bravo'])
-        await user.clear(screen.getByLabelText('Search lobbies'))
-        await user.type(screen.getByLabelText('Search lobbies'), 'nobody')
-        expect(screen.getByText('No lobbies match your search.')).toBeInTheDocument()
+        await user.clear(screen.getByLabelText('Search tables'))
+        await user.type(screen.getByLabelText('Search tables'), 'nobody')
+        expect(screen.getByText('No tables match your search.')).toBeInTheDocument()
     })
 
     test('"Most players" counts people: two people come before a host with three bots', async () => {
@@ -123,7 +123,7 @@ describe('LobbyList (spec §4.6)', () => {
         poll([lobby({ teamBPlayers: [ivo, tea] })])
         expect(within(screen.getByRole('dialog', { name: 'Kod Mire' })).getByText('tea_r')).toBeInTheDocument()
         poll([])
-        expect(within(screen.getByRole('dialog', { name: 'Kod Mire' })).getByText('This lobby is no longer open')).toBeInTheDocument()
+        expect(within(screen.getByRole('dialog', { name: 'Kod Mire' })).getByText('This table is no longer open')).toBeInTheDocument()
     })
 
     test('a poll never reorders rows while the quick-look is open or a finger is on the list; the next poll after does', async () => {
@@ -145,7 +145,7 @@ describe('LobbyList (spec §4.6)', () => {
         poll(pair(3, 2))
         expect(order()).toEqual(['X', 'Y'])
 
-        fireEvent.pointerDown(screen.getByRole('list', { name: 'Open lobbies' }))
+        fireEvent.pointerDown(screen.getByRole('list', { name: 'Open tables' }))
         poll(pair(1, 4))
         expect(order()).toEqual(['X', 'Y'])
         fireEvent.pointerUp(window)
@@ -156,22 +156,33 @@ describe('LobbyList (spec §4.6)', () => {
 
     test('first load, a failed first load with Try again, an empty list, and a failed poll', async () => {
         const { unmount } = renderList(null)
-        expect(screen.getByText('Loading lobbies…')).toBeInTheDocument()
+        expect(screen.getByText('Loading tables…')).toBeInTheDocument()
         unmount()
 
         const failed = renderList(null, { failed: true })
-        expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load the lobbies")
+        expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load the tables")
         await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
         expect(onRetry).toHaveBeenCalled()
         failed.unmount()
 
         const empty = renderList([])
-        expect(screen.getByText('No open lobbies.')).toBeInTheDocument()
+        expect(screen.getByText('No open tables.')).toBeInTheDocument()
         expect(screen.getByText('Create one and invite friends.')).toBeInTheDocument()
         empty.unmount()
 
         renderList([lobby()], { pollFailed: true })
         expect(screen.getByRole('alert')).toHaveTextContent("Couldn't refresh — showing the last list")
         expect(screen.getByRole('button', { name: /^Kod Mire/ })).toBeInTheDocument()
+    })
+
+    test("the empty list shows the way on it is given; a list with tables doesn't", () => {
+        const empty = renderList([], { emptyAction: <button>On</button> })
+        const title = screen.getByText('No open tables.')
+        const on = screen.getByRole('button', { name: 'On' })
+        expect(title.compareDocumentPosition(on) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        empty.unmount()
+
+        renderList([lobby()], { emptyAction: <button>On</button> })
+        expect(screen.queryByRole('button', { name: 'On' })).not.toBeInTheDocument()
     })
 })

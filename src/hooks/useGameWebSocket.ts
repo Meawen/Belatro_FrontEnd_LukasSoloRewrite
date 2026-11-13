@@ -1,6 +1,7 @@
 // src/hooks/useGameWebSocket.ts
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { gameSocket } from '../services/gameSocket';
+import { localiseSocketError } from '../i18n/socketErrors';
 import type { MatchDTO } from '../types/match';
 import type { Boja, GameCard, PrivateGameView, PublicGameView, QueueStatusDTO, RematchFrame } from '../types/game';
 
@@ -179,7 +180,7 @@ export function useGameWebSocket(options: GameWebSocketOptions = {}) {
         // status
         isConnected: state.isConnected,
         isConnecting: state.isConnecting,
-        connectionError: state.error,
+        connectionError: localiseSocketError(state.error),
 
         // ranked queue
         subscribeToRankedQueue,

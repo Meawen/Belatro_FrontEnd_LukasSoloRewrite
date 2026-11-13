@@ -1,7 +1,7 @@
 /**
  * The return path (spec §4.1, D-20). ProtectedRoute hands /login the page a signed-out visitor asked
  * for as navigation state `{ from }` (pathname + search); every in-app hop of the auth flow carries it
- * on, and sign-in, sign-up's Continue and confirm-email's Continue go there.
+ * on, and sign-in, sign-up's Continue and confirm-email's Continue go there. The landing page (/) is never a return path.
  */
 
 /** Where the app goes when there is no safe return path. */
@@ -21,5 +21,7 @@ export function safeReturnPath(from: unknown): string {
         return DEFAULT_RETURN_PATH;
     }
     if (url.origin !== window.location.origin || !url.pathname.startsWith('/')) return DEFAULT_RETURN_PATH;
+    // the landing page (spec §4) is for visitors and guests: a member signing in goes to Doma
+    if (url.pathname === '/') return DEFAULT_RETURN_PATH;
     return `${url.pathname}${url.search}${url.hash}`;
 }

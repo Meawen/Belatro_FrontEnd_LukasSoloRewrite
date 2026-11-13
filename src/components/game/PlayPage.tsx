@@ -6,6 +6,7 @@ import { useUser } from '../../hooks/useUser';
 import { RankChip } from '../rank/RankChip';
 import { Banner, Panel, SuitIcon } from '../ui';
 import type { Boja } from '../../types/game';
+import { useT } from '../../i18n/t';
 import { PlayButton } from './PlayButton';
 import { QueueStatus } from './QueueStatus';
 import { ReconnectBanner } from './ReconnectBanner';
@@ -25,12 +26,13 @@ export const PlayPage: React.FC = () => {
     const { user: profile } = useUser(user?.id ?? undefined);
     const { queueStatus, isInQueue } = useEnhancedRanked();
     const elo = profile?.eloRating ?? queueStatus?.mmr ?? '—';
+    const t = useT();
 
     return (
         <div className="flex flex-col gap-4">
             {/* While the queue's socket is down (R-30) */}
             <ReconnectBanner />
-            {notice && <Banner label="Match declined">{notice}</Banner>}
+            {notice && <Banner label={t.ranked.declined}>{notice}</Banner>}
             <div data-testid="ranked-table" className="felt notch-6 relative mx-auto w-full max-w-[680px] px-4 py-8 sm:px-10 sm:py-12">
                 <div aria-hidden="true" className="notch-6 pointer-events-none absolute inset-0 shadow-[inset_0_0_0_6px_var(--rim),inset_0_0_0_9px_var(--rim-hi)]" />
                 <Panel
@@ -43,7 +45,7 @@ export const PlayPage: React.FC = () => {
                     <div>
                         <div className="flex items-center justify-between gap-3">
                             {/* the release gate's harness waits for this text on /play */}
-                            <p className="t-caption text-accent">RANKED</p>
+                            <p className="t-caption text-accent">{t.ranked.eyebrow}</p>
                             <span className="flex gap-1.5">
                                 {SUITS.map((boja) => (
                                     <SuitIcon key={boja} boja={boja} />
@@ -51,7 +53,7 @@ export const PlayPage: React.FC = () => {
                             </span>
                         </div>
                         <h1 id="ranked-title" className="t-display mt-1">
-                            Find a match
+                            {t.ranked.heading}
                         </h1>
                     </div>
                     <p className="flex items-baseline gap-2">

@@ -3,7 +3,7 @@ import { MotionConfig, m } from 'motion/react';
 import { fade, spring } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
 import { Tag } from '../ui/Chip';
-import { YOUR_TURN_TEXT, turnOnPlate } from './yourTurn';
+import { turnOnPlate } from './yourTurn';
 import { PixelIcon } from '../ui/PixelIcon';
 import { PlayingCard } from '../ui/PlayingCard';
 import { SuitIcon } from '../ui/SuitIcon';
@@ -16,12 +16,26 @@ import { seatName } from './announce';
 import { declaredStep, seatSpot } from './seatSpot';
 import { useNow } from './useNow';
 import type { Boja } from '../../types/game';
+import { useT } from '../../i18n/t';
 
 // the trump caller's badge: the suit's colour, as its trump chips (BidPanel's SUIT_FILL)
 const SUIT_FILL: Record<Boja, string> = { HERC: 'bg-suit-herc', KARA: 'bg-suit-karo', PIK: 'bg-suit-pik', TREF: 'bg-suit-tref' };
 
 /** The turn timer's length (TurnTimerService, 30 s): where the countdown bar starts. */
 export const TURN_SECONDS = 30;
+
+/** The last seconds of my turn, before the server's timer plays for me: "Your turn" asks "Still there?" (spec §1.4). */
+const AWAY_SECONDS = 10;
+
+/**
+ * "Your turn", or "Still there?" in its last 10 s: the label over my hand (Board's YourTurn) and, on upright phones, my
+ * plate's name (yourTurn.ts `turnOnPlate`).
+ */
+export function TurnText({ expiresAt, skew }: { expiresAt: number | null; skew: number }) {
+    const t = useT();
+    const now = useNow(expiresAt !== null ? 1000 : null);
+    return expiresAt !== null && secondsLeft(expiresAt, skew, now) <= AWAY_SECONDS ? t.board.away : t.board.yourTurn;
+}
 
 /** A chip that pops in at its seat (spring.quick); a snap shows it at once. */
 function Pop({ instant, delay = 0, children }: { instant: boolean; delay?: number; children: ReactNode }) {
@@ -89,6 +103,7 @@ export interface SeatsProps {
  * trick card (Layout.declared), 45 % under the next, closer where their room is narrower than they need (declaredStep).
  */
 export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps) {
+    const t = useT();
     const chips = playOpen ? summaryChips(model.zvanja) : {};
     const showCards = playOpen && model.playing && model.lastTrick === null;
     // small cards, about half a trick card (board-fit spec §3.5)
@@ -107,14 +122,14 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                     <span className="board-seat__chips" style={beside === undefined ? undefined : ({ '--chips-from': `${beside.from}px`, maxWidth: beside.room } as CSSProperties)}>
                         {seat.bid && (
                             <Pop instant={instant}>
-                                {seat.bid === 'PASS' ? <Tag>Pass</Tag> : <Tag tone="trump" suit={seat.bid}>{SUIT_LABEL[seat.bid]}</Tag>}
+                                {seat.bid === 'PASS' ? <Tag>{t.board.pass}</Tag> : <Tag tone="trump" suit={seat.bid}>{SUIT_LABEL[seat.bid]}</Tag>}
                             </Pop>
                         )}
                         {chips[seat.id] && <Pop instant={instant}><Tag tone="neutral">{chips[seat.id]}</Tag></Pop>}
                     </span>
                 );
                 const cards = declared.length > 0 && (
-                    <span role="group" aria-label={seat.isMe ? 'Your declared cards' : `${seat.id}'s declared cards`} className="board-seat__declared" style={cardsFrom ? { marginLeft: cardsFrom } : undefined}>
+                    <span role="group" aria-label={seat.isMe ? t.board.seat.declaredMine : t.board.seat.declared(seat.id)} className="board-seat__declared" style={cardsFrom ? { marginLeft: cardsFrom } : undefined}>
                         <Pop instant={instant} delay={0.06}>
                             {declared.map((card, i) => (
                                 <PlayingCard key={cardId(card)} card={card} width={cardWidth} exact={layout.exact} style={i ? { marginLeft: step - cardWidth } : undefined} />
@@ -129,38 +144,38 @@ export function Seats({ model, targets, layout, instant, playOpen }: SeatsProps)
                             {/* a bot: the lobby's robot beside its name, and "(bot)" in its name (casual bots spec §7) */}
                             {seat.bot && <PixelIcon name="robot" className="board-seat__bot" />}
                             {/* on upright phones my plate's name reads "Your turn" on my turn, in place of the label over my hand (owner 2026-11-03) */}
-                            <span data-testid={seat.isMe && turnHere ? 'your-turn' : undefined} className="board-seat__label" title={seat.isMe ? undefined : seat.bot ? `${seat.id} (bot)` : seat.id}>{seat.isMe ? (turnHere ? YOUR_TURN_TEXT : 'You') : seat.id}</span>
-                            {seat.bot && <span className="sr-only"> (bot)</span>}
+                            <span data-testid={seat.isMe && turnHere ? 'your-turn' : undefined} className="board-seat__label" title={seat.isMe ? undefined : seat.bot ? `${seat.id} ${t.board.seat.bot}` : seat.id}>{seat.isMe ? (turnHere ? <TurnText expiresAt={model.turn?.expiresAt ?? null} skew={model.skew} /> : t.common.you) : seat.id}</span>
+                            {seat.bot && <span className="sr-only"> {t.board.seat.bot}</span>}
                             {seat.dealer && (
                                 <span data-testid="dealer-chip" className="board-seat__dealer font-pix">
                                     <span aria-hidden="true">D</span>
-                                    <span className="sr-only">Dealer</span>
+                                    <span className="sr-only">{t.board.seat.dealer}</span>
                                 </span>
                             )}
                             {caller === seat.id && model.trump && (
                                 <span data-testid="caller-badge" className={`board-seat__caller ${SUIT_FILL[model.trump.suit]}`}>
                                     <SuitIcon boja={model.trump.suit} />
-                                    <span className="sr-only">{`${seatName(model, seat.id)} called ${model.trump.label}`}</span>
+                                    <span className="sr-only">{seat.isMe ? t.board.say.calledMine(model.trump.label) : t.board.say.called(seat.id, model.trump.label)}</span>
                                 </span>
                             )}
                             {/* Bela declared (owner, 2026-11-03: "Bela as a badge"): a pixel B on the plate, as the D, in the old chip's colours */}
                             {seat.bela && (
                                 <span data-testid="bela-badge" className="board-seat__bela font-pix">
                                     <span aria-hidden="true">B</span>
-                                    <span className="sr-only">{`${seatName(model, seat.id)} declared Bela`}</span>
+                                    <span className="sr-only">{t.board.say.bela(seatName(model, seat.id))}</span>
                                 </span>
                             )}
                             {/* its challenge is gone for the game (owner, 2026-10-30): a crossed-out ring on the plate, as the D */}
                             {seat.challengeUsed && (
                                 <span data-testid="no-challenge-badge" className="board-seat__spent">
                                     <PixelIcon name="ban" />
-                                    <span className="sr-only">{`${seatName(model, seat.id)}: no challenge left`}</span>
+                                    <span className="sr-only">{t.board.seat.noChallengeLeft(seatName(model, seat.id))}</span>
                                 </span>
                             )}
                             {/* the cards left: shown on wide windows, but not on mine (my hand shows it; Ruling Y) */}
                             <span className={seat.isMe ? 'sr-only' : 'sr-only lg:not-sr-only text-text-2'}>
                                 <span data-testid={`cards-left-${seat.id}`}>{seat.cardsLeft}</span>
-                                <span className="sr-only"> cards</span>
+                                <span className="sr-only"> {t.board.seat.cards(seat.cardsLeft)}</span>
                             </span>
                             {turn?.expiresAt != null ? (
                                 <Countdown expiresAt={turn.expiresAt} skew={model.skew} />

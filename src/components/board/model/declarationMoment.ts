@@ -1,5 +1,6 @@
 import { SUIT_LABEL, declaredPoints, heightText } from '../../game/gameView';
 import type { ZvanjaSeatView, ZvanjaView } from '../../../types/game';
+import { cat } from '../../../i18n/t';
 
 /** The moment's length before playOpensAt (the server's default pause, game.declaration-pause-ms). */
 export const MOMENT_MS = 5000;
@@ -38,27 +39,32 @@ function firstWinnerAtTop(zvanja: ZvanjaView): string | undefined {
  * "ivo's four beats the run" or "ivo was first" ("Yours", "Your", "You were" for me). The winner: the view's winnerId.
  */
 function winnerLine(zvanja: ZvanjaView, me: string): string {
-    const scores = `Team ${zvanja.winnerTeam} scores ${zvanja.total}`;
+    const c = cat().board.moment;
+    // momentAt returns before this without a winning team
+    const team = String(zvanja.winnerTeam);
+    const { total } = zvanja;
+    const scores = c.scores(team, total);
     const winner = zvanja.winnerId ?? firstWinnerAtTop(zvanja);
     if (winner === undefined) return scores;
     const mine = winner === me;
     switch (zvanja.decidedBy) {
-        case 'HEIGHT': return `${mine ? 'Yours' : `${winner}'s`} is higher: ${scores}`;
-        case 'FOUR': return `${mine ? 'Your' : `${winner}'s`} four beats the run: ${scores}`;
-        case 'ORDER': return `${mine ? 'You were' : `${winner} was`} first: ${scores}`;
+        case 'HEIGHT': return mine ? c.higherMine(team, total) : c.higher(winner, team, total);
+        case 'FOUR': return mine ? c.fourMine(team, total) : c.four(winner, team, total);
+        case 'ORDER': return mine ? c.firstMine(team, total) : c.first(winner, team, total);
         default: return scores;
     }
 }
 
 /** "Declarations: ivo 20 up to Baba, mara nothing, …. ivo was first: Team B scores 20." */
 function srLineOf(zvanja: ZvanjaView, me: string, line: string): string {
+    const c = cat().board.moment;
     const said = zvanja.seats.map((seat) => {
-        const name = seat.playerId === me ? 'you' : seat.playerId;
-        if (seat.said === null) return `${name} nothing`;
+        const name = seat.playerId === me ? c.you : seat.playerId;
+        if (seat.said === null) return c.nothing(name);
         const height = heightText(seat);
         return `${name} ${seat.said}${height ? ` ${height}` : ''}`;
     });
-    return `Declarations: ${said.join(', ')}. ${line}.`;
+    return c.srLine(said.join(', '), line);
 }
 
 /**
@@ -93,17 +99,19 @@ export function momentAt(zvanja: ZvanjaView | null, me: string, now: number, sna
     };
 }
 
-/** Each winning seat's chip for the rest of the hand, e.g. { ivo: 'Zvanja 50 + 20' }; {} when nobody won. */
+/** Each winning seat's chip for the rest of the hand, e.g. { ivo: 'Decl. 50 + 20' } (EN); {} when nobody won. */
 export function summaryChips(zvanja: ZvanjaView | null): Record<string, string> {
     const winners = (zvanja?.seats ?? []).filter((seat) => seat.declarations.length > 0);
-    return Object.fromEntries(winners.map((seat) => [seat.playerId, `Zvanja ${declaredPoints(seat)}`]));
+    const c = cat().board.moment;
+    return Object.fromEntries(winners.map((seat) => [seat.playerId, c.chip(declaredPoints(seat))]));
 }
 
 /** "Belot! Ivo holds all eight Pik" ("Belot! You hold all eight Pik" for `me`), or null without a belot. */
 export function belotLine(zvanja: ZvanjaView | null, me: string): string | null {
     if (!zvanja?.belot) return null;
     const { playerId, suit } = zvanja.belot;
-    return `Belot! ${playerId === me ? 'You hold' : `${playerId} holds`} all eight ${SUIT_LABEL[suit]}`;
+    const c = cat().board.moment;
+    return playerId === me ? c.belotMine(SUIT_LABEL[suit]) : c.belot(playerId, SUIT_LABEL[suit]);
 }
 
 /** The end sheet waits this long after a belot is said live; a tap or a snapshot opens it at once. */

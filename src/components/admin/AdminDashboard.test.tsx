@@ -8,6 +8,8 @@ vi.mock('../../hooks/useUser', () => ({ useMe: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', username: 'ana' } }) }))
 vi.mock('./AdminStats', () => ({ AdminStats: () => <div>stats panel</div> }))
 vi.mock('./UserManagement', () => ({ UserManagement: () => <div>user management</div> }))
+// spec §2.2 (US-17): the signup cap and the waitlist; its own test is BetaPanel.test
+vi.mock('./BetaPanel', () => ({ BetaPanel: () => <div>beta panel</div> }))
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -17,6 +19,9 @@ describe('AdminDashboard gate (the live /admin gate)', () => {
         render(<AdminDashboard />)
         expect(screen.getByText('stats panel')).toBeInTheDocument()
         expect(screen.getByText('user management')).toBeInTheDocument()
+        // the signup cap first (spec §2.2, US-17)
+        const beta = screen.getByText('beta panel')
+        expect(beta.compareDocumentPosition(screen.getByText('stats panel')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         // X-7: the fake System Status (always "Operational") is gone; the page's h1 is AdminPage's "Admin"
         expect(screen.queryByText(/Operational|System Status/)).not.toBeInTheDocument()
         expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
@@ -27,6 +32,7 @@ describe('AdminDashboard gate (the live /admin gate)', () => {
         render(<AdminDashboard />)
         expect(screen.getByText('Access Denied')).toBeInTheDocument()
         expect(screen.queryByText('stats panel')).not.toBeInTheDocument()
+        expect(screen.queryByText('beta panel')).not.toBeInTheDocument()
         // the denial must come from /user/me, not from the role-less auth user
         expect(vi.mocked(useMe)).toHaveBeenCalled()
     })

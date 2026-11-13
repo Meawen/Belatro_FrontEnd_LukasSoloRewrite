@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useGameViews } from '../../hooks/useGameViews';
 import { useMatchHands } from '../../hooks/useMatchHands';
@@ -11,9 +11,16 @@ import { Button } from '../ui/Button';
 import { Loader } from '../ui/Loader';
 import { Panel } from '../ui/Panel';
 import { ReconnectBanner } from './ReconnectBanner';
-import { DECLINED_NOTICE, rematchOffered } from './gameView';
+import { rematchOffered } from './gameView';
+import { cat, useT } from '../../i18n/t';
+import { useHand2Coach } from '../../guide/useHand2Coach';
+import { GuideEndSheet } from '../guide/GuideEndSheet';
+import { firstHandOver, gameOver } from '../../guide/hand2';
+import { useSignupStatus } from '../../hooks/useSignupStatus';
+import { reportGuideEvent } from '../../services/guideEvents';
 
 export default function GamePageConnected() {
+    const t = useT();
     const { gameId = '' } = useParams();
     // useGameViews keeps its views in state and does not reset them when the id
     // changes, so each game id gets its own mount: never the previous game's views.
@@ -22,7 +29,7 @@ export default function GamePageConnected() {
     return (
         <>
             {/* one h1 per page (spec §3.9) in every state, the crash screen too: the HUD names the table visually */}
-            <h1 className="sr-only">Game</h1>
+            <h1 className="sr-only">{t.titles.game}</h1>
             <ErrorBoundary key={gameId}>
                 <GamePage gameId={gameId} />
             </ErrorBoundary>
@@ -40,12 +47,44 @@ function ReconnectStrip() {
 }
 
 function GamePage({ gameId }: { gameId: string }) {
+    const t = useT();
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, isGuest } = useAuth();
+    const [params] = useSearchParams();
+    // Škola bele hand 2 (open beta §7.3, §7.4): the URL holds guide mode, so a refresh or a reconnect keeps it
+    const guide = params.get('guide') === '1';
+    // spec §6: the game page's ways out. A member goes Doma; a guest goes to the landing page (a guest can't open the
+    // Birtija or Doma) and may also sign up (Ruling 6). While a rematch is on offer, going also declines it for
+    // everyone (R-45), as Leave did.
+    const home = isGuest ? '/' : '/dashboard';
 
     const { view, publicView, isConnected, connectionError, error, notAvailable, actions } =
-        useGameViews(gameId, () => navigate('/lobbies'));
-    const rematch = useRematch(gameId, publicView !== null && rematchOffered(publicView));
+        useGameViews(gameId, () => navigate(home));
+    const offered = publicView !== null && rematchOffered(publicView);
+    const rematch = useRematch(gameId, offered);
+    const go = (to: string) => {
+        if (offered) rematch.leave(to);
+        else navigate(to);
+    };
+    const hand2 = useHand2Coach(guide ? view : null, { guest: isGuest, onExit: () => go(home) });
+    // the guide's end (spec §7.4): after hand 2's first hand, until "Nastavi ovu igru" drops ?guide=1 (call 4)
+    const guideOver = guide && publicView !== null && firstHandOver(publicView);
+    // spec §9 (S15): hand 2's end counts once, when the guide's end screen opens on a page that saw hand 2 being played.
+    // Hand 2 is the game's first hand: dealt or played at 0–0 (firstHandOver's reading). A later hand's result isn't it,
+    // so an end screen left open, which closes at each later result and opens again at its deal, never counts twice,
+    // and a refresh on the end screen (?guide=1 brings it back) saw no play, so it never counts again; nothing is stored.
+    const sawHand2 = useRef(false);
+    const countedHand2 = useRef(false);
+    useEffect(() => {
+        if (!guide || publicView === null) return;
+        if (!gameOver(publicView) && (publicView.teamAScore ?? 0) + (publicView.teamBScore ?? 0) === 0) sawHand2.current = true;
+        if (guideOver && sawHand2.current && !countedHand2.current) {
+            countedHand2.current = true;
+            void reportGuideEvent('hand2');
+        }
+    }, [guide, publicView, guideOver]);
+    // Ruling 6/47: the guest's sign-up button reads "Red za stol" when full; asked once, only in a guest's guide game
+    const signup = useSignupStatus(guide && isGuest);
     const hands = useMatchHands(gameId, publicView);
 
     // spec §3.6: all 39 images decoded once on entering the game, no React state per image
@@ -56,7 +95,7 @@ function GamePage({ gameId }: { gameId: string }) {
     // R-25: someone declined the ranked match; the other three are back in the queue, which /play shows
     const declined = publicView?.gameState === 'CANCELLED' && publicView.endReason === 'DECLINED';
     useEffect(() => {
-        if (declined) navigate('/play', { replace: true, state: { notice: DECLINED_NOTICE } });
+        if (declined) navigate('/play', { replace: true, state: { notice: cat().game.end.declined } });
     }, [declined, navigate]);
 
     // R-35: the server never sent this game, or said it isn't this player's: a way back, not a spinner
@@ -65,8 +104,8 @@ function GamePage({ gameId }: { gameId: string }) {
             <div className="felt flex min-h-dvh items-center justify-center p-4 text-text">
                 <Panel padding="lg" className="w-full max-w-md">
                     <div className="flex flex-col items-center gap-4 text-center">
-                        <p className="t-headline">This game isn't yours or has ended</p>
-                        <Button onClick={() => navigate('/dashboard')}>Back to dashboard</Button>
+                        <p className="t-headline">{t.game.notYours}</p>
+                        <Button onClick={() => navigate(home)}>{isGuest ? t.common.back : t.game.goHome}</Button>
                     </div>
                 </Panel>
             </div>
@@ -77,7 +116,8 @@ function GamePage({ gameId }: { gameId: string }) {
         return (
             <div className="felt flex min-h-dvh flex-col items-center justify-center gap-4 p-4 text-text">
                 <ReconnectStrip />
-                <Loader layout="block" text={isConnected ? 'Loading game state...' : 'Connecting to game...'} />
+                {/* connecting, and connected while the first state comes: the same first frame as App's chunk fallback (spec §1.4 Loading) */}
+                <Loader layout="block" text={t.common.loading} />
                 {connectionError && <p role="alert" className="t-callout text-danger-text">{connectionError}</p>}
             </div>
         );
@@ -93,8 +133,13 @@ function GamePage({ gameId }: { gameId: string }) {
                 isConnected={isConnected}
                 hands={hands}
                 rematch={rematch}
-                onLeave={() => navigate('/lobbies')}
+                onLeave={() => go(home)}
+                guest={isGuest}
+                onSignUp={isGuest ? () => go('/signup') : undefined}
+                coach={hand2.coach}
             />
+            {hand2.warning}
+            <GuideEndSheet open={guideOver} guest={isGuest} signupFull={signup === 'full'} onContinue={() => navigate(`/game/${gameId}`, { replace: true })} onGo={go} />
             <ReconnectStrip />
         </>
     );

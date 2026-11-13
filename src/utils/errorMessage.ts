@@ -1,8 +1,12 @@
+import { ApiError } from '../services/api';
+import { localiseApiError } from '../i18n/serverErrors';
+
 /**
- * The message to show for a caught error: an Error's own message (an ApiError carries the
- * backend's `{"error": ...}` text), otherwise the caller's fallback.
+ * The message to show for a caught error: an ApiError in the site's language (i18n/serverErrors, spec §1.1),
+ * another Error's own message, otherwise the caller's fallback.
  */
 export function errorMessage(e: unknown, fallback: string): string {
+    if (e instanceof ApiError) return localiseApiError(e);
     return e instanceof Error ? e.message : fallback;
 }
 
@@ -13,12 +17,3 @@ export function errorMessage(e: unknown, fallback: string): string {
 export function isNetworkOrServerFailure(status: number): boolean {
     return status === 0 || status >= 500;
 }
-
-/** The generic line for a network failure or a 5xx where nothing more specific fits. */
-export const SOMETHING_WENT_WRONG = 'Something went wrong. Try again.';
-
-/** The backend's answer for a confirm or reset link it does not accept. */
-export const INVALID_LINK = 'This link is invalid or has expired';
-
-/** Shown under a 429. */
-export const WAIT_AND_RETRY = 'Wait a while, then try again.';

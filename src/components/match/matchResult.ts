@@ -1,4 +1,5 @@
 import type { MatchDTO } from '../../types/match';
+import { cat } from '../../i18n/t';
 
 /**
  * Final scores from MatchDTO.result (R-36). The backend writes "Team A wins 1001–650" with an
@@ -19,6 +20,24 @@ export function parseMatchResult(result: string): MatchResultScores | null {
 export function resultWinner(result: string | null | undefined): 'A' | 'B' | null {
     const winner = /^\s*Team ([AB]) wins\b/i.exec(result ?? '');
     return winner ? (winner[1].toUpperCase() as 'A' | 'B') : null;
+}
+
+/** A game won by belot: "Team A wins 1001–420 by belot" (gameplay rules §3). */
+export function byBelot(result: string): boolean {
+    return /\bby belot\b/i.test(result);
+}
+
+/**
+ * A result in the site's language, rebuilt from its parts (spec §1.1: the server's sentence is never translated);
+ * a result that doesn't parse is the server's text as it is.
+ */
+export function resultText(result: string): string {
+    const winner = resultWinner(result);
+    const scores = parseMatchResult(result);
+    if (!winner || !scores) return result;
+    const c = cat().matchDetails.result;
+    if (scores === 'forfeit') return c.byForfeit(winner);
+    return byBelot(result) ? c.byBelot(winner, scores.teamAScore, scores.teamBScore) : c.wins(winner, scores.teamAScore, scores.teamBScore);
 }
 
 /** The team a user plays for in a match, by id; null when in neither. */

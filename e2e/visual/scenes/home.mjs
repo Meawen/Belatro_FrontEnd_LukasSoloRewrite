@@ -1,5 +1,6 @@
 // Phase 7's Home scenes (spec §4.4): the launcher with recent matches, with a game in progress, and for a
-// new player. The scene format is documented at the top of e2e/visual.mjs. Dates are fixed (more than a
+// new player. Doma's "Tables (4)" comes from GET /lobbies/open (lobbies.json, Ruling 80). The scene format is documented
+// at the top of e2e/visual.mjs. Dates are fixed (more than a
 // week back), so every run draws the same day labels.
 
 const PLAYER = { id: 'u1', username: 'ana_k' };
@@ -39,11 +40,11 @@ const NEW_PLAYER = {
 
 export default [
     // the launcher: greeting, Ranked | Lobbies, stats | recent matches, the guide (phones: one column)
-    { name: 'home', path: '/dashboard', viewports: BOTH, user: PLAYER, api: ['player.json', RECENT] },
+    { name: 'home', path: '/dashboard', viewports: BOTH, user: PLAYER, api: ['player.json', 'lobbies.json', RECENT] },
     // a game in progress: the "Return to your game" card in the banner's place (R-33); a forfeit row
-    { name: 'home-in-game', path: '/dashboard', viewports: BOTH, user: PLAYER, api: ['player.json', IN_GAME] },
+    { name: 'home-in-game', path: '/dashboard', viewports: BOTH, user: PLAYER, api: ['player.json', 'lobbies.json', IN_GAME] },
     // a new player: "—" for the unknown numbers, Level 1, "No matches yet"
-    { name: 'home-new-player', path: '/dashboard', viewports: BOTH, user: PLAYER, api: ['player.json', NEW_PLAYER] },
+    { name: 'home-new-player', path: '/dashboard', viewports: BOTH, user: PLAYER, api: ['player.json', 'lobbies.json', NEW_PLAYER] },
     // ranks spec §6.4: your rank under the Elo in the stats strip (the team-Elo backend)
-    { name: 'home-ranked', path: '/dashboard', viewports: BOTH, user: PLAYER, api: ['player-ranked.json', RECENT] },
+    { name: 'home-ranked', path: '/dashboard', viewports: BOTH, user: PLAYER, api: ['player-ranked.json', 'lobbies.json', RECENT] },
 ];

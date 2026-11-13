@@ -108,6 +108,20 @@ describe('renewIfExpiring (R-10)', () => {
         expect(sockets.clients[1].token).toBe(FRESH)
     })
 
+    test('a token whose subject has č ć š ž đ is read and renewed like any other (spec §1.5)', async () => {
+        const exp = Math.floor((NOW + 10 * 60_000) / 1000)
+        // the backend writes the claims as UTF-8 JSON in base64url, which btoa can't build (it throws on č); this
+        // payload holds a - (base64's +), which atob refuses until it is translated back
+        const payload = Buffer.from(JSON.stringify({ sub: 'ŠĐŽČĆšđžčćŠĐŽČĆšđžčć', sv: 3, jti: 'hr', iat: exp - 120 * 60, exp })).toString('base64url')
+        expect(payload).toContain('-')
+        jsdomStorage.setItem('authToken', `eyJhbGciOiJIUzI1NiJ9.${payload}.signature-hr`)
+        const fetch = vi.fn().mockResolvedValue(renewed())
+        vi.stubGlobal('fetch', fetch)
+
+        await expect(renewIfExpiring()).resolves.toBe(true)
+        expect(fetch).toHaveBeenCalledTimes(1)
+    })
+
     test('15 minutes or more left, more than half of a short token\'s life left, no token, or an unreadable one: no request', async () => {
         const fetch = vi.fn()
         vi.stubGlobal('fetch', fetch)

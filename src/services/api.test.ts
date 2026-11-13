@@ -68,6 +68,30 @@ describe('apiClient error handling', () => {
         })
     })
 
+    test("keeps the backend's code beside its sentence", async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(409, { error: 'Lobby is full', code: 'LOBBY_FULL' })))
+        await expect(apiClient.get('/x')).rejects.toMatchObject({ status: 409, message: 'Lobby is full', code: 'LOBBY_FULL' })
+    })
+
+    test("a validation map gives its field's message and the VALIDATION code", async () => {
+        // the code comes last in the map (Ruling 16), so the first string value is still the field's message
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(400, {
+            password: 'Password must be at least 8 characters and at most 72 bytes', code: 'VALIDATION',
+        })))
+        await expect(apiClient.post('/api/auth/signup', {})).rejects.toMatchObject({
+            status: 400, message: 'Password must be at least 8 characters and at most 72 bytes', code: 'VALIDATION',
+        })
+    })
+
+    test('a body without a string code leaves code undefined', async () => {
+        for (const body of [{ error: 'Lobby is full' }, { error: 'x', code: 42 }]) {
+            vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(409, body)))
+            const failure = await apiClient.get('/x').catch((e: unknown) => e)
+            expect(failure).toBeInstanceOf(ApiError)
+            expect((failure as ApiError).code, JSON.stringify(body)).toBeUndefined()
+        }
+    })
+
     test('401 clears the token by default', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(401, { error: 'nope' })))
         await expect(apiClient.get('/x')).rejects.toBeInstanceOf(ApiError)

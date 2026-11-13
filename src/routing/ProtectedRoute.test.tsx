@@ -27,6 +27,9 @@ vi.mock('../hooks/useAuth', () => {
     }
 })
 
+// /signup asks whether signup is open before it shows a form (spec §2.2); its request is betaService.test's
+vi.mock('../services/betaService', () => ({ betaService: { signupStatus: vi.fn(async () => ({ open: true })) } }))
+
 /** What /login was handed. */
 function From() {
     const state = useLocation().state as { from?: unknown } | null
@@ -77,7 +80,7 @@ describe('ProtectedRoute and PublicRoute', () => {
         renderAt('/lobby/abc')
         expect(screen.getByText('Checking authentication...')).toBeInTheDocument()
         renderAt('/login')
-        expect(screen.getByText('Loading...')).toBeInTheDocument()
+        expect(screen.getByText('Shuffling…')).toBeInTheDocument()
     })
 
     test('a signed-in visitor of /login goes to /dashboard', () => {
@@ -99,7 +102,7 @@ describe('the return path (spec §4.1 AC 7, D-20)', () => {
         const user = userEvent.setup()
         // a link since sign in and sign up are separate URLs (X-2)
         await user.click(screen.getByText('Sign up', { selector: 'a, button' }))
-        await user.type(screen.getByLabelText('Username'), 'ana_1')
+        await user.type(await screen.findByLabelText('Username'), 'ana_1')
         await user.type(screen.getByLabelText('Email'), 'ana@example.test')
         await user.type(screen.getByLabelText('Password'), 'e2e-password-123')
         await user.type(screen.getByLabelText('Confirm Password'), 'e2e-password-123')

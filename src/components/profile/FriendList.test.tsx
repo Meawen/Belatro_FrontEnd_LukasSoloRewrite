@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
@@ -7,6 +7,7 @@ import { FriendsList } from './FriendList'
 import { useFriends } from '../../hooks/useFriends'
 import { ApiError } from '../../services/api'
 import type { Friendship } from '../../types/friendship'
+import { setLang } from '../../i18n/lang'
 
 // Tailwind's own colour scale (text-purple-400, border-slate-700, …): the design uses tokens only (spec §3.2)
 const RAW_PALETTE = /\b(?:bg|text|border|from|to|via)-(?:amber|emerald|slate|red|purple|gray|blue|yellow|green|orange|teal|lime|pink)-\d/
@@ -51,6 +52,7 @@ beforeEach(() => {
     vi.clearAllMocks()
     mockFriends([{ id: 'f1', fromUser: bob, toUser: ana, status: 'PENDING', createdAt: null }])
 })
+afterEach(() => setLang('en'))
 
 describe('FriendsList actions', () => {
     test('a refused accept is shown', async () => {
@@ -138,6 +140,18 @@ describe('Friends (spec §4.11)', () => {
         await userEvent.setup().click(screen.getByRole('button', { name: 'Open the Leaderboard' }))
         expect(screen.getByText('at /users')).toBeInTheDocument()
     })
+
+    test('the search ignores capitals and the marks on č ć š ž đ (spec §1.5)', async () => {
+        const duro = { id: 'u5', username: 'đuro', eloRating: 1200, level: 1, gamesPlayed: 4 }
+        mockFriends([
+            { id: 'f3', fromUser: bob, toUser: ana, status: 'ACCEPTED', createdAt: null },
+            { id: 'f4', fromUser: duro, toUser: ana, status: 'ACCEPTED', createdAt: null },
+        ])
+        renderFriends()
+        await userEvent.setup().type(screen.getByLabelText('Search friends'), 'DURO')
+        expect(screen.getByText('đuro', { selector: 'p' })).toBeInTheDocument()
+        expect(screen.queryByText('bob', { selector: 'p' })).not.toBeInTheDocument()
+    })
 })
 
 // ranks spec §6.3: the rank tag between the Elo and the level
@@ -151,5 +165,32 @@ describe('FriendsList ranks', () => {
         const line = screen.getByText('Fakin').closest('p')!
         expect(line).toHaveTextContent(/^Elo 1250 Fakin · Level 1$/)
         expect(screen.getByText('Elo 1200 · Level 1')).toBeInTheDocument()
+    })
+})
+
+describe('FriendsList in Croatian (open beta §1.1)', () => {
+    test('friends in Croatian: the lists, a row, and an empty tab', async () => {
+        setLang('hr')
+        mockFriends([{ id: 'f3', fromUser: bob, toUser: ana, status: 'ACCEPTED', createdAt: '2026-10-30T10:00:00Z' }])
+        renderFriends()
+        const lists = within(screen.getByRole('group', { name: 'Popisi pajdaša' }))
+        expect(lists.getAllByRole('button').map((b) => b.textContent)).toEqual(['Pajdaši (1)', 'Zahtjevi (0)', 'Poslani (0)'])
+        const row = rowOf('bob')
+        expect(row).toHaveTextContent('Pajdaši od 30. 10. 2026.')
+        expect(row).toHaveTextContent('Elo 1250 · Razina 1')
+        expect(within(row).getByRole('button', { name: 'Pogledaj profil' })).toBeInTheDocument()
+        expect(within(row).getByRole('button', { name: 'Ukloni' })).toBeInTheDocument()
+        await userEvent.setup().click(lists.getByRole('button', { name: 'Zahtjevi (0)' }))
+        expect(screen.getByText('Nema zahtjeva na čekanju')).toBeInTheDocument()
+    })
+})
+
+describe('FriendsList and removed accounts (spec §3.1)', () => {
+    test('a removed friend reads Guest', () => {
+        const removed = { id: 'u5', username: 'obrisan_3fa9c2d1', eloRating: 1200, level: 1, gamesPlayed: 0 }
+        mockFriends([{ id: 'f9', fromUser: ana, toUser: removed, status: 'ACCEPTED', createdAt: '2026-10-01T10:00:00Z' }])
+        renderFriends()
+        expect(screen.getByText('Guest', { selector: 'p' })).toBeInTheDocument()
+        expect(screen.queryByText(/obrisan_/)).toBeNull()
     })
 })

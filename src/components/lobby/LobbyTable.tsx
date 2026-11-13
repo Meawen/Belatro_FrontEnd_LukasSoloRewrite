@@ -5,8 +5,10 @@ import { Avatar, Button, PixelIcon } from '../ui';
 import { cx } from '../ui/cx';
 import { fade, spring } from '../../motion/tokens';
 import { useReducedMotion } from '../../motion/useReducedMotion';
+import { cat, useT } from '../../i18n/t';
 import { botCount, isBot, peopleCount } from './lobbyModel';
 import { canAddBot, isHost, isReadyToStart, seatAction, seatLabel, seatedCount, tableSeats, takesBots, type SeatKey, type SeatPosition, type TableSeat } from './seats';
+import { displayName } from '../common/displayName';
 
 /**
  * The request running at the table: a seat's join, switch or bot, and what that seat reads meanwhile ("Joining…",
@@ -47,8 +49,9 @@ const PLACE: Record<SeatPosition, string> = {
 
 /** The quick-look's line under its count of people: "players", or with bots "players · 3 bots". */
 function playersLine(lobby: LobbyDTO): string {
+    const c = cat();
     const bots = botCount(lobby);
-    return bots === 0 ? 'players' : `players · ${bots} ${bots === 1 ? 'bot' : 'bots'}`;
+    return bots === 0 ? c.table.players : `${c.table.players} · ${c.tables.bots(bots)}`;
 }
 
 const PLACE_MINI: Record<SeatPosition, string> = {
@@ -65,6 +68,7 @@ const PLACE_MINI: Record<SeatPosition, string> = {
  */
 export function LobbyTable({ lobby, viewerId, mini = false, busy = null, onSeat, onAddBot, launching = false }: LobbyTableProps) {
     const reduced = useReducedMotion();
+    const t = useT();
     const seats = tableSeats(lobby, viewerId);
     // who was seated at the last render: someone new scales in; nobody does on the first render
     const known = useRef<Set<string> | null>(null);
@@ -137,7 +141,7 @@ export function LobbyTable({ lobby, viewerId, mini = false, busy = null, onSeat,
                         // the room counts seats, bots included: what the host needs to start
                         <>
                             <p className="t-score tabular-nums">{seatedCount(lobby)}/4</p>
-                            <p className="t-footnote">{isReadyToStart(lobby) ? 'Ready to deal' : 'seated'}</p>
+                            <p className="t-footnote">{isReadyToStart(lobby) ? t.table.readyToDeal : t.table.seated}</p>
                         </>
                     )}
                 </div>
@@ -191,11 +195,12 @@ function Seat({ seat, lobby, viewerId, busy, onSeat, arrived, reduced }: SeatPro
  * plate, never over it, and 14 px down, where only the felt is. Its focus ring sits on its edge, 2 px clear of the robot.
  */
 function BotChip({ seat, busy, onAddBot }: { seat: TableSeat; busy: boolean; onAddBot: (seat: TableSeat) => void }) {
+    const t = useT();
     return (
         <Button
             variant="secondary"
             size="sm"
-            aria-label={`Add a bot to team ${seat.team}`}
+            aria-label={t.table.addBot(seat.team)}
             disabled={busy}
             onClick={() => onAddBot(seat)}
             className="h-6.5 min-h-0 whitespace-nowrap [--btn-inset:0] after:absolute after:inset-x-0 after:-top-1 after:-bottom-3.5 focus-visible:outline-offset-[-3px]"
@@ -206,7 +211,7 @@ function BotChip({ seat, busy, onAddBot }: { seat: TableSeat; busy: boolean; onA
                 </span>
             }
         >
-            Bot
+            {t.table.botChip}
         </Button>
     );
 }
@@ -226,21 +231,22 @@ interface SeatFaceProps {
  * with a plus, then the name plate.
  */
 function SeatFace({ seat, lobby, viewerId, canSit, pressable, busyLabel, mini = false }: SeatFaceProps) {
+    const t = useT();
     const player = seat.player;
     const own = player !== null && viewerId !== null && player.id === viewerId;
     const host = player !== null && isHost(lobby, player.id);
     const bot = isBot(player);
-    const title = busyLabel ?? (player ? (player.username ?? 'Unknown') : canSit ? 'Sit here' : 'Open seat');
+    const title = busyLabel ?? (player ? displayName(player.username ?? t.common.unknown) : canSit ? t.table.seat.sitHere : t.table.seat.openPlate);
     // a bot's tag names its team too, so the team shows by more than colour (spec §3.9); one line, which the 104-px seat
     // fits with the plate's own padding
-    const tag = own ? 'You' : host ? 'Host' : bot ? `Bot · Team ${seat.team}` : `Team ${seat.team}`;
+    const tag = own ? t.common.you : host ? t.tables.hostLabel : bot ? t.table.seat.tagBot(seat.team) : t.common.team(seat.team);
     return (
         <>
             <span className={cx('relative inline-flex', pressable && 'transition-transform duration-[90ms] ease-out group-active:translate-y-0.5')}>
                 {host && <PixelIcon name="crown" className="absolute -top-3 left-1/2 z-[1] -translate-x-1/2 text-accent" />}
                 {player ? (
                     <Avatar
-                        initial={player.username ?? '?'}
+                        initial={displayName(player.username ?? '?')}
                         icon={bot ? 'robot' : undefined}
                         tone={seat.team === 'A' ? 'team-a' : 'team-b'}
                         size={mini ? 'sm' : 'lg'}

@@ -1,6 +1,7 @@
 // Phase 10's scenes: the longest real names (Review focus). Every username here is 20 characters, the
-// backend's maximum (^[A-Za-z0-9_]{3,20}$), in the widest letters (W, M, m, w) and a narrow one; the lobbies
-// are named by 50 characters (the Create sheet's maximum) with Croatian letters, one without a space.
+// backend's maximum (^[A-Za-z0-9_čćšžđČĆŠŽĐ]{3,20}$), in the widest letters (W, M, m, w) and a narrow one (the
+// board's fourth seat: Croatian letters); the lobbies are named by 50 characters (the Create sheet's maximum) with
+// Croatian letters, one without a space.
 // The scenes reuse the other areas' fixtures with every name replaced, at both phone orientations, and are
 // shot and baselined like any other. The `names` check (e2e/visual/checks/names.mjs) reads `longNames`:
 // in these scenes nothing scrolls sideways, and no element showing one of those names lets it overflow.
@@ -37,7 +38,7 @@ export const LONG = {
 };
 const LONG_NAMES = [...new Set(Object.values(LONG))];
 // the dev board's names=long (src/dev/devTable.ts LONG_NAMES)
-const BOARD_NAMES = ['WWWWWWWWWWWWWWWWWWWW', 'MMMMMMMMMMMMMMMMMMMM', 'mmmmmmmmmmmmmmmmmmmm', 'aaaaaaaaaaaaaaaaaaaa'];
+const BOARD_NAMES = ['WWWWWWWWWWWWWWWWWWWW', 'MMMMMMMMMMMMMMMMMMMM', 'mmmmmmmmmmmmmmmmmmmm', 'ŠĐŽČĆšđžčćŠĐŽČĆšđžčć'];
 const PHONES = ['375x812', '812x375'];
 const API = new URL('../fixtures/api/', import.meta.url);
 

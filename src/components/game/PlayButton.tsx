@@ -3,6 +3,9 @@ import { useEnhancedRanked } from '../../hooks/useEnhancedRanked';
 import { Button, Loader } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { ResendConfirmationButton } from '../auth/ResendConfirmationButton';
+import { localiseApiError } from '../../i18n/serverErrors';
+import { errorMessage } from '../../utils/errorMessage';
+import { useT } from '../../i18n/t';
 
 export const PlayButton: React.FC = () => {
     const {
@@ -17,6 +20,7 @@ export const PlayButton: React.FC = () => {
         isWebSocketConnecting,
         webSocketError
     } = useEnhancedRanked();
+    const t = useT();
 
     const handlePlayClick = async () => {
         if (isInQueue) {
@@ -35,11 +39,11 @@ export const PlayButton: React.FC = () => {
     };
 
     const getButtonText = () => {
-        if (isWebSocketConnecting) return 'Connecting...';
-        if (isJoining) return 'Joining Queue...';
-        if (isLeaving) return 'Leaving Queue...';
-        if (isInQueue) return 'Leave Queue';
-        return 'Find Match';
+        if (isWebSocketConnecting) return t.ranked.connecting;
+        if (isJoining) return t.ranked.joining;
+        if (isLeaving) return t.ranked.leaving;
+        if (isInQueue) return t.ranked.leave;
+        return t.ranked.find;
     };
 
     // joining and leaving disable it too, through `loading`
@@ -47,9 +51,9 @@ export const PlayButton: React.FC = () => {
 
     return (
         <div className="flex flex-col gap-3">
-            {isWebSocketConnecting && <Loader layout="inline" text="Connecting to game server..." className="self-start" />}
+            {isWebSocketConnecting && <Loader layout="inline" text={t.ranked.connectingServer} className="self-start" />}
 
-            {webSocketError && !isWebSocketConnecting && <ErrorAlert message={`Connection error: ${webSocketError}`} />}
+            {webSocketError && !isWebSocketConnecting && <ErrorAlert message={t.ranked.connectionError(webSocketError)} />}
 
             <Button
                 onClick={handlePlayClick}
@@ -66,15 +70,15 @@ export const PlayButton: React.FC = () => {
                 <div className="flex flex-col items-start gap-2">
                     {/* no promise of a mail: an address another account holds never gets a link */}
                     <ErrorAlert
-                        message={`${joinError.message}. Open your confirmation link if you have one, or ask for a new one, then try again.`}
+                        message={localiseApiError(joinError)}
                     />
                     <ResendConfirmationButton />
                 </div>
             ) : joinError?.status === 429 ? (
                 // a declined match's 2-minute cooldown (R-25) or the rate limit: the server says how long
-                <ErrorAlert message={joinError.message} />
+                <ErrorAlert message={localiseApiError(joinError)} />
             ) : (
-                (joinError || leaveError) && <ErrorAlert message={`Error: ${joinError?.message || leaveError?.message}`} />
+                (joinError || leaveError) && <ErrorAlert message={t.ranked.error(errorMessage(joinError ?? leaveError, ''))} />
             )}
         </div>
     );

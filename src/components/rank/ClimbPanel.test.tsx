@@ -1,10 +1,11 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ClimbPanel } from './ClimbPanel'
 import { useRatingHistory } from '../../hooks/useRatings'
 import { ApiError } from '../../services/api'
 import { LADDER, history, rank } from '../../test/fixtures/ranks'
+import { setLang } from '../../i18n/lang'
 
 vi.mock('../../hooks/useRatings', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../../hooks/useRatings')>()),
@@ -83,5 +84,24 @@ describe('ClimbPanel', () => {
         expect(screen.getByText("Couldn't load your climb.")).toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
         expect(refetch).toHaveBeenCalledTimes(1)
+    })
+})
+
+describe('ClimbPanel in Croatian (open beta §1.1)', () => {
+    afterEach(() => setLang('en'))
+
+    test('your climb in Croatian', () => {
+        setLang('hr')
+        const { container, unmount } = render(<ClimbPanel userId="u1" rank={rank('GOSPON')} ladder={LADDER} />)
+        expect(screen.getByRole('heading', { level: 2, name: 'Tvoj uspon' })).toBeInTheDocument()
+        expect(screen.getByRole('group', { name: 'Tvoj uspon: rejting kroz rangirane partije' })).toBeInTheDocument()
+        expect(screen.getByText((_, el) => el?.tagName === 'P' && el.textContent === 'Ovim tempom: Majster za otprilike 36 partija')).toBeInTheDocument()
+        expect(screen.getByText('Majster', { selector: 'strong' })).toBeInTheDocument()
+        expect(screen.getByText('Sama sreća može te pomaknuti za otprilike ±139 bodova kroz 20 partija.')).toBeInTheDocument()
+        expect([...container.querySelectorAll('svg text')].some((text) => text.textContent?.startsWith('Partija '))).toBe(true)
+        unmount()
+
+        render(<ClimbPanel userId="u1" rank={rank('GOSPON')} ladder={null} />)
+        expect(screen.getByText((_, el) => el?.tagName === 'P' && el.textContent === 'Ovim tempom: sljedeći rang za otprilike 36 partija')).toBeInTheDocument()
     })
 })

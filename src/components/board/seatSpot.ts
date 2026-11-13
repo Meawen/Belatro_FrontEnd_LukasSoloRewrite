@@ -65,10 +65,12 @@ const MY_EDGE = 12;
  */
 const MY_PLATE = 180;
 /**
- * On upright phones my plate's name reads "Your turn" on my turn (owner, 2026-11-03, option B): about 36 px wider than
- * "You", so at its widest about 215 px. My chips beside it start past that width, so they never shift as it widens.
+ * On upright phones my plate's name reads "Your turn" on my turn (owner, 2026-11-03, option B), in its last 10 s "Still
+ * there?" (open beta), in Croatian "Na tebi je!" / "Zaspal si?": with the countdown and every badge "Still there?" is the
+ * widest, 223.7 px in Chromium (Task M; was 218 for "Your turn"). My chips beside it start past that width, so they never
+ * shift as it widens.
  */
-const MY_TURN_PLATE = 218;
+const MY_TURN_PLATE = 224;
 /** The widest single chip a column holds: "Zvanja 100 + 20", 122.9 px in Chromium. */
 const WIDE_CHIP = 124;
 /**

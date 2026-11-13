@@ -1,9 +1,10 @@
 import { Client, type IFrame, type IMessage, type StompConfig, type StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-// Uses apiClient and ApiError lazily, inside functions only; never use them at module top
+// Uses apiClient, ApiError and signGuestBackIn lazily, inside functions only; never use them at module top
 // level: import cycle with api.ts.
-import { apiClient, ApiError } from './api';
+import { apiClient, ApiError, signGuestBackIn, type GuestResume } from './api';
 import { WS_URL } from '../config';
+import { forgetSession } from './guestSecret';
 
 /**
  * The one STOMP connection of this browser tab.
@@ -58,15 +59,51 @@ export const SESSION_ENDED_MESSAGE = 'Your session ended — please sign in agai
 /** Shown when the server refused the CONNECT although GET /user/me says the session is alive. */
 export const CONNECT_REFUSED_MESSAGE = 'Could not connect to the game server. Try again.';
 
+/** Shown when there is no token to open the socket with. */
+export const AUTH_REQUIRED_MESSAGE = 'Authentication required';
+
 /**
  * How a session ends, for a 401 from the API and a 1008 alike: forget the token, then reload into
  * the login page, which says why. Only the token: storage is shared by the browser's tabs, and a
  * password change in another tab may store a new token next to the same user. useAuth logs out a
- * token it finds without a user, which would revoke that new token.
+ * token it finds without a user, which would revoke that new token. A guest's goes to the landing
+ * page instead (endGuestSession).
  */
 function signOutToLogin(): void {
+    if (storedGuest()) {
+        endGuestSession();
+        return;
+    }
     localStorage.removeItem('authToken');
     window.location.assign('/login?reason=session-ended');
+}
+
+/**
+ * Ruling 44: the pages that need no session; a guest whose session ends while reading one stays on it. Ruling 48 adds
+ * the forgotten-password, sign-in and sign-up forms and the leaderboard, Ruling 62 the waitlist's confirm link, the R4
+ * review Škola bele (it needs a session only once hand 2 starts).
+ */
+const SESSION_FREE_PATHS = ['/privacy', '/terms', '/rules', '/confirm-email', '/waitlist/confirm', '/reset-password', '/forgot-password', '/login', '/signup', '/users', '/learn'];
+
+/**
+ * How a guest's session ends for good (spec §3.1, §8 "guest expired"; Rulings 7, 32): the server refused its token,
+ * or refused the sign-in with its secret. A guest has no password, so /login has nothing for them: forget the guest
+ * (its token, its user and its secret) and reload into the landing page, which says so above its doors. On a page that
+ * needs no session the reader stays where they are (Ruling 44): someone who never had an account meets no sign-in wall.
+ */
+export function endGuestSession(): void {
+    forgetSession();
+    if (SESSION_FREE_PATHS.includes(window.location.pathname)) return;
+    window.location.assign('/?reason=guest-ended');
+}
+
+/** The stored user is a guest (POST /api/auth/guest stores user.guest true). Never throws. */
+function storedGuest(): boolean {
+    try {
+        return JSON.parse(localStorage.getItem('user') ?? 'null')?.guest === true;
+    } catch {
+        return false;
+    }
 }
 
 export function stompConfig(token: string, handlers: StompClientHandlers): StompConfig {
@@ -94,6 +131,8 @@ export function createGameSocket(
     endSession: () => void = signOutToLogin,
     // a refused CONNECT does not say why; GET /user/me does (a 401 there ends the session in api.ts)
     checkSession: () => Promise<unknown> = () => apiClient.get('/user/me'),
+    // Ruling 32: a guest's sign-in with its secret (api.ts); null when there is none to try
+    signBackIn: () => Promise<GuestResume> | null = () => signGuestBackIn(),
 ) {
     let state: GameSocketState = { isConnected: false, isConnecting: false, isReconnecting: false, error: null };
     const listeners = new Set<() => void>();
@@ -109,6 +148,8 @@ export function createGameSocket(
     let pendingChange: { revokedToken: string | null } | null = null;
     // The GET /user/me check after a refused CONNECT; close() drops it, as it drops retryTimer.
     let pendingCheck: Promise<void> | null = null;
+    // A guest signing back in with its secret (resumeGuest), once at a time.
+    let resuming: Promise<GuestResume> | null = null;
 
     const setState = (next: Partial<GameSocketState>) => {
         state = { ...state, ...next };
@@ -129,7 +170,7 @@ export function createGameSocket(
         // read on every attempt: a retry or reconnect() never reuses a rotated or cleared token
         const token = getToken();
         if (!token) {
-            setState({ isConnecting: false, isReconnecting: false, error: 'Authentication required' });
+            setState({ isConnecting: false, isReconnecting: false, error: AUTH_REQUIRED_MESSAGE });
             return;
         }
         // An ERROR frame means the server refused us. Its text is the server's (never shown):
@@ -221,8 +262,43 @@ export function createGameSocket(
             if (holders > 0) open();
             return;
         }
+        // Ruling 32: a guest that still holds its secret signs back in before its session ends
+        if (resumeGuest(token)) return;
         setState({ isReconnecting: false, error: SESSION_ENDED_MESSAGE });
         endSession();
+    };
+
+    /**
+     * Ruling 32: the guest signs back in with its secret, and meanwhile a 401 or a 1008 waits for the answer, as during
+     * a password change. Signed back in: the socket reopens on the new token. Refused: the secret is gone, so the
+     * session ends the one way sessions end. No answer: nothing ends; the socket, if held, tries again later, as does the
+     * next request or renewal. Null, and nothing held, when the stored user is not a guest holding a secret, or while a
+     * password change or a guest's new name is held (its own answer decides).
+     */
+    const resumeGuest = (token: string): Promise<GuestResume> | null => {
+        if (resuming) return resuming;
+        if (pendingChange) return null;
+        const signingIn = signBackIn();
+        if (!signingIn) return null;
+        const change: { revokedToken: string | null } = { revokedToken: null };
+        pendingChange = change;
+        const resumed = signingIn.then((outcome) => {
+            resuming = null;
+            if (pendingChange === change) pendingChange = null;
+            if (outcome === 'resumed') {
+                // as reconnect() after a password change: reopen on the token now in storage
+                reconnectAttempts = 0;
+                close();
+                if (holders > 0) open();
+            } else if (outcome === 'refused') {
+                tokenRevoked(token);
+            } else if (holders > 0 && !client) {
+                retryLater();
+            }
+            return outcome;
+        });
+        resuming = resumed;
+        return resumed;
     };
 
     const close = () => {
@@ -329,6 +405,13 @@ export function createGameSocket(
 
         /** Try to connect now if held and down with no attempt under way (ReconnectBanner's Retry). */
         retryNow,
+
+        /**
+         * Ruling 32: sign a guest whose token (the one passed) has expired back in with its secret: tokenRenewal calls it
+         * at start, when the tab is shown and every minute. Resolves with the outcome once it has been acted on (the
+         * socket reopened, or the session ended); null at once when there is nothing to try.
+         */
+        resumeGuest,
 
         /** Reopen with the token now in storage (after a password change rotated it). */
         reconnect(): void {

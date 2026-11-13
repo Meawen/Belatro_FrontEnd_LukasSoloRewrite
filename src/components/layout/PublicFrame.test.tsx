@@ -1,8 +1,10 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { PublicFrame } from './PublicFrame'
 import { userService } from '../../services/userService'
+import { setLang } from '../../i18n/lang'
 
 const auth = vi.hoisted(() => ({ isAuthenticated: false }))
 vi.mock('../../hooks/useAuth', () => ({
@@ -24,6 +26,7 @@ beforeEach(() => {
     vi.clearAllMocks()
     auth.isAuthenticated = false
 })
+afterEach(() => setLang('en'))
 
 describe('PublicFrame (spec §4.15)', () => {
     test('the way home, the title as the only h1, the text and the footer with its routed links', () => {
@@ -46,5 +49,18 @@ describe('PublicFrame (spec §4.15)', () => {
         vi.mocked(userService.getActiveGame).mockResolvedValue('g9')
         renderFrame()
         expect(await screen.findByRole('button', { name: 'Return to your game' })).toBeInTheDocument()
+    })
+
+    // Ruling 24: a visitor who lands on Rules, Privacy or Terms signed out can switch the language there (spec §1.1)
+    test('the HR · EN switch sits in the header beside the way home, and it switches the site', async () => {
+        renderFrame()
+        const group = screen.getByRole('group', { name: 'Site language' })
+        // in the header: before the page's title
+        expect(group.compareDocumentPosition(screen.getByRole('heading', { level: 1 })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(within(group).getByRole('button', { name: 'EN' })).toHaveAttribute('aria-pressed', 'true')
+        await userEvent.setup().click(within(group).getByRole('button', { name: 'HR' }))
+        expect(within(screen.getByRole('group', { name: 'Jezik stranice' })).getByRole('button', { name: 'HR' })).toHaveAttribute('aria-pressed', 'true')
+        // the frame's own words follow: the footer's links
+        expect(within(screen.getByRole('contentinfo')).getByRole('link', { name: 'Pravila' })).toHaveAttribute('href', '/rules')
     })
 })
