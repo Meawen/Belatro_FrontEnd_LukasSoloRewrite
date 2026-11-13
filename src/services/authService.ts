@@ -4,33 +4,41 @@ import type {
     LoginRequestDTO,
     SignupRequestDTO,
     JwtResponseDTO,
+    GoogleSignInRequest,
+    GoogleSignInDTO,
 } from '../types';
 import type { Lang } from '../i18n/lang';
 import { GUEST_SECRET_KEY, forgetSession } from './guestSecret';
+
+/**
+ * An account's token, from a sign-in or a sign-up: the account's session ends the guest in this browser, its secret too
+ * (spec §3.3, Ruling 32).
+ */
+function storeAccountToken(token: string): void {
+    apiClient.setToken(token);
+    localStorage.removeItem(GUEST_SECRET_KEY);
+}
 
 export const authService = {
     async login(credentials: LoginRequestDTO): Promise<JwtResponseDTO> {
         // a wrong password is about what was typed, not the stored token: a guest signing in from /login stays a guest
         const response = await apiClient.post<JwtResponseDTO>('/api/auth/login', credentials, { keepTokenOn401: true });
-
-        if (response.token) {
-            apiClient.setToken(response.token);
-            // spec §3.3: an account's session ends the guest in this browser, its secret too (Ruling 32)
-            localStorage.removeItem(GUEST_SECRET_KEY);
-        }
-
+        if (response.token) storeAccountToken(response.token);
         return response;
     },
 
     async signup(userData: SignupRequestDTO): Promise<JwtResponseDTO> {
         const response = await apiClient.post<JwtResponseDTO>('/api/auth/signup', userData);
+        if (response.token) storeAccountToken(response.token);
+        return response;
+    },
 
-        if (response.token) {
-            apiClient.setToken(response.token);
-            // spec §3.3: signing up ends the guest in this browser, its secret too (Ruling 32)
-            localStorage.removeItem(GUEST_SECRET_KEY);
-        }
-
+    // Google sign-in spec §1: Google's ID token, answered signed in (stored as login's is) or needsName (nothing stored).
+    // A guest's token rides along (spec §3.4); a refused Google token (401 GOOGLE_INVALID) is about Google's token, not
+    // the stored one, so a guest stays a guest, as at login
+    async google(request: GoogleSignInRequest): Promise<GoogleSignInDTO> {
+        const response = await apiClient.post<GoogleSignInDTO>('/api/auth/google', request, { keepTokenOn401: true });
+        if (response.token) storeAccountToken(response.token);
         return response;
     },
 

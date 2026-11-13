@@ -15,6 +15,10 @@ export const CARDS_DIR = join(VISUAL, 'fixtures', 'cards');
 export const BASELINE_DIR = join(VISUAL, 'baseline');
 // The dev server's card art origin during a run; nothing is fetched from it, the harness answers it.
 export const CARD_ART = 'https://card-art.visual.test/v1';
+// Google sign-in P-4: a made-up client id, so every auth page has its Google button, and Google's script, which the
+// harness answers with e2e/visual/google-stub.js (a fixed 240×40 box, never Google's own iframe).
+export const GOOGLE_CLIENT_ID = 'visual-test.apps.googleusercontent.com';
+const GOOGLE_SCRIPT = 'https://accounts.google.com/gsi/client';
 // Pages at most this wide must not scroll sideways (spec §7.3, R-37).
 export const NARROW = 375;
 // Every page sees this time (Date only; timers, animation frames and motion run as usual), so relative dates,
@@ -88,14 +92,20 @@ export async function startVite(args, origin, env = {}) {
     throw new Error(`vite did not answer on ${origin} within 60 s:\n${output}`);
 }
 
-/** The dev server, with the card art pointing at the harness. */
+/** The dev server, with the card art pointing at the harness and a made-up Google client id. */
 export async function startDevServer(port) {
     const origin = `http://127.0.0.1:${port}`;
-    const server = await startVite(['--host', '127.0.0.1', '--port', String(port), '--strictPort'], origin, { VITE_CARD_ART_BASE_URL: CARD_ART });
+    const server = await startVite(['--host', '127.0.0.1', '--port', String(port), '--strictPort'], origin, {
+        VITE_CARD_ART_BASE_URL: CARD_ART,
+        VITE_GOOGLE_CLIENT_ID: GOOGLE_CLIENT_ID,
+    });
     return { server, origin };
 }
 
-/** Every request of the page: card art and the API from fixtures, the app from Vite, nothing else. */
+/**
+ * Every request of the page: card art and the API from fixtures, Google's script from its stub (P-4), the app from
+ * Vite, nothing else.
+ */
 function answer(route, table, unanswered, origin) {
     const request = route.request();
     const url = new URL(request.url());
@@ -103,6 +113,9 @@ function answer(route, table, unanswered, origin) {
         const file = join(CARDS_DIR, basename(decodeURIComponent(url.pathname)));
         if (existsSync(file)) return route.fulfill({ status: 200, contentType: 'image/png', body: readFileSync(file) });
         return route.fulfill({ status: 404, body: '' });
+    }
+    if (url.href === GOOGLE_SCRIPT) {
+        return route.fulfill({ status: 200, contentType: 'text/javascript', body: readFileSync(join(VISUAL, 'google-stub.js')) });
     }
     if (url.origin !== origin) return route.abort();
     if (url.pathname === '/ws' || url.pathname.startsWith('/ws/')) return route.abort();

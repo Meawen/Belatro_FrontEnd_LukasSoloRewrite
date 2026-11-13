@@ -19,7 +19,9 @@ afterEach(() => {
 // copied from backend exceptions/ErrorCodes.java at 7592319 (B3 added USERNAME_RESERVED, B4 added IN_GAME and GUEST_ONLY),
 // plus ALREADY_IN_GAME, B5's code for "You already have a game in progress" (Ruling 4: its line lands before B5 commits),
 // and at 00f0401 (B7 added SIGNUP_FULL, INVITE_LINK_INVALID, WAITLIST_LINK_INVALID and CAP_INVALID),
-// and at 33aab9b (B9 added GUIDE_EVENT_INVALID);
+// and at 33aab9b (B9 added GUIDE_EVENT_INVALID),
+// and at dedeed0 (Google sign-in B1 added GOOGLE_INVALID, GOOGLE_EMAIL_UNVERIFIED and GOOGLE_EMAIL_IN_USE; GOOGLE_TAKEN and
+// NO_PASSWORD land with B3, their lines first, as ALREADY_IN_GAME's did);
 // a later task that adds a code adds it here and a line in both catalogs (Ruling 4)
 const BACKEND_CODES = [
     'SESSION_EXPIRED', 'UNAUTHENTICATED', 'BAD_CREDENTIALS', 'WRONG_PASSWORD', 'ACCESS_DENIED', 'RATE_LIMITED',
@@ -33,6 +35,7 @@ const BACKEND_CODES = [
     'BOTS_CASUAL_ONLY', 'NO_BOT_FREE', 'NO_SEAT_TO_FILL', 'ALREADY_QUEUED', 'DECLINE_TOO_LATE', 'HOST_ONLY',
     'DECLINE_COOLDOWN', 'NOT_A_PARTICIPANT', 'USER_NOT_FOUND', 'FRIENDSHIP_NOT_FOUND', 'MATCH_NOT_FOUND', 'SORT_UNKNOWN',
     'VALIDATION', 'ALREADY_IN_GAME', 'GUIDE_EVENT_INVALID',
+    'GOOGLE_INVALID', 'GOOGLE_EMAIL_UNVERIFIED', 'GOOGLE_EMAIL_IN_USE', 'GOOGLE_TAKEN', 'NO_PASSWORD',
 ]
 
 // copied from backend ErrorCodesTest.STOMP_SENTENCES / STOMP_PREFIXES (a prefix followed by a game id)
@@ -62,7 +65,7 @@ describe("server errors in the site's language (spec §1.1, §8)", () => {
     test('every code the backend sends, and every game refusal, has a line in both catalogs, and nothing else does', async () => {
         const { en, hr } = await load()
         const expected = [...new Set([...BACKEND_CODES, ...STOMP.map(([, code]) => code)])].sort()
-        expect(expected).toHaveLength(68)
+        expect(expected).toHaveLength(73)
         expect(Object.keys(en.errors.codes).sort()).toEqual(expected)
         expect(Object.keys(hr.errors.codes).sort()).toEqual(expected)
     })

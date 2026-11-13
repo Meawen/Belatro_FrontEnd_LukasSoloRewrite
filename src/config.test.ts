@@ -71,3 +71,19 @@ describe('config: card art (spec §3.6; P-4)', () => {
         expect(config.CARD_ART_BASE_URL).toBe('https://cards.example.test/v1')
     })
 })
+
+describe('config: Google sign-in (Google sign-in spec §6.2, §6.3)', () => {
+    test('VITE_GOOGLE_CLIENT_ID is optional: unset, empty or blank means no Google anywhere', async () => {
+        const { googleClientId } = await import('./config')
+        for (const raw of [undefined, '', '   ']) {
+            vi.stubEnv('VITE_GOOGLE_CLIENT_ID', raw)
+            expect(googleClientId(), String(raw)).toBeNull()
+        }
+    })
+
+    test('a client id is read when asked, without spaces', async () => {
+        const { googleClientId } = await import('./config')
+        vi.stubEnv('VITE_GOOGLE_CLIENT_ID', ' client-1.apps.googleusercontent.com ')
+        expect(googleClientId()).toBe('client-1.apps.googleusercontent.com')
+    })
+})

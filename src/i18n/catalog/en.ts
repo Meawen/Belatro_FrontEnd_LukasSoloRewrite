@@ -224,6 +224,17 @@ export const en = {
             joinedBefore: 'If this address can join the waitlist, a link to confirm it is on its way to',
             joinedAfter: ". Check your inbox (and spam) and confirm it within 7 days. When a place opens, we'll email you a signup link.",
         },
+        // "Continue with Google" (Google sign-in spec §2, §6.3) on /login and on /signup's open form, under the heading
+        // (GoogleButton): Google draws its own button in its own words; these are the lines around it
+        google: {
+            // the divider between Google's button and the form
+            or: 'or',
+            // in the button's place when Google's script is blocked, fails to load or has no answer in 10 s, and when the
+            // server has Google sign-in off (404); common.retry's button under it loads the script again
+            failed: "Google sign-in didn't open. Try again, or use your name and password.",
+            // /login only, under errors.codes.GOOGLE_EMAIL_UNVERIFIED: the link to /signup
+            formLink: 'Sign up with the form',
+        },
         // /forgot-password (ForgotPasswordPage)
         forgot: {
             heading: 'Forgot your password?',
@@ -1633,6 +1644,12 @@ export const en = {
             NOTHING_TO_CONFIRM: "There's no email address waiting to be confirmed.",
             EMAIL_UNCHANGED: 'That is already your email address',
             PASSWORD_BLANK: 'Type a new password.',
+            // Google sign-in (spec §3, §5, §8): the button's refusals under it; GOOGLE_TAKEN and NO_PASSWORD are Settings' (B3)
+            GOOGLE_INVALID: "Google sign-in didn't go through. Try Google again.",
+            GOOGLE_EMAIL_UNVERIFIED: "Google hasn't confirmed this address. Sign up with the form instead.",
+            GOOGLE_EMAIL_IN_USE: 'This email already belongs to a Stiglja account. Sign in to it with its password, or with the Google account connected to it; then you can connect Google in Settings.',
+            GOOGLE_TAKEN: 'This Google account is connected to another Stiglja account. Sign in to that account, or use another Google account.',
+            NO_PASSWORD: 'Set a password first. Until then, Google is your only way to sign in, so it stays connected.',
             // a form the server refused for a reason other than the two rules above
             VALIDATION: "Something you entered isn't valid. Check the form and try again.",
             // lists (players, admin)

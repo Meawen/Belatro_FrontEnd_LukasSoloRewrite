@@ -7,10 +7,12 @@ import { ApiError } from '../../services/api';
 import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
 import { EMAIL_PATTERN, passwordRuleError, usernameRuleError } from './credentialRules';
 import { AUTH_LINK } from './AuthFrame';
+import { GoogleSignIn } from './GoogleButton';
 import { useReturnState } from './returnState';
 import { cat, useT } from '../../i18n/t';
 import { WaitlistForm } from './WaitlistForm';
 import { useSignupStatus } from '../../hooks/useSignupStatus';
+import { peekPendingGoogle } from '../../services/googleSignIn';
 
 export interface SignupFormProps {
     onSuccess?: () => void;
@@ -41,8 +43,9 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     const invite = (searchParams.get('invite') ?? '').trim();
     // with a personal link the open form's state doesn't matter (B7), so nothing is asked
     const status = useSignupStatus(!invite);
-    // the form turned into the waitlist after a submit: full meanwhile, or a dead link while full; the line says which
-    const [waitlistNotice, setWaitlistNotice] = useState<string | null>(null);
+    // the form turned into the waitlist after a submit or Google's answer (Google sign-in A-8): full meanwhile, or a dead
+    // link while full; the line says which, and the address is the one typed, or Google's
+    const [waitlist, setWaitlist] = useState<{ notice: string; email: string } | null>(null);
     // the check-inbox panel replaces the form that had focus: focus moves to its heading, where reading starts again
     const inboxHeading = useRef<HTMLHeadingElement>(null);
     useEffect(() => {
@@ -123,7 +126,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
             const code = error instanceof ApiError ? error.code : undefined;
             // spec §2.2, §8: full meanwhile (Review focus 2), or a dead personal link while full: the waitlist, saying which
             if (code === 'SIGNUP_FULL' || code === 'INVITE_LINK_INVALID') {
-                setWaitlistNotice(errorMessage(error, cat().errors.generic));
+                setWaitlist({ notice: errorMessage(error, cat().errors.generic), email: formData.email.trim() });
                 return;
             }
             // Ruling 5: at signup, IN_GAME is a guest keeping its own name while still seated, not a rename (its catalog line)
@@ -151,8 +154,9 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         );
     }
 
-    if (waitlistNotice !== null) return <WaitlistForm initialEmail={formData.email.trim()} notice={waitlistNotice} />;
-    if (status === 'full') return <WaitlistForm />;
+    if (waitlist !== null) return <WaitlistForm initialEmail={waitlist.email} notice={waitlist.notice} />;
+    // Google at the cap on /login came here with its address (A-8)
+    if (status === 'full') return <WaitlistForm initialEmail={peekPendingGoogle()?.email} />;
     if (status === 'asking') return <Loader text={t.common.loading} />;
 
     return (
@@ -161,6 +165,12 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
                 <h1 className="t-title">{t.auth.signUp.createAccount}</h1>
                 <p className="t-callout mt-2 text-text-2">{invite ? t.auth.signUp.inviteSubtitle : t.auth.signUp.subtitle}</p>
             </div>
+
+            <GoogleSignIn
+                onSignedIn={() => onSuccess?.()}
+                waitlistToken={invite || undefined}
+                onWaitlist={(notice, email) => setWaitlist({ notice, email })}
+            />
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <Input

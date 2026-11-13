@@ -3,7 +3,7 @@ import { SupportEmailLink } from '../../components/layout/LegalLinks';
 
 /** The privacy notice in English (spec §1.2): legal text; the owner reviews it with the Croatian (R1). */
 export const doc: LegalDoc = {
-    updated: 'Last updated: October 2026.',
+    updated: 'Last updated: November 2026.',
     intro: 'This notice explains what Stiglja, a beta of the card game Belot, does with your personal data.',
     sections: [
         {
@@ -23,6 +23,14 @@ export const doc: LegalDoc = {
                         <strong>Your account:</strong> your username, your email address (and a new address
                         while it waits for confirmation) and your password, which we store only as a one-way
                         hash that cannot be turned back into the password.
+                    </li>
+                    <li>
+                        <strong>If you use Google sign-in:</strong> Google gives us your Google account's id, your email address and
+                        whether Google has confirmed it. We keep the id with your account and, for an account you make with Google,
+                        the address as your account's email. We never get your Google password, and we don't keep your Google name
+                        or photo. What Google does is covered by{' '}
+                        <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2 hover:text-text">Google's privacy policy</a>.
+                        You can disconnect Google in Settings once your account has a password.
                     </li>
                     <li>
                         <strong>Your language:</strong> the language you choose for the site, Croatian or English. Your browser keeps
@@ -143,8 +151,8 @@ export const doc: LegalDoc = {
                         </li>
                         <li>A guest: removed 30 days after it was last used, never in the middle of a game.</li>
                         <li>
-                            When we remove a guest or an unconfirmed account, we replace its name and delete its email address and
-                            password. Its games stay in the other players' match history, where it shows as "Guest".
+                            When we remove a guest or an unconfirmed account, we replace its name and delete its email address, its
+                            password and its connection to a Google account. Its games stay in the other players' match history, where it shows as "Guest".
                         </li>
                         <li>
                             A waitlist address: deleted if it is not confirmed within 7 days. A confirmed address stays until you

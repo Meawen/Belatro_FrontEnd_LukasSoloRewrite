@@ -67,8 +67,18 @@ describe('Rules, Privacy and Terms (spec §4.15)', () => {
             // spec §9 (B9, S15): the waitlist link counts, and the guide's counts carry no one's identity
             'how many guests signed up, and how many waitlist signup links were sent and used. These are numbers only.',
             "the server only adds one to that day's total and does not record who you are.",
+            // Google sign-in spec §7, and A-13: the date, and a removed account's Google connection
+            'Last updated: November 2026.',
+            "If you use Google sign-in: Google gives us your Google account's id, your email address and whether Google has confirmed it.",
+            "We keep the id with your account and, for an account you make with Google, the address as your account's email.",
+            "We never get your Google password, and we don't keep your Google name or photo.",
+            "What Google does is covered by Google's privacy policy.",
+            'You can disconnect Google in Settings once your account has a password.',
+            'When we remove a guest or an unconfirmed account, we replace its name and delete its email address, its password and its connection to a Google account.',
         ]) expect(en, text).toContain(text)
         expect(en).not.toMatch(/invite/i)
+        expect(screen.getByRole('link', { name: "Google's privacy policy" })).toHaveAttribute('href', 'https://policies.google.com/privacy')
+        expect(screen.getByRole('link', { name: "Google's privacy policy" })).toHaveAttribute('target', '_blank')
         cleanup()
 
         const hr = read((await renderIn('hr', PrivacyPage, 'Tko vodi Stiglju')).container)
@@ -86,8 +96,16 @@ describe('Rules, Privacy and Terms (spec §4.15)', () => {
             'IP adrese i e-adrese upisane u Red za stol koje držimo u memoriji poslužitelja radi ograničavanja pokušaja: iz memorije ih brišemo unutar otprilike sat vremena i pri svakom ponovnom pokretanju poslužitelja.',
             'koliko se gostiju registriralo te koliko je poveznica za registraciju iz Reda za stol poslano i iskorišteno. To su samo brojevi.',
             'poslužitelj samo povećava dnevni zbroj za jedan i ne bilježi tko si.',
+            'Zadnja izmjena: studeni 2026.',
+            'Ako koristiš prijavu putem Googlea: Google nam šalje ID tvojeg Google računa, tvoju e-adresu i podatak je li je Google potvrdio.',
+            'Uz račun čuvamo taj ID, a ako račun izradiš putem Googlea, i tu adresu kao e-adresu računa.',
+            'Tvoju lozinku za Google nikad ne dobivamo, a ime i fotografiju s Google računa ne čuvamo.',
+            'Za ono što radi Google vrijede Googleova pravila o privatnosti.',
+            'Google možeš odspojiti u Postavkama kad tvoj račun ima lozinku.',
+            'Kad uklonimo gosta ili nepotvrđeni račun, zamijenimo mu ime te obrišemo e-adresu, lozinku i vezu s Google računom.',
         ]) expect(hr, text).toContain(text)
         expect(hr).not.toMatch(/pozivn/i)
+        expect(screen.getByRole('link', { name: 'Googleova pravila o privatnosti' })).toHaveAttribute('href', 'https://policies.google.com/privacy?hl=hr')
     })
 
     test('Terms: open signup, the waitlist, guests and the 7-day rule; no invite code', async () => {

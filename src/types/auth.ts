@@ -31,3 +31,24 @@ export interface JwtResponseDTO {
     /** Ruling 32 (B4): the guest's secret, only in POST /api/auth/guest's answer; it signs the guest back in. */
     guestSecret?: string | null;
 }
+
+/** Google sign-in spec §6.2: POST /api/auth/google's body (B1's GoogleSignInRequest). */
+export interface GoogleSignInRequest {
+    /** Google's ID token, from its button: never logged, never stored (P-1). */
+    credential: string;
+    /** The language the site is in: a new account starts in it. */
+    language: Lang;
+    /** /signup?invite=…'s token: a new account is admitted even while signup is full. */
+    waitlistToken?: string;
+}
+
+/** POST /api/auth/google's answer (B1's GoogleSignInDTO, nulls left out): signed in, or a new account needs a name. */
+export interface GoogleSignInDTO {
+    /** Signed in: the login response's token and user (`user.guest` false). */
+    token?: string;
+    user?: UserLoginDetailsDTO;
+    /** True: no account yet; the name step comes next (S2). */
+    needsName: boolean;
+    /** With needsName: the new account's address, as the server normalised it. */
+    email?: string;
+}

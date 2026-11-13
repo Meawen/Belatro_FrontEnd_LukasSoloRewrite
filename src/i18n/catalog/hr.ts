@@ -164,6 +164,11 @@ export const hr = {
             joinedBefore: 'Ako se ova adresa može upisati u Red za stol, poveznica za potvrdu stiže na',
             joinedAfter: '. Provjeri poštu (i mapu neželjene pošte) i potvrdi adresu u roku od 7 dana. Kad se oslobodi mjesto, poslat ćemo ti poveznicu za registraciju.',
         },
+        google: {
+            or: 'ili',
+            failed: 'Prijava putem Googlea nije se otvorila. Pokušaj ponovno ili koristi korisničko ime i lozinku.',
+            formLink: 'Registriraj se putem obrasca',
+        },
         forgot: {
             heading: 'Zaboravljena lozinka?',
             sent: 'Ako ta adresa ima račun, poslali smo poveznicu za novu lozinku. Poveznica vrijedi 15 minuta.',
@@ -1248,6 +1253,11 @@ export const hr = {
             NOTHING_TO_CONFIRM: 'Nema e-adrese koja čeka potvrdu.',
             EMAIL_UNCHANGED: 'To je već tvoja e-adresa.',
             PASSWORD_BLANK: 'Upiši novu lozinku.',
+            GOOGLE_INVALID: 'Prijava putem Googlea nije uspjela. Pokušaj još jednom s Googleom.',
+            GOOGLE_EMAIL_UNVERIFIED: 'Google nije potvrdio ovu e-adresu. Umjesto toga registriraj se putem obrasca.',
+            GOOGLE_EMAIL_IN_USE: 'Ova e-adresa već pripada računu na Stiglji. Prijavi se u taj račun lozinkom ili Google računom koji je s njim povezan, a zatim Google možeš povezati u Postavkama.',
+            GOOGLE_TAKEN: 'Ovaj Google račun već je povezan s drugim računom na Stiglji. Prijavi se u taj račun ili upotrijebi drugi Google račun.',
+            NO_PASSWORD: 'Najprije postavi lozinku. Dotad ti je Google jedini način prijave pa ostaje povezan.',
             VALIDATION: 'Nešto od upisanog nije ispravno. Provjeri obrazac i pokušaj ponovno.',
             PAGE_INVALID: 'Ta stranica popisa ne postoji. Vrati se na prvu stranicu.',
             SEARCH_INVALID: 'U pretrazi je znak koji nije dopušten. Makni ga i pokušaj ponovno.',

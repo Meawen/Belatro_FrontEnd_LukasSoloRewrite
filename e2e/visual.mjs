@@ -6,6 +6,8 @@
 // What it does
 //   - Starts the Vite dev server itself (127.0.0.1, --port, strict: a busy port fails the run), with
 //     VITE_CARD_ART_BASE_URL pointing at a made-up host that the harness answers, and stops it at the end.
+//     It also sets a made-up VITE_GOOGLE_CLIENT_ID, so the auth pages show Google's button, and answers Google's
+//     script (the one other host it lets through) with e2e/visual/google-stub.js: a fixed 240×40 box (P-4).
 //   - Launches headless Chromium through playwright-core 1.62.1, installed OUTSIDE this repo (it is not
 //     a project dependency), the way e2e/gameplay.mjs loads it:
 //       PLAYWRIGHT_CORE_DIR=<dir>/node_modules/playwright-core node e2e/visual.mjs …

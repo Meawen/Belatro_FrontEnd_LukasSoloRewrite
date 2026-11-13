@@ -3,7 +3,7 @@ import { SupportEmailLink } from '../../components/layout/LegalLinks';
 
 /** The privacy notice in Croatian (spec §1.2): legal text, a draft for the owner's review (R1). */
 export const doc: LegalDoc = {
-    updated: 'Zadnja izmjena: listopad 2026.',
+    updated: 'Zadnja izmjena: studeni 2026.',
     intro: 'Ova obavijest objašnjava što Stiglja, beta-inačica kartaške igre bele, radi s tvojim osobnim podacima.',
     sections: [
         {
@@ -22,6 +22,14 @@ export const doc: LegalDoc = {
                     <li>
                         <strong>Tvoj račun:</strong> korisničko ime, e-adresu (i novu adresu dok čeka potvrdu) i lozinku, koju čuvamo
                         samo kao jednosmjerni sažetak (hash) iz kojeg se lozinka ne može vratiti.
+                    </li>
+                    <li>
+                        <strong>Ako koristiš prijavu putem Googlea:</strong> Google nam šalje ID tvojeg Google računa, tvoju e-adresu i
+                        podatak je li je Google potvrdio. Uz račun čuvamo taj ID, a ako račun izradiš putem Googlea, i tu adresu kao
+                        e-adresu računa. Tvoju lozinku za Google nikad ne dobivamo, a ime i fotografiju s Google računa ne čuvamo. Za
+                        ono što radi Google vrijede{' '}
+                        <a href="https://policies.google.com/privacy?hl=hr" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2 hover:text-text">Googleova pravila o privatnosti</a>.
+                        Google možeš odspojiti u Postavkama kad tvoj račun ima lozinku.
                     </li>
                     <li>
                         <strong>Tvoj jezik:</strong> jezik koji odabereš za stranicu, hrvatski ili engleski. Preglednik ga pamti na
@@ -138,7 +146,8 @@ export const doc: LegalDoc = {
                         </li>
                         <li>Gost: uklanjamo ga 30 dana nakon što je zadnji put korišten, ali nikad usred partije.</li>
                         <li>
-                            Kad uklonimo gosta ili nepotvrđeni račun, zamijenimo mu ime te obrišemo e-adresu i lozinku. Njegove
+                            Kad uklonimo gosta ili nepotvrđeni račun, zamijenimo mu ime te obrišemo e-adresu, lozinku i vezu s Google
+                            računom. Njegove
                             partije ostaju u zapisnicima drugih igrača, gdje se prikazuje kao „Gost”.
                         </li>
                         <li>
