@@ -73,6 +73,11 @@ describe('config: card art (spec §3.6; P-4)', () => {
 })
 
 describe('config: Google sign-in (Google sign-in spec §6.2, §6.3)', () => {
+    test('a test never sees a local client id: .env.local loads in test mode too, so src/test/setup.ts pins it blank', async () => {
+        const { googleClientId } = await import('./config')
+        expect(googleClientId()).toBeNull()
+    })
+
     test('VITE_GOOGLE_CLIENT_ID is optional: unset, empty or blank means no Google anywhere', async () => {
         const { googleClientId } = await import('./config')
         for (const raw of [undefined, '', '   ']) {

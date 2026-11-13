@@ -3,14 +3,23 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { useAuth } from '../../hooks/useAuth';
-import { googleClientId } from '../../config';
 import { ApiError } from '../../services/api';
-import { emailFromCredential, loadGoogle, renderGoogleButton, setPendingGoogle } from '../../services/googleSignIn';
+import {
+    emailFromCredential,
+    googleButtonWidth,
+    googleClientId,
+    loadGoogle,
+    renderGoogleButton,
+    setPendingGoogle,
+} from '../../services/googleSignIn';
 import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
 import { getLang, useLang } from '../../i18n/lang';
 import { cat, useT } from '../../i18n/t';
 import { AUTH_LINK } from './AuthFrame';
 import { useReturnState } from './returnState';
+
+/** A drag-resize changes the slot's width on every frame: Google's button is drawn again once it has settled. */
+const SETTLE_MS = 150;
 
 export interface GoogleButtonProps {
     /** Google's answer: the ID token of the account picked in Google's window. */
@@ -38,10 +47,12 @@ export function GoogleButton({ onCredential }: GoogleButtonProps) {
         if (!clientId || failed || !el) return;
         let current = true;
         let drawnAt: number | null = null;
-        // A-2: at the slot's width. Google's button keeps the width it was drawn at, so it is drawn again when the slot's
-        // width changes (a phone turned), or the page would scroll sideways
+        let settling: ReturnType<typeof setTimeout> | undefined;
+        let observer: ResizeObserver | null = null;
+        // A-2: at the slot's width. Google's button keeps the width it was drawn at, so it is drawn again when the width
+        // it would get changes (a phone turned, a scrollbar came), or the page would scroll sideways
         const draw = () => {
-            const width = Math.floor(el.getBoundingClientRect().width);
+            const width = googleButtonWidth(el.getBoundingClientRect().width);
             if (width === drawnAt) return;
             drawnAt = width;
             try {
@@ -56,11 +67,21 @@ export function GoogleButton({ onCredential }: GoogleButtonProps) {
                 setFailed(true);
             }
         };
+        const drawWhenSettled = () => {
+            clearTimeout(settling);
+            settling = setTimeout(draw, SETTLE_MS);
+        };
         loadGoogle().then(
             () => {
                 if (!current) return;
                 draw();
-                window.addEventListener('resize', draw);
+                // the slot itself, where the browser can watch it; otherwise the window, whose size moves the slot's
+                if (typeof ResizeObserver === 'function') {
+                    observer = new ResizeObserver(drawWhenSettled);
+                    observer.observe(el);
+                } else {
+                    window.addEventListener('resize', drawWhenSettled);
+                }
             },
             () => {
                 if (current) setFailed(true);
@@ -68,7 +89,9 @@ export function GoogleButton({ onCredential }: GoogleButtonProps) {
         );
         return () => {
             current = false;
-            window.removeEventListener('resize', draw);
+            clearTimeout(settling);
+            observer?.disconnect();
+            window.removeEventListener('resize', drawWhenSettled);
         };
     }, [clientId, failed, lang]);
 

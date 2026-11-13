@@ -7,6 +7,9 @@ import type { Lang } from '../i18n/lang';
  * (P-1). The ID token and the address are never logged (spec §6.1), and never stored.
  */
 
+/** The client id, or null: no Google anywhere (src/config.ts reads it). The Google feature imports it from here. */
+export { googleClientId };
+
 /** Google Identity Services: the script that draws Google's button and hands over the ID token. */
 export const GSI_URL = 'https://accounts.google.com/gsi/client';
 
@@ -72,10 +75,15 @@ export function loadGoogle(): Promise<void> {
 let initialized: GoogleId | null = null;
 let handOver: (credential: string) => void = () => {};
 
+/** The width Google's button is drawn at for a slot `measured` px wide: whole pixels, 400 at most (Google's limit). */
+export function googleButtonWidth(measured: number): number {
+    return Math.min(400, Math.floor(measured));
+}
+
 /**
  * Draws Google's button into `el`, replacing what was there: "Continue with Google", in the site's language, `width`
- * wide (the slot's width; 400 at most, Google's own when 0). Google's answer goes to `onCredential`. Throws when Google
- * isn't loaded or there is no client id.
+ * wide (the slot's width, as googleButtonWidth; Google's own when 0). Google's answer goes to `onCredential`. Throws when
+ * Google isn't loaded or there is no client id.
  */
 export function renderGoogleButton(
     el: HTMLElement,
@@ -90,7 +98,7 @@ export function renderGoogleButton(
     }
     handOver = onCredential;
     el.replaceChildren();
-    const pixels = Math.min(400, Math.floor(width));
+    const pixels = googleButtonWidth(width);
     google.renderButton(el, {
         type: 'standard',
         theme: 'outline',

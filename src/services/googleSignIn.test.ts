@@ -3,6 +3,7 @@ import {
     GSI_URL,
     clearPendingGoogle,
     emailFromCredential,
+    googleClientId,
     loadGoogle,
     peekPendingGoogle,
     renderGoogleButton,
@@ -34,6 +35,15 @@ afterEach(() => {
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
     clearPendingGoogle()
+})
+
+describe('googleClientId (plan, SPA names: reachable from this module)', () => {
+    test('the client id, or null when VITE_GOOGLE_CLIENT_ID is unset or blank', () => {
+        vi.stubEnv('VITE_GOOGLE_CLIENT_ID', ' client-1.apps.googleusercontent.com ')
+        expect(googleClientId()).toBe('client-1.apps.googleusercontent.com')
+        vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '  ')
+        expect(googleClientId()).toBeNull()
+    })
 })
 
 describe('emailFromCredential (Google sign-in spec §4: the address, for display only)', () => {

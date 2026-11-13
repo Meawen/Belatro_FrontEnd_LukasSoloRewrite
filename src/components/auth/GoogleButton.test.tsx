@@ -188,18 +188,72 @@ describe('Continue with Google: where it shows (Google sign-in spec §2)', () =>
         expect(google.initialize).toHaveBeenCalledTimes(1)
     })
 
-    test("at the slot's width, and drawn again when that width changes, as when a phone turns (A-2)", async () => {
+    test("at the slot's width; with no ResizeObserver (jsdom), drawn again once a window resize that changed it settles (A-2)", async () => {
+        expect(typeof ResizeObserver).toBe('undefined')
         let width = 352
         vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({ width }) as DOMRect)
         const google = await withButton('/login')
         expect(google.renderButton).toHaveBeenLastCalledWith(expect.any(HTMLElement), expect.objectContaining({ width: '352' }))
+        vi.useFakeTimers()
+        // a phone turned: one resize, then the button at the new width once it has settled
         width = 295
         act(() => { window.dispatchEvent(new Event('resize')) })
+        expect(google.renderButton).toHaveBeenCalledTimes(1)
+        act(() => { vi.advanceTimersByTime(1000) })
         expect(google.renderButton).toHaveBeenCalledTimes(2)
         expect(google.renderButton).toHaveBeenLastCalledWith(expect.any(HTMLElement), expect.objectContaining({ width: '295' }))
         // the same width again: nothing to draw
-        act(() => { window.dispatchEvent(new Event('resize')) })
+        act(() => {
+            window.dispatchEvent(new Event('resize'))
+            vi.advanceTimersByTime(1000)
+        })
         expect(google.renderButton).toHaveBeenCalledTimes(2)
+    })
+
+    test("follows the slot itself through a ResizeObserver: one redraw at the new width once it settles, none for the same width (A-2)", async () => {
+        // the slot can narrow with no window resize, e.g. when a scrollbar comes as a refusal line makes the page taller
+        const observers: { callback: () => void; observed: Element[]; disconnect: ReturnType<typeof vi.fn> }[] = []
+        vi.stubGlobal('ResizeObserver', class {
+            callback: () => void
+            observed: Element[] = []
+            disconnect = vi.fn()
+            constructor(callback: () => void) {
+                this.callback = callback
+                observers.push(this)
+            }
+            observe(el: Element) { this.observed.push(el) }
+            unobserve() {}
+        })
+        let width = 352
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({ width }) as DOMRect)
+        const google = await withButton('/login')
+        expect(google.renderButton).toHaveBeenLastCalledWith(expect.any(HTMLElement), expect.objectContaining({ width: '352' }))
+        expect(observers).toHaveLength(1)
+        expect(observers[0].observed).toEqual([google.renderButton.mock.lastCall![0]])
+        vi.useFakeTimers()
+        const resized = (to: number) => {
+            width = to
+            act(() => observers[0].callback())
+        }
+        // a drag narrows the slot frame by frame: Google's iframe is made again once, at the last width
+        for (const to of [340, 320, 300]) resized(to)
+        expect(google.renderButton).toHaveBeenCalledTimes(1)
+        act(() => { vi.advanceTimersByTime(1000) })
+        expect(google.renderButton).toHaveBeenCalledTimes(2)
+        expect(google.renderButton).toHaveBeenLastCalledWith(expect.any(HTMLElement), expect.objectContaining({ width: '300' }))
+        // the same width: nothing to draw
+        resized(300)
+        act(() => { vi.advanceTimersByTime(1000) })
+        expect(google.renderButton).toHaveBeenCalledTimes(2)
+        // wider than Google allows: drawn at 400, and wider still is the same 400, so nothing more
+        resized(640)
+        act(() => { vi.advanceTimersByTime(1000) })
+        expect(google.renderButton).toHaveBeenLastCalledWith(expect.any(HTMLElement), expect.objectContaining({ width: '400' }))
+        resized(800)
+        act(() => { vi.advanceTimersByTime(1000) })
+        expect(google.renderButton).toHaveBeenCalledTimes(3)
+        cleanup()
+        expect(observers[0].disconnect).toHaveBeenCalled()
     })
 })
 
