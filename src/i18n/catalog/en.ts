@@ -458,6 +458,16 @@ export const en = {
             confirmDeletion: 'Confirm request',
             requestDeletion: 'Request account deletion',
             deletionFailed: 'Failed to request deletion',
+            // an account made with Google that has no password yet (Google sign-in spec §5.2): in place of the email and
+            // password buttons, and of the change-of-address sheet's form
+            passwordless: {
+                why: 'You sign in with Google, and your account has no password yet. Set a password first to change your email.',
+                // the button that mails the reset link to the confirmed address, and the line after it went
+                setPassword: 'Set a password',
+                linkSent: (address: string) => `A link to set your password is on its way to ${address}. It works for 15 minutes. Setting the password signs you out on every device, so sign in again afterwards.`,
+                // in the button's place while the address waits for its confirmation (the resend button is above)
+                confirmFirst: (address: string) => `We send the link to set a password only to a confirmed address. First confirm ${address} with the link we sent to it, then set your password here.`,
+            },
         },
         // the change-of-address sheet (ChangeEmailForm)
         changeEmail: {
@@ -482,6 +492,34 @@ export const en = {
             confirmNewPasswordPlaceholder: 'Repeat new password...',
             newPasswordRequired: 'New password is required',
             failed: 'Failed to change password',
+        },
+        // Google sign-in in the Account section (GoogleSection, Google sign-in spec §5), shown only with a client id: the
+        // status, connecting with the current password (settings.changeEmail.currentPassword) and Google's button, and
+        // disconnecting with an inline confirm. The refusals are errors.codes' lines
+        google: {
+            // the block's h3
+            heading: 'Google sign-in',
+            notConnected: 'Google: not connected',
+            connected: 'Google: connected',
+            // under "not connected", above `connect`, which opens the password field and Google's button
+            what: 'Connect your Google account to sign in with one tap.',
+            connect: 'Connect Google',
+            // the password field's hint
+            hint: 'Type your current password, then choose your Google account.',
+            // the status line after a connect or a disconnect
+            connectedNotice: 'Google is connected. You can now sign in with Google or with your password.',
+            disconnectedNotice: 'Google is disconnected.',
+            // the button, then its confirm: the question, `keep` and `confirmDisconnect`
+            disconnect: 'Disconnect Google',
+            disconnectQuestion: 'Disconnect Google? You will sign in with your username and password only.',
+            keep: 'Keep Google',
+            confirmDisconnect: 'Disconnect',
+            // connected with no password yet: no Disconnect; settings.account.passwordless.setPassword is above
+            onlyWayIn: 'Google is your only way to sign in, so it stays connected until you set a password.',
+            // the server has Google sign-in off (404)
+            unavailable: "Google sign-in isn't available right now. Try again later.",
+            // in Google's button's place when its script is blocked or fails; common.retry under it
+            didntOpen: "Google sign-in didn't open. Try again.",
         },
         // the Log out panel at the bottom of the page
         signedInAs: (username: string) => `Signed in as ${username}`,

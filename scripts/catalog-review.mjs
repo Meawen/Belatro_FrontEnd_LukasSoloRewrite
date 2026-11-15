@@ -15,6 +15,8 @@ export const SAMPLES = {
     'shell.unverified.removeBy': [['6. studenoga 2026.']],
     'settings.account.pending': [['ana@example.com']],
     'settings.account.emailNotice': [['ana@example.com']],
+    'settings.account.passwordless.linkSent': [['ana@gmail.com']],
+    'settings.account.passwordless.confirmFirst': [['ana@firma.hr']],
     'settings.signedInAs': [['ana']],
     'friends.removeSheet.title': [['ana']],
     'friends.removeSheet.body': [['ana']],

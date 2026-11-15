@@ -24,6 +24,8 @@ const SETTLE_MS = 150;
 export interface GoogleButtonProps {
     /** Google's answer: the ID token of the account picked in Google's window. */
     onCredential: (credential: string) => void;
+    /** The line in the button's place when Google's script fails (A-4); by default spec §6.3's, which points to the form. */
+    failedLine?: string;
 }
 
 /**
@@ -32,7 +34,7 @@ export interface GoogleButtonProps {
  * nothing jumps. A script that is blocked, fails or has no answer in 10 s shows spec §6.3's line in the button's place,
  * with Try again (A-4). A closed or cancelled Google window shows nothing new: Google tells the page nothing then.
  */
-export function GoogleButton({ onCredential }: GoogleButtonProps) {
+export function GoogleButton({ onCredential, failedLine }: GoogleButtonProps) {
     const t = useT();
     const lang = useLang();
     const clientId = googleClientId();
@@ -99,7 +101,7 @@ export function GoogleButton({ onCredential }: GoogleButtonProps) {
     if (failed) {
         return (
             <div className="flex flex-col items-center gap-2">
-                <ErrorAlert message={t.auth.google.failed} className="w-full" />
+                <ErrorAlert message={failedLine ?? t.auth.google.failed} className="w-full" />
                 <Button variant="quiet" size="sm" onClick={() => setFailed(false)}>{t.common.retry}</Button>
             </div>
         );
