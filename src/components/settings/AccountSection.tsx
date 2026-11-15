@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Button, Panel, PixelIcon, Sheet } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { ResendConfirmationButton } from '../auth/ResendConfirmationButton';
@@ -187,6 +187,11 @@ function SetPassword({ me }: { me: UserDto }) {
     const [busy, setBusy] = useState(false);
     // stops a second click that lands before React re-renders the button as busy
     const sending = useRef(false);
+    // the busy button is disabled, so focus left it: the answer takes it and is read, as Google's block's notice is
+    const lineRef = useRef<HTMLParagraphElement>(null);
+    useEffect(() => {
+        lineRef.current?.focus();
+    }, [line]);
 
     const send = async (to: string) => {
         if (sending.current) return;
@@ -215,7 +220,11 @@ function SetPassword({ me }: { me: UserDto }) {
                     <Button variant="secondary" leftIcon={<PixelIcon name="lock" />} loading={busy} onClick={() => void send(address)}>
                         {p.setPassword}
                     </Button>
-                    {line && <p role="status" className={`t-footnote ${line.failed ? 'text-danger-text' : 'text-success'}`}>{line.text}</p>}
+                    {line && (
+                        <p ref={lineRef} tabIndex={-1} role={line.failed ? 'alert' : 'status'} className={`t-footnote ${line.failed ? 'text-danger-text' : 'text-success'}`}>
+                            {line.text}
+                        </p>
+                    )}
                     {hint && <p className="t-footnote text-text-2">{hint}</p>}
                 </>
             ) : (

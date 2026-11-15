@@ -11,11 +11,12 @@ import {
     sameGoogleAccount,
     setPendingGoogle,
 } from '../../services/googleSignIn';
-import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
+import { errorMessage } from '../../utils/errorMessage';
 import { getLang } from '../../i18n/lang';
 import { cat, useT } from '../../i18n/t';
 import { usernameRuleError } from './credentialRules';
 import { GoogleButton } from './GoogleButton';
+import { googleRefusalLine } from './googleRefusal';
 import { TermsLine } from './TermsLine';
 import { useReturnState } from './returnState';
 
@@ -44,8 +45,11 @@ const ENDINGS = new Map<string, Ending>([
 ]);
 /** Refusals about the name (A-5, US-G5): under the field, as on the form. The server's rule sentence is one too. */
 const NAME_CODES = new Set(['USERNAME_TAKEN', 'USERNAME_RESERVED', 'IN_GAME']);
-/** Where focus goes once an answer is drawn: the field whose note now says why, the alert, or the control in the button's place. */
-type FocusTarget = 'field' | 'alert' | 'next';
+/**
+ * Where focus goes once an answer is drawn: the field whose note now says why, the alert, the control in the button's
+ * place, or the "Signing up as" line when another Google account was picked.
+ */
+type FocusTarget = 'field' | 'alert' | 'next' | 'address';
 
 /**
  * Google's name step (Google sign-in spec §3.3, §8): /signup after Google said a new account needs a name. The Google
@@ -76,24 +80,27 @@ export function GoogleNameStep({ email, waitlistToken, onSuccess, onWaitlist, on
         heading.current?.focus();
     }, []);
     // a screen reader hears an answer only where focus goes: the field note isn't announced, and a pressed button can be
-    // replaced (Google's button, a next step) or disabled while busy. An answer asks for a target; the next render moves there
+    // replaced (Google's button, a next step) or disabled while busy. An answer asks for a target; a new object each
+    // time, so the same answer twice (Enter on a name that still breaks the rule) moves focus again
     const field = useRef<HTMLInputElement>(null);
     const alertBox = useRef<HTMLDivElement>(null);
     const nextControl = useRef<HTMLButtonElement>(null);
-    const focusAfter = useRef<FocusTarget | null>(null);
+    const addressLine = useRef<HTMLParagraphElement>(null);
+    const [focusTo, setFocusTo] = useState<{ target: FocusTarget } | null>(null);
     useEffect(() => {
-        const target = focusAfter.current;
-        if (target === null) return;
-        focusAfter.current = null;
-        ({ field, alert: alertBox, next: nextControl })[target].current?.focus();
-    });
+        if (!focusTo) return;
+        const el = { field, alert: alertBox, next: nextControl, address: addressLine }[focusTo.target].current;
+        // the field's note is its description, read as it takes focus: after Enter in the field, focus leaves and comes back
+        if (el === document.activeElement) el?.blur();
+        el?.focus();
+    }, [focusTo]);
+    const focus = (target: FocusTarget) => setFocusTo({ target });
 
     const trimmed = name.trim();
     const ruleLine = check === 'off' ? null : trimmed ? usernameRuleError(trimmed) : check === 'tried' ? t.forms.usernameRequired : null;
     const c = t.auth.google.name;
 
     const refused = (error: unknown) => {
-        const status = error instanceof ApiError ? error.status : 0;
         const code = error instanceof ApiError ? error.code : undefined;
         const line = errorMessage(error, cat().errors.generic);
         // spec §4, §8: no new account now; the waitlist, with the Google address in it
@@ -106,7 +113,7 @@ export function GoogleNameStep({ email, waitlistToken, onSuccess, onWaitlist, on
             // Ruling 5: at signup, IN_GAME is a guest keeping its own name while still seated
             setNameRefusal(code === 'IN_GAME' ? cat().auth.signUp.inGame : line);
             // the field's description is now the refusal, and it is read where focus lands
-            focusAfter.current = 'field';
+            focus('field');
             return;
         }
         const end = code === undefined ? undefined : ENDINGS.get(code);
@@ -117,11 +124,11 @@ export function GoogleNameStep({ email, waitlistToken, onSuccess, onWaitlist, on
             if (end) setEnding(end);
             else setExpired(true);
             // the next step has Make my account's place; Google's button is Google's iframe, so its line takes focus
-            focusAfter.current = end ? 'next' : 'alert';
+            focus(end ? 'next' : 'alert');
             return;
         }
         // worth another try: the name, the credential and the button stay. A 404 is a server with Google sign-in off (S1 A-5)
-        setAlert(isNetworkOrServerFailure(status) ? cat().errors.generic : status === 404 ? cat().auth.google.failed : line);
+        setAlert(googleRefusalLine(error, cat().auth.google.failed));
     };
 
     const send = async (credential: string) => {
@@ -161,7 +168,9 @@ export function GoogleNameStep({ email, waitlistToken, onSuccess, onWaitlist, on
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
-        if (sendingRef.current || !nameFits()) return;
+        if (sendingRef.current) return;
+        // the rule, now the field's error, is read there (from the field itself, after Enter, too)
+        if (!nameFits()) return focus('field');
         const pending = peekPendingGoogle();
         if (pending) void send(pending.credential);
         // nothing to send it with any more: Google again
@@ -174,13 +183,10 @@ export function GoogleNameStep({ email, waitlistToken, onSuccess, onWaitlist, on
         setPendingGoogle({ credential, email: emailFromCredential(credential) ?? email });
         setExpired(false);
         setAlert(null);
-        // another Google account: its address shows (SignupForm passes it on), and Make my account waits for a tap
-        if (!sameGoogleAccount(credential, email)) {
-            focusAfter.current = 'next';
-            return;
-        }
+        // another Google account: its address shows (SignupForm passes it on) and is read, and Make my account waits for a tap
+        if (!sameGoogleAccount(credential, email)) return focus('address');
         if (nameFits()) void send(credential);
-        else focusAfter.current = 'field';
+        else focus('field');
     };
 
     const next = ending === 'signIn' ? (
@@ -198,7 +204,7 @@ export function GoogleNameStep({ email, waitlistToken, onSuccess, onWaitlist, on
             <div className="mb-6 text-center">
                 <h1 ref={heading} tabIndex={-1} className="t-title">{c.heading}</h1>
                 {email && (
-                    <p className="t-callout mt-2 text-text-2">
+                    <p ref={addressLine} tabIndex={-1} className="t-callout mt-2 text-text-2">
                         {c.signingUpAs}{' '}<strong className="text-text wrap-anywhere">{email}</strong>
                     </p>
                 )}

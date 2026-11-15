@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { NeedsAccountPage } from './NeedsAccountPage'
@@ -7,7 +7,7 @@ import { AuthPage } from '../components/auth/AuthPage'
 import { ApiError } from '../services/api'
 import { clearPendingGoogle, peekPendingGoogle } from '../services/googleSignIn'
 import { setLang } from '../i18n/lang'
-import { CLIENT_ID, dropGoogleScripts, stubGoogle, tokenFor } from '../test/googleStub'
+import { CLIENT_ID, dropGoogleScripts, gsiScripts, stubGoogle, tokenFor } from '../test/googleStub'
 
 // a guest's browser: Google's two steps, through useAuth (their requests are useAuth.test's and authService.test's)
 const auth = vi.hoisted(() => ({ googleSignIn: vi.fn(), googleSignup: vi.fn(), signup: vi.fn() }))
@@ -161,6 +161,28 @@ describe('Continue with Google on the guest prompt (Google sign-in spec §2, P-2
         await user.click(signIn)
         expect(await screen.findByRole('heading', { level: 1, name: 'Sign-in page' })).toBeInTheDocument()
         expect(screen.getByTestId('where')).toHaveTextContent('/login {"from":"/friends"}')
+    })
+
+    test.each([
+        ["Google's script failing", async () => {
+            renderPrompt()
+            await waitFor(() => expect(gsiScripts()).toHaveLength(1))
+            act(() => { gsiScripts()[0].dispatchEvent(new Event('error')) })
+        }],
+        ['Google sign-in off on the server (a 404)', async () => {
+            auth.googleSignIn.mockRejectedValue(new ApiError({ status: 404, message: 'Not Found' }))
+            const google = stubGoogle(CREDENTIAL)
+            renderPrompt()
+            await screen.findByTestId('google-button')
+            await google.answer()
+        }],
+    ])('%s: a line that fits a guest, who has no form here and no password', async (_, fail) => {
+        await fail()
+        expect(await screen.findByRole('alert')).toHaveTextContent(/^Google sign-in didn't open\. Try again\.$/)
+        expect(screen.getByRole('alert')).not.toHaveTextContent(/password/)
+        // the page's own ways on stay
+        expect(screen.getByRole('button', { name: 'Sign up' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Play against bots as a guest' })).toBeInTheDocument()
     })
 
     test('signup full by the time Google answers: the waitlist at /signup with the Google address, carrying this page', async () => {

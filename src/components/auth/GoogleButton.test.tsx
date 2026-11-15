@@ -58,6 +58,9 @@ async function withButton(entry: InitialEntry, onSuccess = vi.fn()) {
 
 const refusal = (status: number, code?: string, message = 'refused') => new ApiError({ status, message, code })
 
+/** A request held open by the test, answered when it says so. */
+type Settle = { resolve: (value: unknown) => void; reject: (error: unknown) => void }
+
 beforeEach(() => {
     vi.clearAllMocks()
     vi.stubEnv('VITE_GOOGLE_CLIENT_ID', CLIENT_ID)
@@ -287,6 +290,60 @@ describe("Google's script blocked or failing (review focus 1, spec §6.3)", () =
         expect(await screen.findByTestId('google-button')).toBeInTheDocument()
         expect(google.renderButton).toHaveBeenCalledTimes(1)
     })
+
+    test('after "Try again" focus never drops to the page: on the slot while Google loads, on the line if it fails again', async () => {
+        const user = userEvent.setup()
+        renderAt('/login')
+        await waitFor(() => expect(gsiScripts()).toHaveLength(1))
+        act(() => { gsiScripts()[0].dispatchEvent(new Event('error')) })
+        await user.click(await screen.findByRole('button', { name: 'Try again' }))
+        // Try again went with the line: the slot Google's button comes in has the focus, out of the tab order
+        await waitFor(() => expect(gsiScripts()).toHaveLength(1))
+        const slot = document.activeElement as HTMLElement
+        expect(slot).not.toBe(document.body)
+        expect(slot.tagName).toBe('DIV')
+        expect(slot).toHaveAttribute('tabindex', '-1')
+        // it fails again: the line says so, and has the focus
+        act(() => { gsiScripts()[0].dispatchEvent(new Event('error')) })
+        const line = await screen.findByRole('alert')
+        await waitFor(() => expect(document.activeElement).toBe(line))
+        expect(line).toHaveTextContent(FAILED)
+        // and once more, now with Google there: its button is drawn in the focused slot
+        await user.click(screen.getByRole('button', { name: 'Try again' }))
+        await waitFor(() => expect(gsiScripts()).toHaveLength(1))
+        stubGoogle()
+        act(() => { gsiScripts()[0].dispatchEvent(new Event('load')) })
+        const button = await screen.findByTestId('google-button')
+        expect(document.activeElement).toBe(button.parentElement)
+    })
+
+    test("once Google's button came after a Try again, a later failure to draw it again moves no focus", async () => {
+        const user = userEvent.setup()
+        renderAt('/login')
+        await waitFor(() => expect(gsiScripts()).toHaveLength(1))
+        act(() => { gsiScripts()[0].dispatchEvent(new Event('error')) })
+        await user.click(await screen.findByRole('button', { name: 'Try again' }))
+        await waitFor(() => expect(gsiScripts()).toHaveLength(1))
+        const google = stubGoogle()
+        act(() => { gsiScripts()[0].dispatchEvent(new Event('load')) })
+        await screen.findByTestId('google-button')
+        await user.click(screen.getByLabelText('Username'))
+        // a language switch draws the button again, and this time Google fails to
+        google.renderButton.mockImplementation(() => { throw new Error('GSI_LOGGER: renderButton failed') })
+        act(() => setLang('hr'))
+        expect(await screen.findByRole('alert')).toBeInTheDocument()
+        expect(document.activeElement).toBe(screen.getByLabelText('Korisničko ime'))
+    })
+
+    test('a first failure moves no focus: only a Try again does', async () => {
+        const user = userEvent.setup()
+        renderAt('/login')
+        await user.click(screen.getByLabelText('Username'))
+        await waitFor(() => expect(gsiScripts()).toHaveLength(1))
+        act(() => { gsiScripts()[0].dispatchEvent(new Event('error')) })
+        await screen.findByRole('alert')
+        expect(document.activeElement).toBe(screen.getByLabelText('Username'))
+    })
 })
 
 describe("Google's answer (spec §1, §6.3, §8)", () => {
@@ -441,6 +498,27 @@ describe("Google's answer (spec §1, §6.3, §8)", () => {
         expect(onSuccess).not.toHaveBeenCalled()
         expect(screen.getByTestId('where')).toHaveTextContent('/login null')
         expect(google.renderButton).toHaveBeenCalledTimes(1)
+    })
+
+    test.each([
+        ['signed in', (settle: Settle) => settle.resolve(SIGNED_IN)],
+        ['refused', (settle: Settle) => settle.reject(refusal(401, 'GOOGLE_INVALID'))],
+    ])('once Google\'s window closed: the slot busy and "Signing in…" under it while the answer is on its way; both go when it comes (%s)', async (_, answerCame) => {
+        let settle!: Settle
+        auth.googleSignIn.mockReturnValueOnce(new Promise((resolve, reject) => { settle = { resolve, reject } }))
+        const google = await withButton('/login')
+        const slot = screen.getByTestId('google-button').parentElement!
+        // the line's place is a live region from the start, so the line is read as it comes
+        const live = screen.getByRole('status')
+        expect(live).toBeEmptyDOMElement()
+        expect(slot).not.toHaveAttribute('aria-busy')
+        await google.answer()
+        expect(slot).toHaveAttribute('aria-busy', 'true')
+        expect(live).toHaveTextContent(/^Signing in…$/)
+        expect(live.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+        await act(async () => answerCame(settle))
+        expect(slot).not.toHaveAttribute('aria-busy')
+        expect(screen.getByRole('status')).toBeEmptyDOMElement()
     })
 
     test('an answer while one is on its way is ignored; the next one clears the last line', async () => {

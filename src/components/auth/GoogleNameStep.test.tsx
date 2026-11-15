@@ -227,6 +227,52 @@ describe('the name step after Google (Google sign-in spec §3.3, §8 "Name step"
         await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1))
     })
 
+    /** Focus events on the name field from now on: focus that leaves and comes back is one more, a .focus() on it while focused none. */
+    const fieldFocusCount = () => {
+        const focused = vi.fn()
+        nameField().addEventListener('focus', focused)
+        return focused
+    }
+
+    test('Enter in the field, and a server refusal about the name: focus leaves the field and comes back, so its new note is read (US-G5)', async () => {
+        const user = userEvent.setup()
+        auth.googleSignup.mockRejectedValueOnce(refusal(409, 'USERNAME_TAKEN', 'Username is already taken'))
+        await openStep()
+        await user.type(nameField(), 'ana')
+        expect(document.activeElement).toBe(nameField())
+        const focused = fieldFocusCount()
+        await user.keyboard('{Enter}')
+        expect(auth.googleSignup).toHaveBeenCalledTimes(1)
+        await waitFor(() => expect(nameField()).toHaveAccessibleDescription(/^Username is already taken\./))
+        await waitFor(() => expect(focused).toHaveBeenCalledTimes(1))
+        expect(document.activeElement).toBe(nameField())
+    })
+
+    test('Enter in the field while the name breaks the rule: nothing goes out, and the rule is read, each time (A-5)', async () => {
+        const user = userEvent.setup()
+        await openStep()
+        await user.type(nameField(), 'ab')
+        const focused = fieldFocusCount()
+        await user.keyboard('{Enter}')
+        expect(nameField()).toHaveAccessibleDescription(RULE)
+        await waitFor(() => expect(focused).toHaveBeenCalledTimes(1))
+        // the rule already shows as its error, so nothing else changes: it is read again all the same
+        await user.type(nameField(), '.')
+        await user.keyboard('{Enter}')
+        await waitFor(() => expect(focused).toHaveBeenCalledTimes(2))
+        expect(document.activeElement).toBe(nameField())
+        expect(auth.googleSignup).not.toHaveBeenCalled()
+    })
+
+    test('a tap on Make my account while the name breaks the rule moves focus to the field, whose note is the rule', async () => {
+        const user = userEvent.setup()
+        await openStep()
+        await user.type(nameField(), 'ab')
+        await user.click(makeAccount())
+        await focusMovesTo(() => nameField())
+        expect(nameField()).toHaveAccessibleDescription(RULE)
+    })
+
     test('a double tap sends once', async () => {
         const user = userEvent.setup()
         auth.googleSignup.mockReturnValue(new Promise(() => {}))
@@ -310,7 +356,7 @@ describe('an expired Google token (review focus 4, spec §8)', () => {
         expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     })
 
-    test('another Google account picked in its window: nothing goes out, its address shows, and Make my account comes back (A-2)', async () => {
+    test('another Google account picked in its window: nothing goes out, its address shows and is read, and Make my account comes back (A-2)', async () => {
         const { user, google } = await expiredWith('jura')
         const ivo = tokenFor('ivo@gmail.com')
         await google.answer(ivo)
@@ -320,8 +366,10 @@ describe('an expired Google token (review focus 4, spec §8)', () => {
         expect(peekPendingGoogle()).toEqual({ credential: ivo, email: 'ivo@gmail.com' })
         expect(screen.queryByRole('alert')).not.toBeInTheDocument()
         expect(screen.queryByTestId('google-button')).not.toBeInTheDocument()
-        // back in Google's button's place, and focused
-        await focusMovesTo(() => makeAccount())
+        // the new address is what changed, so focus goes to its line; Make my account is back in Google's button's place
+        await focusMovesTo(() => screen.getByText(/^Signing up as/))
+        expect(document.activeElement).toHaveTextContent('Signing up as ivo@gmail.com')
+        expect(makeAccount()).toBeEnabled()
         auth.googleSignup.mockResolvedValueOnce(MEMBER)
         await user.click(makeAccount())
         expect(auth.googleSignup).toHaveBeenLastCalledWith({ credential: ivo, username: 'jura', language: 'en' })

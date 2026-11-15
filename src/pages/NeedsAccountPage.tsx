@@ -55,6 +55,8 @@ export function NeedsAccountPage({ area }: { area: LockedArea }) {
                                             onSignedIn={() => window.location.assign(safeReturnPath(here))}
                                             returnTo={{ from: here }}
                                             divider={false}
+                                            // no form here, and a guest has no password: the line without "or use your name and password"
+                                            failedLine={t.settings.google.didntOpen}
                                         />
                                     </div>
                                 )}

@@ -12,10 +12,11 @@ import {
     renderGoogleButton,
     setPendingGoogle,
 } from '../../services/googleSignIn';
-import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
+import { errorMessage } from '../../utils/errorMessage';
 import { getLang, useLang } from '../../i18n/lang';
 import { cat, useT } from '../../i18n/t';
 import { AUTH_LINK } from './AuthFrame';
+import { googleRefusalLine } from './googleRefusal';
 import { useReturnState, type ReturnState } from './returnState';
 
 /** A drag-resize changes the slot's width on every frame: Google's button is drawn again once it has settled. */
@@ -26,6 +27,8 @@ export interface GoogleButtonProps {
     onCredential: (credential: string) => void;
     /** The line in the button's place when Google's script fails (A-4); by default spec §6.3's, which points to the form. */
     failedLine?: string;
+    /** A credential from it is on its way to the server: the slot says so (aria-busy). */
+    busy?: boolean;
 }
 
 /**
@@ -34,7 +37,7 @@ export interface GoogleButtonProps {
  * nothing jumps. A script that is blocked, fails or has no answer in 10 s shows spec §6.3's line in the button's place,
  * with Try again (A-4). A closed or cancelled Google window shows nothing new: Google tells the page nothing then.
  */
-export function GoogleButton({ onCredential, failedLine }: GoogleButtonProps) {
+export function GoogleButton({ onCredential, failedLine, busy }: GoogleButtonProps) {
     const t = useT();
     const lang = useLang();
     const clientId = googleClientId();
@@ -43,6 +46,12 @@ export function GoogleButton({ onCredential, failedLine }: GoogleButtonProps) {
     const latest = useRef(onCredential);
     latest.current = onCredential;
     const [failed, setFailed] = useState(false);
+    // Try again goes with its line, so focus stays near: on the slot while Google loads, on the line if it fails again
+    const retried = useRef(false);
+    const alertBox = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (retried.current) (failed ? alertBox : slot).current?.focus();
+    }, [failed]);
 
     useEffect(() => {
         const el = slot.current;
@@ -65,6 +74,8 @@ export function GoogleButton({ onCredential, failedLine }: GoogleButtonProps) {
                         if (current) latest.current(credential);
                     },
                 });
+                // drawn: a later failure (a redraw) is no answer to a Try again, and takes no focus
+                retried.current = false;
             } catch {
                 setFailed(true);
             }
@@ -101,12 +112,21 @@ export function GoogleButton({ onCredential, failedLine }: GoogleButtonProps) {
     if (failed) {
         return (
             <div className="flex flex-col items-center gap-2">
-                <ErrorAlert message={failedLine ?? t.auth.google.failed} className="w-full" />
-                <Button variant="quiet" size="sm" onClick={() => setFailed(false)}>{t.common.retry}</Button>
+                <ErrorAlert ref={alertBox} message={failedLine ?? t.auth.google.failed} className="w-full" />
+                <Button
+                    variant="quiet"
+                    size="sm"
+                    onClick={() => {
+                        retried.current = true;
+                        setFailed(false);
+                    }}
+                >
+                    {t.common.retry}
+                </Button>
             </div>
         );
     }
-    return <div ref={slot} className="flex min-h-10 w-full justify-center" />;
+    return <div ref={slot} tabIndex={-1} aria-busy={busy || undefined} className="flex min-h-10 w-full justify-center" />;
 }
 
 export interface GoogleSignInProps {
@@ -127,13 +147,15 @@ export interface GoogleSignInProps {
     returnTo?: ReturnState;
     /** The "or" between Google's button and a form under it; the guest prompt has no form (S2 A-7). */
     divider?: boolean;
+    /** The line when Google's script fails or the server has Google sign-in off; by default the one that points to the form. */
+    failedLine?: string;
 }
 
 /**
  * "Continue with Google" above a sign-in or sign-up form (spec §2, A-3): Google's button, the line for a refusal under
  * it, then "or". Nothing without a client id, so no "or" stands alone. The guest prompt has it too, with no "or".
  */
-export function GoogleSignIn({ onSignedIn, waitlistToken, onWaitlist, returnTo, divider = true }: GoogleSignInProps) {
+export function GoogleSignIn({ onSignedIn, waitlistToken, onWaitlist, returnTo, divider = true, failedLine }: GoogleSignInProps) {
     const t = useT();
     const { googleSignIn } = useAuth();
     const navigate = useNavigate();
@@ -143,6 +165,8 @@ export function GoogleSignIn({ onSignedIn, waitlistToken, onWaitlist, returnTo, 
     const [refusal, setRefusal] = useState<{ line: string; link: 'form' | 'signIn' | null } | null>(null);
     // one answer at a time: Google's window can answer again before the first is through
     const sending = useRef(false);
+    // Google's window closed and its answer is on its way: the POST, then the account's own requests (enterAccount)
+    const [busy, setBusy] = useState(false);
 
     if (!googleClientId()) return null;
 
@@ -155,13 +179,13 @@ export function GoogleSignIn({ onSignedIn, waitlistToken, onWaitlist, returnTo, 
     const signIn = async (credential: string) => {
         if (sending.current) return;
         sending.current = true;
+        setBusy(true);
         setRefusal(null);
         try {
             const answer = await googleSignIn({ credential, language: getLang(), ...(waitlistToken ? { waitlistToken } : {}) });
             if (answer.needsName) toSignup(credential, answer.email ?? emailFromCredential(credential) ?? '');
             else onSignedIn();
         } catch (error) {
-            const status = error instanceof ApiError ? error.status : 0;
             const code = error instanceof ApiError ? error.code : undefined;
             // spec §4, §8: no new account now, so the waitlist, with the address from Google's token (for display only)
             if (code === 'SIGNUP_FULL' || code === 'INVITE_LINK_INVALID') {
@@ -177,20 +201,23 @@ export function GoogleSignIn({ onSignedIn, waitlistToken, onWaitlist, returnTo, 
                 }
             }
             setRefusal({
-                // A-5: a 404 is a server with Google sign-in off, so the line that points to the form
-                line: isNetworkOrServerFailure(status) ? cat().errors.generic : status === 404 ? cat().auth.google.failed : errorMessage(error, cat().errors.generic),
+                // A-5: a 404 is a server with Google sign-in off, so the script's line (by default the one that points to the form)
+                line: googleRefusalLine(error, failedLine ?? cat().auth.google.failed),
                 // A-12: spec §3.3's "and a link to it", where the sign-up form isn't on the page; spec §8's "Sign in with
                 // that account" where no sign-in is on the page: the guest prompt, the one caller with its own returnTo
                 link: code === 'GOOGLE_EMAIL_UNVERIFIED' && !onWaitlist ? 'form' : code === 'GOOGLE_EMAIL_IN_USE' && returnTo ? 'signIn' : null,
             });
         } finally {
             sending.current = false;
+            setBusy(false);
         }
     };
 
     return (
         <>
-            <GoogleButton onCredential={(credential) => void signIn(credential)} />
+            <GoogleButton onCredential={(credential) => void signIn(credential)} failedLine={failedLine} busy={busy} />
+            {/* a live region from the start, so the line is read as it comes; empty, it takes no room */}
+            <p role="status" className="t-footnote text-center text-text-2">{busy && <span className="mt-2 block">{t.auth.signIn.submitting}</span>}</p>
             {refusal && (
                 <div className="mt-3 flex flex-col items-center">
                     <ErrorAlert message={refusal.line} className="w-full" />

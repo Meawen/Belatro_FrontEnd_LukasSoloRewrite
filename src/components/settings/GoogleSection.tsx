@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, Input, PixelIcon } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { GoogleButton } from '../auth/GoogleButton';
+import { googleRefusalLine } from '../auth/googleRefusal';
 import { ApiError } from '../../services/api';
 import { googleClientId } from '../../services/googleSignIn';
 import { userService } from '../../services/userService';
-import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
 import { cat, useT } from '../../i18n/t';
 
 export interface GoogleSectionProps {
@@ -62,10 +62,7 @@ export function GoogleSection({ connected, passwordless, onChanged }: GoogleSect
     if (!googleClientId()) return null;
 
     // A-6: a 404 is a server with Google sign-in off, whose body has no code
-    const lineFor = (error: unknown) => {
-        const status = error instanceof ApiError ? error.status : 0;
-        return isNetworkOrServerFailure(status) ? cat().errors.generic : status === 404 ? cat().settings.google.unavailable : errorMessage(error, cat().errors.generic);
-    };
+    const lineFor = (error: unknown) => googleRefusalLine(error, cat().settings.google.unavailable);
 
     /** A connect or a disconnect went through: the new state and its line, and GET /user/me again (A-12). */
     const changed = (now: boolean, line: string) => {

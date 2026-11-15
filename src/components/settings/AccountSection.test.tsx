@@ -389,6 +389,25 @@ describe('Account: made with Google, no password yet (Google sign-in spec §5.2,
         expect(authService.forgotPassword).toHaveBeenCalledTimes(2)
     })
 
+    test('the answer takes focus, as the busy button lets it go: the sent line, a refusal line, and the sent line again (US-G11)', async () => {
+        const user = userEvent.setup()
+        vi.mocked(authService.forgotPassword)
+            .mockResolvedValueOnce(undefined)
+            .mockRejectedValueOnce(new ApiError({ status: 429, message: 'Too many requests, try again later', code: 'RATE_LIMITED' }))
+            .mockResolvedValueOnce(undefined)
+        mockMe(PASSWORDLESS)
+        renderAccount()
+        await user.click(setPassword())
+        await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('status')))
+        expect(document.activeElement).toHaveTextContent(SENT)
+        await user.click(setPassword())
+        await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('alert')))
+        expect(document.activeElement).toHaveTextContent('Too many tries. Wait a little, then try again.')
+        await user.click(setPassword())
+        await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('status')))
+        expect(document.activeElement).toHaveTextContent(SENT)
+    })
+
     test('one link at a time', async () => {
         let done = () => {}
         vi.mocked(authService.forgotPassword).mockImplementation(() => new Promise<void>((resolve) => { done = resolve }))
@@ -413,16 +432,18 @@ describe('Account: made with Google, no password yet (Google sign-in spec §5.2,
             .mockRejectedValueOnce(new ApiError({ status: 503, message: 'Service Unavailable' }))
         mockMe(PASSWORDLESS)
         renderAccount()
+        // a refusal is an alert, as Google's block's are
         await user.click(setPassword())
-        expect(await screen.findByRole('status')).toHaveTextContent('Too many tries. Wait a little, then try again.')
+        expect(await screen.findByRole('alert')).toHaveTextContent('Too many tries. Wait a little, then try again.')
         expect(screen.getByText('Wait a while, then try again.')).toBeInTheDocument()
         await user.click(setPassword())
-        expect(await screen.findByRole('status')).toHaveTextContent('We could not send the email. Try again.')
+        expect(await screen.findByRole('alert')).toHaveTextContent('We could not send the email. Try again.')
         expect(screen.queryByText('Wait a while, then try again.')).not.toBeInTheDocument()
         await user.click(setPassword())
         await waitFor(() => expect(authService.forgotPassword).toHaveBeenCalledTimes(3))
-        expect(screen.getByRole('status')).toHaveTextContent('We could not send the email. Try again.')
-        expect(screen.getByRole('status')).not.toHaveTextContent('Service Unavailable')
+        expect(screen.getByRole('alert')).toHaveTextContent('We could not send the email. Try again.')
+        expect(screen.getByRole('alert')).not.toHaveTextContent('Service Unavailable')
+        expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
 
     test("an address still waiting for its link: why the link can't go yet, the resend above, and no Set a password", async () => {
