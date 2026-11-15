@@ -99,7 +99,7 @@ export function AccountSection() {
             )}
 
             {me?.passwordless ? (
-                <SetPassword me={me} />
+                <SetPassword me={me} removeDay={removeDay} />
             ) : (
                 <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" leftIcon={<PixelIcon name="mail" />} onClick={() => setShowChangeEmail(true)}>
@@ -149,11 +149,17 @@ export function AccountSection() {
                 />
             </Sheet>
 
-            {/* passwordless, there is no form and so no Cancel: the sheet's own Close */}
-            <Sheet open={showChangeEmail} onClose={() => setShowChangeEmail(false)} title={emailAction} showClose={me?.passwordless === true}>
+            {/* passwordless, there is no form and so no Cancel: the sheet's own Close; and it offers no change of address,
+                so it is titled for what it does offer (the owner's R1, item 46) */}
+            <Sheet
+                open={showChangeEmail}
+                onClose={() => setShowChangeEmail(false)}
+                title={me?.passwordless ? t.settings.account.passwordless.setPassword : emailAction}
+                showClose={me?.passwordless === true}
+            >
                 {/* reached through the resend's "Add or change"; a change of address needs the password the account lacks */}
                 {me?.passwordless ? (
-                    <SetPassword me={me} />
+                    <SetPassword me={me} removeDay={removeDay} />
                 ) : (
                     <ChangeEmailForm
                         currentEmail={me?.email ?? null}
@@ -174,16 +180,16 @@ export function AccountSection() {
 /**
  * The email and password rows of an account made with Google with no password yet (Google sign-in spec §5.2, §8): why
  * both need a password, and Set a password, which mails the forgot-password link (its limits, no new route) to the
- * confirmed address. While the address still waits for its link, that comes first: the resend is in the address block.
+ * confirmed address. While the address still waits for its link, that comes first: the resend is in the address block,
+ * and the way on for an inbox its owner can't read, with `removeDay` (formatted, '' for none), is under it.
  */
-function SetPassword({ me }: { me: UserDto }) {
+function SetPassword({ me, removeDay }: { me: UserDto; removeDay: string }) {
     const t = useT();
     const p = t.settings.account.passwordless;
     // forgot-password mails only a confirmed address (A-11)
     const address = me.emailVerified ? me.email : null;
     const unconfirmed = me.pendingEmail ?? me.email;
     const [line, setLine] = useState<{ text: string; failed: boolean } | null>(null);
-    const [hint, setHint] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     // stops a second click that lands before React re-renders the button as busy
     const sending = useRef(false);
@@ -198,14 +204,13 @@ function SetPassword({ me }: { me: UserDto }) {
         sending.current = true;
         setBusy(true);
         setLine(null);
-        setHint(null);
         try {
             await authService.forgotPassword(to);
             setLine({ text: cat().settings.account.passwordless.linkSent(to), failed: false });
         } catch (error) {
             const status = error instanceof ApiError ? error.status : 0;
+            // a 429's line already says to wait (the owner's R1, item 45): no errors.waitAndRetry under it here
             setLine({ text: isNetworkOrServerFailure(status) ? cat().auth.resend.notSent : errorMessage(error, cat().errors.generic), failed: true });
-            if (status === 429) setHint(cat().errors.waitAndRetry);
         } finally {
             sending.current = false;
             setBusy(false);
@@ -225,10 +230,18 @@ function SetPassword({ me }: { me: UserDto }) {
                             {line.text}
                         </p>
                     )}
-                    {hint && <p className="t-footnote text-text-2">{hint}</p>}
                 </>
             ) : (
-                unconfirmed && <p className="t-callout text-accent">{p.confirmFirst(unconfirmed)}</p>
+                unconfirmed && (
+                    <>
+                        <p className="t-callout text-accent">{p.confirmFirst(unconfirmed)}</p>
+                        {/* the owner's R1 (item 47): no confirm, no link and no change of address, so the way on */}
+                        <p data-testid="no-access" className="t-footnote text-text-2">
+                            {p.noAccess}
+                            {removeDay && ` ${p.removedOn(removeDay)}`}
+                        </p>
+                    </>
+                )
             )}
         </div>
     );

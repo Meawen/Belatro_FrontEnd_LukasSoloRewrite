@@ -155,7 +155,7 @@ describe('the name step after Google (Google sign-in spec §3.3, §8 "Name step"
         await openStep('/signup?invite=tok-1')
         // a decomposed č (c + U+030C) passes the rule, which is checked in NFC; useAuth sends it in NFC (useAuth.test)
         await user.type(screen.getByLabelText('Korisničko ime'), 'Matič')
-        await user.click(screen.getByRole('button', { name: 'Izradi moj račun' }))
+        await user.click(screen.getByRole('button', { name: 'Izradi račun' }))
         expect(auth.googleSignup).toHaveBeenLastCalledWith({
             credential: CREDENTIAL, username: 'Matič', language: 'hr', waitlistToken: 'tok-1', wasGuest: true,
         })
@@ -310,7 +310,7 @@ describe('the name step after Google (Google sign-in spec §3.3, §8 "Name step"
         expect(screen.getByLabelText('Korisničko ime')).toHaveAccessibleDescription(
             'Korisničko ime mora imati 3–20 znakova: slova (uključujući č ć š ž đ), brojke ili donju crtu.')
         expect(screen.getByText(/Izradom računa prihvaćaš/)).toHaveTextContent('Izradom računa prihvaćaš Uvjete korištenja; pročitaj i Obavijest o privatnosti.')
-        expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Izradi moj račun', 'Registriraj se na drugi način'])
+        expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Izradi račun', 'Registriraj se na drugi način'])
         // gone before the language is reset after the test
         cleanup()
     })
@@ -450,7 +450,7 @@ describe('refusals no retry can fix (spec §3.3, §8; A-6)', () => {
     test.each([
         ['GOOGLE_EMAIL_IN_USE', refusal(409, 'GOOGLE_EMAIL_IN_USE'),
             'This email already belongs to a Stiglja account. Sign in to it with its password, or with the Google account connected to it; then you can connect Google in Settings.'],
-        ['INVITE_CODE_INVALID (the private beta, US-G18)', refusal(403, 'INVITE_CODE_INVALID'), 'Invalid invite code. Check it and try again.'],
+        ['INVITE_CODE_INVALID (the private beta, US-G18)', refusal(403, 'INVITE_CODE_INVALID'), "Signing up isn't open yet. You can play as a guest, or sign in if you already have an account."],
     ])('%s: its line, and Sign in in place of the field and Make my account; the credential goes', async (_, failure, line) => {
         const user = userEvent.setup()
         auth.googleSignup.mockRejectedValue(failure)

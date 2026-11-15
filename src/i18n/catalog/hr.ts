@@ -171,7 +171,7 @@ export const hr = {
             name: {
                 heading: 'Odaberi korisničko ime',
                 signingUpAs: 'Registriraš se s e-adresom',
-                submit: 'Izradi moj račun',
+                submit: 'Izradi račun',
                 back: 'Registriraj se na drugi način',
             },
         },
@@ -335,8 +335,11 @@ export const hr = {
             passwordless: {
                 why: 'Prijavljuješ se putem Googlea, a tvoj račun još nema lozinku. Najprije postavi lozinku pa ćeš moći promijeniti e-adresu.',
                 setPassword: 'Postavi lozinku',
-                linkSent: (address: string) => `Poveznica za postavljanje lozinke stiže na ${address}. Vrijedi 15 minuta. Kad postaviš lozinku, odjavit ćemo te na svim uređajima pa se ponovno prijavi.`,
+                linkSent: (address: string) => `Poveznica za postavljanje lozinke stiže na ${address}. Vrijedi 15 minuta. Kad postaviš lozinku, odjavit ćemo te sa svih uređaja. Zatim se ponovno prijavi.`,
                 confirmFirst: (address: string) => `Poveznicu za postavljanje lozinke šaljemo samo na potvrđenu adresu. Najprije potvrdi ${address} poveznicom koju smo ti poslali, a zatim ovdje postavi lozinku.`,
+                noAccess: 'Nemaš pristup ovoj adresi? Odjavi se i registriraj putem obrasca, s e-adresom kojoj imaš pristup.',
+                // the day's own dot (formatLongDate: "21. studenoga 2026.") ends the sentence
+                removedOn: (date: string) => `Ovaj račun brišemo ${date}`,
             },
         },
         changeEmail: {
@@ -1270,7 +1273,7 @@ export const hr = {
             ACCESS_DENIED: 'Za to nemaš dopuštenja.',
             RATE_LIMITED: 'Previše pokušaja. Pričekaj malo pa pokušaj ponovno.',
             SERVICE_UNAVAILABLE: 'Poslužitelj trenutno ne odgovara. Pokušaj ponovno za minutu.',
-            INVITE_CODE_INVALID: 'Pozivni kod nije ispravan. Provjeri ga i pokušaj ponovno.',
+            INVITE_CODE_INVALID: 'Registracija još nije otvorena. Možeš igrati kao gost ili se prijaviti ako već imaš račun.',
             USERNAME_TAKEN: 'To korisničko ime već je zauzeto. Imena koja se razlikuju samo po velikim i malim slovima ili po dijakritičkim znakovima (č ć š ž đ) smatraju se istim imenom. Odaberi drugo.',
             USERNAME_RESERVED: 'Imena koja počinju s obrisan_ rezervirana su. Odaberi drugo ime.',
             IN_GAME: 'Ime ne možeš mijenjati dok sjediš za stolom ili igraš partiju. Napusti stol ili dovrši partiju pa pokušaj ponovno.',

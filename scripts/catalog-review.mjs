@@ -17,6 +17,7 @@ export const SAMPLES = {
     'settings.account.emailNotice': [['ana@example.com']],
     'settings.account.passwordless.linkSent': [['ana@gmail.com']],
     'settings.account.passwordless.confirmFirst': [['ana@firma.hr']],
+    'settings.account.passwordless.removedOn': [['21. studenoga 2026.']],
     'settings.signedInAs': [['ana']],
     'friends.removeSheet.title': [['ana']],
     'friends.removeSheet.body': [['ana']],

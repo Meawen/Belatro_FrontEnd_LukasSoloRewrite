@@ -462,11 +462,16 @@ export const en = {
             // password buttons, and of the change-of-address sheet's form
             passwordless: {
                 why: 'You sign in with Google, and your account has no password yet. Set a password first to change your email.',
-                // the button that mails the reset link to the confirmed address, and the line after it went
+                // the button that mails the reset link to the confirmed address, and the line after it went; setPassword is
+                // also the title of the sheet the resend's "Add or change" opens (the owner's R1, item 46)
                 setPassword: 'Set a password',
                 linkSent: (address: string) => `A link to set your password is on its way to ${address}. It works for 15 minutes. Setting the password signs you out on every device, so sign in again afterwards.`,
                 // in the button's place while the address waits for its confirmation (the resend button is above)
                 confirmFirst: (address: string) => `We send the link to set a password only to a confirmed address. First confirm ${address} with the link we sent to it, then set your password here.`,
+                // the line under confirmFirst (the owner's R1, item 47): the way on when that inbox can't be read, then
+                // removedOn with the day the account goes (GET /user/me verifyBy, i18n/format formatLongDate) when it has one
+                noAccess: 'No access to this address? Sign out and sign up with the form, using an address you can read.',
+                removedOn: (date: string) => `This account is removed on ${date}.`,
             },
         },
         // the change-of-address sheet (ChangeEmailForm)
@@ -1682,7 +1687,9 @@ export const en = {
             ACCESS_DENIED: "You don't have permission to do that.",
             RATE_LIMITED: 'Too many tries. Wait a little, then try again.',
             SERVICE_UNAVAILABLE: "The server isn't answering right now. Try again in a minute.",
-            INVITE_CODE_INVALID: 'Invalid invite code. Check it and try again.',
+            // while the private beta's code is still set: at Google's button, in the name step and on the form, none of
+            // which has a code field any more, so the way on (the owner's R1, item 40)
+            INVITE_CODE_INVALID: "Signing up isn't open yet. You can play as a guest, or sign in if you already have an account.",
             USERNAME_TAKEN: 'Username is already taken. Names that differ only in capitals or in the marks on č ć š ž đ count as the same name. Choose another one.',
             // sign-up (and later a guest's new name): obrisan_… is the name a removed account gets
             USERNAME_RESERVED: 'Names starting with obrisan_ are reserved. Choose another one.',

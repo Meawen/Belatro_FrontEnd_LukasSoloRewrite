@@ -197,6 +197,17 @@ describe('the catalogs (spec §1.2)', () => {
             'Ova poveznica za registraciju ne vrijedi ili je istekla, a slobodnih mjesta trenutno nema. Ispod se ponovno upiši u Red za stol ili igraj kao gost.')
     })
 
+    test("the owner's R1 corrections to Google sign-in's copy (catalog-review items 40, 44)", () => {
+        // item 40: no code field is left where the private beta's refusal shows, so the way on, not "check it"
+        expect(hr.errors.codes.INVITE_CODE_INVALID).toBe('Registracija još nije otvorena. Možeš igrati kao gost ili se prijaviti ako već imaš račun.')
+        expect(en.errors.codes.INVITE_CODE_INVALID).toBe("Signing up isn't open yet. You can play as a guest, or sign in if you already have an account.")
+        // item 44, option A: the reset mail's "sa svih uređaja", and signing in again as its own sentence
+        expect(hr.settings.account.passwordless.linkSent('ana@gmail.com')).toBe(
+            'Poveznica za postavljanje lozinke stiže na ana@gmail.com. Vrijedi 15 minuta. Kad postaviš lozinku, odjavit ćemo te sa svih uređaja. Zatim se ponovno prijavi.')
+        expect(en.settings.account.passwordless.linkSent('ana@gmail.com')).toBe(
+            'A link to set your password is on its way to ana@gmail.com. It works for 15 minutes. Setting the password signs you out on every device, so sign in again afterwards.')
+    })
+
     test("the line when English didn't load (Ruling 62): what happened, and what to do", () => {
         expect(en.langSwitch.englishFailed).toBe("English didn't load. Reload the page to try again.")
         expect(hr.langSwitch.englishFailed).toBe('Engleski se nije učitao. Ponovno učitaj stranicu pa pokušaj opet.')

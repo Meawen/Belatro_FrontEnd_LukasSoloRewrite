@@ -25,9 +25,10 @@ export const doc: LegalDoc = {
                     </li>
                     <li>
                         <strong>Ako koristiš prijavu putem Googlea:</strong> Google nam šalje ID tvojeg Google računa, tvoju e-adresu i
-                        podatak je li je Google potvrdio. Uz račun čuvamo taj ID, a ako račun izradiš putem Googlea, i tu adresu kao
-                        e-adresu računa. Tvoju lozinku za Google nikad ne dobivamo, a ime i fotografiju s Google računa ne čuvamo. Za
-                        ono što radi Google vrijede{' '}
+                        podatak je li je Google potvrdio, ime i profilnu fotografiju s tvojeg Google računa te, ako je Google račun
+                        poslovni ili školski, domenu tvoje organizacije. Uz račun čuvamo taj ID, a ako račun izradiš putem Googlea, i
+                        tu adresu kao e-adresu računa. Tvoju lozinku za Google nikad ne dobivamo, a ime, fotografiju i domenu ne
+                        čuvamo. Za ono što radi Google vrijede{' '}
                         <a href="https://policies.google.com/privacy?hl=hr" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2 hover:text-text">Googleova pravila o privatnosti</a>.
                         Google možeš odspojiti u Postavkama kad tvoj račun ima lozinku.
                     </li>
@@ -65,6 +66,8 @@ export const doc: LegalDoc = {
                         kao tog gosta kad prijava istekne; odjava briše i ključ. Ondje pamti i tvoj jezik i postavku efekata stola. Lozinku
                         Stola za ekipu koji otvoriš čuva u pohrani te kartice preglednika dok je ne zatvoriš, da je možeš
                         podijeliti. Stiglja ne postavlja kolačiće za oglašavanje ni za analitiku i ne koristi alate za praćenje.
+                        Stranice s Googleovim gumbom za prijavu učitavaju ga s Googlea, koji ondje može koristiti vlastite kolačiće
+                        (vidi „Tko ih obrađuje za nas i gdje”).
                     </li>
                     <li>
                         <strong>Jednostavni brojevi:</strong> da vidimo radi li beta, poslužitelj vodi nekoliko dnevnih zbrojeva:
@@ -131,6 +134,14 @@ export const doc: LegalDoc = {
                     <p>
                         Fly.io i Cloudflare vide tvoju IP adresu dok prenose tvoj promet. Neke od ovih tvrtki imaju sjedište izvan
                         Europske unije, uglavnom u Sjedinjenim Američkim Državama; gdje god možemo, koristimo njihove lokacije u EU-u.
+                    </p>
+                    <p>
+                        <strong>Google</strong> nije među njima, ali i on vidi neke podatke. Stranica za prijavu, stranica za
+                        registraciju (kad prikazuje obrazac), stranica koja gostu predlaže izradu računa (dok je registracija
+                        otvorena) i Postavke nakon što dodirneš „Poveži Google” učitavaju Googleov gumb za prijavu s Googlea. Google
+                        tada vidi tvoju IP adresu i preglednik koji koristiš te može pročitati svoje kolačiće ako u tom pregledniku
+                        koristiš Google račun, čak i ako gumb nikad ne dodirneš. Što Google radi s tim podacima, odlučuje Google;
+                        vidi Googleova pravila o privatnosti.
                     </p>
                 </>
             ),

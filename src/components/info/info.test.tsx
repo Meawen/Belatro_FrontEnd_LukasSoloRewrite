@@ -19,6 +19,10 @@ afterEach(() => setLang('en'))
 /** A rendered page's text, whitespace collapsed. */
 const read = (container: HTMLElement) => container.textContent!.replace(/\s+/g, ' ')
 
+// Privacy, "Who processes it for us, and where": the owner's R1 (item 39) paragraph on what Google sees
+const GOOGLE_SEES_EN = "Google is not one of them, but it sees some data too. The sign-in page, the sign-up page (when it shows the sign-up form), the page that asks a guest to make an account (while signup is open), and Settings once you tap Connect Google load Google's sign-in button from Google. Google then sees your IP address and which browser you use, and can read its own cookies if you use a Google account in that browser, even if you never tap the button. Google decides what it does with this; see Google's privacy policy."
+const GOOGLE_SEES_HR = 'Google nije među njima, ali i on vidi neke podatke. Stranica za prijavu, stranica za registraciju (kad prikazuje obrazac), stranica koja gostu predlaže izradu računa (dok je registracija otvorena) i Postavke nakon što dodirneš „Poveži Google” učitavaju Googleov gumb za prijavu s Googlea. Google tada vidi tvoju IP adresu i preglednik koji koristiš te može pročitati svoje kolačiće ako u tom pregledniku koristiš Google račun, čak i ako gumb nikad ne dodirneš. Što Google radi s tim podacima, odlučuje Google; vidi Googleova pravila o privatnosti.'
+
 /** Renders a page in a language and waits for its document (open beta §1.2: each language's text is its own chunk). */
 async function renderIn(lang: Lang, Page: FC, firstSection: string) {
     setLang(lang)
@@ -70,13 +74,20 @@ describe('Rules, Privacy and Terms (spec §4.15)', () => {
             "the server only adds one to that day's total and does not record who you are.",
             // Google sign-in spec §7, and A-13: the date, and a removed account's Google connection
             'Last updated: November 2026.',
-            "If you use Google sign-in: Google gives us your Google account's id, your email address and whether Google has confirmed it.",
+            // the owner's R1 (item 38, option A): everything Google sends, and what we don't keep of it
+            "If you use Google sign-in: Google sends us your Google account's id, your email address and whether Google has confirmed it, your name and profile photo as they are on Google, and, for a work or school Google account, your organisation's domain.",
             "We keep the id with your account and, for an account you make with Google, the address as your account's email.",
-            "We never get your Google password, and we don't keep your Google name or photo.",
+            "We never get your Google password, and we don't keep your Google name, photo or domain.",
             "What Google does is covered by Google's privacy policy.",
             'You can disconnect Google in Settings once your account has a password.',
             'When we remove a guest or an unconfirmed account, we replace its name and delete its email address, its password and its connection to a Google account.',
+            // the owner's R1 (item 39, "Disclose, keep it"): Google's button loads before anyone taps it
+            'Stiglja sets no advertising or analytics cookies and uses no trackers. The pages with Google\'s sign-in button load it from Google, which may use its own cookies there (see "Who processes it for us, and where").',
+            GOOGLE_SEES_EN,
         ]) expect(en, text).toContain(text)
+        // its own paragraph after the processors and their closing line, not one of them (Google decides its own uses)
+        expect(en.indexOf('we use their EU locations wherever we can.')).toBeLessThan(en.indexOf(GOOGLE_SEES_EN))
+        for (const item of screen.getAllByRole('listitem')) expect(item.textContent).not.toContain('Google is not one of them')
         expect(en).not.toMatch(/invite/i)
         expect(screen.getByRole('link', { name: "Google's privacy policy" })).toHaveAttribute('href', 'https://policies.google.com/privacy')
         expect(screen.getByRole('link', { name: "Google's privacy policy" })).toHaveAttribute('target', '_blank')
@@ -98,13 +109,17 @@ describe('Rules, Privacy and Terms (spec §4.15)', () => {
             'koliko se gostiju registriralo, koliko je računa izrađeno putem Googlea te koliko je poveznica za registraciju iz Reda za stol poslano i iskorišteno. To su samo brojevi.',
             'poslužitelj samo povećava dnevni zbroj za jedan i ne bilježi tko si.',
             'Zadnja izmjena: studeni 2026.',
-            'Ako koristiš prijavu putem Googlea: Google nam šalje ID tvojeg Google računa, tvoju e-adresu i podatak je li je Google potvrdio.',
+            'Ako koristiš prijavu putem Googlea: Google nam šalje ID tvojeg Google računa, tvoju e-adresu i podatak je li je Google potvrdio, ime i profilnu fotografiju s tvojeg Google računa te, ako je Google račun poslovni ili školski, domenu tvoje organizacije.',
             'Uz račun čuvamo taj ID, a ako račun izradiš putem Googlea, i tu adresu kao e-adresu računa.',
-            'Tvoju lozinku za Google nikad ne dobivamo, a ime i fotografiju s Google računa ne čuvamo.',
+            'Tvoju lozinku za Google nikad ne dobivamo, a ime, fotografiju i domenu ne čuvamo.',
             'Za ono što radi Google vrijede Googleova pravila o privatnosti.',
             'Google možeš odspojiti u Postavkama kad tvoj račun ima lozinku.',
             'Kad uklonimo gosta ili nepotvrđeni račun, zamijenimo mu ime te obrišemo e-adresu, lozinku i vezu s Google računom.',
+            'Stiglja ne postavlja kolačiće za oglašavanje ni za analitiku i ne koristi alate za praćenje. Stranice s Googleovim gumbom za prijavu učitavaju ga s Googlea, koji ondje može koristiti vlastite kolačiće (vidi „Tko ih obrađuje za nas i gdje”).',
+            GOOGLE_SEES_HR,
         ]) expect(hr, text).toContain(text)
+        expect(hr.indexOf('gdje god možemo, koristimo njihove lokacije u EU-u.')).toBeLessThan(hr.indexOf(GOOGLE_SEES_HR))
+        for (const item of screen.getAllByRole('listitem')) expect(item.textContent).not.toContain('Google nije među njima')
         expect(hr).not.toMatch(/pozivn/i)
         expect(screen.getByRole('link', { name: 'Googleova pravila o privatnosti' })).toHaveAttribute('href', 'https://policies.google.com/privacy?hl=hr')
     })

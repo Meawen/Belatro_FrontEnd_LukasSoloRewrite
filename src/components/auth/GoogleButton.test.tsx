@@ -399,7 +399,7 @@ describe("Google's answer (spec §1, §6.3, §8)", () => {
         ['GOOGLE_INVALID (an expired token)', refusal(401, 'GOOGLE_INVALID', 'Google sign-in failed, please try again'), "Google sign-in didn't go through. Try Google again."],
         ['GOOGLE_EMAIL_IN_USE', refusal(409, 'GOOGLE_EMAIL_IN_USE'), 'This email already belongs to a Stiglja account. Sign in to it with its password, or with the Google account connected to it; then you can connect Google in Settings.'],
         ['GOOGLE_EMAIL_UNVERIFIED', refusal(400, 'GOOGLE_EMAIL_UNVERIFIED'), "Google hasn't confirmed this address. Sign up with the form instead."],
-        ['INVITE_CODE_INVALID (the private beta)', refusal(403, 'INVITE_CODE_INVALID'), 'Invalid invite code. Check it and try again.'],
+        ['INVITE_CODE_INVALID (the private beta)', refusal(403, 'INVITE_CODE_INVALID'), "Signing up isn't open yet. You can play as a guest, or sign in if you already have an account."],
         ['RATE_LIMITED', refusal(429, 'RATE_LIMITED'), 'Too many tries. Wait a little, then try again.'],
         ['a 404 (Google sign-in off on the server, A-5)', refusal(404, undefined, 'Not Found'), FAILED],
         ['a server error', refusal(500, undefined, 'Internal Server Error'), GENERIC],

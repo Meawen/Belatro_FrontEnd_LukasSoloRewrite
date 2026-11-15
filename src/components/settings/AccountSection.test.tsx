@@ -353,6 +353,8 @@ describe('Account: made with Google, no password yet (Google sign-in spec §5.2,
     const WHY = 'You sign in with Google, and your account has no password yet. Set a password first to change your email.'
     const SENT = 'A link to set your password is on its way to ana@gmail.com. It works for 15 minutes. Setting the password signs you out on every device, so sign in again afterwards.'
     const CONFIRM_FIRST = 'We send the link to set a password only to a confirmed address. First confirm ana@firma.hr with the link we sent to it, then set your password here.'
+    // the owner's R1 (item 47, option A): the way on for an inbox its owner can't read, and the day the account goes
+    const NO_ACCESS = 'No access to this address? Sign out and sign up with the form, using an address you can read.'
     // a Gmail signup: the address Google vouched for is confirmed
     const PASSWORDLESS = { ...meBase, email: 'ana@gmail.com', google: true, passwordless: true }
     // an unvouched signup: the address waits for its link, and the account goes if it never comes
@@ -424,7 +426,7 @@ describe('Account: made with Google, no password yet (Google sign-in spec §5.2,
         expect(await screen.findByRole('status')).toHaveTextContent(SENT)
     })
 
-    test('a refused or failed send says why: 429 with when to try again, no answer, a 5xx', async () => {
+    test('a refused or failed send says why: 429 in one line, no answer, a 5xx', async () => {
         const user = userEvent.setup()
         vi.mocked(authService.forgotPassword)
             .mockRejectedValueOnce(new ApiError({ status: 429, message: 'Too many requests, try again later', code: 'RATE_LIMITED' }))
@@ -435,7 +437,9 @@ describe('Account: made with Google, no password yet (Google sign-in spec §5.2,
         // a refusal is an alert, as Google's block's are
         await user.click(setPassword())
         expect(await screen.findByRole('alert')).toHaveTextContent('Too many tries. Wait a little, then try again.')
-        expect(screen.getByText('Wait a while, then try again.')).toBeInTheDocument()
+        // the owner's R1 (item 45): the refusal already says to wait, so no second line under it
+        expect(screen.getByRole('alert').nextElementSibling).toBeNull()
+        expect(screen.queryByText('Wait a while, then try again.')).not.toBeInTheDocument()
         await user.click(setPassword())
         expect(await screen.findByRole('alert')).toHaveTextContent('We could not send the email. Try again.')
         expect(screen.queryByText('Wait a while, then try again.')).not.toBeInTheDocument()
@@ -463,6 +467,28 @@ describe('Account: made with Google, no password yet (Google sign-in spec §5.2,
         expect(authService.forgotPassword).not.toHaveBeenCalled()
     })
 
+    test('an address still waiting for its link also names the way out, with the day the account goes when it has one (R1 item 47)', () => {
+        mockMe(PENDING)
+        const { unmount } = renderAccount()
+        // under the line that says why the link can't go yet
+        const confirmFirst = screen.getByText(CONFIRM_FIRST)
+        expect(confirmFirst.nextElementSibling).toBe(screen.getByTestId('no-access'))
+        // the day as Settings writes it above (formatLongDate)
+        expect(screen.getByTestId('no-access').textContent).toBe(`${NO_ACCESS} This account is removed on November 20, 2026.`)
+        unmount()
+        // no removal day (none sent, or one that can't be read): the way out alone
+        for (const verifyBy of [undefined, 'not a day']) {
+            mockMe({ ...PENDING, verifyBy })
+            const view = renderAccount()
+            expect(screen.getByTestId('no-access').textContent).toBe(NO_ACCESS)
+            view.unmount()
+        }
+        // a confirmed address gets the link, so it has no such line
+        mockMe(PASSWORDLESS)
+        renderAccount()
+        expect(screen.queryByTestId('no-access')).not.toBeInTheDocument()
+    })
+
     test("the resend's \"Add or change\" opens the sheet with the same why, not the change-of-address form, and refreshes", async () => {
         const user = userEvent.setup()
         vi.mocked(userService.resendEmailConfirmation).mockRejectedValue(new ApiError({ status: 409, message: 'Nothing to confirm', code: 'NOTHING_TO_CONFIRM' }))
@@ -472,9 +498,12 @@ describe('Account: made with Google, no password yet (Google sign-in spec §5.2,
         // the page's copy of GET /user/me may be stale (confirmed elsewhere): it is asked again
         await waitFor(() => expect(refetchMe).toHaveBeenCalledTimes(1))
         await user.click(await screen.findByRole('button', { name: 'Add or change your email address' }))
-        const sheet = await screen.findByRole('dialog', { name: 'Change Email' })
+        // the owner's R1 (item 46): titled for what it offers, not as a change of address
+        const sheet = await screen.findByRole('dialog', { name: 'Set a password' })
+        expect(within(sheet).getByRole('heading', { level: 2 })).toHaveTextContent(/^Set a password$/)
         expect(within(sheet).getByText(WHY)).toBeInTheDocument()
         expect(within(sheet).getByText(CONFIRM_FIRST)).toBeInTheDocument()
+        expect(within(sheet).getByTestId('no-access')).toHaveTextContent(NO_ACCESS)
         expect(within(sheet).queryByLabelText('New email address')).not.toBeInTheDocument()
         expect(within(sheet).queryByLabelText('Current password')).not.toBeInTheDocument()
         // no form, so no Cancel: the sheet's own Close
@@ -498,5 +527,18 @@ describe('Account: made with Google, no password yet (Google sign-in spec §5.2,
         renderAccount()
         expect(screen.getByText('Prijavljuješ se putem Googlea, a tvoj račun još nema lozinku. Najprije postavi lozinku pa ćeš moći promijeniti e-adresu.')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Postavi lozinku' })).toBeInTheDocument()
+    })
+
+    test('in Croatian: the way out for an address still waiting, with and without the day (R1 item 47)', () => {
+        setLang('hr')
+        const way = 'Nemaš pristup ovoj adresi? Odjavi se i registriraj putem obrasca, s e-adresom kojoj imaš pristup.'
+        mockMe(PENDING)
+        const { unmount } = renderAccount()
+        // the day's own dot ends the sentence
+        expect(screen.getByTestId('no-access').textContent).toBe(`${way} Ovaj račun brišemo 20. studenoga 2026.`)
+        unmount()
+        mockMe({ ...PENDING, verifyBy: undefined })
+        renderAccount()
+        expect(screen.getByTestId('no-access').textContent).toBe(way)
     })
 })
