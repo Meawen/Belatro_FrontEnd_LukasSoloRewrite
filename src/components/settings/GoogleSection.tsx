@@ -158,9 +158,11 @@ export function GoogleSection({ connected, passwordless, onChanged }: GoogleSect
                         </div>
                     </>
                 ) : (
+                    // Connect's mark: the icon set has no unlink glyph, and the words say which way it goes
                     <Button
                         ref={actionRef}
                         variant="secondary"
+                        leftIcon={<PixelIcon name="link" />}
                         className="self-start"
                         onClick={() => {
                             setConfirming(true);

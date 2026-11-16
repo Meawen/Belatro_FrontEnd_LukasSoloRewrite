@@ -272,6 +272,15 @@ describe('Settings, Google sign-in: connected, with a password (spec §5.2, A-5)
         expect(gsiScripts()).toHaveLength(0)
     })
 
+    test("Disconnect Google carries Connect Google's mark, as decoration: its name stays the words", () => {
+        const { rerender } = renderSection({ connected: true })
+        expect(disconnectButton()).toHaveAccessibleName('Disconnect Google')
+        const mark = disconnectButton().querySelector('svg')
+        expect(mark).toHaveAttribute('aria-hidden', 'true')
+        rerender(<GoogleSection connected={false} passwordless={false} onChanged={onChanged} />)
+        expect(mark?.outerHTML).toBe(connectButton().querySelector('svg')?.outerHTML)
+    })
+
     test('Disconnect asks first; Keep Google sends nothing and gives focus back', async () => {
         const user = userEvent.setup()
         renderSection({ connected: true })
