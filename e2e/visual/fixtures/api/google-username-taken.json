@@ -1,0 +1,3 @@
+{
+    "POST /api/auth/google/signup": { "status": 409, "json": { "message": "Username is already taken.", "code": "USERNAME_TAKEN" } }
+}

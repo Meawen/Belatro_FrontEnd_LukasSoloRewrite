@@ -1,0 +1,3 @@
+{
+    "GET /user/me": { "json": { "id": "u1", "username": "ana_k", "email": "ana@example.test", "pendingEmail": null, "emailVerified": true, "roles": ["ROLE_USER"], "deletionRequested": false, "google": true, "passwordless": false } }
+}
