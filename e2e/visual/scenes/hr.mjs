@@ -3,6 +3,7 @@
 // Most reuse another area's scene, its fixtures and its path, under an `hr-` name; the open beta's own pages (the
 // landing page, Škola bele, the waitlist, a guest's locked page, a friend's table link) are new here. The scene format
 // is documented at the top of e2e/visual.mjs. Selectors are the Croatian catalog's words (src/i18n/catalog/hr.ts).
+import auth from './auth.mjs';
 import board from './board.mjs';
 import bots from './bots.mjs';
 import home from './home.mjs';
@@ -74,6 +75,8 @@ export default [
     { name: 'hr-waitlist', path: '/signup', viewports: BOTH, lang: 'hr', user: null, api: [signup(false)], fullPage: true },
     // signup while open: no invite field
     { name: 'hr-signup', path: '/signup', viewports: BOTH, lang: 'hr', user: null, api: [signup(true)], fullPage: true },
+    // Google's name step (Google sign-in spec §3.3): /signup after Google's button answered needsName, as auth-google-name
+    hr(auth, 'auth-google-name', 'hr-google-name', { user: null }),
     // a guest on a member's page (spec §3.3): Birtija's name, what it is, Registriraj se and the bot game
     {
         name: 'hr-needs-account',

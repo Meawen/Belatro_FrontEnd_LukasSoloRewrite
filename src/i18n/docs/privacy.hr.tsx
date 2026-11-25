@@ -3,7 +3,7 @@ import { SupportEmailLink } from '../../components/layout/LegalLinks';
 
 /** The privacy notice in Croatian (spec §1.2): legal text, a draft for the owner's review (R1). */
 export const doc: LegalDoc = {
-    updated: 'Zadnja izmjena: listopad 2026.',
+    updated: 'Zadnja izmjena: studeni 2026.',
     intro: 'Ova obavijest objašnjava što Stiglja, beta-inačica kartaške igre bele, radi s tvojim osobnim podacima.',
     sections: [
         {
@@ -22,6 +22,15 @@ export const doc: LegalDoc = {
                     <li>
                         <strong>Tvoj račun:</strong> korisničko ime, e-adresu (i novu adresu dok čeka potvrdu) i lozinku, koju čuvamo
                         samo kao jednosmjerni sažetak (hash) iz kojeg se lozinka ne može vratiti.
+                    </li>
+                    <li>
+                        <strong>Ako koristiš prijavu putem Googlea:</strong> Google nam šalje ID tvojeg Google računa, tvoju e-adresu i
+                        podatak je li je Google potvrdio, ime i profilnu fotografiju s tvojeg Google računa te, ako je Google račun
+                        poslovni ili školski, domenu tvoje organizacije. Uz račun čuvamo taj ID, a ako račun izradiš putem Googlea, i
+                        tu adresu kao e-adresu računa. Tvoju lozinku za Google nikad ne dobivamo, a ime, fotografiju i domenu ne
+                        čuvamo. Za ono što radi Google vrijede{' '}
+                        <a href="https://policies.google.com/privacy?hl=hr" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2 hover:text-text">Googleova pravila o privatnosti</a>.
+                        Google možeš odspojiti u Postavkama kad tvoj račun ima lozinku.
                     </li>
                     <li>
                         <strong>Tvoj jezik:</strong> jezik koji odabereš za stranicu, hrvatski ili engleski. Preglednik ga pamti na
@@ -57,15 +66,18 @@ export const doc: LegalDoc = {
                         kao tog gosta kad prijava istekne; odjava briše i ključ. Ondje pamti i tvoj jezik i postavku efekata stola. Lozinku
                         Stola za ekipu koji otvoriš čuva u pohrani te kartice preglednika dok je ne zatvoriš, da je možeš
                         podijeliti. Stiglja ne postavlja kolačiće za oglašavanje ni za analitiku i ne koristi alate za praćenje.
+                        Stranice s Googleovim gumbom za prijavu učitavaju ga s Googlea, koji ondje može koristiti vlastite kolačiće
+                        (vidi „Tko ih obrađuje za nas i gdje”).
                     </li>
                     <li>
                         <strong>Jednostavni brojevi:</strong> da vidimo radi li beta, poslužitelj vodi nekoliko dnevnih zbrojeva:
                         koliko je partija završilo s barem dvoje ljudi za stolom, koliko je puta pokrenuta Škola bele i koliko je
-                        puta završeno svako od njezina dva dijeljenja, koliko se gostiju registriralo te koliko je poveznica za
-                        registraciju iz Reda za stol poslano i iskorišteno. To su samo brojevi. Da bi izbrojio igrače koji se
-                        vraćaju, poslužitelj bilježi i koji su računi i gosti igrali kojeg dana, samo po korisničkom ID-u, i svaku
-                        tu zabilješku briše nakon 40 dana. Kad prolaziš Školu bele, preglednik javlja poslužitelju kad je pokreneš
-                        i kad završiš svako dijeljenje; poslužitelj samo povećava dnevni zbroj za jedan i ne bilježi tko si.
+                        puta završeno svako od njezina dva dijeljenja, koliko se gostiju registriralo, koliko je računa izrađeno
+                        putem Googlea te koliko je poveznica za registraciju iz Reda za stol poslano i iskorišteno. To su samo
+                        brojevi. Da bi izbrojio igrače koji se vraćaju, poslužitelj bilježi i koji su računi i gosti igrali kojeg
+                        dana, samo po korisničkom ID-u, i svaku tu zabilješku briše nakon 40 dana. Kad prolaziš Školu bele,
+                        preglednik javlja poslužitelju kad je pokreneš i kad završiš svako dijeljenje; poslužitelj samo povećava
+                        dnevni zbroj za jedan i ne bilježi tko si.
                     </li>
                 </ul>
             ),
@@ -123,6 +135,14 @@ export const doc: LegalDoc = {
                         Fly.io i Cloudflare vide tvoju IP adresu dok prenose tvoj promet. Neke od ovih tvrtki imaju sjedište izvan
                         Europske unije, uglavnom u Sjedinjenim Američkim Državama; gdje god možemo, koristimo njihove lokacije u EU-u.
                     </p>
+                    <p>
+                        <strong>Google</strong> nije među njima, ali i on vidi neke podatke. Stranica za prijavu, stranica za
+                        registraciju (kad prikazuje obrazac), stranica koja gostu predlaže izradu računa (dok je registracija
+                        otvorena) i Postavke nakon što dodirneš „Poveži Google” učitavaju Googleov gumb za prijavu s Googlea. Google
+                        tada vidi tvoju IP adresu i preglednik koji koristiš te može pročitati svoje kolačiće ako u tom pregledniku
+                        koristiš Google račun, čak i ako gumb nikad ne dodirneš. Što Google radi s tim podacima, odlučuje Google;
+                        vidi Googleova pravila o privatnosti.
+                    </p>
                 </>
             ),
         },
@@ -138,7 +158,8 @@ export const doc: LegalDoc = {
                         </li>
                         <li>Gost: uklanjamo ga 30 dana nakon što je zadnji put korišten, ali nikad usred partije.</li>
                         <li>
-                            Kad uklonimo gosta ili nepotvrđeni račun, zamijenimo mu ime te obrišemo e-adresu i lozinku. Njegove
+                            Kad uklonimo gosta ili nepotvrđeni račun, zamijenimo mu ime te obrišemo e-adresu, lozinku i vezu s Google
+                            računom. Njegove
                             partije ostaju u zapisnicima drugih igrača, gdje se prikazuje kao „Gost”.
                         </li>
                         <li>

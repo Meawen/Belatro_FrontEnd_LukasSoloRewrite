@@ -224,6 +224,32 @@ export const en = {
             joinedBefore: 'If this address can join the waitlist, a link to confirm it is on its way to',
             joinedAfter: ". Check your inbox (and spam) and confirm it within 7 days. When a place opens, we'll email you a signup link.",
         },
+        // "Continue with Google" (Google sign-in spec §2, §6.3) on /login and on /signup's open form, under the heading
+        // (GoogleButton): Google draws its own button in its own words; these are the lines around it
+        google: {
+            // the divider between Google's button and the form
+            or: 'or',
+            // in the button's place when Google's script is blocked, fails to load or has no answer in 10 s, and when the
+            // server has Google sign-in off (404); common.retry's button under it loads the script again
+            failed: "Google sign-in didn't open. Try again, or use your name and password.",
+            // under errors.codes.GOOGLE_EMAIL_UNVERIFIED: on /login the link to /signup; in the name step the button that
+            // drops the Google sign-up and shows the form
+            formLink: 'Sign up with the form',
+            // the name step (spec §3.3, GoogleNameStep): /signup after Google said a new account needs a name. It takes the
+            // form's place: forms.username's field with errors.rules.username as its hint, the Terms line, and
+            // auth.signUp.submitting on the busy button. An expired Google token shows errors.codes.GOOGLE_INVALID and
+            // Google's button in place of `submit`
+            name: {
+                // the step's h1
+                heading: 'Choose your username',
+                // under the heading: "{signingUpAs} **the Google address**"
+                signingUpAs: 'Signing up as',
+                // the step's button (spec §3.3)
+                submit: 'Make my account',
+                // the way back (spec §3.3): the Google sign-up is dropped and the form shows
+                back: 'Use another way to sign up',
+            },
+        },
         // /forgot-password (ForgotPasswordPage)
         forgot: {
             heading: 'Forgot your password?',
@@ -432,6 +458,21 @@ export const en = {
             confirmDeletion: 'Confirm request',
             requestDeletion: 'Request account deletion',
             deletionFailed: 'Failed to request deletion',
+            // an account made with Google that has no password yet (Google sign-in spec §5.2): in place of the email and
+            // password buttons, and of the change-of-address sheet's form
+            passwordless: {
+                why: 'You sign in with Google, and your account has no password yet. Set a password first to change your email.',
+                // the button that mails the reset link to the confirmed address, and the line after it went; setPassword is
+                // also the title of the sheet the resend's "Add or change" opens (the owner's R1, item 46)
+                setPassword: 'Set a password',
+                linkSent: (address: string) => `A link to set your password is on its way to ${address}. It works for 15 minutes. Setting the password signs you out on every device, so sign in again afterwards.`,
+                // in the button's place while the address waits for its confirmation (the resend button is above)
+                confirmFirst: (address: string) => `We send the link to set a password only to a confirmed address. First confirm ${address} with the link we sent to it, then set your password here.`,
+                // the line under confirmFirst (the owner's R1, item 47): the way on when that inbox can't be read, then
+                // removedOn with the day the account goes (GET /user/me verifyBy, i18n/format formatLongDate) when it has one
+                noAccess: 'No access to this address? Sign out and sign up with the form, using an address you can read.',
+                removedOn: (date: string) => `This account is removed on ${date}.`,
+            },
         },
         // the change-of-address sheet (ChangeEmailForm)
         changeEmail: {
@@ -456,6 +497,34 @@ export const en = {
             confirmNewPasswordPlaceholder: 'Repeat new password...',
             newPasswordRequired: 'New password is required',
             failed: 'Failed to change password',
+        },
+        // Google sign-in in the Account section (GoogleSection, Google sign-in spec §5), shown only with a client id: the
+        // status, connecting with the current password (settings.changeEmail.currentPassword) and Google's button, and
+        // disconnecting with an inline confirm. The refusals are errors.codes' lines
+        google: {
+            // the block's h3
+            heading: 'Google sign-in',
+            notConnected: 'Google: not connected',
+            connected: 'Google: connected',
+            // under "not connected", above `connect`, which opens the password field and Google's button
+            what: 'Connect your Google account to sign in with one tap.',
+            connect: 'Connect Google',
+            // the password field's hint
+            hint: 'Type your current password, then choose your Google account.',
+            // the status line after a connect or a disconnect
+            connectedNotice: 'Google is connected. You can now sign in with Google or with your password.',
+            disconnectedNotice: 'Google is disconnected.',
+            // the button, then its confirm: the question, `keep` and `confirmDisconnect`
+            disconnect: 'Disconnect Google',
+            disconnectQuestion: 'Disconnect Google? You will sign in with your username and password only.',
+            keep: 'Keep Google',
+            confirmDisconnect: 'Disconnect',
+            // connected with no password yet: no Disconnect; settings.account.passwordless.setPassword is above
+            onlyWayIn: 'Google is your only way to sign in, so it stays connected until you set a password.',
+            // the server has Google sign-in off (404)
+            unavailable: "Google sign-in isn't available right now. Try again later.",
+            // in Google's button's place when its script is blocked or fails; common.retry under it
+            didntOpen: "Google sign-in didn't open. Try again.",
         },
         // the Log out panel at the bottom of the page
         signedInAs: (username: string) => `Signed in as ${username}`,
@@ -970,6 +1039,8 @@ export const en = {
                     guideHand1: 'School: hand 1',
                     guideHand2: 'School: hand 2',
                     guestSignups: 'Guest signups',
+                    // Google sign-in spec §4: accounts made with Google that day
+                    googleSignups: 'Google signups',
                     invitesSent: 'Links sent',
                     invitesUsed: 'Links used',
                 },
@@ -1616,7 +1687,9 @@ export const en = {
             ACCESS_DENIED: "You don't have permission to do that.",
             RATE_LIMITED: 'Too many tries. Wait a little, then try again.',
             SERVICE_UNAVAILABLE: "The server isn't answering right now. Try again in a minute.",
-            INVITE_CODE_INVALID: 'Invalid invite code. Check it and try again.',
+            // while the private beta's code is still set: at Google's button, in the name step and on the form, none of
+            // which has a code field any more, so the way on (the owner's R1, item 40)
+            INVITE_CODE_INVALID: "Signing up isn't open yet. You can play as a guest, or sign in if you already have an account.",
             USERNAME_TAKEN: 'Username is already taken. Names that differ only in capitals or in the marks on č ć š ž đ count as the same name. Choose another one.',
             // sign-up (and later a guest's new name): obrisan_… is the name a removed account gets
             USERNAME_RESERVED: 'Names starting with obrisan_ are reserved. Choose another one.',
@@ -1633,6 +1706,12 @@ export const en = {
             NOTHING_TO_CONFIRM: "There's no email address waiting to be confirmed.",
             EMAIL_UNCHANGED: 'That is already your email address',
             PASSWORD_BLANK: 'Type a new password.',
+            // Google sign-in (spec §3, §5, §8): the button's refusals under it; GOOGLE_TAKEN and NO_PASSWORD are Settings' (B3)
+            GOOGLE_INVALID: "Google sign-in didn't go through. Try Google again.",
+            GOOGLE_EMAIL_UNVERIFIED: "Google hasn't confirmed this address. Sign up with the form instead.",
+            GOOGLE_EMAIL_IN_USE: 'This email already belongs to a Stiglja account. Sign in to it with its password, or with the Google account connected to it; then you can connect Google in Settings.',
+            GOOGLE_TAKEN: 'This Google account is connected to another Stiglja account. Sign in to that account, or use another Google account.',
+            NO_PASSWORD: 'Set a password first. Until then, Google is your only way to sign in, so it stays connected.',
             // a form the server refused for a reason other than the two rules above
             VALIDATION: "Something you entered isn't valid. Check the form and try again.",
             // lists (players, admin)

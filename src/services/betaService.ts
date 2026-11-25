@@ -15,6 +15,8 @@ export interface BetaDay {
     guideHand1: number;
     guideHand2: number;
     guestSignups: number;
+    /** Google sign-in spec §4 (B2-6): accounts made with Google; a guest's counts in guestSignups too. */
+    googleSignups: number;
     invitesSent: number;
     invitesUsed: number;
 }

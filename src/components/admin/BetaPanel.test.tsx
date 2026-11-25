@@ -135,14 +135,15 @@ describe('BetaPanel: the signup cap and the waitlist (spec §2.2, US-17)', () =>
 })
 
 // spec §9 (B9): GET /admin/beta's counts, last in the answer; 14 Zagreb days, oldest first, the last today
-const ZEROS = { casualWithHumans: 0, ranked: 0, guideStarted: 0, guideHand1: 0, guideHand2: 0, guestSignups: 0, invitesSent: 0, invitesUsed: 0 }
+const ZEROS = { casualWithHumans: 0, ranked: 0, guideStarted: 0, guideHand1: 0, guideHand2: 0, guestSignups: 0, googleSignups: 0, invitesSent: 0, invitesUsed: 0 }
 const day = (i: number) => new Date(Date.UTC(2026, 9, 21 + i)).toISOString().slice(0, 10)
 const COUNTS = {
     returning7: 3, returning28: 1234, casualWithHumans7: 4, ranked7: 2, guideStarted7: 9, guideHand1_7: 6, guideHand2_7: 5,
-    guestSignups7: 1, invitesSent7: 7, invitesUsed7: 8,
+    // Google sign-in (B2-6): googleSignups7 comes too, and has no tile (S2 A-9)
+    guestSignups7: 1, googleSignups7: 2, invitesSent7: 7, invitesUsed7: 8,
     perDay: Array.from({ length: 14 }, (_, i) => ({ day: day(i), ...ZEROS })).map((one, i) => {
-        if (i === 0) return { ...one, casualWithHumans: 1, ranked: 2, guideStarted: 3, guideHand1: 4, guideHand2: 5, guestSignups: 6, invitesSent: 7, invitesUsed: 8 }
-        if (i === 13) return { ...one, casualWithHumans: 11, ranked: 12, guideStarted: 1234, guideHand1: 14, guideHand2: 15, guestSignups: 16, invitesSent: 17, invitesUsed: 18 }
+        if (i === 0) return { ...one, casualWithHumans: 1, ranked: 2, guideStarted: 3, guideHand1: 4, guideHand2: 5, guestSignups: 6, googleSignups: 9, invitesSent: 7, invitesUsed: 8 }
+        if (i === 13) return { ...one, casualWithHumans: 11, ranked: 12, guideStarted: 1234, guideHand1: 14, guideHand2: 15, guestSignups: 16, googleSignups: 19, invitesSent: 17, invitesUsed: 18 }
         return one
     }),
 }
@@ -182,16 +183,18 @@ describe('BetaPanel: the beta counts (spec §9, US-18)', () => {
             ['Waitlist links sent', '7'],
             ['Waitlist links used', '8'],
         ])
+        // the ten tiles: Google's signups are a column only (S2 A-9)
+        expect(within(section).getAllByRole('term')).toHaveLength(10)
         const table = screen.getByRole('table', { name: DAYS_CAPTION })
         expect(section).toContainElement(table)
         expect(within(table).getAllByRole('row')).toHaveLength(15)
         const [head, ...rows] = within(table).getAllByRole('row')
         expect(within(head).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual([
-            'Day', 'Casual with people', 'Ranked', 'School: started', 'School: hand 1', 'School: hand 2', 'Guest signups', 'Links sent', 'Links used',
+            'Day', 'Casual with people', 'Ranked', 'School: started', 'School: hand 1', 'School: hand 2', 'Guest signups', 'Google signups', 'Links sent', 'Links used',
         ])
-        expect(row(rows[0])).toEqual(['Tue, Nov 3', ['11', '12', '1,234', '14', '15', '16', '17', '18']])
-        expect(row(rows[1])).toEqual(['Mon, Nov 2', ['0', '0', '0', '0', '0', '0', '0', '0']])
-        expect(row(rows[13])).toEqual(['Wed, Oct 21', ['1', '2', '3', '4', '5', '6', '7', '8']])
+        expect(row(rows[0])).toEqual(['Tue, Nov 3', ['11', '12', '1,234', '14', '15', '16', '19', '17', '18']])
+        expect(row(rows[1])).toEqual(['Mon, Nov 2', ['0', '0', '0', '0', '0', '0', '0', '0', '0']])
+        expect(row(rows[13])).toEqual(['Wed, Oct 21', ['1', '2', '3', '4', '5', '6', '9', '7', '8']])
     })
 
     test("an older backend's answer without counts shows the cap and the four numbers, and no counts", async () => {
@@ -233,8 +236,9 @@ describe('BetaPanel: the beta counts (spec §9, US-18)', () => {
         expect(screen.getByText('Pokretanja Škole bele', { selector: 'dt' }).nextElementSibling?.textContent).toBe('9')
         const table = screen.getByRole('table', { name: 'Zadnjih 14 dana po zagrebačkom vremenu, najnoviji prvi. Današnje brojke još mogu rasti.' })
         expect(within(table).getByRole('columnheader', { name: 'Nerangirane s ljudima' })).toBeInTheDocument()
+        expect(within(table).getByRole('columnheader', { name: 'Registrirani putem Googlea' })).toBeInTheDocument()
         const rows = within(table).getAllByRole('row').slice(1)
-        expect(row(rows[0])).toEqual(['uto, 3. studenoga', ['11', '12', '1.234', '14', '15', '16', '17', '18']])
+        expect(row(rows[0])).toEqual(['uto, 3. studenoga', ['11', '12', '1.234', '14', '15', '16', '19', '17', '18']])
         expect(row(rows[13])[0]).toBe('sri, 21. listopada')
         // gone before the language is reset after the test
         unmount()

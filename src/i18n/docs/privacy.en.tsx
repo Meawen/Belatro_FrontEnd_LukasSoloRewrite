@@ -3,7 +3,7 @@ import { SupportEmailLink } from '../../components/layout/LegalLinks';
 
 /** The privacy notice in English (spec §1.2): legal text; the owner reviews it with the Croatian (R1). */
 export const doc: LegalDoc = {
-    updated: 'Last updated: October 2026.',
+    updated: 'Last updated: November 2026.',
     intro: 'This notice explains what Stiglja, a beta of the card game Belot, does with your personal data.',
     sections: [
         {
@@ -23,6 +23,15 @@ export const doc: LegalDoc = {
                         <strong>Your account:</strong> your username, your email address (and a new address
                         while it waits for confirmation) and your password, which we store only as a one-way
                         hash that cannot be turned back into the password.
+                    </li>
+                    <li>
+                        <strong>If you use Google sign-in:</strong> Google sends us your Google account's id, your email address and
+                        whether Google has confirmed it, your name and profile photo as they are on Google, and, for a work or school
+                        Google account, your organisation's domain. We keep the id with your account and, for an account you make
+                        with Google, the address as your account's email. We never get your Google password, and we don't keep your
+                        Google name, photo or domain. What Google does is covered by{' '}
+                        <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2 hover:text-text">Google's privacy policy</a>.
+                        You can disconnect Google in Settings once your account has a password.
                     </li>
                     <li>
                         <strong>Your language:</strong> the language you choose for the site, Croatian or English. Your browser keeps
@@ -59,16 +68,17 @@ export const doc: LegalDoc = {
                         guest's secret key, which signs you back in as that guest when your sign-in runs out; signing out removes it
                         too. It also keeps your language and your table effects setting there. For a private table you create, it keeps the
                         password in the tab's session storage until you close the tab, so that you can share it. Stiglja sets no
-                        advertising or analytics cookies and uses no trackers.
+                        advertising or analytics cookies and uses no trackers. The pages with Google's sign-in button load it from
+                        Google, which may use its own cookies there (see "Who processes it for us, and where").
                     </li>
                     <li>
                         <strong>Simple counts:</strong> to see whether the beta works, the server keeps a few daily totals: how many
                         games finished with two or more people at the table, how often Bela school was started and each of its two
-                        hands finished, how many guests signed up, and how many waitlist signup links were sent and used. These are
-                        numbers only. To count the players who come back, it also notes which accounts and guests played on which
-                        day, by user id only, and deletes each note after 40 days. When you use Bela school, your browser tells the
-                        server when you start it and when you finish each hand; the server only adds one to that day's total and
-                        does not record who you are.
+                        hands finished, how many guests signed up, how many accounts were made with Google, and how many waitlist
+                        signup links were sent and used. These are numbers only. To count the players who come back, it also notes
+                        which accounts and guests played on which day, by user id only, and deletes each note after 40 days. When you
+                        use Bela school, your browser tells the server when you start it and when you finish each hand; the server only
+                        adds one to that day's total and does not record who you are.
                     </li>
                 </ul>
             ),
@@ -128,6 +138,14 @@ export const doc: LegalDoc = {
                         companies are based outside the European Union, mainly in the United States; we use their
                         EU locations wherever we can.
                     </p>
+                    <p>
+                        <strong>Google</strong> is not one of them, but it sees some data too. The sign-in page, the sign-up page
+                        (when it shows the sign-up form), the page that asks a guest to make an account (while signup is open), and
+                        Settings once you tap Connect Google load Google's sign-in button from Google. Google then sees your IP
+                        address and which browser you use, and can read its own cookies if you use a Google account in that
+                        browser, even if you never tap the button. Google decides what it does with this; see Google's privacy
+                        policy.
+                    </p>
                 </>
             ),
         },
@@ -143,8 +161,8 @@ export const doc: LegalDoc = {
                         </li>
                         <li>A guest: removed 30 days after it was last used, never in the middle of a game.</li>
                         <li>
-                            When we remove a guest or an unconfirmed account, we replace its name and delete its email address and
-                            password. Its games stay in the other players' match history, where it shows as "Guest".
+                            When we remove a guest or an unconfirmed account, we replace its name and delete its email address, its
+                            password and its connection to a Google account. Its games stay in the other players' match history, where it shows as "Guest".
                         </li>
                         <li>
                             A waitlist address: deleted if it is not confirmed within 7 days. A confirmed address stays until you

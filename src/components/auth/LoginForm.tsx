@@ -8,6 +8,7 @@ import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage
 import { localiseLoginError } from '../../i18n/serverErrors';
 import { cat, useT } from '../../i18n/t';
 import { AUTH_LINK } from './AuthFrame';
+import { GoogleSignIn } from './GoogleButton';
 import { useReturnState } from './returnState';
 
 export interface LoginFormProps {
@@ -88,6 +89,8 @@ export function LoginForm({ onSuccess, submitVariant = 'primary', headingLevel =
                 <Heading className="t-title">{t.auth.signIn.heading}</Heading>
                 <p className="t-callout mt-2 text-text-2">{t.auth.signIn.subtitle}</p>
             </div>
+
+            <GoogleSignIn onSignedIn={() => onSuccess?.()} />
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <Input

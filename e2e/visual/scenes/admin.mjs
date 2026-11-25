@@ -16,13 +16,15 @@ const user = (id, username, email, roles, deletionRequested = false) => ({
  * fixed today (2026-10-10).
  */
 const PER_DAY = [
-    // casualWithHumans, ranked, guideStarted, guideHand1, guideHand2, guestSignups, invitesSent, invitesUsed
-    [1, 0, 3, 2, 1, 0, 0, 0], [2, 1, 4, 3, 2, 1, 0, 0], [0, 0, 2, 2, 1, 0, 0, 0], [3, 1, 5, 4, 3, 1, 1, 0],
-    [2, 2, 6, 4, 2, 0, 0, 1], [4, 1, 3, 3, 2, 1, 2, 1], [1, 0, 2, 1, 1, 0, 0, 0], [5, 2, 7, 5, 4, 2, 1, 1],
-    [3, 1, 4, 3, 2, 1, 0, 0], [2, 3, 5, 4, 3, 0, 2, 2], [4, 2, 8, 6, 4, 2, 1, 1], [6, 3, 9, 7, 5, 1, 3, 2],
-    [3, 2, 6, 5, 3, 1, 1, 1], [2, 1, 3, 2, 1, 0, 0, 0],
+    // casualWithHumans, ranked, guideStarted, guideHand1, guideHand2, guestSignups, googleSignups, invitesSent, invitesUsed
+    [1, 0, 3, 2, 1, 0, 0, 0, 0], [2, 1, 4, 3, 2, 1, 1, 0, 0], [0, 0, 2, 2, 1, 0, 0, 0, 0], [3, 1, 5, 4, 3, 1, 1, 1, 0],
+    [2, 2, 6, 4, 2, 0, 0, 0, 1], [4, 1, 3, 3, 2, 1, 1, 2, 1], [1, 0, 2, 1, 1, 0, 0, 0, 0], [5, 2, 7, 5, 4, 2, 2, 1, 1],
+    [3, 1, 4, 3, 2, 1, 1, 0, 0], [2, 3, 5, 4, 3, 0, 0, 2, 2], [4, 2, 8, 6, 4, 2, 1, 1, 1], [6, 3, 9, 7, 5, 1, 2, 3, 2],
+    [3, 2, 6, 5, 3, 1, 1, 1, 1], [2, 1, 3, 2, 1, 0, 0, 0, 0],
 ];
-const KEYS = ['casualWithHumans', 'ranked', 'guideStarted', 'guideHand1', 'guideHand2', 'guestSignups', 'invitesSent', 'invitesUsed'];
+const KEYS = [
+    'casualWithHumans', 'ranked', 'guideStarted', 'guideHand1', 'guideHand2', 'guestSignups', 'googleSignups', 'invitesSent', 'invitesUsed',
+];
 const perDay = PER_DAY.map((values, i) => ({
     day: new Date(Date.UTC(2026, 8, 27 + i)).toISOString().slice(0, 10),
     ...Object.fromEntries(KEYS.map((key, k) => [key, values[k]])),
@@ -35,7 +37,7 @@ const BETA = {
         returning7: 9, returning28: 17,
         casualWithHumans7: last('casualWithHumans', 7), ranked7: last('ranked', 7), guideStarted7: last('guideStarted', 7),
         guideHand1_7: last('guideHand1', 7), guideHand2_7: last('guideHand2', 7), guestSignups7: last('guestSignups', 7),
-        invitesSent7: last('invitesSent', 7), invitesUsed7: last('invitesUsed', 7),
+        googleSignups7: last('googleSignups', 7), invitesSent7: last('invitesSent', 7), invitesUsed7: last('invitesUsed', 7),
         perDay,
     },
 };

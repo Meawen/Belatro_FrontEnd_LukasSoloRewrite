@@ -1,7 +1,21 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { apiBaseForBuild, cardArtBaseForBuild } from './src/apiBase'
+
+// Google sign-in P-3: what Cloudflare Pages sends every page, public/_headers' /* rule (not its caching rules), as
+// name → value, so `vite preview` answers with production's Referrer-Policy. Read from the working directory, as
+// loadEnv(mode, '.') below is.
+function everyPageHeaders(): Record<string, string> {
+  const rule = readFileSync('public/_headers', 'utf8').trim().split(/\n\s*\n/)
+    .map((block) => block.split('\n'))
+    .find(([path]) => path === '/*') ?? []
+  return Object.fromEntries(rule.slice(1).map((line) => {
+    const [name, ...value] = line.trim().split(': ')
+    return [name, value.join(': ')]
+  }))
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => ({
@@ -20,6 +34,9 @@ export default defineConfig(({ command, mode }) => ({
   },
   optimizeDeps: {
     include: ['sockjs-client']
+  },
+  preview: {
+    headers: everyPageHeaders(),
   },
   server: {
     proxy: {

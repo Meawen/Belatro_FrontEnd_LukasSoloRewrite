@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { beforeEach } from 'vitest'
+import { beforeEach, vi } from 'vitest'
 import { JSDOM } from 'jsdom'
 
 // Node 26 has a localStorage global of its own, which vitest's jsdom environment leaves in place: without
@@ -8,3 +8,9 @@ import { JSDOM } from 'jsdom'
 const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }).window
 Object.defineProperty(globalThis, 'localStorage', { value: jsdomStorage, configurable: true, writable: true })
 beforeEach(() => jsdomStorage.clear())
+
+// Google sign-in: Vite loads .env.local in test mode too, where a developer keeps a client id (src/config.ts). Every test
+// starts with none, so no form loads Google's script unasked; a test that wants Google stubs it after this runs.
+beforeEach(() => {
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '')
+})

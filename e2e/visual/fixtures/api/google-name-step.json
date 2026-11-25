@@ -1,0 +1,4 @@
+{
+    "GET /api/auth/signup-status": { "json": { "open": true } },
+    "POST /api/auth/google": { "json": { "needsName": true, "email": "ana.k@gmail.com" } }
+}

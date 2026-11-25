@@ -9,8 +9,33 @@ import type {
     SignupRequestDTO,
     JwtResponseDTO,
     UserLoginDetailsDTO,
+    GoogleSignInRequest,
+    GoogleSignInDTO,
+    GoogleSignupRequest,
 } from '../types';
 import { forgetSession } from '../services/guestSecret';
+
+/**
+ * A sign-in's steps once authService has stored the token (login, googleSignIn, googleSignup): the user beside it, then
+ * the account's language.
+ */
+async function enterAccount(user: UserLoginDetailsDTO | null): Promise<void> {
+    // Store user data in localStorage
+    if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+    }
+
+    // spec §1.1: after sign-in the account's language wins. The login response carries none
+    // (UserLoginDetailsDTO is {id, username}), so it comes from GET /user/me; best effort.
+    try {
+        const { language } = await userService.getMe();
+        // the English catalog loads on demand: it is here before the switch, so no page is half in English. One
+        // that fails or takes over 3 s keeps the device's language, and a toast says so (Ruling 62)
+        if (language !== 'en' || (await loadEnglish())) adoptAccountLang(language);
+    } catch {
+        // an older server or a failed read: the device's language stays
+    }
+}
 
 interface AuthState {
     user: UserLoginDetailsDTO | null;
@@ -108,21 +133,7 @@ export function useAuth() {
             // Ruling 35: the typed name in NFC (a decomposed č is c + U+030C), the form the server stores
             const response = await loginMutation.mutate({ ...credentials, username: credentials.username?.normalize('NFC') ?? null });
 
-            // Store user data in localStorage
-            if (response.user) {
-                localStorage.setItem('user', JSON.stringify(response.user));
-            }
-
-            // spec §1.1: after sign-in the account's language wins. The login response carries none
-            // (UserLoginDetailsDTO is {id, username}), so it comes from GET /user/me; best effort.
-            try {
-                const { language } = await userService.getMe();
-                // the English catalog loads on demand: it is here before the switch, so no page is half in English. One
-                // that fails or takes over 3 s keeps the device's language, and a toast says so (Ruling 62)
-                if (language !== 'en' || (await loadEnglish())) adoptAccountLang(language);
-            } catch {
-                // an older server or a failed read: the device's language stays
-            }
+            await enterAccount(response.user);
 
             setAuthState({
                 user: response.user,
@@ -142,6 +153,56 @@ export function useAuth() {
             throw error;
         }
     }, [loginMutation]);
+
+    // Google sign-in spec §1, §6.3: both Google steps store a signed-in answer's session as login does (the account's
+    // language included: step 2 may sign in to an existing account, S2 A-4); an answer with no token stores nothing
+    const throughGoogle = useCallback(async <T extends { token?: string | null; user?: UserLoginDetailsDTO | null }>(
+        send: () => Promise<T>,
+        failure: string,
+    ): Promise<T> => {
+        try {
+            setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+
+            const response = await send();
+            if (!response.token) {
+                setAuthState(prev => ({ ...prev, isLoading: false }));
+                return response;
+            }
+
+            const user = response.user ?? null;
+            await enterAccount(user);
+            setAuthState({
+                user,
+                isAuthenticated: true,
+                isLoading: false,
+                error: null,
+            });
+
+            return response;
+        } catch (error) {
+            // the error, never the request: it carries Google's token
+            console.error(`${failure}:`, error);
+            setAuthState(prev => ({
+                ...prev,
+                error: error instanceof Error ? error.message : failure,
+                isLoading: false,
+            }));
+            throw error;
+        }
+    }, []);
+
+    // step 1: signed in, or needsName (the caller keeps the credential for the name step)
+    const googleSignIn = useCallback(
+        (request: GoogleSignInRequest): Promise<GoogleSignInDTO> => throughGoogle(() => authService.google(request), 'Google sign-in failed'),
+        [throughGoogle],
+    );
+
+    // step 2, the name step (spec §3.3): the name in NFC, as signup sends it (Ruling 35)
+    const googleSignup = useCallback(
+        (request: GoogleSignupRequest): Promise<JwtResponseDTO> =>
+            throughGoogle(() => authService.googleSignup({ ...request, username: request.username.normalize('NFC') }), 'Google sign-up failed'),
+        [throughGoogle],
+    );
 
     const signup = useCallback(async (userData: SignupRequestDTO): Promise<JwtResponseDTO> => {
         try {
@@ -209,6 +270,8 @@ export function useAuth() {
         isGuest: authState.user?.guest === true,
         token: getToken(),
         login,
+        googleSignIn,
+        googleSignup,
         signup,
         logout,
         isLoginLoading: loginMutation.isLoading,

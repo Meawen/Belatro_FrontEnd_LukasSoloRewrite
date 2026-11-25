@@ -400,7 +400,7 @@ async function signUp(page, username) {
     await page.goto(`${SPA}/signup`);
     // The beta signs up without an invite code: a backend that still wants one refuses the account, and a full
     // signup shows the waitlist instead of the form (on load, or after the submit). Either fails at once.
-    const refused = page.getByText(/^Invalid invite code/).first();
+    const refused = page.getByText(/^Signing up isn't open yet/).first();
     const full = page.getByRole('button', { name: 'Join the waitlist', exact: true });
     const refusal = async () => {
         if (await refused.isVisible().catch(() => false)) {

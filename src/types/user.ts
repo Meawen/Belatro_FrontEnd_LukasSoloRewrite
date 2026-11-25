@@ -78,10 +78,20 @@ export interface UserDto {
     guest?: boolean | null;
     /** spec §2.1 (B7): when an unconfirmed account is removed (ISO instant); null or absent when it never is. */
     verifyBy?: string | null;
+    /** Google sign-in spec §5 (B3): a Google account is connected; absent from an older server (not connected). */
+    google?: boolean | null;
+    /** Google sign-in spec §5.2 (B3): made with Google and no password yet; absent from an older server. */
+    passwordless?: boolean | null;
 }
 
 export interface ChangeEmailRequest {
     newEmail: string;
+    currentPassword: string;
+}
+
+/** Google sign-in spec §5.1 (B3): Google's ID token and the account's current password. */
+export interface GoogleConnectRequest {
+    credential: string;
     currentPassword: string;
 }
 

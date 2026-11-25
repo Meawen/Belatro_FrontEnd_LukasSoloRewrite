@@ -20,6 +20,7 @@ import { authService } from './authService'
 import { gameSocket } from './gameSocket'
 import { userService } from './userService'
 import { GUEST_SECRET_KEY } from './guestSecret'
+import { captureConsole } from '../test/captureConsole'
 
 const { localStorage: jsdomStorage } = new JSDOM('', { url: 'http://localhost' }).window
 
@@ -230,6 +231,95 @@ describe('authService and guests (spec §3)', () => {
         vi.stubGlobal('fetch', fetch)
         await expect(authService.login({ username: 'ana', password: 'wrong-password' })).rejects.toMatchObject({ code: 'BAD_CREDENTIALS' })
         // the refusal is about the password typed, not the guest's token: nothing ends, nothing signs in again
+        expect(fetch).toHaveBeenCalledTimes(1)
+        expect(assign).not.toHaveBeenCalled()
+        expect(jsdomStorage.getItem('authToken')).toBe('g-tok')
+        expect(jsdomStorage.getItem(GUEST_SECRET_KEY)).toBe(SECRET)
+    })
+
+    test("a Google sign-in posts Google's token and stores the account's, ending the guest and its secret (Google sign-in spec §3.4)", async () => {
+        vi.stubGlobal('localStorage', jsdomStorage)
+        jsdomStorage.setItem('authToken', 'g-tok')
+        jsdomStorage.setItem('user', JSON.stringify(GUEST))
+        jsdomStorage.setItem(GUEST_SECRET_KEY, SECRET)
+        const answer = { token: 'm-tok', user: { id: 'u1', username: 'ana', guest: false }, needsName: false }
+        const fetch = vi.fn(async () => jsonResponse(200, answer))
+        vi.stubGlobal('fetch', fetch)
+        const logs = captureConsole()
+        await expect(authService.google({ credential: 'id-token', language: 'hr', waitlistToken: 'tok-1' })).resolves.toEqual(answer)
+        // spec §6.1: the request is logged by method and URL only
+        expect(logs.leaked('id-token', 'tok-1', 'm-tok')).toEqual([])
+        expect(call(fetch, 0)).toMatchObject({ method: 'POST', authorization: 'Bearer g-tok' })
+        expect(call(fetch, 0).url).toMatch(/\/api\/auth\/google$/)
+        expect(JSON.parse(String(call(fetch, 0).body))).toEqual({ credential: 'id-token', language: 'hr', waitlistToken: 'tok-1' })
+        expect(jsdomStorage.getItem('authToken')).toBe('m-tok')
+        expect(jsdomStorage.getItem(GUEST_SECRET_KEY)).toBeNull()
+    })
+
+    test('a Google answer that asks for a name stores nothing: the guest stays as it was', async () => {
+        vi.stubGlobal('localStorage', jsdomStorage)
+        jsdomStorage.setItem('authToken', 'g-tok')
+        jsdomStorage.setItem(GUEST_SECRET_KEY, SECRET)
+        vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, { needsName: true, email: 'ana@gmail.com' })))
+        const logs = captureConsole()
+        await expect(authService.google({ credential: 'id-token', language: 'en' })).resolves.toEqual({ needsName: true, email: 'ana@gmail.com' })
+        expect(logs.leaked('id-token', 'ana@gmail.com')).toEqual([])
+        expect(jsdomStorage.getItem('authToken')).toBe('g-tok')
+        expect(jsdomStorage.getItem(GUEST_SECRET_KEY)).toBe(SECRET)
+    })
+
+    test("a guest's refused Google token (401 GOOGLE_INVALID) keeps the guest signed in (A-7)", async () => {
+        const assign = vi.fn()
+        vi.stubGlobal('localStorage', jsdomStorage)
+        vi.stubGlobal('location', { ...window.location, assign })
+        jsdomStorage.setItem('authToken', 'g-tok')
+        jsdomStorage.setItem('user', JSON.stringify(GUEST))
+        jsdomStorage.setItem(GUEST_SECRET_KEY, SECRET)
+        const fetch = vi.fn(async () => jsonResponse(401, { error: 'Google sign-in failed, please try again', code: 'GOOGLE_INVALID' }))
+        vi.stubGlobal('fetch', fetch)
+        captureConsole()
+        await expect(authService.google({ credential: 'expired', language: 'en' })).rejects.toMatchObject({ status: 401, code: 'GOOGLE_INVALID' })
+        // the refusal is about Google's token, not the guest's: nothing ends, nothing signs in again
+        expect(fetch).toHaveBeenCalledTimes(1)
+        expect(assign).not.toHaveBeenCalled()
+        expect(jsdomStorage.getItem('authToken')).toBe('g-tok')
+        expect(jsdomStorage.getItem(GUEST_SECRET_KEY)).toBe(SECRET)
+    })
+
+    test("a Google sign-up posts Google's token with the name and stores the account's, ending the guest and its secret (Google sign-in spec §3.3, §3.4)", async () => {
+        vi.stubGlobal('localStorage', jsdomStorage)
+        jsdomStorage.setItem('authToken', 'g-tok')
+        jsdomStorage.setItem('user', JSON.stringify(GUEST))
+        jsdomStorage.setItem(GUEST_SECRET_KEY, SECRET)
+        const answer = { token: 'm-tok', user: { id: 'u1', username: 'jura', guest: false }, message: null }
+        const fetch = vi.fn(async () => jsonResponse(200, answer))
+        vi.stubGlobal('fetch', fetch)
+        const logs = captureConsole()
+        const request = { credential: 'id-token', username: 'jura', language: 'hr', waitlistToken: 'tok-1', wasGuest: true } as const
+        await expect(authService.googleSignup(request)).resolves.toEqual(answer)
+        // spec §6.1: the request is logged by method and URL only
+        expect(logs.leaked('id-token', 'tok-1', 'm-tok')).toEqual([])
+        expect(fetch).toHaveBeenCalledTimes(1)
+        expect(call(fetch, 0)).toMatchObject({ method: 'POST', authorization: 'Bearer g-tok' })
+        expect(call(fetch, 0).url).toMatch(/\/api\/auth\/google\/signup$/)
+        expect(JSON.parse(String(call(fetch, 0).body))).toEqual(request)
+        expect(jsdomStorage.getItem('authToken')).toBe('m-tok')
+        expect(jsdomStorage.getItem(GUEST_SECRET_KEY)).toBeNull()
+    })
+
+    test("a guest's expired Google token at the name step (401 GOOGLE_INVALID) keeps the guest signed in (A-7, review focus 4)", async () => {
+        const assign = vi.fn()
+        vi.stubGlobal('localStorage', jsdomStorage)
+        vi.stubGlobal('location', { ...window.location, assign })
+        jsdomStorage.setItem('authToken', 'g-tok')
+        jsdomStorage.setItem('user', JSON.stringify(GUEST))
+        jsdomStorage.setItem(GUEST_SECRET_KEY, SECRET)
+        const fetch = vi.fn(async () => jsonResponse(401, { error: 'Google sign-in failed, please try again', code: 'GOOGLE_INVALID' }))
+        vi.stubGlobal('fetch', fetch)
+        captureConsole()
+        await expect(authService.googleSignup({ credential: 'expired', username: 'jura', language: 'en', wasGuest: true }))
+            .rejects.toMatchObject({ status: 401, code: 'GOOGLE_INVALID' })
+        // the refusal is about Google's token, not the guest's: nothing ends, nothing signs in again
         expect(fetch).toHaveBeenCalledTimes(1)
         expect(assign).not.toHaveBeenCalled()
         expect(jsdomStorage.getItem('authToken')).toBe('g-tok')

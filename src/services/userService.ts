@@ -7,6 +7,7 @@ import type {
     UserDto,
     ChangePasswordRequest,
     ChangeEmailRequest,
+    GoogleConnectRequest,
     JwtResponseDTO,
     PlayerMatchSummaryDTO,
     PaginationParams,
@@ -43,6 +44,16 @@ export const userService = {
 
     async changeEmail(request: ChangeEmailRequest): Promise<void> {
         await apiClient.post<void>('/user/me/email', request, { keepTokenOn401: true });
+    },
+
+    // Google sign-in spec §5.1 (B3): 204. A 401 is the typed password or Google's token, not the session
+    async connectGoogle(request: GoogleConnectRequest): Promise<void> {
+        await apiClient.post<void>('/user/me/google', request, { keepTokenOn401: true });
+    },
+
+    // spec §5.2: 204, also with nothing connected; 409 NO_PASSWORD while the account has no password
+    async disconnectGoogle(): Promise<void> {
+        await apiClient.delete<void>('/user/me/google');
     },
 
     async resendEmailConfirmation(): Promise<void> {

@@ -74,6 +74,20 @@ describe('userService hardened contract', () => {
         expect(post).toHaveBeenCalledWith('/user/me/email/resend')
     })
 
+    // Google sign-in spec §5.1 (B3): a 401 is the typed password or Google's token, never the session's end
+    test('connectGoogle posts the credential and the current password and keeps the token on a 401', async () => {
+        const post = vi.spyOn(apiClient, 'post').mockResolvedValue({})
+        await userService.connectGoogle({ credential: 'id-token', currentPassword: 'old' })
+        expect(post).toHaveBeenCalledWith('/user/me/google', { credential: 'id-token', currentPassword: 'old' }, { keepTokenOn401: true })
+    })
+
+    // spec §5.2: 204, also when nothing is connected
+    test('disconnectGoogle deletes /user/me/google', async () => {
+        const del = vi.spyOn(apiClient, 'delete').mockResolvedValue({})
+        await userService.disconnectGoogle()
+        expect(del).toHaveBeenCalledWith('/user/me/google')
+    })
+
     test('requestForget posts to /user/me/request-forget with no id', async () => {
         const post = vi.spyOn(apiClient, 'post').mockResolvedValue({})
         await userService.requestForget()

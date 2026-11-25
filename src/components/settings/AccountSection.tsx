@@ -1,22 +1,27 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Button, Panel, PixelIcon, Sheet } from '../ui';
 import { ErrorAlert } from '../common/ErrorAlert';
 import { ResendConfirmationButton } from '../auth/ResendConfirmationButton';
 import { ChangeEmailForm } from './ChangeEmailForm';
 import { ChangePasswordForm } from './ChangePasswordForm';
+import { GoogleSection } from './GoogleSection';
 import { useMe, notifyMeChanged } from '../../hooks/useUser';
 // direct module import (not the ../../hooks barrel) so the component test does
 // not load every hook module, incl. the WebSocket ones
 import { useMutation } from '../../hooks/useApi';
 import { userService } from '../../services/userService';
-import { errorMessage } from '../../utils/errorMessage';
+import { authService } from '../../services/authService';
+import { ApiError } from '../../services/api';
+import { errorMessage, isNetworkOrServerFailure } from '../../utils/errorMessage';
 import { cat, useT } from '../../i18n/t';
 import { formatLongDate } from '../../i18n/format';
+import type { UserDto } from '../../types/user';
 
 /**
  * Settings → Account (spec §4.13 item 2; D-32): the address, its confirmation, the change of address and of
  * password, and the deletion request, moved from the profile with every string and behaviour. The e-mail
- * links of the shell (X-11) lead here.
+ * links of the shell (X-11) lead here. Google sign-in (Google sign-in spec §5) sits before the deletion request; an
+ * account made with Google with no password yet sees how to set one in place of the email and password buttons.
  */
 export function AccountSection() {
     const [showChangePassword, setShowChangePassword] = useState(false);
@@ -33,6 +38,12 @@ export function AccountSection() {
     const requestForgetMutation = useMutation(() => userService.requestForget());
     // spec §2.1 (D-25): the day an unconfirmed account goes; '' for one that never is (or an unreadable day)
     const removeDay = formatLongDate(me?.verifyBy ?? '');
+    // useApi's refetch rethrows: a failed refresh is not a failed write, and nothing awaits it. The banner above has its
+    // own copy of /user/me
+    const refreshMe = () => {
+        refetchMe().catch(() => {});
+        notifyMeChanged();
+    };
 
     const handleRequestDeletion = async () => {
         try {
@@ -76,20 +87,31 @@ export function AccountSection() {
                     {(me.pendingEmail || (me.email && !me.emailVerified)) && (
                         <div className="mt-1">
                             {/* keyed on the pending address: a new one starts a fresh button, not a stale "nothing to confirm" */}
-                            <ResendConfirmationButton key={me.pendingEmail ?? ''} onChangeEmail={() => setShowChangeEmail(true)} />
+                            <ResendConfirmationButton
+                                key={me.pendingEmail ?? ''}
+                                onChangeEmail={() => setShowChangeEmail(true)}
+                                // passwordless, the address may have been confirmed elsewhere: Set a password may work now
+                                onNothingToConfirm={me.passwordless ? () => refetchMe().catch(() => {}) : undefined}
+                            />
                         </div>
                     )}
                 </div>
             )}
 
-            <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" leftIcon={<PixelIcon name="mail" />} onClick={() => setShowChangeEmail(true)}>
-                    {emailAction}
-                </Button>
-                <Button variant="secondary" leftIcon={<PixelIcon name="lock" />} onClick={() => setShowChangePassword(true)}>
-                    {t.settings.account.changePassword}
-                </Button>
-            </div>
+            {me?.passwordless ? (
+                <SetPassword me={me} removeDay={removeDay} />
+            ) : (
+                <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" leftIcon={<PixelIcon name="mail" />} onClick={() => setShowChangeEmail(true)}>
+                        {emailAction}
+                    </Button>
+                    <Button variant="secondary" leftIcon={<PixelIcon name="lock" />} onClick={() => setShowChangePassword(true)}>
+                        {t.settings.account.changePassword}
+                    </Button>
+                </div>
+            )}
+
+            {me && <GoogleSection connected={me.google === true} passwordless={me.passwordless === true} onChanged={refreshMe} />}
 
             <div className="flex flex-col gap-3 border-t-2 border-edge pt-5">
                 {me?.deletionRequested ? (
@@ -121,26 +143,106 @@ export function AccountSection() {
                     onSuccess={() => {
                         setShowChangePassword(false);
                         // a password change cancels a pending change of address
-                        refetchMe().catch(() => {});
-                        notifyMeChanged();
+                        refreshMe();
                     }}
                     onCancel={() => setShowChangePassword(false)}
                 />
             </Sheet>
 
-            <Sheet open={showChangeEmail} onClose={() => setShowChangeEmail(false)} title={emailAction}>
-                <ChangeEmailForm
-                    currentEmail={me?.email ?? null}
-                    onSuccess={(newEmail) => {
-                        setShowChangeEmail(false);
-                        // the same 202 whether or not the address can be used, so no promise of a mail
-                        setEmailNotice(cat().settings.account.emailNotice(newEmail));
-                        refetchMe().catch(() => {});
-                        notifyMeChanged();
-                    }}
-                    onCancel={() => setShowChangeEmail(false)}
-                />
+            {/* passwordless, there is no form and so no Cancel: the sheet's own Close; and it offers no change of address,
+                so it is titled for what it does offer (the owner's R1, item 46) */}
+            <Sheet
+                open={showChangeEmail}
+                onClose={() => setShowChangeEmail(false)}
+                title={me?.passwordless ? t.settings.account.passwordless.setPassword : emailAction}
+                showClose={me?.passwordless === true}
+            >
+                {/* reached through the resend's "Add or change"; a change of address needs the password the account lacks */}
+                {me?.passwordless ? (
+                    <SetPassword me={me} removeDay={removeDay} />
+                ) : (
+                    <ChangeEmailForm
+                        currentEmail={me?.email ?? null}
+                        onSuccess={(newEmail) => {
+                            setShowChangeEmail(false);
+                            // the same 202 whether or not the address can be used, so no promise of a mail
+                            setEmailNotice(cat().settings.account.emailNotice(newEmail));
+                            refreshMe();
+                        }}
+                        onCancel={() => setShowChangeEmail(false)}
+                    />
+                )}
             </Sheet>
         </Panel>
+    );
+}
+
+/**
+ * The email and password rows of an account made with Google with no password yet (Google sign-in spec §5.2, §8): why
+ * both need a password, and Set a password, which mails the forgot-password link (its limits, no new route) to the
+ * confirmed address. While the address still waits for its link, that comes first: the resend is in the address block,
+ * and the way on for an inbox its owner can't read, with `removeDay` (formatted, '' for none), is under it.
+ */
+function SetPassword({ me, removeDay }: { me: UserDto; removeDay: string }) {
+    const t = useT();
+    const p = t.settings.account.passwordless;
+    // forgot-password mails only a confirmed address (A-11)
+    const address = me.emailVerified ? me.email : null;
+    const unconfirmed = me.pendingEmail ?? me.email;
+    const [line, setLine] = useState<{ text: string; failed: boolean } | null>(null);
+    const [busy, setBusy] = useState(false);
+    // stops a second click that lands before React re-renders the button as busy
+    const sending = useRef(false);
+    // the busy button is disabled, so focus left it: the answer takes it and is read, as Google's block's notice is
+    const lineRef = useRef<HTMLParagraphElement>(null);
+    useEffect(() => {
+        lineRef.current?.focus();
+    }, [line]);
+
+    const send = async (to: string) => {
+        if (sending.current) return;
+        sending.current = true;
+        setBusy(true);
+        setLine(null);
+        try {
+            await authService.forgotPassword(to);
+            setLine({ text: cat().settings.account.passwordless.linkSent(to), failed: false });
+        } catch (error) {
+            const status = error instanceof ApiError ? error.status : 0;
+            // a 429's line already says to wait (the owner's R1, item 45): no errors.waitAndRetry under it here
+            setLine({ text: isNetworkOrServerFailure(status) ? cat().auth.resend.notSent : errorMessage(error, cat().errors.generic), failed: true });
+        } finally {
+            sending.current = false;
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div className="flex flex-col items-start gap-2">
+            <p className="t-callout text-text-2">{p.why}</p>
+            {address ? (
+                <>
+                    <Button variant="secondary" leftIcon={<PixelIcon name="lock" />} loading={busy} onClick={() => void send(address)}>
+                        {p.setPassword}
+                    </Button>
+                    {line && (
+                        <p ref={lineRef} tabIndex={-1} role={line.failed ? 'alert' : 'status'} className={`t-footnote ${line.failed ? 'text-danger-text' : 'text-success'}`}>
+                            {line.text}
+                        </p>
+                    )}
+                </>
+            ) : (
+                unconfirmed && (
+                    <>
+                        <p className="t-callout text-accent">{p.confirmFirst(unconfirmed)}</p>
+                        {/* the owner's R1 (item 47): no confirm, no link and no change of address, so the way on */}
+                        <p data-testid="no-access" className="t-footnote text-text-2">
+                            {p.noAccess}
+                            {removeDay && ` ${p.removedOn(removeDay)}`}
+                        </p>
+                    </>
+                )
+            )}
+        </div>
     );
 }

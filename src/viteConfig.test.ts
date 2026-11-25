@@ -26,3 +26,25 @@ describe('vite.config (P-4)', () => {
         expect(serve.define).not.toHaveProperty('import.meta.env.VITE_CARD_ART_BASE_URL')
     })
 })
+
+describe('vite.config and Google sign-in', () => {
+    test("vite preview sends the headers Cloudflare Pages sends every page: public/_headers' /* rule (P-3)", async () => {
+        const { default: viteConfig } = await import('../vite.config')
+        const preview = viteConfig({ command: 'serve', mode: 'production', isPreview: true })
+        // the /* rule's lines as written (headers.test.ts holds the file to them), not parsed again here: a parser bug shows
+        expect(preview.preview?.headers).toEqual({
+            'X-Frame-Options': 'DENY',
+            'Content-Security-Policy': "frame-ancestors 'none'",
+            'X-Content-Type-Options': 'nosniff',
+            'Referrer-Policy': 'no-referrer',
+        })
+    })
+
+    test('vite build runs without VITE_GOOGLE_CLIENT_ID (Google sign-in spec §6.3)', async () => {
+        vi.stubEnv('VITE_API_BASE_URL', 'https://api.example.test')
+        vi.stubEnv('VITE_CARD_ART_BASE_URL', 'https://cards.example.test/v1')
+        vi.stubEnv('VITE_GOOGLE_CLIENT_ID', undefined)
+        const { default: viteConfig } = await import('../vite.config')
+        expect(() => viteConfig({ command: 'build', mode: 'production' })).not.toThrow()
+    })
+})
